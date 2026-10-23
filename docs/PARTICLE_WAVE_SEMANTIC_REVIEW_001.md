@@ -68,3 +68,26 @@ Do not silently resolve these questions from the current theorem names or succes
 ## 6. Verify and next action
 
 The Lean build is verified by GitHub Actions, but this is a bounded formalization audit, not a complete mathematical or source audit. The next source-grounded step is to recover the original construction or diagram. Once available, compare its literal assignments and transformation rules against this model before adding domain-specific predicates or stronger semantic theorems.
+
+
+## 7. Source-recovery reconciliation addendum
+
+A follow-up Library search and saved-context retrieval found a more specific secondary record for the Industry Explorer construction. It reports these assignments:
+
+| Form | Position | Assignment | Evidence class |
+|---|---|---|---|
+| Particle | Lower TERA | Filmmaking | Personal-context summary |
+| Particle | Upper TERA | Mathematics | Personal-context summary |
+| Particle | FIRA | U.S. military | Personal-context summary |
+| Wave | TERA | Filmmaking | Personal-context summary |
+| Wave | FIRA | Mathematics | Personal-context summary |
+
+The saved context dates identify retrieved summary entries around 2026-10-22 00:05–00:08 UTC; they do not establish the original creation time or provide verbatim original wording. A later interpretation—Particle as on-the-ground work and Wave as remote work—was marked provisional in the historical summary. A separate record says these were later authorized as current working definitions, without establishing that they were the original wording.
+
+**Critical reconciliation:** the recovered secondary assignments do **not** derive or establish the Lean module's three-slot sequences `Wave = (TERA, FIRA, WATA)` and `Particle = (TERA, WATA, FIRA)`. They describe domain assignments to positions, including lower/upper TERA for Particle; they do not define left operand, operator, and right operand. The Lean position order and FIRA/WATA swap therefore remain a separate formal hypothesis unless a source establishes the connection.
+
+A previous search methodology record reports that the original initiating message, direct definitions, and any separate formal rule set were not retrieved. An evidence audit further cautions that an original diagram or formal rule document is **not established as ever created**; absence from the bounded search does not prove nonexistence.
+
+### Updated next action
+
+Do not try to force the five Industry Explorer assignments into the Lean three-slot representation. First identify a source that explicitly connects the two models, or record that no such connection is currently established. Keep the existing Lean proofs as valid results about the definitions in code, not as verification of the historical Industry Explorer construction.
