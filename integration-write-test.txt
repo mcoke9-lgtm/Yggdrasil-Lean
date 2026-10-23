@@ -1,0 +1,1 @@
+Temporary write-permission diagnostic. This file should be removed after the test.
