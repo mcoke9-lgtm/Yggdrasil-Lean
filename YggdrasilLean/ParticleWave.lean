@@ -1,136 +1,64 @@
-/-!
+/-
 ParticleWave.lean
-Status: draft; compiler verification pending.
+Status: expandable-container model; compiler verification pending after this revision.
 
-Recorded working hypothesis:
-  Wave:     (TERA, FIRA, WATA)
-  Particle: (TERA, WATA, FIRA)
+User-authorized semantic clarification (2026-10-23):
+  Particle and Wave are expandable containers that can hold words.
+  Their meanings are not restricted to a fixed three-slot tuple.
 
-Positions are ordered left operand, operator, right operand.
-A position's category label is separate from its semantic identity.
+This model represents container identity separately from the words it holds.
+It does not assume that the containers have a fixed length or that their
+contents must be interpreted as left operand / operator / right operand.
 -/ 
 
-inductive Category where
-  | TERA
-  | FIRA
-  | WATA
-  | AIRA
+inductive ContainerKind where
+  | particle
+  | wave
   deriving DecidableEq, Repr
 
-inductive SemanticIdentity where
-  | leftValue
-  | operatorValue
-  | rightValue
-  | other (id : Nat)
+structure WordContainer where
+  kind : ContainerKind
+  words : List String
   deriving DecidableEq, Repr
 
-structure SlotValue where
-  label : Category
-  meaning : SemanticIdentity
-  deriving DecidableEq, Repr
+def emptyContainer (kind : ContainerKind) : WordContainer :=
+  { kind := kind, words := [] }
 
-structure Representation where
-  left : SlotValue
-  operator : SlotValue
-  right : SlotValue
-  deriving DecidableEq, Repr
+def appendWord (c : WordContainer) (word : String) : WordContainer :=
+  { c with words := c.words ++ [word] }
 
-def waveLabels : Representation :=
-  { left := { label := .TERA, meaning := .leftValue }
-    operator := { label := .FIRA, meaning := .operatorValue }
-    right := { label := .WATA, meaning := .rightValue } }
+def appendWords (c : WordContainer) (newWords : List String) : WordContainer :=
+  { c with words := c.words ++ newWords }
 
-def particleLabels : Representation :=
-  { left := { label := .TERA, meaning := .leftValue }
-    operator := { label := .WATA, meaning := .operatorValue }
-    right := { label := .FIRA, meaning := .rightValue } }
-
-def hasWaveLabels (x : Representation) : Prop :=
-  x.left.label = .TERA ∧
-  x.operator.label = .FIRA ∧
-  x.right.label = .WATA
-
-def hasParticleLabels (x : Representation) : Prop :=
-  x.left.label = .TERA ∧
-  x.operator.label = .WATA ∧
-  x.right.label = .FIRA
-
--- Exchange FIRA/WATA, fixing TERA/AIRA.
-def swapCategory : Category → Category
-  | .TERA => .TERA
-  | .AIRA => .AIRA
-  | .FIRA => .WATA
-  | .WATA => .FIRA
-
-def swapSlotLabel (x : SlotValue) : SlotValue :=
-  { x with label := swapCategory x.label }
-
-def swapLabels (x : Representation) : Representation :=
-  { left := swapSlotLabel x.left
-    operator := swapSlotLabel x.operator
-    right := swapSlotLabel x.right }
-
--- Exchange operands while preserving the operator slot.
-def exchangeOperands (x : Representation) : Representation :=
-  { left := x.right
-    operator := x.operator
-    right := x.left }
-
-theorem swapSlotLabel_preserves_meaning (x : SlotValue) :
-    (swapSlotLabel x).meaning = x.meaning := by
+theorem appendWord_preserves_kind (c : WordContainer) (word : String) :
+    (appendWord c word).kind = c.kind := by
   rfl
 
-theorem swapCategory_involutive (c : Category) :
-    swapCategory (swapCategory c) = c := by
-  cases c <;> rfl
+theorem appendWord_preserves_existing_words
+    (c : WordContainer) (word : String) :
+    (appendWord c word).words = c.words ++ [word] := by
+  rfl
 
-theorem swapLabels_involutive (x : Representation) :
-    swapLabels (swapLabels x) = x := by
-  cases x with
-  | mk l o r =>
-    cases l with
-    | mk ll lm =>
-      cases o with
-      | mk ol om =>
-        cases r with
-        | mk rl rm =>
-          cases ll <;> cases ol <;> cases rl <;> rfl
+theorem appendWords_preserves_kind
+    (c : WordContainer) (newWords : List String) :
+    (appendWords c newWords).kind = c.kind := by
+  rfl
 
-theorem exchangeOperands_involutive (x : Representation) :
-    exchangeOperands (exchangeOperands x) = x := by
-  cases x <;> rfl
+theorem appendWords_preserves_existing_prefix
+    (c : WordContainer) (newWords : List String) :
+    c.words ++ newWords = (appendWords c newWords).words := by
+  rfl
 
-theorem swapLabels_commutes_with_operand_exchange
-    (x : Representation) :
-    swapLabels (exchangeOperands x) =
-      exchangeOperands (swapLabels x) := by
-  cases x with
-  | mk l o r =>
-    cases l with
-    | mk ll lm =>
-      cases o with
-      | mk ol om =>
-        cases r with
-        | mk rl rm =>
-          cases ll <;> cases ol <;> cases rl <;> rfl
+def particleContainer : WordContainer :=
+  { kind := .particle, words := [] }
 
-theorem wave_has_recorded_labels :
-    hasWaveLabels waveLabels := by
-  exact ⟨rfl, rfl, rfl⟩
+def waveContainer : WordContainer :=
+  { kind := .wave, words := [] }
 
-theorem particle_has_recorded_labels :
-    hasParticleLabels particleLabels := by
-  exact ⟨rfl, rfl, rfl⟩
+theorem particle_container_keeps_kind_when_expanded (word : String) :
+    (appendWord particleContainer word).kind = .particle := by
+  rfl
 
-theorem swapping_wave_labels_gives_particle :
-    hasParticleLabels (swapLabels waveLabels) := by
-  exact ⟨rfl, rfl, rfl⟩
-
-theorem swapping_particle_labels_gives_wave :
-    hasWaveLabels (swapLabels particleLabels) := by
-  exact ⟨rfl, rfl, rfl⟩
-
-theorem exchanged_wave_is_not_wave :
-    ¬ hasWaveLabels (exchangeOperands waveLabels) := by
-  intro h
-  exact Category.noConfusion h.2.2
+theorem wave_container_keeps_kind_when_expanded (word : String) :
+    (appendWord waveContainer word).kind = .wave := by
+  rfl
