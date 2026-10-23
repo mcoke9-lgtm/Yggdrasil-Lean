@@ -91,3 +91,18 @@ A previous search methodology record reports that the original initiating messag
 ### Updated next action
 
 Do not try to force the five Industry Explorer assignments into the Lean three-slot representation. First identify a source that explicitly connects the two models, or record that no such connection is currently established. Keep the existing Lean proofs as valid results about the definitions in code, not as verification of the historical Industry Explorer construction.
+
+
+## 8. User clarification and model revision — 2026-10-23
+
+The user clarified that **Particle and Wave mean what the user defines them to mean** and should be understood as **expandable containers that can hold words**. This is the controlling current semantic definition for this project; the previous three-slot operand/operator representation was too restrictive and must not be treated as canonical.
+
+The Lean source was revised in commit `2a617c7cde111adfd442b529937aeca0d5dbce34`:
+- `ContainerKind` distinguishes Particle from Wave.
+- `WordContainer` stores a list of words, with no fixed length.
+- `appendWord` and `appendWords` extend the contents while preserving container identity.
+- The earlier left-operand/operator/right-operand interpretation and FIRA/WATA label-swap model are no longer the current implementation in `YggdrasilLean/ParticleWave.lean`.
+
+The historical five Industry Explorer assignments remain secondary-source evidence and can be words stored in a container; they do not constrain all future contents to those five assignments. The containers' expansion rules beyond appending words, including any word ordering, relationships, validation rules, or transformations, remain open unless specified by the user or established by further source evidence.
+
+**Verification status:** the new Lean source has been committed, but CI for this revision must complete before its compilation is claimed. Previous build results apply to earlier source revisions only.
