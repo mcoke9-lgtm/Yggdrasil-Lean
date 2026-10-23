@@ -1,0 +1,6 @@
+name = "yggdrasilLean"
+version = "0.1.0"
+keywords = ["math", "formalization", "TERA", "FIRA", "WATA", "AIRA"]
+
+[[lean_lib]]
+name = "YggdrasilLean"
