@@ -1,5 +1,7 @@
 import YggdrasilLean.ParticleWave
 import YggdrasilLean.BranchContinuity
 import YggdrasilLean.HistoryReversibility
-import YggdrasilLean.MultiStepHistoryimport YggdrasilLean.BranchForking
+import YggdrasilLean.MultiStepHistory
+import YggdrasilLean.BranchForking
 import YggdrasilLean.BranchDivergence
+import YggdrasilLean.SelectivePropagation
