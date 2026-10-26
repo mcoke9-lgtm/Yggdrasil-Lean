@@ -59,4 +59,32 @@ theorem emptyChange_selectsNoRoutes
     planSelectivePropagation ⟨[]⟩ routes = [] := by
   simp [planSelectivePropagation, routeAffected]
 
+/-! Concrete routing scenarios: these are compile-time checks of the model. -/
+
+/-- Example routes: two evidence consumers and one agreement consumer. -/
+def exampleRoutes : List DependencyRoute :=
+  [ ⟨"evidence-review", [.evidence]⟩
+  , ⟨"agreement-review", [.agreements]⟩
+  , ⟨"evidence-and-agreement-review", [.evidence, .agreements]⟩
+  ]
+
+/-- An evidence-only change selects exactly the evidence-dependent routes. -/
+example :
+    planSelectivePropagation ⟨[.evidence]⟩ exampleRoutes =
+      [ ⟨"evidence-review", [.evidence]⟩
+      , ⟨"evidence-and-agreement-review", [.evidence, .agreements]⟩
+      ] := by
+  decide
+
+/-- A change to both watched fields selects all three routes. -/
+example :
+    planSelectivePropagation ⟨[.evidence, .agreements]⟩ exampleRoutes =
+      exampleRoutes := by
+  decide
+
+/-- An unrelated field change selects none of these routes. -/
+example :
+    planSelectivePropagation ⟨[.dependencies]⟩ exampleRoutes = [] := by
+  decide
+
 end YggdrasilLean
