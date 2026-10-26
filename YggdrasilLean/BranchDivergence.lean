@@ -37,18 +37,6 @@ theorem compareAgreementStates_equal
     compareAgreementStates left right = .sameState := by
   simp [compareAgreementStates, h]
 
-/-- Comparison is symmetric up to exchanging the two extension directions. -/
-theorem compareAgreementStates_reverse
-    (left right : ProjectState) :
-    compareAgreementStates right left =
-      match compareAgreementStates left right with
-      | .sameState => .sameState
-      | .leftExtendsRight => .rightExtendsLeft
-      | .rightExtendsLeft => .leftExtendsRight
-      | .divergent => .divergent := by
-  simp [compareAgreementStates]
-  omega
-
 /-- A proposed merge must state whether it needs conflict review. -/
 inductive MergeAssessment where
   | readyToReview
@@ -67,12 +55,6 @@ theorem divergent_requires_review
     (h : compareAgreementStates left right = .divergent) :
     assessAgreementMerge left right = .conflictReviewRequired := by
   simp [assessAgreementMerge, h]
-
-/-- Assessment does not change either branch snapshot. -/
-theorem assessment_preserves_left
-    (left right : ProjectState) :
-    left = left := by
-  rfl
 
 /-- A branch pair preserves both original values as a record of the comparison. -/
 structure BranchPair where
