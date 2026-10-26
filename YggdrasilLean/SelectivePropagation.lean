@@ -59,10 +59,4 @@ theorem emptyChange_selectsNoRoutes
     planSelectivePropagation ⟨[]⟩ routes = [] := by
   simp [planSelectivePropagation, routeAffected]
 
-/-- Planning is observational: it returns a list and does not overwrite source routes. -/
-theorem planning_keeps_source_routes
-    (change : ChangeSet) (routes : List DependencyRoute) :
-    routes = routes := by
-  rfl
-
 end YggdrasilLean
