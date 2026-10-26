@@ -75,16 +75,48 @@ def diffProjectState (left right : ProjectState) : BranchStateDiff where
   unresolvedItemsDiffer := left.unresolved != right.unresolved
   versionDiffers := left.stateVersion != right.stateVersion
 
-/-- Any difference in recorded content fields triggers conservative review. -/
+/-- Any recorded difference triggers conservative review before merging. -/
 def requiresStateReview (diff : BranchStateDiff) : Bool :=
+  diff.projectIdentityDiffers ||
   diff.agreementHistoryDiffers ||
   diff.evidenceDiffers ||
   diff.dependenciesDiffer ||
-  diff.unresolvedItemsDiffer
+  diff.unresolvedItemsDiffer ||
+  diff.versionDiffers
 
-/-- A project identity mismatch is reported separately from content differences. -/
+/-- A project identity mismatch is reported explicitly. -/
 def sameProjectIdentity (diff : BranchStateDiff) : Bool :=
   !diff.projectIdentityDiffers
+
+theorem projectIdentityDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.projectIdentityDiffers = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
+
+theorem agreementDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.agreementHistoryDiffers = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
+
+theorem evidenceDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.evidenceDiffers = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
+
+theorem dependencyDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.dependenciesDiffer = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
+
+theorem unresolvedDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.unresolvedItemsDiffer = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
+
+theorem versionDifference_requires_review (diff : BranchStateDiff)
+    (h : diff.versionDiffers = true) :
+    requiresStateReview diff = true := by
+  simp [requiresStateReview, h]
 
 /-- A branch pair preserves both original values as a record of the comparison. -/
 structure BranchPair where
