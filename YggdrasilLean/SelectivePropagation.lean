@@ -1,8 +1,8 @@
 /-!
 SelectivePropagation.lean
-Status: initial formal model; dependency-impact semantics are explicit and provisional.
-This module plans which dependency links need review; it does not mutate project
-states, execute downstream updates, or provide durable event delivery.
+Status: formal review-planning model; dependency-impact semantics are explicit and provisional.
+This module plans and records which dependency links need review. It does not mutate
+project states, execute downstream updates, or provide durable event delivery.
 -/
 
 import YggdrasilLean.BranchDivergence
@@ -29,14 +29,42 @@ structure DependencyRoute where
   watches : List StateField
   deriving DecidableEq, Repr
 
+/-- The watched fields that intersect the recorded change set. -/
+def changedWatchedFields (change : ChangeSet) (route : DependencyRoute) : List StateField :=
+  route.watches.filter fun field => change.changedFields.contains field
+
 /-- A route is affected only when at least one watched field changed. -/
 def routeAffected (change : ChangeSet) (route : DependencyRoute) : Bool :=
-  route.watches.any fun field => change.changedFields.contains field
+  !(changedWatchedFields change route).isEmpty
 
 /-- Produce a review list containing only routes affected by this change. -/
 def planSelectivePropagation
     (change : ChangeSet) (routes : List DependencyRoute) : List DependencyRoute :=
   routes.filter (routeAffected change)
+
+/-- An auditable decision records the route, its triggering fields, and selection result. -/
+structure RouteDecision where
+  route : DependencyRoute
+  triggeringFields : List StateField
+  selectedForReview : Bool
+  deriving DecidableEq, Repr
+
+/-- Explain a route decision from the change set and route's declared watchlist. -/
+def assessRoute (change : ChangeSet) (route : DependencyRoute) : RouteDecision :=
+  let triggers := changedWatchedFields change route
+  ⟨route, triggers, !triggers.isEmpty⟩
+
+/-- A propagation assessment retains both inputs and the resulting explanations. -/
+structure PropagationAssessment where
+  change : ChangeSet
+  routes : List DependencyRoute
+  decisions : List RouteDecision
+  deriving DecidableEq, Repr
+
+/-- Create an in-memory assessment record; this function does not persist it externally. -/
+def recordPropagationAssessment
+    (change : ChangeSet) (routes : List DependencyRoute) : PropagationAssessment :=
+  ⟨change, routes, routes.map (assessRoute change)⟩
 
 /-- Every route in the plan satisfies the declared impact predicate. -/
 theorem plannedRoute_isAffected
@@ -51,13 +79,39 @@ theorem emptyWatchlist_notAffected
     (change : ChangeSet) (route : DependencyRoute)
     (h : route.watches = []) :
     routeAffected change route = false := by
-  simp [routeAffected, h]
+  simp [routeAffected, changedWatchedFields, h]
 
 /-- An empty change set selects no routes. -/
 theorem emptyChange_selectsNoRoutes
     (routes : List DependencyRoute) :
     planSelectivePropagation ⟨[]⟩ routes = [] := by
-  simp [planSelectivePropagation, routeAffected]
+  simp [planSelectivePropagation, routeAffected, changedWatchedFields]
+
+/-- A recorded route decision preserves the route being assessed. -/
+theorem assessRoute_retainsRoute
+    (change : ChangeSet) (route : DependencyRoute) :
+    (assessRoute change route).route = route := by
+  rfl
+
+/-- The explanation lists exactly the route's watched fields present in the change set. -/
+theorem assessRoute_recordsTriggers
+    (change : ChangeSet) (route : DependencyRoute) :
+    (assessRoute change route).triggeringFields = changedWatchedFields change route := by
+  rfl
+
+/-- Selection is defined by whether the recorded trigger list is nonempty. -/
+theorem assessRoute_selection_matchesTriggers
+    (change : ChangeSet) (route : DependencyRoute) :
+    (assessRoute change route).selectedForReview =
+      !(assessRoute change route).triggeringFields.isEmpty := by
+  rfl
+
+/-- The assessment record retains the exact change set and candidate routes. -/
+theorem recordAssessment_retainsInputs
+    (change : ChangeSet) (routes : List DependencyRoute) :
+    (recordPropagationAssessment change routes).change = change ∧
+    (recordPropagationAssessment change routes).routes = routes := by
+  constructor <;> rfl
 
 /-! Concrete routing scenarios: these are compile-time checks of the model. -/
 
@@ -85,6 +139,16 @@ example :
 /-- An unrelated field change selects none of these routes. -/
 example :
     planSelectivePropagation ⟨[.dependencies]⟩ exampleRoutes = [] := by
+  decide
+
+/-- An evidence-only assessment records the evidence trigger for the first route. -/
+example :
+    (recordPropagationAssessment ⟨[.evidence]⟩ exampleRoutes).decisions =
+      [ ⟨⟨"evidence-review", [.evidence]⟩, [.evidence], true⟩
+      , ⟨⟨"agreement-review", [.agreements]⟩, [], false⟩
+      , ⟨⟨"evidence-and-agreement-review", [.evidence, .agreements]⟩,
+          [.evidence], true⟩
+      ] := by
   decide
 
 end YggdrasilLean
