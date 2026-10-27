@@ -9,6 +9,8 @@ from typing import Any
 from .alternative_work import Candidate, WorkRequest, evaluate_work
 from .audit import audit_snapshot
 from .reporting import resolution_report, snapshot_audit_report, work_decision_report
+from .recovery import RecoveryFacts, decide_recovery
+from .recovery_gate import gate_retry
 from .resolver import Record, ResolutionError, resolve_history
 
 
@@ -56,12 +58,21 @@ def _request(value: Any) -> WorkRequest:
         raise ValueError(f"invalid work request: {exc}") from exc
 
 
+def _recovery_facts(value: Any) -> RecoveryFacts:
+    if not isinstance(value, dict):
+        raise ValueError("recovery_facts must be a JSON object")
+    try:
+        return RecoveryFacts(**value)
+    except TypeError as exc:
+        raise ValueError(f"invalid recovery facts: {exc}") from exc
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="af-runtime",
         description="Read-only Adaptive Filesystem runtime. JSON input comes from stdin.",
     )
-    parser.add_argument("command", choices=("audit", "resolve", "evaluate"))
+    parser.add_argument("command", choices=("audit", "resolve", "evaluate", "recover-evaluate"))
     args = parser.parse_args(argv)
 
     try:
@@ -78,6 +89,26 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(resolution_report(result), sort_keys=True, indent=2))
             return 0
         decision = evaluate_work(_request(payload.get("request")))
+        if args.command == "recover-evaluate":
+            recovery = decide_recovery(_recovery_facts(payload.get("recovery_facts")))
+            gated = gate_retry(decision, recovery)
+            report = {
+                "schema_version": "af.recovery-gated-work.v1",
+                "work_decision": work_decision_report(decision),
+                "recovery_decision": {
+                    "outcome": recovery.outcome,
+                    "reason": recovery.reason,
+                },
+                "retry_gate": {
+                    "outcome": gated.outcome,
+                    "retry_allowed": gated.retry_allowed,
+                    "reason": gated.reason,
+                },
+                "execution_status": "not_attempted",
+                "persistence_status": "not_persisted",
+            }
+            print(json.dumps(report, sort_keys=True, indent=2))
+            return 2 if decision.outcome == "INVALID_INPUT" or recovery.outcome == "STOP_CONFLICT" else 0
         print(json.dumps(work_decision_report(decision), sort_keys=True, indent=2))
         return 2 if decision.outcome == "INVALID_INPUT" else 0
     except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:

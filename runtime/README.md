@@ -29,7 +29,7 @@ Use `audit_snapshot(records)` to inspect every record's parent, source-anchor, a
 
 ## Command-line use
 
-After installing the package, `af-runtime` (or `python -m adaptive_filesystem_runtime`) accepts JSON on standard input and writes versioned JSON reports to standard output. It supports `audit`, `resolve`, and `evaluate`; it never contacts Airtable or persists decisions.
+After installing the package, `af-runtime` (or `python -m adaptive_filesystem_runtime`) accepts JSON on standard input and writes versioned JSON reports to standard output. It supports `audit`, `resolve`, `evaluate`, and `recover-evaluate`; it never contacts Airtable or persists decisions. `recover-evaluate` accepts both a work `request` and `recovery_facts`, then emits a versioned combined report whose retry gate is distinct from execution and persistence status.
 
 Examples:
 
@@ -107,3 +107,8 @@ This is a pure decision rule, not a worker or external-action executor. It does 
 ## Retry/recovery integration gate (AF-RECOVERY-002 draft)
 
 `adaptive_filesystem_runtime.recovery_gate.gate_retry` combines the existing alternative-work recommendation with the recovery decision. A `RETRY_JUSTIFIED` recommendation is not sufficient by itself: retries are allowed only when recovery returns `SAFE_TO_START` or `SAFE_TO_REPLAY`. Unknown side effects, confirmed completion, and conflicting recovery facts block the retry. This is a decision gate only; it does not execute or persist the retry.
+
+
+## End-to-end recovery reporting (AF-RECOVERY-003 draft)
+
+The `recover-evaluate` CLI command evaluates the work request, decides recovery from supplied facts, and emits `af.recovery-gated-work.v1`. Tests confirm an otherwise justified retry remains blocked when an external side effect is uncertain, including across separate fresh CLI invocations with the same input. The report explicitly keeps `retry_allowed`, `execution_status`, and `persistence_status` separate. Repeating a deterministic evaluation is not durable state or proof that external facts remained unchanged; no operation is executed.
