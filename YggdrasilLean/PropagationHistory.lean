@@ -347,6 +347,37 @@ theorem recomputeHistoryEntryReview_usesRequestedRoutes
         (deriveChangeSet entry.transition.before entry.transition.after) routes := by
   rfl
 
+/-- A later route configuration may produce a different review decision. -/
+example :
+    let transition : TransitionRecord :=
+      ⟨identityReviewExampleState,
+        { identityReviewExampleState with evidence := ["source-1"] }⟩
+    let originalAssessment :=
+      recordPropagationAssessment (deriveChangeSet transition.before transition.after)
+        [⟨"evidence-route", [.evidence]⟩]
+    let entry : PropagationHistoryEntry :=
+      ⟨transition, originalAssessment⟩
+    let recomputed := recomputeHistoryEntryReview entry
+      [⟨"agreement-route", [.agreements]⟩]
+    entry.assessment.decisions.head!.selectedForReview = true ∧
+      recomputed.propagation.decisions.head!.selectedForReview = false := by
+  decide
+
+/-- Recomputing with a new route list does not replace the historical assessment. -/
+example :
+    let transition : TransitionRecord :=
+      ⟨identityReviewExampleState,
+        { identityReviewExampleState with evidence := ["source-1"] }⟩
+    let originalAssessment :=
+      recordPropagationAssessment (deriveChangeSet transition.before transition.after)
+        [⟨"evidence-route", [.evidence]⟩]
+    let entry : PropagationHistoryEntry :=
+      ⟨transition, originalAssessment⟩
+    let _recomputed := recomputeHistoryEntryReview entry
+      [⟨"agreement-route", [.agreements]⟩]
+    entry.assessment = originalAssessment := by
+  decide
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
