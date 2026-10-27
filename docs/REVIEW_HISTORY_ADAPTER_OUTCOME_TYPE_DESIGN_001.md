@@ -157,4 +157,4 @@ Do not resolve these by assumption while translating this draft into Lean. Revie
 3. **Completeness:** The prior omission is addressed. Backend atomicity, uniqueness, durability, encoding, lifecycle, lookup authority, and access-control guarantees remain outside what types alone can prove.
 4. **Status:** Candidate design only; no Lean types changed, no policy adopted, no adapter implemented, no integration tests executed.
 5. **Recheck:** Identity-read results align with the contract; `NotCommitted` has a stricter evidence boundary; unknown remains explicit; no field is described as proof of storage behavior.
-6. **Persistence/uncertainty:** This revision is saved as a repository document if the returned commit is confirmed. That persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
+6. **Persistence/uncertainty:** This revision is saved in the repository at commit `03e195dbee6a1b79b501a6c0d4d17e4725c29a05`. That persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
