@@ -1,6 +1,6 @@
 # Review History Adapter Boundary Decisions 001
 
-**Status:** Evaluation memo with recommendations for review; no recommendation in this memo is adopted automatically.
+**Status:** Evaluation memo with recommendations for review. Section 4 records one explicitly scoped adopted semantic invariant; all other recommendations remain unadopted unless separately decided.
 **Parent records:** `DURABLE_HISTORY_DECISION_RECORD_001.md`, `REVIEW_HISTORY_ADAPTER_CONTRACT_001.md`, and `REVIEW_HISTORY_ADAPTER_INTEGRATION_TEST_SPEC_001.md`.
 **Purpose:** Narrow three dependencies that block a concrete adapter integration-test implementation without choosing a backend or claiming implementation exists.
 
@@ -89,3 +89,36 @@ For the first adapter milestone, prefer **F1 as the canonical persistence rule**
 4. **Status:** Saved evaluation memo; recommendations are not adopted decisions; no adapter or tests implemented.
 5. **Recheck:** Recommendations preserve the contract's distinctions among conflict, unknown commit, incomplete lineage, unsupported verification, and unavailable service.
 6. **Persistence/uncertainty:** This memo is version-controlled; it does not update the prior decision record or convert provisional choices into project-wide invariants.
+
+
+## 4. Explicit disposition — identity ambiguity semantic invariant
+
+**Decision status:** The semantic invariant below is adopted for this project branch. The exact adapter/Lean constructor shape is not adopted.
+
+### Adopted semantic rule
+
+If a lookup establishes multiple competing records for one queried identity and those records have different event IDs, the system must preserve that ambiguity explicitly. It must not select a winner by list order, silently collapse the records into one `Found` result, or claim confirmed absence. The same semantic rule applies across append reconciliation and read-by-identity operations.
+
+A `NotFound` result requires evidence that the declared lookup scope was queried completely. If scope/completeness is unknown or the search is partial or unavailable, the result must remain explicitly unresolved; it cannot be converted into absence.
+
+### Not adopted
+
+- Exact Lean constructor names, parameter lists, and evidence record shapes.
+- Whether incomplete identity reads use `Unavailable` or a distinct `Incomplete/Unknown` constructor.
+- The completeness, consistency, and provenance schema for lookup evidence.
+- Any claim that a current backend can provide complete lookup evidence.
+
+### Implementation gate
+
+Before changing Lean declarations, reconcile diagnostics, observed candidate IDs, lookup scope/completeness, schema failures, corruption, and service unavailability across the complete outcome inventory. Add or revise tests so the semantic invariant is asserted independently of the eventual constructor names.
+
+**Status:** Semantic invariant adopted; API shape provisional; no Lean declarations or adapter implementation changed; no tests executed.
+
+## Six-Part Integrity Check — disposition 002
+
+1. **Count:** One scoped semantic decision, with four explicit non-decisions/gates above.
+2. **Roles:** Identity ambiguity; confirmed absence; API-shape boundary; implementation gate.
+3. **Completeness:** Covers arbitrary-winner prevention and complete-scope absence. Evidence representation and incomplete-read constructor remain open.
+4. **Status:** Semantic invariant adopted in this decision record; exact constructor/API shape not adopted; implementation and tests not verified.
+5. **Recheck:** Consistent with the proposed contract and outcome design; no conflict with the persisted-record schema because lookup completeness remains adapter read evidence, not a persisted event field.
+6. **Persistence/uncertainty:** Saved in this repository document; readback required. No Lean or backend behavior is implied by the documentation decision.
