@@ -202,6 +202,37 @@ export function verifySerializedGraphInputArtifact(serialized) {
 }
 /**
 /**
+ * Construct a source-read evidence manifest from the records actually returned
+ * by a source adapter. The digest covers a canonical graph-relevant projection;
+ * this records the adapter's claims but does not authenticate the adapter.
+ */
+export function buildSourceReadEvidenceManifest(records, {
+  sourceReadId,
+  reportedTotalRecordCount,
+  paginationComplete,
+  sourceScope,
+} = {}) {
+  if (!Array.isArray(records)) throw new TypeError("records must be an array");
+  const projection = records.map((record) => ({
+    recordId: record?.recordId,
+    parentRecordId: record?.parentRecordId ?? null,
+  })).sort((a, b) => String(a.recordId).localeCompare(String(b.recordId)));
+  const sourceDigest = createHash("sha256")
+    .update(JSON.stringify(projection), "utf8")
+    .digest("hex");
+  return {
+    schema: "yggdrasil-source-read-evidence-v1",
+    sourceReadId: typeof sourceReadId === "string" ? sourceReadId : null,
+    sourceDigest,
+    returnedRecordCount: records.length,
+    reportedTotalRecordCount,
+    paginationComplete: paginationComplete === true,
+    sourceScope: typeof sourceScope === "string" ? sourceScope : "",
+    digestAlgorithm: "sha256",
+  };
+}
+
+/**
  * Validate the shape and internal consistency of a source-read evidence manifest.
  * This establishes consistency, not authenticity: the manifest must ultimately
  * be produced by a trusted source adapter to be authoritative.
