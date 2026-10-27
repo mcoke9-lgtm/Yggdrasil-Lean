@@ -47,8 +47,8 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 ## 5. Plan
 
-1. **Next:** verify resolver CI and Lean build for the paginated connector seam and checkpoint updates.
-2. Wire `readAndAnalyzeAirtableTable` to the real Airtable connector callback in an integration runtime; retain a live read test distinct from mock-based CI.
+1. **Verified:** resolver tests and Lean build passed on checkpoint commit `182cf71b744af09e364b096a7c286c42d1bae984`: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195334), [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195140).
+2. **Next:** wire `readAndAnalyzeAirtableTable` to the real Airtable connector callback in an integration runtime; retain a live read test distinct from mock-based CI.
 3. If the connector exposes a stable read/run identifier or exportable response receipt, capture it; otherwise document that source-read identity is integration-assigned and not independently authenticated.
 4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
 5. Re-audit gate bypass paths after integration changes.
