@@ -1,6 +1,6 @@
 # Review History Adapter Outcome Type Design 001
 
-**Status:** Candidate design for review; not implemented, adopted, or storage-verified  
+**Status:** Candidate type design for review; semantic rule that competing identities must remain explicit is adopted by `REVIEW_HISTORY_ADAPTER_BOUNDARY_DECISIONS_001.md` Section 4. Constructor shape is not adopted; no implementation or storage verification is claimed.  
 **Scope:** Backend-neutral outcome metadata for the proposed review-history adapter  
 **Related records:** `REVIEW_HISTORY_ADAPTER_CONTRACT_001.md`, `REVIEW_HISTORY_REFERENCE_MODEL_CONFORMANCE_001.md`, `REVIEW_HISTORY_ADAPTER_INTEGRATION_TEST_SPEC_001.md`
 
@@ -99,7 +99,7 @@ The candidate list is not asserted complete unless lookup evidence establishes c
 
 **Confirmed absence boundary:** `NotFound(scopeEvidence)` remains valid only when the adapter establishes that the identity was absent across the complete declared lookup scope. Incomplete indexes, partial pages, permission failures, unavailable storage, unsupported schema, and corruption cannot be converted into `NotFound`. If the lookup scope or completeness cannot be established, return `Unavailable` or a distinct incomplete/unknown read outcome if the final contract/API defines one; do not guess absence.
 
-**Status:** proposed type-level disposition only. The adapter contract now also proposes `AmbiguousIdentity` for identity reads in its saved revision, but neither that contract refinement nor these candidate constructors are adopted. The persisted-record schema contains event IDs, idempotency keys, and schema-version fields, but does not define lookup-completeness evidence; that evidence belongs to the adapter's read result/diagnostics unless a later reviewed schema decision says otherwise. Review the complete API outcome inventory before changing Lean declarations.
+**Status:** The semantic invariant is adopted in `REVIEW_HISTORY_ADAPTER_BOUNDARY_DECISIONS_001.md` Section 4: competing event identities must remain explicit, and absence requires complete declared lookup-scope evidence. The proposed primary `AmbiguousIdentity` constructor and its exact fields are not adopted. The persisted-record schema contains event IDs, idempotency keys, and schema-version fields, but does not define lookup-completeness evidence; that evidence belongs to the adapter's read result/diagnostics unless a later reviewed schema decision says otherwise. Review diagnostics, candidate IDs, lookup evidence, incomplete reads, schema failures, corruption, and service unavailability together before changing Lean declarations.
 
 ### 4. Ordered-page completeness and cursor consistency
 
@@ -178,3 +178,10 @@ Do not resolve these by assumption while translating this draft into Lean. Revie
 4. **Status:** Candidate design only; the contract and outcome-design documents now agree on the proposed identity-read ambiguity outcome, but no policy is adopted, no Lean types changed, no adapter implemented, and no integration tests executed.
 5. **Recheck:** Identity-read results align with the contract; `NotCommitted` has a stricter evidence boundary; unknown remains explicit; no field is described as proof of storage behavior.
 6. **Persistence/uncertainty:** This reconciliation revision is saved and read back at commit `dc3cffa2166db002efbab941451e005bcea43fa5`. Persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
+
+
+## Decision alignment — disposition 002
+
+The boundary decision record now explicitly adopts one semantic invariant: multiple competing records with different event IDs must not be resolved by list order or concealed as a single `Found`; `NotFound` requires complete declared lookup-scope evidence. This adoption concerns semantics only. The constructor name, parameters, evidence schema, and representation of incomplete reads remain provisional. No Lean declarations were changed, and no adapter or tests were run.
+
+**Six-Part Integrity Check:** (1) one adopted semantic invariant; (2) identity ambiguity and confirmed absence are its two operational roles; (3) API-shape and evidence gaps remain explicit; (4) semantic rule adopted, constructor proposed, implementation untested; (5) aligned against the current proposed contract and persisted schema; (6) source change must be read back at the resulting commit before claiming persistence.
