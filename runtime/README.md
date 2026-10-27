@@ -21,7 +21,7 @@ The package resolves review-history relationships from a caller-supplied snapsho
 
 ## Alternative-work evaluator (AF-AWR-001 v0.1.0)
 
-Use `evaluate_work(WorkRequest(...))` for a side-effect-free recommendation when an operation is blocked. It preserves branch/checkpoint, validates input, applies hard relevance/feasibility/authorization/non-duplication/integrity gates, ranks eligible alternatives deterministically, permits a retry only when materially changed and within budget, and only emits `STOP_NO_ALTERNATIVE` when the search scope is declared exhausted. Exact ranking ties are returned together. The result explicitly says execution was not attempted and persistence was not performed. This is a reference evaluator, not a background agent or a production orchestration service.
+Use `evaluate_work(WorkRequest(...))` for a side-effect-free recommendation when an operation is blocked. It preserves branch/checkpoint, validates input, applies hard relevance/feasibility/authorization/non-duplication/integrity gates, ranks eligible alternatives deterministically, permits a retry only when materially changed and within budget, and only emits `STOP_NO_ALTERNATIVE` when the search scope is declared exhausted. Dependency waits require an explicit dependency ID and report it separately from the candidate ID. Exact ranking ties are returned together. The result explicitly says execution was not attempted and persistence was not performed. This is a reference evaluator, not a background agent or a production orchestration service.
 
 ## Snapshot-wide audit
 
