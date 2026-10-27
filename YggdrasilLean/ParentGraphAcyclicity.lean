@@ -70,16 +70,6 @@ theorem triangle_not_acyclic :
 /-- A self-contained empty-edge example has no cycle witness under this definition. -/
 theorem emptyEdges_acyclic : ParentGraphAcyclic ([] : List ParentEdge) := by
   intro witness
-  cases witness with
-  | nil => rfl
-  | cons first rest =>
-      cases rest with
-      | nil => rfl
-      | cons second tail =>
-          cases tail with
-          | nil => rfl
-          | cons third remaining =>
-              -- No edge can be followed in the empty graph.
-              simp [isParentCycleWitness, witnessFollowsEdges]
+  cases witness <;> simp [isParentCycleWitness, witnessFollowsEdges]
 
 end YggdrasilLean
