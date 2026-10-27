@@ -27,6 +27,20 @@ Use `evaluate_work(WorkRequest(...))` for a side-effect-free recommendation when
 
 Use `audit_snapshot(records)` to inspect every record's parent, source-anchor, and revision relationships, rather than resolving a single target. It reports missing links, source-branch mismatches, duplicate IDs/sequences, malformed records, and parent cycles. Blank references are reported as informational `BLANK_UNCLASSIFIED` findings; they do not become explicit roots or N/A values. The report status fails on errors but may pass with unclassified blanks, so callers must inspect both `status` and `unclassified_count`. Coverage is separately labelled `unknown`, `declared_partial`, or `declared_complete`; the declaration is caller-supplied and is not independent proof of completeness. A structurally passing partial or unknown snapshot must not be treated as a complete-history verification.
 
+## Command-line use
+
+After installing the package, `af-runtime` (or `python -m adaptive_filesystem_runtime`) accepts JSON on standard input and writes versioned JSON reports to standard output. It supports `audit`, `resolve`, and `evaluate`; it never contacts Airtable or persists decisions.
+
+Examples:
+
+    printf '%s' '{"records":[{"record_id":"a","branch_id":"main","sequence":1}],"coverage":"unknown"}' | af-runtime audit
+
+    printf '%s' '{"record_id":"a","records":[{"record_id":"a","branch_id":"main","sequence":1}]}' | af-runtime resolve
+
+    printf '%s' '{"request":{"request_id":"r1","active_branch":"main","checkpoint_id":"AF-PILOT-006","current_goal":"recover","blocked_operation":"live read","observed_failure":"credentials unavailable","blocked":true,"candidates":[]}}' | af-runtime evaluate
+
+Invalid input or resolution failures produce a JSON error on standard error and a nonzero exit code. A valid evaluation outcome such as `UNRESOLVED` is a successful evaluation, not a claim that work was executed.
+
 ## Structured reports
 
 The package exports `resolution_report`, `snapshot_audit_report`, and `work_decision_report`. Each emits a versioned JSON-compatible dictionary. Work reports preserve recommendation outcome separately from execution and persistence; audit reports preserve structural status separately from declared snapshot coverage. Serialization is local only and does not save or transmit the report.
