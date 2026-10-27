@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from pathlib import Path
 
 from adaptive_filesystem_runtime.attempt_ledger import AttemptRecord
@@ -67,6 +69,71 @@ class SQLiteAttemptLedgerTests(unittest.TestCase):
         self.assertEqual(
             SQLiteAttemptLedger(self.path).append(record(result_status="done")).outcome,
             "REJECT_CONFLICT",
+        )
+
+    def test_two_instances_racing_same_append_are_append_and_replay(self):
+        ledgers = (SQLiteAttemptLedger(self.path), SQLiteAttemptLedger(self.path))
+        candidate = record()
+        barrier = Barrier(2)
+
+        def write(ledger):
+            barrier.wait()
+            return ledger.append(candidate).outcome
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(write, ledgers))
+
+        self.assertCountEqual(outcomes, ["APPEND", "IDEMPOTENT_REPLAY"])
+        self.assertEqual(len(SQLiteAttemptLedger(self.path).list_attempts(
+            "project-1", "operation-1"
+        )), 1)
+
+    def test_racing_different_attempt_two_payloads_has_one_winner(self):
+        self.ledger.append(record())
+        ledgers = (SQLiteAttemptLedger(self.path), SQLiteAttemptLedger(self.path))
+        candidates = (
+            record(attempt_id="attempt-2a", idempotency_key="idem-2a",
+                   attempt_number=2, branch_id="branch-a"),
+            record(attempt_id="attempt-2b", idempotency_key="idem-2b",
+                   attempt_number=2, branch_id="branch-b"),
+        )
+        barrier = Barrier(2)
+
+        def write(pair):
+            ledger, candidate = pair
+            barrier.wait()
+            return ledger.append(candidate).outcome
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(write, zip(ledgers, candidates)))
+
+        self.assertCountEqual(outcomes, ["APPEND", "REJECT_CONFLICT"])
+        stored = SQLiteAttemptLedger(self.path).list_attempts(
+            "project-1", "operation-1"
+        )
+        self.assertEqual([item.attempt_number for item in stored], [1, 2])
+
+    def test_crash_after_commit_before_ack_is_recovered_by_replay(self):
+        # Simulate the write succeeding but the caller losing its acknowledgement.
+        first = record(result_status="started")
+        self.assertEqual(self.ledger.append(first).outcome, "APPEND")
+
+        recovered = SQLiteAttemptLedger(self.path)
+        self.assertEqual(recovered.append(first).outcome, "IDEMPOTENT_REPLAY")
+        self.assertEqual(recovered.list_attempts("project-1", "operation-1"), (first,))
+
+        # A recovered workflow records continuation as a new immutable attempt.
+        continuation = record(
+            attempt_id="attempt-2", idempotency_key="idem-2", attempt_number=2,
+            operation_fingerprint="input-v2", result_status="recovered",
+            checkpoint_id="AF-PILOT-007",
+        )
+        self.assertEqual(recovered.append(continuation).outcome, "APPEND")
+        self.assertEqual(
+            [item.attempt_number for item in recovered.list_attempts(
+                "project-1", "operation-1"
+            )],
+            [1, 2],
         )
 
     def test_different_operation_can_start_at_one(self):

@@ -94,7 +94,7 @@ The contract is only a tested in-memory decision rule. It does not write a ledge
 
 ## SQLite persistence experiment (AF-LEDGER-002)
 
-`adaptive_filesystem_runtime.sqlite_ledger.SQLiteAttemptLedger` is a local persistence prototype, not a production service. It uses a SQLite transaction plus uniqueness constraints for attempt IDs, idempotency keys, and (project, operation, attempt number). Tests exercise reopening the database, replay after restart, retry ordering across a branch/chat change, and conflict rejection.
+`adaptive_filesystem_runtime.sqlite_ledger.SQLiteAttemptLedger` is a local persistence prototype, not a production service. It uses a SQLite transaction plus uniqueness constraints for attempt IDs, idempotency keys, and (project, operation, attempt number). Tests exercise reopening the database, replay after restart, retry ordering across a branch/chat change, conflict rejection, two-instance concurrent appends, and recovery when a committed write's acknowledgement is lost.
 
 The prototype's guarantee is limited to cooperating writes through this database file and its transaction/constraint behavior. It does not synchronize separate machines or databases, authenticate callers, validate evidence URIs, infer operation identity, or change the Airtable pilot schema. Stable `operation_id` remains a caller responsibility. Live Airtable behavior remains untested.
 
