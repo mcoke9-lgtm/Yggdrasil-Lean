@@ -233,6 +233,40 @@ export function buildSourceReadEvidenceManifest(records, {
 }
 
 /**
+ * Adapter boundary for a connector's completed read response. Pagination
+ * completion is derived from the response cursor, not passed as a boolean.
+ * The caller must supply the unmodified connector response and stable read
+ * metadata; this function does not authenticate that caller or response.
+ */
+export function buildSourceReadEvidenceFromConnectorRead({
+  records,
+  totalRecordCount,
+  nextCursor = null,
+  sourceReadId,
+  sourceScope,
+} = {}) {
+  if (!Array.isArray(records)) {
+    return { valid: false, code: "SOURCE_READ_RECORDS_MISSING" };
+  }
+  if (!Number.isSafeInteger(totalRecordCount) || totalRecordCount < 0) {
+    return { valid: false, code: "SOURCE_READ_TOTAL_COUNT_INVALID" };
+  }
+  const evidence = buildSourceReadEvidenceManifest(records, {
+    sourceReadId,
+    reportedTotalRecordCount: totalRecordCount,
+    paginationComplete: nextCursor === null || nextCursor === undefined,
+    sourceScope,
+  });
+  if (evidence.returnedRecordCount !== totalRecordCount) {
+    return { valid: false, code: "SOURCE_READ_COUNT_MISMATCH", evidence };
+  }
+  if (evidence.paginationComplete !== true) {
+    return { valid: false, code: "SOURCE_READ_PAGINATION_INCOMPLETE", evidence };
+  }
+  return { valid: true, code: "SOURCE_READ_EVIDENCE_BUILT", evidence };
+}
+
+/**
  * Validate the shape and internal consistency of a source-read evidence manifest.
  * This establishes consistency, not authenticity: the manifest must ultimately
  * be produced by a trusted source adapter to be authoritative.
