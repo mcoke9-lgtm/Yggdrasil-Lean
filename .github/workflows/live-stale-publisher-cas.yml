@@ -41,9 +41,11 @@ jobs:
           intervening_sha="$(printf '%s\n' 'intervening publication for stale-CAS test' | git commit-tree "$tree_sha" -p "$initial_sha")"
           stale_sha="$(printf '%s\n' 'stale candidate for stale-CAS test' | git commit-tree "$tree_sha" -p "$initial_sha")"
 
-          created=0
+          push_attempted=0
           cleanup() {
-            if [[ "$created" == "1" ]]; then
+            # A push may reach GitHub even if the client loses its acknowledgement.
+            # Attempt cleanup after any initial-push attempt, not only a confirmed success.
+            if [[ "$push_attempted" == "1" ]]; then
               git push origin --delete "$test_branch" >/dev/null 2>&1 || {
                 echo "::warning::Could not delete temporary ref refs/heads/$test_branch; inspect and remove it manually."
               }
@@ -52,8 +54,8 @@ jobs:
           }
           trap cleanup EXIT
 
+          push_attempted=1
           git push origin "$initial_sha:refs/heads/$test_branch"
-          created=1
 
           # Establish the intervening writer with a current expected-head lease.
           git push --force-with-lease="refs/heads/$test_branch:$initial_sha" \
