@@ -1,10 +1,10 @@
 /-!
 PropagationHistory.lean
-Status: in-memory association model; causal field-diff derivation and durable storage remain out of scope.
+Status: in-memory association model with derived content-field changes and a separate
+identity/branch review signal. Durable storage and execution remain out of scope.
 
-A propagation assessment is paired with the transition it is intended to explain.
-The pairing preserves both records for review. It does not yet prove that the
-assessment's ChangeSet was derived from the transition's before/after states.
+Content-field propagation and identity/branch review are separate: changing a project
+or branch identity must not be silently treated as an ordinary dependency-field update.
 -/ 
 
 import YggdrasilLean.MultiStepHistory
@@ -79,5 +79,54 @@ theorem identicalTrackedFields_deriveEmptyChangeSet
     (state : ProjectState) :
     deriveChangeSet state state = ⟨[]⟩ := by
   simp [deriveChangeSet]
+
+/-- Identity changes are reviewed separately from content-field propagation. -/
+structure IdentityBranchReview where
+  projectIdentityChanged : Bool
+  branchIdentityChanged : Bool
+  deriving DecidableEq, Repr
+
+/-- Compare project and branch identities across a recorded transition. -/
+def assessIdentityBranchTransition (before after : ProjectState) :
+    IdentityBranchReview where
+  projectIdentityChanged := before.projectId != after.projectId
+  branchIdentityChanged := before.branchId != after.branchId
+
+/-- Either identity change requires explicit identity/branch review. -/
+def identityBranchReviewRequired (review : IdentityBranchReview) : Bool :=
+  review.projectIdentityChanged || review.branchIdentityChanged
+
+/-- A project identity change cannot pass without identity/branch review. -/
+theorem projectIdentityChange_requiresIdentityReview
+    (review : IdentityBranchReview)
+    (h : review.projectIdentityChanged = true) :
+    identityBranchReviewRequired review = true := by
+  simp [identityBranchReviewRequired, h]
+
+/-- A branch identity change cannot pass without identity/branch review. -/
+theorem branchIdentityChange_requiresIdentityReview
+    (review : IdentityBranchReview)
+    (h : review.branchIdentityChanged = true) :
+    identityBranchReviewRequired review = true := by
+  simp [identityBranchReviewRequired, h]
+
+/-- An ordinary transition with unchanged identities does not trigger identity review. -/
+theorem unchangedIdentities_noIdentityReview
+    (before after : ProjectState)
+    (hProject : before.projectId = after.projectId)
+    (hBranch : before.branchId = after.branchId) :
+    identityBranchReviewRequired (assessIdentityBranchTransition before after) = false := by
+  simp [identityBranchReviewRequired, assessIdentityBranchTransition, hProject, hBranch]
+
+/-- Identity assessment is computed from the same recorded transition endpoints. -/
+def assessTransitionIdentityBranch (transition : TransitionRecord) : IdentityBranchReview :=
+  assessIdentityBranchTransition transition.before transition.after
+
+/-- Explicit forks are distinguishable as branch-identity changes. -/
+theorem forkProject_triggersBranchReview
+    (state : ProjectState) (newBranchId : String)
+    (h : state.branchId ≠ newBranchId) :
+    (assessIdentityBranchTransition state (forkProject state newBranchId)).branchIdentityChanged = true := by
+  simp [assessIdentityBranchTransition, forkProject, h]
 
 end YggdrasilLean
