@@ -62,3 +62,16 @@ This recommendation does not adopt a policy. Adoption requires reconciliation wi
 4. **Statuses:** Existing order-sensitivity behavior and CI runs are verified; D3 is recommended for evaluation only; no policy is adopted; durable adapter and integration tests are not implemented.
 5. **Recheck:** Claims are limited to the pure model and cited successful build runs.
 6. **Persistence / uncertainty:** This evaluation is a durable record once committed; the final result vocabulary and policy remain open.
+
+## Follow-up reference-model experiment (2026-10-27)
+
+The pure reference model now has an `ambiguousHistory` constructor in `AppendIdentityDecision`. The multi-record combiner returns it when two retry matches identify different event IDs, independent of list order. Existing conflicts still dominate ambiguity and retry results. A matching retry record repeated with the same event ID remains an `alreadyCommitted` result.
+
+The interaction module replaces the prior order-sensitive theorem with:
+- `matchingRetryRecords_areAmbiguous`: distinct event IDs produce `ambiguousHistory` in both list orders.
+- `matchingRetryRecords_sameEventId_isRetry`: same event ID repeated remains a retry.
+
+GitHub Actions Lean build run #87 passed for commit `e4c94d09047f20c05a53d7f7fea878bb3a1d2fbc`:
+https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40431998467
+
+**Status boundary:** the pure reference-model behavior is implemented and build-verified. This does not adopt the identity policy across the project or update the durable adapter contract/result vocabulary. The adapter's result mapping, schema evolution, duplicate-history verification, and storage-backed integration tests remain open. The model only examines the supplied history list and cannot prove global uniqueness or atomic backend enforcement.
