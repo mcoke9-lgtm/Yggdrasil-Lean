@@ -240,6 +240,35 @@ theorem appendTwoTransitionReviews_retainsLast
       some second := by
   simp [appendTwoTransitionReviews, appendTransitionReview]
 
+/-- Append a list of reviews while retaining the original history as a prefix. -/
+def appendTransitionReviews
+    (history : TransitionReviewHistory)
+    (entries : List TransitionReviewEntry) : TransitionReviewHistory :=
+  ⟨history.entries ++ entries⟩
+
+/-- Batch append preserves all prior entries and the supplied entry order. -/
+theorem appendTransitionReviews_preservesOrder
+    (history : TransitionReviewHistory)
+    (entries : List TransitionReviewEntry) :
+    (appendTransitionReviews history entries).entries = history.entries ++ entries := by
+  rfl
+
+/-- Appending an empty batch leaves the history unchanged. -/
+theorem appendTransitionReviews_empty_isIdentity
+    (history : TransitionReviewHistory) :
+    appendTransitionReviews history [] = history := by
+  cases history
+  rfl
+
+/-- Batch append is associative with sequential appends. -/
+theorem appendTransitionReviews_composes
+    (history : TransitionReviewHistory)
+    (firstBatch secondBatch : List TransitionReviewEntry) :
+    appendTransitionReviews (appendTransitionReviews history firstBatch) secondBatch =
+      appendTransitionReviews history (firstBatch ++ secondBatch) := by
+  cases history
+  simp [appendTransitionReviews, List.append_assoc]
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
