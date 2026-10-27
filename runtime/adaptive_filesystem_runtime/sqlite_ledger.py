@@ -8,6 +8,7 @@ authorize or make external side effects atomic.
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import time
 from dataclasses import asdict, dataclass
@@ -30,6 +31,7 @@ class RecoveryClaimResult:
     owner_id: str
     lease_expires_at: float | None
     reason: str
+    fencing_token: int | None = None
 
 
 class SQLiteAttemptLedger:
@@ -61,9 +63,13 @@ class SQLiteAttemptLedger:
                     claim_id TEXT NOT NULL UNIQUE,
                     owner_id TEXT NOT NULL,
                     lease_expires_at REAL NOT NULL,
+                    fencing_token INTEGER NOT NULL DEFAULT 1 CHECK (fencing_token >= 1),
                     PRIMARY KEY(project_id, operation_id)
                 )
             """)
+            claim_columns = {row["name"] for row in db.execute("PRAGMA table_info(recovery_claims)")}
+            if "fencing_token" not in claim_columns:
+                db.execute("ALTER TABLE recovery_claims ADD COLUMN fencing_token INTEGER NOT NULL DEFAULT 1 CHECK (fencing_token >= 1)")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
@@ -142,11 +148,12 @@ class SQLiteAttemptLedger:
                     f"{name} must be non-empty text")
         if (not isinstance(attempt_number, int) or isinstance(attempt_number, bool)
                 or attempt_number < 1 or not isinstance(lease_seconds, (int, float))
-                or isinstance(lease_seconds, bool) or lease_seconds <= 0):
+                or isinstance(lease_seconds, bool) or not math.isfinite(lease_seconds) or lease_seconds <= 0):
             return RecoveryClaimResult("INVALID", project_id, operation_id, attempt_id,
                 None, claim_id, owner_id, None, "attempt_number and lease_seconds must be valid")
         current_time = time.time() if now is None else now
-        if not isinstance(current_time, (int, float)) or isinstance(current_time, bool):
+        if (not isinstance(current_time, (int, float)) or isinstance(current_time, bool)
+                or not math.isfinite(current_time)):
             return RecoveryClaimResult("INVALID", project_id, operation_id, attempt_id,
                 attempt_number, claim_id, owner_id, None, "now must be numeric")
         expires = float(current_time) + float(lease_seconds)
@@ -181,20 +188,23 @@ class SQLiteAttemptLedger:
                     project_id, operation_id, attempt_id, attempt_number, claim_id, owner_id,
                     existing["lease_expires_at"],
                     "same claim already holds lease" if same else "another unexpired claim owns recovery coordination",
+                    fencing_token=existing["fencing_token"],
                 )
+            fencing_token = (existing["fencing_token"] + 1) if existing is not None else 1
             db.execute(
                 """INSERT INTO recovery_claims
-                   (project_id, operation_id, attempt_id, attempt_number, claim_id, owner_id, lease_expires_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                   (project_id, operation_id, attempt_id, attempt_number, claim_id, owner_id, lease_expires_at, fencing_token)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(project_id, operation_id) DO UPDATE SET
                      attempt_id=excluded.attempt_id, attempt_number=excluded.attempt_number,
                      claim_id=excluded.claim_id, owner_id=excluded.owner_id,
-                     lease_expires_at=excluded.lease_expires_at""",
-                (project_id, operation_id, attempt_id, attempt_number, claim_id, owner_id, expires),
+                     lease_expires_at=excluded.lease_expires_at, fencing_token=excluded.fencing_token""",
+                (project_id, operation_id, attempt_id, attempt_number, claim_id, owner_id, expires, fencing_token),
             )
             db.execute("COMMIT")
             return RecoveryClaimResult("CLAIMED", project_id, operation_id, attempt_id,
-                attempt_number, claim_id, owner_id, expires, "local recovery coordination lease acquired")
+                attempt_number, claim_id, owner_id, expires, "local recovery coordination lease acquired",
+                fencing_token=fencing_token)
         except sqlite3.IntegrityError:
             db.execute("ROLLBACK")
             return RecoveryClaimResult("INVALID", project_id, operation_id, attempt_id,
@@ -203,13 +213,47 @@ class SQLiteAttemptLedger:
             db.close()
 
     def release_recovery_review(
-        self, project_id: str, operation_id: str, claim_id: str, owner_id: str
+        self, project_id: str, operation_id: str, claim_id: str, owner_id: str,
+        fencing_token: int,
     ) -> bool:
-        """Release only the exact claim identity; false means no matching claim."""
+        """Release only the exact claim identity and fencing generation."""
         with self._connect() as db:
             cursor = db.execute(
                 """DELETE FROM recovery_claims
-                   WHERE project_id=? AND operation_id=? AND claim_id=? AND owner_id=?""",
-                (project_id, operation_id, claim_id, owner_id),
+                   WHERE project_id=? AND operation_id=? AND claim_id=? AND owner_id=? AND fencing_token=?""",
+                (project_id, operation_id, claim_id, owner_id, fencing_token),
             )
             return cursor.rowcount == 1
+
+    def is_recovery_claim_current(
+        self, project_id: str, operation_id: str, claim_id: str, owner_id: str,
+        fencing_token: int, now: float | None = None,
+    ) -> bool:
+        """Point-in-time check of claim generation, lease, and latest attempt.
+
+        A true result is not a lock on a remote system: callers must revalidate
+        at the point of use, and downstream targets must enforce fencing tokens
+        to reject stale workers reliably.
+        """
+        current_time = time.time() if now is None else now
+        if (not isinstance(current_time, (int, float)) or isinstance(current_time, bool)
+                or not math.isfinite(current_time) or not isinstance(fencing_token, int)
+                or isinstance(fencing_token, bool) or fencing_token < 1):
+            return False
+        with self._connect() as db:
+            row = db.execute(
+                """SELECT c.attempt_id, c.attempt_number, c.lease_expires_at
+                          FROM recovery_claims c
+                    WHERE c.project_id=? AND c.operation_id=? AND c.claim_id=?
+                      AND c.owner_id=? AND c.fencing_token=? AND c.lease_expires_at>?""",
+                (project_id, operation_id, claim_id, owner_id, fencing_token, float(current_time)),
+            ).fetchone()
+            if row is None:
+                return False
+            latest = db.execute(
+                """SELECT attempt_id, attempt_number FROM attempts
+                   WHERE project_id=? AND operation_id=? ORDER BY attempt_number DESC LIMIT 1""",
+                (project_id, operation_id),
+            ).fetchone()
+            return (latest is not None and latest["attempt_id"] == row["attempt_id"]
+                    and latest["attempt_number"] == row["attempt_number"])

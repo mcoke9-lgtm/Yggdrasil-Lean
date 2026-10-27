@@ -37,6 +37,9 @@ class RecoveryClaimTests(unittest.TestCase):
     def test_claim_acquired_and_persists_across_reopen(self):
         result = self.claim()
         self.assertEqual(result.status, "CLAIMED")
+        self.assertEqual(result.fencing_token, 1)
+        self.assertTrue(self.ledger.is_recovery_claim_current(
+            "project-1", "operation-1", "claim-a", "worker-a", 1, now=101))
         reopened = SQLiteAttemptLedger(self.path)
         self.assertEqual(self.claim(ledger=reopened).status, "ALREADY_CLAIMED")
 
@@ -51,6 +54,13 @@ class RecoveryClaimTests(unittest.TestCase):
         other = self.claim(claim_id="claim-b", owner_id="worker-b", now=111)
         self.assertEqual(other.status, "CLAIMED")
         self.assertEqual(other.lease_expires_at, 121)
+        self.assertEqual(other.fencing_token, 2)
+        self.assertFalse(self.ledger.is_recovery_claim_current(
+            "project-1", "operation-1", "claim-a", "worker-a", 1, now=112))
+        self.assertTrue(self.ledger.is_recovery_claim_current(
+            "project-1", "operation-1", "claim-b", "worker-b", 2, now=112))
+        self.assertFalse(self.ledger.release_recovery_review(
+            "project-1", "operation-1", "claim-a", "worker-a", 1))
 
     def test_stale_attempt_cannot_be_claimed(self):
         self.ledger.append(record(attempt_id="attempt-2", idempotency_key="idem-2",
@@ -63,9 +73,9 @@ class RecoveryClaimTests(unittest.TestCase):
     def test_release_requires_exact_claim_owner(self):
         self.claim()
         self.assertFalse(self.ledger.release_recovery_review(
-            "project-1", "operation-1", "claim-a", "worker-b"))
+            "project-1", "operation-1", "claim-a", "worker-b", 1))
         self.assertTrue(self.ledger.release_recovery_review(
-            "project-1", "operation-1", "claim-a", "worker-a"))
+            "project-1", "operation-1", "claim-a", "worker-a", 1))
         self.assertFalse(self.ledger.release_recovery_review(
             "project-1", "operation-1", "claim-a", "worker-a"))
 
