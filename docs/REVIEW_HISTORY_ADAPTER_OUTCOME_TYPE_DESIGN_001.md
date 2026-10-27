@@ -612,3 +612,107 @@ No Lean source was changed in this review. No compiler or integration tests were
 4. **Status:** Strict completeness rule and provenance separation are proposed decisions; neither source API nor tests are adopted/verified.
 5. **Recheck:** A single observed match under incomplete/unknown coverage cannot become a uniqueness claim; `NotFound` requires complete scope; assessment provenance is not imposed on generic records.
 6. **Persistence/uncertainty:** This review must be saved and read back. No Lean compilation, test execution, adapter behavior, or backend evidence is claimed.
+
+## Constructor and IT-6 proposal — review 007
+
+**Purpose:** Turn review 006's semantic boundary into a concrete, reviewable constructor proposal and map it directly to the existing five IT-6 subcases. This remains documentation only; it is not Lean source and has not been compiler-checked.
+
+### Proposed evidence vocabulary
+
+Illustrative Lean sketch:
+
+```lean
+inductive LookupCompleteness where
+  | complete
+  | incomplete
+  | unknown
+  deriving DecidableEq, Repr
+
+inductive RecordProvenance where
+  | storedOriginal
+  | reconstructed (methodVersion : String)
+  | migrated (migrationVersion sourceRef : String)
+  deriving DecidableEq, Repr
+
+structure CompleteScopeEvidence where
+  declaredScope : String
+  evidenceRef : String
+
+structure IdentityLookupEvidence (Record EventId : Type) where
+  declaredScope : String
+  completeness : LookupCompleteness
+  observedMatches : List Record
+  observedCandidateEventIds : List EventId
+  candidateSetExhaustive : Bool
+  evidenceRef : Option String
+```
+
+The `EventId` parameter is deliberately abstract. The retrieved persisted schema names a stable event ID as a logical field but does not define its Lean type or ID-generation policy. `evidenceRef` is an audit reference, not a proof of backend truth. The Boolean `candidateSetExhaustive` is meaningful only alongside the declared scope and completeness evidence; implementation should avoid allowing contradictory combinations.
+
+### Proposed identity-read outcome inventory
+
+Illustrative signature:
+
+```lean
+inductive IdentityReadOutcome
+    (Record EventId LookupEvidence CompleteEvidence Diagnostic : Type) where
+  | found (record : Record) (provenance : RecordProvenance)
+      (scopeEvidence : CompleteEvidence)
+  | notFound (scopeEvidence : CompleteEvidence)
+  | incomplete (evidence : LookupEvidence)
+  | ambiguousIdentity (candidateEventIds : List EventId)
+      (evidence : LookupEvidence)
+  | unresolved (evidence : LookupEvidence)
+  | unsupportedSchema (version : String)
+  | corrupt (diagnostic : Diagnostic)
+  | unavailable (diagnostic : Diagnostic)
+```
+
+This proposal makes the following caller obligations explicit:
+
+- `Found` and `NotFound` require the dedicated complete-scope evidence type.
+- `Incomplete` represents positive evidence that the declared scope was not fully searched, and retains any observed matches in `LookupEvidence`.
+- `AmbiguousIdentity` retains the competing IDs and lookup evidence; the evidence must mark the candidate set non-exhaustive unless the relevant scope was completely searched.
+- `Unresolved` represents an inconclusive lookup where completeness is unknown but the operation has returned enough evidence to describe that uncertainty. If the operation itself fails before usable lookup evidence exists, use `Unavailable`.
+- `UnsupportedSchema` remains distinct from `Corrupt` and `Unavailable`.
+- No constructor selects a winner by list order.
+
+### Evidence-type enforcement caveat
+
+A separate `CompleteScopeEvidence` type makes the required evidence boundary visible in the signature, but does not by itself prove that the adapter actually searched the whole scope. Lean's type alone cannot certify external backend behavior unless construction is restricted behind a trusted/verified boundary. The concrete adapter must produce this evidence according to a documented, testable rule. The exact constructor visibility and any proof-bearing representation are still open.
+
+For a smaller first milestone, a wrapper around the existing result type is possible, but it is acceptable only if callers cannot obtain `Found` or `NotFound` without complete-scope evidence and cannot confuse known-incomplete with unknown/unavailable. The proposed richer inductive type is clearer for exhaustive pattern matching but requires caller migration.
+
+### IT-6 assertion crosswalk
+
+Keep exactly six integration-test groups; these are refinements of IT-6, not a new group.
+
+| IT-6 case | Required semantic assertion | Candidate outcome |
+|---|---|---|
+| Known incomplete lookup | Preserve partial evidence; never claim full-scope absence or uniqueness | `incomplete(evidence)` |
+| Failure before completeness is known | Do not assert known incompleteness or absence; preserve operation failure/unknown status | `unavailable(diagnostic)` if evidence cannot be obtained; otherwise `unresolved(evidence)` |
+| Complete scope, zero matches | Absence is valid only with complete-scope evidence | `notFound(scopeEvidence)` |
+| Multiple competing IDs observed under partial coverage | Preserve all observed competing IDs and mark candidate set non-exhaustive | `ambiguousIdentity(ids, evidence)` |
+| One match observed under incomplete scope | Do not claim the match is unique across the declared scope; retain observed match | `incomplete(evidence)` |
+
+A separate controlled case should check complete scope plus exactly one validated match yields `found(record, provenance, scopeEvidence)`. The test must also confirm that incomplete or unknown coverage cannot produce `Found` or `NotFound`.
+
+### Alignment with inspected records
+
+- **Persisted schema:** stable event ID is listed as currently missing from the Lean model; event-ID type and generation are open. Lookup completeness is not a persisted event field, supporting its treatment as operation-level evidence.
+- **Adapter contract:** requires complete-scope evidence for confirmed absence, explicit incomplete-vs-unknown distinction, and visible ambiguity; it leaves exact constructor spelling open.
+- **Integration-test specification:** IT-6 already owns corruption, schema, unavailable storage, and the five lookup-completeness cases; no seventh test group is added.
+- **Current Lean source:** `IdentityReadOutcome Record` presently has only `found record`, bare `notFound`, `unsupportedSchema`, `corrupt`, and `unavailable`. It has no identity provenance, ambiguity, incomplete, or unresolved constructor. Ordered-history outcomes are separate and are not changed by this proposal.
+
+### Decision status and next gate
+
+Review 007 proposes the above semantic/API shape for review. It does **not** adopt the API or modify Lean declarations. Before source changes, review whether the `unresolved` versus `unavailable` distinction is sufficient for caller needs, whether complete-scope evidence should be proof-bearing or adapter-constructed, and whether provenance variants match actual storage operations. Then update the IT-6 spec wording to match the chosen API while keeping assertions semantic-first.
+
+### Six-Part Integrity Check — constructor proposal 007
+
+1. **Count:** Six integration-test groups remain; five lookup cases plus a positive unique-found case are subcases within IT-6.
+2. **Role mapping:** Evidence vocabulary; record provenance; confirmed found/absence; incomplete/ambiguous/unresolved outcomes; failure distinctions; test crosswalk.
+3. **Completeness:** Constructor boundaries are concrete enough for review; proof/trust boundary, ID type, and unknown-versus-unavailable encoding remain open.
+4. **Status:** Proposed design only; not adopted, not implemented, not compiled, and tests not executed.
+5. **Recheck:** `Found` and `NotFound` both require complete-scope evidence; partial single match is incomplete; partial competing IDs remain ambiguous; unknown is not absence.
+6. **Persistence/uncertainty:** Save and read back this proposal before reporting it persisted. No source file is changed in this review.
