@@ -12,7 +12,8 @@ concurrency:
 
 jobs:
   stale-publisher-cas:
-    # Run manually from the trusted default branch after this workflow is reviewed.
+    # This write-capable test is deliberately restricted to the trusted default branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
