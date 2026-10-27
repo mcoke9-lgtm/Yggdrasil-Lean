@@ -68,7 +68,7 @@ class AlternativeWorkTests(unittest.TestCase):
         bad = evaluate_work(request(retry_requested=True, retry_material_change=False,
                                     search_scope_exhausted=True))
         spent = evaluate_work(request(retry_requested=True, retry_material_change=True,
-                                      prior_retry_count=1))
+                                      prior_retry_count=1, search_scope_exhausted=True))
         self.assertEqual(good.outcome, "RETRY_JUSTIFIED")
         self.assertEqual(bad.outcome, "STOP_NO_ALTERNATIVE")
         self.assertEqual(spent.outcome, "STOP_NO_ALTERNATIVE")
