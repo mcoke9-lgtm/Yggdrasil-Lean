@@ -240,6 +240,6 @@ theorem failed_record_validation_rejects_candidate
     (h : classifyIdentityRead evidence =
       .completeCandidates evidence) :
     gateIdentityRead true false evidence = .invalidRecord evidence := by
-  simp [gateIdentityRead, h, evidence]
+  simp [gateIdentityRead, h]
 
 end YggdrasilLean
