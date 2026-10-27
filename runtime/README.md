@@ -146,3 +146,10 @@ This demonstrates the contract a real target must implement, not a remote integr
 `adaptive_filesystem_runtime.evidence_provenance.decide_recovery_with_provenance` layers provenance checks over the existing recovery decision without claiming to verify evidence by itself. It distinguishes absent, caller-asserted, verified, and invalid evidence; requires a verifier identity and separate verification-record reference for verified evidence; and requires the verified outcome reference to match the exact outcome reference in the recovery facts. A caller assertion alone cannot confirm completion. Invalid or inconsistent provenance fails closed.
 
 The verifier identity and verification-record reference are still supplied inputs. This module does **not** authenticate the verifier, retrieve the referenced evidence, validate the authority of the source, or cryptographically prove integrity. A production adapter must perform those checks against an authoritative source and record the result durably. Tests exercise policy behavior only; no external evidence source is contacted.
+
+
+## Authoritative evidence adapter boundary (AF-RECOVERY-011 contract)
+
+`adaptive_filesystem_runtime.evidence_adapter` defines a replaceable protocol for checking a requested evidence reference and claim, plus a result validator that rejects mismatched references/claims and incomplete `VERIFIED` metadata. Outcomes are explicit: `VERIFIED`, `INVALID`, or `UNAVAILABLE`; unavailable is not success. The accompanying fake-adapter tests exercise the contract without network access.
+
+This is an interface and consistency guard, **not a live authoritative-source integration**. The validator cannot authenticate an adapter or verifier, establish source authority, fetch evidence, or prove cryptographic integrity. A production implementation must independently authorize and query the source, validate its response, and durably record the verification. No external evidence is contacted by these tests.
