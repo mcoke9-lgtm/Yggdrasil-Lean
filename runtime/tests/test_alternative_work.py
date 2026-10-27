@@ -64,14 +64,30 @@ class AlternativeWorkTests(unittest.TestCase):
         self.assertFalse(result.candidate_assessments[0].eligible)
 
     def test_retry_requires_material_change_and_budget(self):
-        good = evaluate_work(request(retry_requested=True, retry_material_change=True))
+        good = evaluate_work(request(retry_requested=True, retry_material_change=True,
+                                     operation_fingerprint="op-new",
+                                     prior_operation_fingerprints=("op-old",)))
         bad = evaluate_work(request(retry_requested=True, retry_material_change=False,
                                     search_scope_exhausted=True))
         spent = evaluate_work(request(retry_requested=True, retry_material_change=True,
+                                      operation_fingerprint="op-new",
+                                      prior_operation_fingerprints=("op-old",),
                                       prior_retry_count=1, search_scope_exhausted=True))
         self.assertEqual(good.outcome, "RETRY_JUSTIFIED")
         self.assertEqual(bad.outcome, "STOP_NO_ALTERNATIVE")
         self.assertEqual(spent.outcome, "STOP_NO_ALTERNATIVE")
+
+    def test_retry_fails_closed_without_new_operation_fingerprint(self):
+        result = evaluate_work(request(retry_requested=True, retry_material_change=True))
+        self.assertEqual(result.outcome, "UNRESOLVED")
+
+    def test_retry_rejects_repeated_operation_fingerprint(self):
+        result = evaluate_work(request(
+            retry_requested=True, retry_material_change=True,
+            operation_fingerprint="same-operation",
+            prior_operation_fingerprints=("same-operation",),
+        ))
+        self.assertEqual(result.outcome, "UNRESOLVED")
 
     def test_wait_only_when_dependency_wait_is_productive(self):
         waiting = candidate("wait", feasible=False, waiting_on_dependency=True, dependency_id="dep-42")

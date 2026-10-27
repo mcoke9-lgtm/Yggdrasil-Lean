@@ -53,6 +53,8 @@ class WorkRequest:
     prior_retry_count: int = 0
     retry_budget: int = 1
     dependency_wait_is_productive: bool = False
+    operation_fingerprint: str | None = None
+    prior_operation_fingerprints: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -126,6 +128,15 @@ def _valid(request: WorkRequest) -> str | None:
         value = getattr(request, name)
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             return f"{name} must be a non-negative integer"
+    if request.operation_fingerprint is not None and (
+            not isinstance(request.operation_fingerprint, str)
+            or not request.operation_fingerprint.strip()):
+        return "operation_fingerprint must be non-empty text or None"
+    if not isinstance(request.prior_operation_fingerprints, (tuple, list)):
+        return "prior_operation_fingerprints must be a tuple or list"
+    if any(not isinstance(item, str) or not item.strip()
+           for item in request.prior_operation_fingerprints):
+        return "prior_operation_fingerprints must contain non-empty text values"
     if not isinstance(request.candidates, (tuple, list)):
         return "candidates must be a tuple or list"
     if any(not isinstance(candidate, Candidate) for candidate in request.candidates):
@@ -172,11 +183,17 @@ def evaluate_work(request: WorkRequest) -> WorkDecision:
         )
 
     if request.retry_requested:
-        if request.prior_retry_count < request.retry_budget and request.retry_material_change:
+        fingerprint_is_new = (
+            request.operation_fingerprint is not None
+            and request.operation_fingerprint not in request.prior_operation_fingerprints
+        )
+        if (request.prior_retry_count < request.retry_budget
+                and request.retry_material_change and fingerprint_is_new):
             return WorkDecision(
                 request.request_id, request.active_branch, request.checkpoint_id,
                 "passed", "RETRY_JUSTIFIED", "not_attempted", "not_persisted",
-                (), (), (), ("retry_has_material_change", "retry_budget_available"),
+                (), (), (), ("retry_has_material_change", "retry_budget_available",
+                             "operation_fingerprint_is_new"),
                 "A single materially changed retry is justified; execute it separately and verify its result.",
             )
 
