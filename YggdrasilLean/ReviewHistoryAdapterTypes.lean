@@ -19,13 +19,56 @@ inductive AppendOutcome (Receipt : Type) where
   | corrupt
   | commitUnknown
 
-/-- Results when reading one event by identity. -/
-inductive IdentityReadOutcome (Record : Type) where
-  | found (record : Record)
-  | notFound
-  | unsupportedSchema
-  | corrupt
-  | unavailable
+/-- Coverage status for a declared identity-lookup scope. -/
+inductive LookupCompleteness where
+  | complete
+  | incomplete
+  | unknown
+  deriving DecidableEq, Repr
+
+/-- How an identity lookup stopped, including failure after useful observations. -/
+inductive LookupTermination where
+  | completed
+  | stoppedEarly
+  | failedAfterObservations
+  deriving DecidableEq, Repr
+
+/-- Provenance claimed for a record returned by an identity read. -/
+inductive RecordProvenance where
+  | storedOriginal
+  | reconstructed (methodVersion : String)
+  | migrated (migrationVersion : String) (sourceRef : String)
+  deriving DecidableEq, Repr
+
+/--
+Observed lookup evidence, not a proof that the backend was exhaustive.
+Candidate IDs are the distinct IDs actually observed; they are exhaustive only
+when completeness is complete and the adapter's trusted boundary warrants that claim.
+-/
+structure IdentityLookupEvidence (EventId : Type) where
+  declaredScope : String
+  completeness : LookupCompleteness
+  termination : LookupTermination
+  observedCandidateEventIds : List EventId
+
+/--
+Results when reading one event by identity.
+CompleteEvidence is an adapter-issued marker; the type alone does not prove backend
+completeness. A checked adapter boundary must control its construction.
+-/
+inductive IdentityReadOutcome
+    (Record EventId CompleteEvidence Diagnostic : Type) where
+  | found (record : Record) (provenance : RecordProvenance)
+      (evidence : CompleteEvidence)
+  | notFound (evidence : CompleteEvidence)
+  | incomplete (evidence : IdentityLookupEvidence EventId)
+  | unresolved (evidence : IdentityLookupEvidence EventId)
+  | ambiguousIdentity (diagnostic : Diagnostic)
+      (evidence : IdentityLookupEvidence EventId)
+  | unsupportedSchema (version : String)
+  | corrupt (diagnostic : Diagnostic)
+  | unavailable (diagnostic : Diagnostic)
+      (observations : Option (IdentityLookupEvidence EventId))
 
 /-- Results of reading an ordered history page. -/
 inductive OrderedHistoryOutcome (Record Cursor : Type) where
