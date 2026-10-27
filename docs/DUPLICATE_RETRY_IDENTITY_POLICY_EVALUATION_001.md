@@ -75,3 +75,10 @@ GitHub Actions Lean build run #87 passed for commit `e4c94d09047f20c05a53d7f7fea
 https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40431998467
 
 **Status boundary:** the pure reference-model behavior is implemented and build-verified. This does not adopt the identity policy across the project or update the durable adapter contract/result vocabulary. The adapter's result mapping, schema evolution, duplicate-history verification, and storage-backed integration tests remain open. The model only examines the supplied history list and cannot prove global uniqueness or atomic backend enforcement.
+
+## Adapter-outcome mapping evaluation (2026-10-27)
+
+The adapter contract now proposes a distinct `AmbiguousIdentity` append outcome for multiple matching retry records that point to different event IDs. This avoids collapsing an inconsistent canonical identity into either caller `Conflict` or generic `Corrupt`. The pure Lean adapter vocabulary adds `ambiguousIdentity` to `AppendOutcome` and `ReconcileOutcome`; the reference classifier continues to use `AppendIdentityDecision.ambiguousHistory`.
+
+This is a proposed contract/model alignment, not project-wide adoption and not an implemented adapter. The result still requires diagnostic evidence, policy for repair/reconciliation, and integration tests. Ordered-history reads continue to use `gapOrConflict` for history inconsistency; whether that constructor needs structured reason detail remains open.
+
