@@ -90,3 +90,28 @@ Add these cases to the existing IT-6 identity-read scenarios. The current IT-6 l
 4. **Status:** classifier and defensive policy gate implemented as a reference model; gate theorem checks added; prior CI passed, later wording edits need a fresh CI check; trusted adapter enforcement not implemented.
 5. **Recheck:** ambiguity has priority over later failure; complete candidate classification is explicitly not equivalent to trusted completeness; list order cannot select a winner.
 6. **Persistence:** reference implementation, tests, and design record are on the PR branch. Remaining work: build a concrete adapter and validate whether its API can keep attestation under controlled construction.
+
+
+## Concrete adapter implementation gate
+
+No persistence backend or concrete identity-read adapter is currently selected in the parent adapter contract. Therefore the next implementation step is an adapter contract, not a fabricated storage implementation.
+
+Before an adapter may map the reference model to public `found` or `notFound` outcomes, it must provide a reviewable implementation for each item:
+
+1. **Declared scope:** exact project/branch/identity predicates and the uniqueness scope guaranteed by the backend.
+2. **Completion semantics:** how the adapter knows pagination/query execution completed; what timeouts, early stops, permissions, replica lag, or partial responses mean.
+3. **Candidate preservation:** retain every observed candidate and its event ID; never pick a winner by list order.
+4. **Record validation:** validate schema version, requested identity fields, required references, and integrity checks before returning a record.
+5. **Controlled mapping:** keep the mapping from backend result to `IdentityReadOutcome` inside the adapter implementation. Do not expose caller-supplied Boolean attestation flags as an authorization API.
+6. **Failure separation:** map partial/unknown coverage to incomplete or unresolved; backend failure to unavailable; unsupported schema and corruption to their distinct outcomes.
+7. **Evidence:** retain enough query-scope, pagination, and validation diagnostics to explain why the adapter considered a result complete. Do not call that evidence cryptographic proof unless a separately reviewed integrity design supports the claim.
+
+The adapter must explicitly document its trusted computing base. Lean can prove that a mapping function obeys its stated logic, but it cannot prove that a remote database actually returned every matching record merely because a response says “complete.” That assurance depends on backend guarantees and the adapter implementation.
+
+### Implementation decision status
+
+- Backend choice: **unresolved**; do not assume SQLite, filesystem, HTTP service, or another backend.
+- Adapter interface: **proposed requirements above**, not an implemented adapter.
+- Reference classifier/gate: **implemented and previously build-verified**; latest wording edits have not yet had a confirmed CI run.
+- Production mapping to public outcomes: **not implemented**.
+- Backend integration tests IT-1 through IT-6: **specified, not executed**.
