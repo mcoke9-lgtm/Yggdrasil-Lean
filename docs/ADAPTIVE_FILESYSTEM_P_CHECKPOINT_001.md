@@ -29,17 +29,20 @@ The work developed from review-history resolution and parent-graph auditing into
 
 ## 4. Current state
 
-**Implemented in the branch; final verification for the structured-manifest change is pending at the time of this checkpoint.** Do not report the latest change as CI-verified until the current commit's resolver tests and Lean build are confirmed.
+**Implemented and CI-verified** on commit `724a5420aa92fbee678ae4ddabbf31dbbf8a3fcf`.
+
+- Resolver tests: [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493008567).
+- Lean build: [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493008614).
 
 The read-only Airtable pilot was not mutated. The most recent observed source read returned 10 records, reported total 10, and no next-page cursor. The graph projection had 10 vertices and 8 edges and reported no cycle.
 
 ## 5. Plan
 
-1. Run resolver tests and Lean build on the latest branch commit; fix failures before advancing.
-2. Add/confirm a focused test that rejects absent or malformed source evidence and validates that gate rejection precedes analysis.
-3. Design a trusted source-adapter boundary that constructs the evidence manifest from actual connector results and binds the exact source scope, pagination state, record count, and canonical source projection digest.
-4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
-5. Re-audit gate bypass paths and update this checkpoint with exact commit and CI results.
+1. **Next:** design a trusted source-adapter boundary that constructs the evidence manifest from actual connector results and binds the exact source scope, pagination state, record count, and canonical source projection digest.
+2. Add a live-or-recorded provenance test proving the manifest was emitted by the adapter, not assembled by an arbitrary caller.
+3. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
+4. Re-audit gate bypass paths and update this checkpoint with exact commit and CI results.
+5. Investigate whether source identity and digest can be independently verified against connector-returned data at the boundary.
 6. Only then consider production wiring; do not equate the reference model with production enforcement.
 
 ## 6. Integrity and persistence
