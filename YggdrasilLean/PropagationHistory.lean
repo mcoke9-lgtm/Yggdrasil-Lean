@@ -321,22 +321,16 @@ theorem reconstructHistoryEntryReview_agrees
       reconstructTransitionReview entry.transition routes := by
   rfl
 
-/-- The stored assessment is retained as historical evidence, distinct from recomputation. -/
-theorem historyEntry_keepsOriginalAssessment
-    (entry : PropagationHistoryEntry) :
-    entry.assessment = entry.assessment := by
-  rfl
-
 /-- Recompute a review using a supplied route configuration without mutating history. -/
 def recomputeHistoryEntryReview
     (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
     TransitionReviewEntry :=
   reconstructTransitionReview entry.transition routes
 
-/-- Recomputing under new routes leaves the stored assessment field untouched. -/
-theorem recomputeHistoryEntryReview_preservesStoredAssessment
+/-- Recomputed review retains the transition from the history entry. -/
+theorem recomputeHistoryEntryReview_retainsTransition
     (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
-    entry.assessment = entry.assessment := by
+    (recomputeHistoryEntryReview entry routes).transition = entry.transition := by
   rfl
 
 /-- Recomputed review uses the requested routes, not the stored assessment's decisions. -/
@@ -389,12 +383,6 @@ theorem historicalAssessment_decisionOrder
     (change : ChangeSet) (routes : List DependencyRoute) :
     (recordPropagationAssessment change routes).decisions =
       routes.map (assessRoute change) := by
-  rfl
-
-/-- Reassessment with another route configuration does not rewrite the historical route list. -/
-theorem recomputation_preservesHistoricalRoutes
-    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
-    entry.assessment.routes = entry.assessment.routes := by
   rfl
 
 
