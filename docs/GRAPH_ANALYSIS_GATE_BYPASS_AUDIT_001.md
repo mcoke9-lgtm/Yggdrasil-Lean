@@ -26,7 +26,7 @@
 
 The Airtable connector was queried read-only against base `appaUa8VbUJZmzmxe`, table `tblvy8J5UC6Y6SylE` (`Records`). The connector returned 10 records, reported `totalRecordCount=10`, and returned no `nextCursor`. No Airtable create/update/delete operations were called.
 
-The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in `reference-model/pilot-snapshot.mjs`. The integration-style test computes a SHA-256 digest over that canonical projection, builds and serializes a certificate, checks source-read identity and digest fields, verifies 10 vertices and 9 parent edges, and calls the gated consumer with an explicit completeness attestation. Expected result: accepted artifact and `NO_CYCLE`.
+The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in `reference-model/pilot-snapshot.mjs`. The integration-style test computes a SHA-256 digest over that canonical projection, builds and serializes a certificate, checks source-read identity and digest fields, verifies 10 vertices and 8 parent edges, and calls the gated consumer with an explicit completeness attestation. Expected result: accepted artifact and `NO_CYCLE`.
 
 **Digest scope limitation:** the test digest covers only the graph-relevant projection, not all Airtable fields or the entire source response. The source-read ID is a descriptive identifier, not an authenticated connector receipt. The completeness flag is an explicit test attestation based on the observed record count and absent pagination cursor; it is not cryptographic proof of exhaustiveness.
 
