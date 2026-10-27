@@ -69,4 +69,30 @@ theorem completed_complete_reaches_candidate_set :
       .completeCandidates (evidence .complete .completed [7]) := by
   simp [classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
 
+
+/-- Full classification is ambiguous for the same competing IDs in either order. -/
+theorem classification_order_forward :
+    classifyIdentityRead (evidence .unknown .completed [7, 9]) =
+      .ambiguous (evidence .unknown .completed [7, 9]) := by
+  apply distinct_ids_override_failed_termination
+  decide
+
+theorem classification_order_reversed :
+    classifyIdentityRead (evidence .unknown .completed [9, 7]) =
+      .ambiguous (evidence .unknown .completed [9, 7]) := by
+  apply distinct_ids_override_failed_termination
+  decide
+
+/-- Empty observations can be complete candidates, but not public not-found. -/
+theorem empty_complete_lookup_is_candidate_set :
+    classifyIdentityRead (evidence .complete .completed []) =
+      .completeCandidates (evidence .complete .completed []) := by
+  simp [classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
+
+/-- Repeated copies of one ID still produce a single-candidate classification. -/
+theorem repeated_id_complete_lookup_is_candidate_set :
+    classifyIdentityRead (evidence .complete .completed [7, 7, 7]) =
+      .completeCandidates (evidence .complete .completed [7, 7, 7]) := by
+  simp [classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
+
 end YggdrasilLean
