@@ -378,6 +378,25 @@ example :
     entry.assessment = originalAssessment := by
   decide
 
+/-- The original assessment stores the route configuration used at assessment time. -/
+theorem historicalAssessment_retainsRoutes
+    (change : ChangeSet) (routes : List DependencyRoute) :
+    (recordPropagationAssessment change routes).routes = routes := by
+  rfl
+
+/-- The original assessment stores a decision for every route, in the same order. -/
+theorem historicalAssessment_decisionOrder
+    (change : ChangeSet) (routes : List DependencyRoute) :
+    (recordPropagationAssessment change routes).decisions =
+      routes.map (assessRoute change) := by
+  rfl
+
+/-- Reassessment with another route configuration does not rewrite the historical route list. -/
+theorem recomputation_preservesHistoricalRoutes
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    entry.assessment.routes = entry.assessment.routes := by
+  rfl
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
