@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
-import { buildGraphInputCertificate, serializeGraphInputCertificate } from "./graph-input-certificate.mjs";
+import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact } from "./graph-input-certificate.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -319,4 +319,55 @@ test("graph digest changes when source identity mapping changes", () => {
   ], options);
   assert.notEqual(original.graphDigest, renamed.graphDigest);
   assert.notDeepEqual(original.vertices, renamed.vertices);
+});
+
+test("handoff verifier accepts intact artifact and rejects altered mapping, edges, or digest", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "read-verify-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.deepEqual(verifySerializedGraphInputArtifact(serialized), {
+    valid: true,
+    code: "VERIFIED_GRAPH_PAYLOAD",
+    sourceCompletenessVerified: true,
+    certificateReady: true,
+  });
+
+  const mutate = (fn) => {
+    const artifact = JSON.parse(serialized);
+    fn(artifact);
+    return JSON.stringify(artifact);
+  };
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.sourceVertexBindings[0].vertexId = 7; })).code,
+    "GRAPH_MAPPING_MISMATCH",
+  );
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphInput.edges = [[1, 2]]; })).code,
+    "GRAPH_DIGEST_MISMATCH",
+  );
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphDigest = "0".repeat(64); })).code,
+    "GRAPH_DIGEST_MISMATCH",
+  );
+  assert.equal(verifySerializedGraphInputArtifact("{").code, "INVALID_JSON");
+});
+
+test("handoff verifier keeps source completeness separate from graph digest validity", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-incomplete-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: false,
+  });
+  const result = verifySerializedGraphInputArtifact(serializeGraphInputCertificate(certificate));
+  assert.equal(result.valid, true);
+  assert.equal(result.sourceCompletenessVerified, false);
+  assert.equal(result.certificateReady, false);
 });
