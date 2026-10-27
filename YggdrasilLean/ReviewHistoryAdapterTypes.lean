@@ -13,6 +13,7 @@ namespace YggdrasilLean
 inductive AppendOutcome (Receipt : Type) where
   | committed (receipt : Receipt)
   | alreadyCommitted (receipt : Receipt)
+  | ambiguousIdentity
   | conflict
   | unavailable
   | corrupt
@@ -39,6 +40,7 @@ inductive ReconcileOutcome (Receipt : Type) where
   | committed (receipt : Receipt)
   | notCommitted
   | stillUnknown
+  | ambiguousIdentity
   | conflict
   | corrupt
   | unavailable
