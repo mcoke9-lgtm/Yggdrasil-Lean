@@ -72,6 +72,34 @@ def graphMatchesSource (records : List SourceParentRecord)
   graph.vertices = mappedVertices mapping ∧
   graph.edges = mappedParentEdges records mapping
 
+
+/-- Versioned structural shape emitted by the JavaScript handoff serializer. -/
+structure GraphInputHandoff where
+  schemaVersion : String
+  sourceReadId : Option String
+  sourceDigest : Option String
+  graphDigest : String
+  sourceVertexBindings : List SourceVertexBinding
+  graphInput : ParentGraphInput
+  sourceCompletenessVerified : Bool
+  deriving DecidableEq, Repr
+
+/-- The handoff carries the exact source mapping and numeric graph under the shared schema name. -/
+def handoffMatchesSource (records : List SourceParentRecord)
+    (mapping : List SourceVertexBinding) (handoff : GraphInputHandoff) : Prop :=
+  handoff.schemaVersion = "yggdrasil-parent-graph-v1" ∧
+  handoff.sourceVertexBindings = mapping ∧
+  graphMatchesSource records mapping handoff.graphInput
+
+/-- Structural handoff matching does not, by itself, prove source completeness or digest validity. -/
+theorem handoff_binding_preserves_graph_identity
+    (records : List SourceParentRecord) (mapping : List SourceVertexBinding)
+    (handoff : GraphInputHandoff)
+    (h : handoffMatchesSource records mapping handoff) :
+    handoff.graphInput.vertices = mappedVertices mapping ∧
+    handoff.graphInput.edges = mappedParentEdges records mapping := by
+  exact ⟨h.2.2.1, h.2.2.2⟩
+
 /-- Source completeness is intentionally an explicit premise, not inferred from graph shape. -/
 structure GraphInputEvidence (records : List SourceParentRecord)
     (mapping : List SourceVertexBinding) (graph : ParentGraphInput) : Prop where
