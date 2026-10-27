@@ -9,16 +9,15 @@ two implementations are equivalent for arbitrary inputs.
 
 JavaScript behavior observed in reference-model/review-history-resolver.mjs:
 * returns CYCLE as soon as it detects a cycle in the usable recordId -> parentRecordId map;
-* otherwise returns INDETERMINATE when malformed/duplicate record identities or malformed
-  parent references were observed;
+* otherwise returns INDETERMINATE when malformed/duplicate record identities, malformed
+  parent references, or unresolved non-empty parent references were observed;
 * otherwise returns NO_CYCLE.
 
 Important scope gaps: the JavaScript scan skips malformed IDs, treats duplicate IDs as
-indeterminate but continues scanning, and stops a path when a referenced parent is absent.
-Therefore a detected cycle can take precedence over unrelated malformed records, and a missing
-parent reference is not itself enough to make analyzeParentGraph indeterminate. The Lean edge
-list must be built from the same usable identities and parent links before any comparison.
-Completeness of that edge list is a separate obligation.
+indeterminate but continues scanning, and marks an unresolved non-empty parent reference
+indeterminate. A detected cycle can take precedence over unrelated malformed records or
+unresolved parent references. The Lean edge list must be built from the same usable identities
+and parent links before any comparison. Completeness of that edge list is a separate obligation.
 -/
 
 namespace YggdrasilLean
