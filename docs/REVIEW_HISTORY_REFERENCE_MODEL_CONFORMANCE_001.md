@@ -84,3 +84,34 @@ The current model is sufficient to serve as a small pure reference for decision 
 The pure reference classifier now returns `ambiguousHistory` when matching retry records identify different event IDs. The backend-neutral adapter outcome vocabulary adds `ambiguousIdentity` to append and reconciliation results. The proposed adapter contract now describes this as distinct from caller conflict and independently established corruption, and the integration-test specification adds corresponding cases under IT-3.
 
 This closes part of the earlier outcome-vocabulary gap for this specific identity ambiguity. It does not complete the general operational metadata mapping described in G4: receipts, retryability, page completeness/snapshot state, structured diagnostics, and provenance still need explicit type-level treatment. The integration scenarios remain specified, not executed; no durable adapter exists.
+
+
+## Outcome-model mapping review 001 — proposed, not adopted
+
+This review maps the current pure Lean result vocabulary to the adapter contract. It is a design review only: it does not change the Lean types or establish backend behavior.
+
+| # | Concern | Current Lean representation | Contract-level requirement | Gap / bounded next step |
+|---|---|---|---|---|
+| 1 | Commit receipt and uncertain write | `AppendOutcome Receipt` carries a receipt for committed/already-committed; `commitUnknown` has no handle | Receipt identifies event and position; uncertain commit has a reconciliation handle | Receipt meaning and reconciliation-handle type are absent from the model. Specify a minimal receipt record and opaque handle before selecting fields. |
+| 2 | Retryability and failure diagnostics | `unavailable`, `corrupt`, and `conflict` carry no details | Unavailability states retryability only when known; conflict/corruption preserve actionable reasons without secrets | Replace bare constructors only after defining a small, backend-neutral diagnostic vocabulary and an explicit unknown-retryability value. Do not infer retryability from error class alone. |
+| 3 | Ordered-page completeness and cursor consistency | `page records nextCursor`, `empty`, `gapOrConflict` | Pages state completeness/gaps; cursor behavior says whether pages share a consistent snapshot | No completeness field or snapshot consistency marker exists. Specify complete/incomplete/unknown and snapshot-bound/non-snapshot/unknown semantics before changing the page result. |
+| 4 | Read and assessment provenance | `IdentityReadOutcome.found record` | Distinguish exact stored assessment, reconstruction, and new reassessment; expose missing evidence | Provenance is not represented. Define provenance separately from record content; never label a reconstruction as the original. |
+| 5 | Structured validation and schema outcomes | `unsupportedSchema`, `corrupt`, `VerificationOutcome` constructors | Report schema version/details and which checks ran; incomplete evidence is not valid | Current constructors omit details and verification scope. Specify structured findings and checked-scope metadata; digest verification remains deferred until encoding/threat model are adopted. |
+| 6 | Identity ambiguity and reconciliation | `ambiguousIdentity` exists for append/reconcile; ordered history still has generic `gapOrConflict` | Competing matching event identities are explicit; history reads and reconciliation preserve evidence and do not choose by order | Append/reconcile distinction is represented, but structured candidate evidence and ordered-history reason detail remain open. Keep the current ambiguity policy proposed, not project-wide adopted. |
+
+### Proposed design constraints
+
+- Keep outcome categories distinct: conflict, ambiguous identity, corruption/invalidity, incompleteness, unsupported schema, unavailable service, and uncertain commit are not interchangeable.
+- Treat diagnostic fields as evidence, not as a replacement for the primary outcome.
+- Use explicit unknown/unspecified states where the adapter cannot prove retryability, completeness, snapshot consistency, or provenance.
+- Avoid expanding the pure reference model into a pretend storage adapter. Storage atomicity, durability, uniqueness, and restart behavior require actual backend tests.
+- Before implementation, review a candidate type design against the adapter contract and all six integration-test groups; keep backend-specific details behind the adapter boundary.
+
+### Six-Part Integrity Check
+
+1. **Count:** Exactly six concern rows.
+2. **Role mapping:** commit evidence; retry/failure diagnostics; page completeness; provenance; validation/schema evidence; identity ambiguity.
+3. **Completeness:** Covers the operational metadata gaps named in G4 and the recent ambiguity work. Identifier policy, logical payload equality, sequence/concurrency, fork placement, canonical encoding, and lifecycle policy remain separate open decisions.
+4. **Status:** Proposed design review only; no outcome types changed and no policy adopted by this record.
+5. **Recheck:** Each row distinguishes current Lean constructors from contract requirements and names a bounded next step.
+6. **Persistence/uncertainty:** This review is saved in the repository; it does not prove an adapter exists, nor that any backend behavior or integration test has passed.
