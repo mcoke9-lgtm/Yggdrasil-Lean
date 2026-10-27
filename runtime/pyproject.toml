@@ -9,6 +9,9 @@ description = "Reference resolver for Adaptive Filesystem review history"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.scripts]
+af-runtime = "adaptive_filesystem_runtime.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "."}
 
