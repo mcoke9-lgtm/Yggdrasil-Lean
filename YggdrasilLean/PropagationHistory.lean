@@ -159,7 +159,8 @@ theorem completeTransitionReview_usesTransitionIdentity
 
 /-- Content review is needed when at least one dependency route is selected. -/
 def contentReviewRequired (review : PropagationAssessment) : Bool :=
-  review.decisions.any fun decision => decision.selectedForReview
+  !review.change.changedFields.isEmpty ||
+    review.decisions.any fun decision => decision.selectedForReview
 
 /-- The unified review requires attention if identity review or content review is flagged. -/
 def completeTransitionReviewRequired (review : TransitionReviewEntry) : Bool :=
@@ -175,6 +176,24 @@ theorem unchangedTransition_noReviewRequired
     contentReviewRequired, assessCompleteTransition, assessIdentityBranchTransition,
     assessIdentityBranchTransition, assessIdentityBranchTransition, deriveChangeSet,
     recordPropagationAssessment, changedWatchedFields, assessRoute, routeAffected]
+
+/-- A tracked content change is flagged even if no declared route watches that field. -/
+example :
+    contentReviewRequired
+      (assessCompleteTransition
+        ⟨identityReviewExampleState,
+          { identityReviewExampleState with dependencies := ["new-dependency"] }⟩
+        exampleRoutes).propagation = true := by
+  decide
+
+/-- An identity-only change triggers the aggregate review flag even without content changes. -/
+example :
+    completeTransitionReviewRequired
+      (assessCompleteTransition
+        ⟨identityReviewExampleState,
+          { identityReviewExampleState with projectId := "project-B" }⟩
+        []) = true := by
+  decide
 
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
