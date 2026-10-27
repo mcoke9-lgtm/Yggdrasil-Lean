@@ -243,3 +243,28 @@ The contract should ultimately choose between a distinct incomplete-read outcome
 A known incomplete result must carry lookup-scope/completeness evidence and may preserve observed matching records as partial evidence. It must not imply absence or uniqueness across the requested scope. If multiple competing event IDs have been observed, preserve AmbiguousIdentity and mark the candidate set non-exhaustive unless completeness is established. If the operation fails before completeness can be assessed, return unavailable/unknown rather than asserting known incompleteness.
 
 The final API may encode this as a distinct Incomplete result or an equivalent mandatory tagged field that callers must exhaustively handle. The contract should reject an optional-only flag that callers can omit or ignore. Exact constructor names and fields remain open; no Lean or backend behavior is implied.
+
+
+## 14. Cross-operation outcome consistency — review 002
+
+**Status: proposed contract reconciliation; not adopted.** Outcome semantics remain operation-specific even where labels overlap.
+
+- **Append:** distinguish confirmed commit, confirmed idempotent replay, conflict, competing identity, unavailable operation, corrupt data, and commit outcome unknown. A receipt identifies the committed event and assigned position.
+- **Reconciliation:** distinguish committed, authoritatively not committed, still unknown, competing identity, conflict, corruption, and unavailability. Do not return not-committed unless authoritative evidence also supports a duplicate-safe retry.
+- **Identity read:** distinguish validated found, confirmed absence in a complete declared scope, known incomplete lookup, competing identities, unsupported schema, corruption, and unavailable/unknown lookup. Known incomplete must be exhaustively distinguishable from unavailable/unknown; optional diagnostic text alone is insufficient.
+- **Ordered history read:** expose traversal completeness separately from snapshot consistency. A complete traversal is not automatically a consistent point-in-time snapshot; a snapshot-bound read is not automatically complete if traversal failed.
+- **Assessment retrieval:** identify whether the result is the exact stored assessment, a reconstruction from stored inputs, or a new reassessment. Do not pass off a reconstruction as the original.
+- **Verification:** distinguish valid, invalid, incomplete, unsupported-schema, and unavailable results. Partial verification cannot support a valid result.
+
+These distinctions cross-check the outcome-design inventory and IT-1 through IT-6 test responsibilities. IT-6 remains the group for corruption/schema/unavailability and identity-read completeness distinctions; this review adds no test group.
+
+**Proposed, not adopted:** preserve operation-specific obligations and require evidence for claims of absence, uniqueness, commit status, history completeness, snapshot consistency, and assessment provenance. The identity-read API should force callers to handle known incomplete lookup separately from unavailable/unknown. The precise Lean encoding (dedicated `Incomplete` constructor versus mandatory tagged completeness metadata) remains open pending review of caller obligations, this contract, and IT-6 assertions. No constructor signature or backend implementation is implied.
+
+### Six-Part Integrity Check — contract reconciliation 002
+
+1. **Count:** Six integration-test groups remain.
+2. **Role mapping:** IT-1 retry; IT-2 concurrency; IT-3 identity/key reuse; IT-4 ordered recovery; IT-5 fork lineage; IT-6 schema/corruption/unavailability and identity-read distinctions.
+3. **Completeness:** Append, reconciliation, identity read, history read, assessment provenance, and verification are cross-checked.
+4. **Status:** Contract reconciliation proposed; API and backend choices remain open.
+5. **Recheck:** Read completeness differs from service availability; commit uncertainty differs from incomplete lookup; traversal completeness differs from snapshot consistency.
+6. **Persistence/uncertainty:** Documentation only; no Lean declarations or tests changed or executed.
