@@ -121,4 +121,4 @@ Before changing Lean declarations, reconcile diagnostics, observed candidate IDs
 3. **Completeness:** Covers arbitrary-winner prevention and complete-scope absence. Evidence representation and incomplete-read constructor remain open.
 4. **Status:** Semantic invariant adopted in this decision record; exact constructor/API shape not adopted; implementation and tests not verified.
 5. **Recheck:** Consistent with the proposed contract and outcome design; no conflict with the persisted-record schema because lookup completeness remains adapter read evidence, not a persisted event field.
-6. **Persistence/uncertainty:** Saved in this repository document; readback required. No Lean or backend behavior is implied by the documentation decision.
+6. **Persistence/uncertainty:** Saved and read back at commit `55e51e92fabd073bb8200948b8a449e7895cf962`. No Lean or backend behavior is implied by the documentation decision.
