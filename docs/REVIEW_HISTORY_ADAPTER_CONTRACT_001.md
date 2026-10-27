@@ -202,3 +202,10 @@ These choices require evidence and review before implementation. Do not choose a
 ## 10. Next step
 
 Review this interface contract against the current Lean model and persisted-record schema. Resolve semantic ambiguities before writing an adapter API or selecting storage. Then implement one narrow adapter and run the six acceptance checks against its actual target storage, including a fresh-process restart.
+
+
+## 11. Duplicate retry identity outcome clarification
+
+When more than one stored record matches a retry identity and equivalent logical payload but the records have different event IDs, return `AmbiguousIdentity`. Do not select a canonical event by list order. Reconciliation must preserve the same distinction if lookup by key or event ID discovers competing candidates.
+
+This outcome describes unresolved history identity, not an ordinary caller conflict or generic service unavailability. The required-outcome summary must distinguish this condition from a key/ID/ordering conflict and from corruption established by independent validation. This clarification remains part of the proposed contract; project-wide adoption and storage-backed behavior are not established.
