@@ -1,5 +1,8 @@
 import io
 import json
+import shutil
+import subprocess
+import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
@@ -56,6 +59,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(output, "")
         self.assertEqual(json.loads(error)["error"], "ValueError")
         self.assertNotIn("Traceback", error)
+
+    def test_installed_module_cli_runs_as_a_process(self):
+        process = subprocess.run(
+            [sys.executable, "-m", "adaptive_filesystem_runtime", "audit"],
+            input=json.dumps({"records": [
+                {"record_id": "a", "branch_id": "main", "sequence": 1}
+            ]}),
+            text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)["schema_version"], "af.snapshot-audit.v1")
+
+    def test_installed_console_entrypoint_exists(self):
+        executable = shutil.which("af-runtime")
+        self.assertIsNotNone(executable, "package install should register af-runtime")
+        process = subprocess.run(
+            [executable, "resolve"],
+            input=json.dumps({"record_id": "a", "records": [
+                {"record_id": "a", "branch_id": "main", "sequence": 1}
+            ]}),
+            text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)["record_id"], "a")
 
     def test_missing_reference_returns_nonzero_exit(self):
         code, output, error = self.run_cli("resolve", {
