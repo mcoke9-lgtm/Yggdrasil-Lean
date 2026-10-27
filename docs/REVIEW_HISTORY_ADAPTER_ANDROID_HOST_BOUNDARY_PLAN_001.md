@@ -1,6 +1,6 @@
 # Android Host Boundary and Vertical-Slice Plan 001
 
-**Status:** proposed implementation plan; not implemented or tested  
+**Status:** proposed implementation plan; recommended host path recorded, not yet implemented or runtime-tested  
 **Branch:** `review-history-identity-read-evidence-001`  
 **Parent decisions:** Android-Mobile-First Backend Decision 001; Implementation Gate Decision Matrix 001  
 **Scope:** identify the smallest honest path from the existing Lean reference model to a real Android-local SQLite adapter.
@@ -23,14 +23,15 @@ The host must preserve all contract outcomes; it must not collapse conflict, mis
 
 ## 3. Smallest vertical slice
 
-### Gate A — choose and demonstrate the runtime boundary
+### Gate A — recommended default runtime boundary
 
-Before selecting Kotlin/JNI/FFI or another bridge, answer with repository evidence:
-- Will the Android host be Kotlin/Java, a Lean executable/runtime packaged for Android, or another host?
-- Is Lean required to run on-device, or is it a specification/reference model checked during development?
-- What Android minimum SDK and build environment are intended?
+**Recommended default:** let a native Android host (Kotlin/Java) own the SQLite adapter, while Lean remains the formal reference model used for specification and conformance checks. Do not package or bridge Lean into the Android app unless a concrete product requirement needs on-device Lean execution.
 
-Until answered, keep the bridge choice open. Do not introduce Room merely because it is convenient; it is an optional Kotlin-side abstraction over SQLite, not a requirement of the backend decision.
+Why this is the least-assumptive first path: the inspected repository is Lean-only and contains no Android build/runtime integration; Android already provides SQLite access. This recommendation avoids inventing an unverified Lean-on-Android toolchain or bridge. It is a recommendation, not evidence that a host app exists.
+
+Before creating a runnable Android module, confirm the intended app/package identity, minimum Android SDK, and build environment. Use Android's SQLite APIs directly for the smallest initial slice; Room can be considered later if its abstraction is useful. Room is optional and is not a different backend from SQLite.
+
+If on-device Lean execution is later required, reopen this boundary and first prove the target Lean runtime/toolchain and supported foreign-function interface on Android.
 
 ### Gate B — schema and single-writer persistence proof
 
@@ -66,11 +67,11 @@ These are not all blockers to a throwaway SQLite experiment, but they are blocke
 
 ## 5. Acceptance and reporting
 
-- **Proposed:** this plan and the layer boundary.
+- **Proposed:** this plan and the layer boundary; native Android host + SQLite adapter with Lean retained as the reference model is the recommended default.
 - **Verified by repository inspection:** no Android/Kotlin/Gradle/SQLite implementation is present in the inspected tree.
 - **Not implemented:** Android host, bridge, SQLite adapter, schema, and real-backend tests.
 - **Not verified:** transaction/durability guarantees and IT-1 through IT-6.
-- **Next justified action:** resolve Gate A from explicit product/runtime requirements, then implement the smallest vertical slice in the selected host. Do not merge the pull request or claim implementation success on the basis of this plan alone.
+- **Next justified action:** confirm app/package identity, minimum SDK, and build environment; then create the smallest native Android host slice using SQLite, while retaining Lean as the reference model. Do not merge the pull request or claim implementation success on the basis of this plan alone.
 
 ## Six-Part Integrity Check
 
