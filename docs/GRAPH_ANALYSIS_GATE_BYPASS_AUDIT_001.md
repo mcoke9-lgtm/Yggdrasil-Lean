@@ -79,3 +79,10 @@ This reduces caller-side assembly of manifests and artifacts, but it is **not a 
 A read-only connector query was performed against base `appaUa8VbUJZmzmxe`, table `tblvy8J5UC6Y6SylE`, using the schema's Record ID and Parent Record ID field IDs. The connector returned 10 records, reported total count 10, and returned no next cursor. The recorded-value test exercises the same response shape and confirms 10 graph vertices, 8 parent edges, and `NO_CYCLE`; a separate test rejects a non-null cursor.
 
 **Evidence boundary:** this is a real read-only connector observation plus a deterministic recorded-value test, not a live Airtable call executed by CI. The test's Airtable-shaped response is constructed from the observed values; it does not preserve a signed or connector-issued receipt. Source authenticity remains a trusted-integration responsibility.
+
+
+## Identity preservation correction
+
+A follow-up review found that the gated consumer converted numeric vertex IDs to strings for cycle analysis. That could preserve the cycle/no-cycle result while losing the original source record identity in the analysis projection. The gate now returns its verified source-vertex bindings, and the consumer reconstructs parent references through those bindings before running `analyzeParentGraph`. The Airtable-shaped test now asserts that `AF-PILOT-010` retains parent `AF-PILOT-009` in the analysis records.
+
+This change preserves application-level source IDs across the numeric graph representation; it does not authenticate the source response. CI for the identity-preservation commits is pending.
