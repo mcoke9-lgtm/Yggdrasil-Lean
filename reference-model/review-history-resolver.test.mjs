@@ -423,7 +423,7 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
   });
   const serialized = serializeGraphInputCertificate(certificate);
   const blocked = consumeVerifiedGraphInputArtifact(serialized, {
-    sourceCompletenessAttested: true,
+    sourceReadEvidence: sourceReadEvidence(serialized),
   });
   assert.deepEqual(blocked, {
     accepted: false,
@@ -440,7 +440,7 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
   const artifact = JSON.parse(serializeGraphInputCertificate(valid));
   artifact.graphInput.vertices = [99];
   const rejected = consumeVerifiedGraphInputArtifact(JSON.stringify(artifact), {
-    sourceCompletenessAttested: true,
+    sourceReadEvidence: sourceReadEvidence(serialized),
   });
   assert.deepEqual(rejected, {
     accepted: false,
@@ -487,6 +487,34 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
   assert.equal(result.graphInput.vertices.length, 10);
   assert.equal(result.graphInput.edges.length, 8);
   assert.equal(result.analysis, "NO_CYCLE");
+});
+
+test("source-read evidence rejects count, pagination, scope, and digest mismatches", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "evidence-test-001",
+    sourceDigest: "sha256:source",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const validEvidence = sourceReadEvidence(serialized);
+  assert.equal(consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: validEvidence,
+  }).accepted, true);
+  for (const patch of [
+    { returnedRecordCount: 1 },
+    { reportedTotalRecordCount: 3 },
+    { paginationComplete: false },
+    { sourceScope: " " },
+    { sourceDigest: "sha256:other" },
+  ]) {
+    const evidence = { ...validEvidence, ...patch };
+    assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized, {
+      sourceReadEvidence: evidence,
+    }), { accepted: false, code: "SOURCE_READ_EVIDENCE_INVALID" });
+  }
 });
 
 test("graph analysis entry point never invokes consumer on a rejected artifact", () => {
