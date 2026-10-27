@@ -17,16 +17,16 @@ def row(record_id, branch, sequence, parent=None, source_branch=None, anchor=Non
 
 
 class AirtableAdapterTests(unittest.TestCase):
-    def test_maps_real_pilot_field_names_and_keeps_relationships_separate(self):
+    def test_maps_pilot_field_names_and_keeps_relationships_separate(self):
         rows = [
             row("AF-PILOT-001", "chatgpt-first-integration", 1),
             row("AF-PILOT-002", "chatgpt-first-integration", 2,
                 parent="AF-PILOT-001", revision="AF-PILOT-001"),
+            row("AF-PILOT-003", "chatgpt-first-integration", 3,
+                parent="AF-PILOT-002", revision="AF-PILOT-001"),
             row("AF-PILOT-004", "chatgpt-first-integration-fork-test", 1,
                 parent="AF-PILOT-003", source_branch="chatgpt-first-integration",
                 anchor="AF-PILOT-001"),
-            row("AF-PILOT-003", "chatgpt-first-integration", 3,
-                parent="AF-PILOT-002", revision="AF-PILOT-001"),
         ]
         records = records_from_airtable(rows)
         result = resolve_history(records, "AF-PILOT-004")
@@ -36,12 +36,13 @@ class AirtableAdapterTests(unittest.TestCase):
 
     def test_missing_anchor_is_not_repaired(self):
         rows = [
+            row("AF-PILOT-004", "chatgpt-first-integration-fork-test", 1),
             row("AF-PILOT-005", "missing-anchor-test", 1, parent="AF-PILOT-004",
                 source_branch="chatgpt-first-integration", anchor="AF-ANCHOR-DOES-NOT-EXIST")
         ]
         with self.assertRaises(ResolutionError) as caught:
             resolve_history(records_from_airtable(rows), "AF-PILOT-005")
-        self.assertEqual(caught.exception.code, "MISSING_PARENT")
+        self.assertEqual(caught.exception.code, "MISSING_SOURCE_ANCHOR")
 
     def test_whitespace_reference_fails_closed(self):
         with self.assertRaises(ResolutionError) as caught:
