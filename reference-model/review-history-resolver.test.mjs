@@ -145,7 +145,7 @@ test("does not mistake a long acyclic parent chain for a cycle", () => {
 
 
 test("marks parent graph indeterminate when record identities are duplicated", async () => {
-  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
   assert.equal(analyzeParentGraph([
     { recordId: "A", parentRecordId: "B" },
     { recordId: "A", parentRecordId: null },
@@ -154,13 +154,13 @@ test("marks parent graph indeterminate when record identities are duplicated", a
 });
 
 test("marks parent graph indeterminate for malformed identities or parent references", async () => {
-  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
   assert.equal(analyzeParentGraph([{ recordId: " A " }]), "INDETERMINATE");
   assert.equal(analyzeParentGraph([{ recordId: "A", parentRecordId: 12 }]), "INDETERMINATE");
 });
 
 test("distinguishes a definite cycle from an indeterminate graph", async () => {
-  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
   assert.equal(analyzeParentGraph([
     { recordId: "A", parentRecordId: "B" },
     { recordId: "B", parentRecordId: "A" },
@@ -196,7 +196,7 @@ test("bridge maps unknown runtime outcomes to indeterminate", () => {
 
 
 test("shared parent-graph fixtures document runtime and conservative bridge outcomes", async () => {
-  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
   for (const fixture of parentGraphFixtures) {
     assert.equal(analyzeParentGraph(fixture.records), fixture.runtime, fixture.name);
     assert.equal(
