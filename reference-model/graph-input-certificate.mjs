@@ -244,7 +244,11 @@ export function buildSourceReadEvidenceManifest(records, {
   const projection = records.map((record) => ({
     recordId: record?.recordId,
     parentRecordId: record?.parentRecordId ?? null,
-  })).sort((a, b) => String(a.recordId).localeCompare(String(b.recordId)));
+  })).sort((a, b) => {
+    const left = String(a.recordId);
+    const right = String(b.recordId);
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
   const sourceDigest = createHash("sha256")
     .update(JSON.stringify(projection), "utf8")
     .digest("hex");
