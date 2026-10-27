@@ -65,7 +65,9 @@ class CliTests(unittest.TestCase):
         })
         self.assertEqual(code, 2)
         self.assertEqual(output, "")
-        self.assertEqual(json.loads(error)["error"], "ResolutionError")
+        error_report = json.loads(error)
+        self.assertEqual(error_report["error"], "ResolutionError")
+        self.assertEqual(error_report["code"], "MISSING_PARENT")
 
 
 if __name__ == "__main__":
