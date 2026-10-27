@@ -302,3 +302,21 @@ test("serialized graph handoff is versioned, deterministic, and binds mapping to
 test("serializer rejects missing graph binding fields", () => {
   assert.throws(() => serializeGraphInputCertificate({ graphDigest: "x" }), TypeError);
 });
+
+test("graph digest changes when source identity mapping changes", () => {
+  const options = {
+    sourceReadId: "read-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  };
+  const original = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], options);
+  const renamed = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "C", parentRecordId: "A" },
+  ], options);
+  assert.notEqual(original.graphDigest, renamed.graphDigest);
+  assert.notDeepEqual(original.vertices, renamed.vertices);
+});
