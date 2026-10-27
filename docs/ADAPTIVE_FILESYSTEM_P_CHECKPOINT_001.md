@@ -18,7 +18,9 @@ The work developed from review-history resolution and parent-graph auditing into
 - Added `buildSourceReadEvidenceManifest`, which computes a SHA-256 digest over a canonical projection of record IDs and parent references, sorted by record ID.
 - Added `reference-model/source-read-adapter.mjs` with `adaptCompleteSourceRead`: validates source read ID, explicit scope, records, reported total, and null next cursor before deriving the manifest and graph certificate.
 - Added tests for adapter success, count mismatch, incomplete pagination, malformed scope, inconsistent evidence counts, digest mismatch, order-invariant digest, and changed-parent digest sensitivity.
-- Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with the evidence-manifest design and limitations.
+- Added `analyzeCompleteSourceRead(read)` as an end-to-end reference entry point: validates the read response, constructs the manifest/certificate, and calls the gated consumer without requiring the caller to manually assemble the pieces.
+- Added end-to-end tests for a complete read and for rejecting a pagination cursor before analysis.
+- Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with the adapter entry point and its limitations.
 
 ## 3. What we've learned
 
@@ -40,11 +42,11 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 ## 5. Plan
 
-1. **Next:** design a trusted source-adapter boundary that constructs the evidence manifest from actual connector results and binds the exact source scope, pagination state, record count, and canonical source projection digest.
-2. Add a live-or-recorded provenance test proving the manifest was emitted by the adapter, not assembled by an arbitrary caller.
-3. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
-4. Re-audit gate bypass paths and update this checkpoint with exact commit and CI results.
-5. Investigate whether source identity and digest can be independently verified against connector-returned data at the boundary.
+1. **Next:** run CI on the end-to-end adapter entry point and verify both resolver tests and Lean build.
+2. Define a real connector integration that calls `analyzeCompleteSourceRead` directly on the actual connector response, with source identity and scope established by trusted integration code.
+3. Add a recorded connector-response test that preserves provenance and does not reconstruct response metadata by hand.
+4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
+5. Re-audit gate bypass paths after integration changes.
 6. Only then consider production wiring; do not equate the reference model with production enforcement.
 
 ## 6. Integrity and persistence
