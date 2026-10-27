@@ -16,9 +16,18 @@ export function analyzeVerifiedGraphInput(serialized, options) {
     sourceDigest: gate.sourceDigest,
     graphDigest: gate.graphDigest,
     graphInput: gate.graphInput,
-    analysis: analyzeParentGraph(gate.graphInput.vertices.map((vertex) => {
-      const parentEdge = gate.graphInput.edges.find(([child]) => child === vertex);
-      return { recordId: String(vertex), parentRecordId: parentEdge ? String(parentEdge[1]) : null };
+    sourceVertexBindings: gate.sourceVertexBindings,
+    analysisRecords: gate.sourceVertexBindings.map(({ recordId, vertexId }) => {
+      const parentEdge = gate.graphInput.edges.find(([child]) => child === vertexId);
+      const parentVertexId = parentEdge ? parentEdge[1] : null;
+      const parentBinding = gate.sourceVertexBindings.find((binding) => binding.vertexId === parentVertexId);
+      return { recordId, parentRecordId: parentBinding ? parentBinding.recordId : null };
+    }),
+    analysis: analyzeParentGraph(gate.sourceVertexBindings.map(({ recordId, vertexId }) => {
+      const parentEdge = gate.graphInput.edges.find(([child]) => child === vertexId);
+      const parentVertexId = parentEdge ? parentEdge[1] : null;
+      const parentBinding = gate.sourceVertexBindings.find((binding) => binding.vertexId === parentVertexId);
+      return { recordId, parentRecordId: parentBinding ? parentBinding.recordId : null };
     })),
   };
 }
