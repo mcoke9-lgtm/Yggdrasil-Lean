@@ -403,7 +403,7 @@ test("consumer gate withholds graph until independent completeness attestation",
   const blocked = consumeVerifiedGraphInputArtifact(serialized);
   assert.deepEqual(blocked, {
     accepted: false,
-    code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
+    code: "SOURCE_READ_EVIDENCE_INVALID",
   });
   const accepted = consumeVerifiedGraphInputArtifact(serialized, {
     sourceReadEvidence: sourceReadEvidence(serialized),
@@ -468,7 +468,7 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
   });
   const serialized = serializeGraphInputCertificate(certificate);
   const verification = verifySerializedGraphInputArtifact(serialized);
-  assert.equal(verification.valid, true);
+  assert.equal(verification.valid, true, verification.code);
   assert.equal(certificate.findings.length, 0);
   const artifact = JSON.parse(serialized);
   assert.equal(artifact.sourceReadId, sourceReadId);
