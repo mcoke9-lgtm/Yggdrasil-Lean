@@ -2,7 +2,7 @@
 
 **Status:** Working decision register; recommendations are not adopted unless explicitly marked adopted.  
 **Parent records:** [Adapter Contract 001](REVIEW_HISTORY_ADAPTER_CONTRACT_001.md), [Integration-Test Specification 001](REVIEW_HISTORY_ADAPTER_INTEGRATION_TEST_SPEC_001.md), [Identity-Read Boundary 001](IDENTITY_READ_CHECKED_CLASSIFICATION_BOUNDARY_001.md).  
-**Backend decision:** [Android-Mobile-First Backend Decision 001](REVIEW_HISTORY_ADAPTER_ANDROID_MOBILE_BACKEND_DECISION_001.md).  
+**Governing architecture decision:** [ChatGPT-Integrated Adaptive Filesystem Architecture Decision 001](CHATGPT_INTEGRATED_ADAPTIVE_FILESYSTEM_ARCHITECTURE_DECISION_001.md). The Android-first decision is historical for future design choices.  
 **Branch:** `review-history-identity-read-evidence-001`.
 
 ## Purpose
@@ -13,7 +13,7 @@ Prevent implementation from quietly turning open assumptions into adopted archit
 
 | ID | Decision area | Current status | Recommendation / next evidence |
 |---|---|---|---|
-| D-1 | Persistence backend | **Provisionally chosen: device-local SQLite for Android-mobile-first use** | Implement only through a demonstrated Android host/runtime path. Revisit if multi-device shared history becomes a requirement. |
+| D-1 | Integration boundary / persistence | **ChatGPT-first objective adopted; backend unselected** | Test an available ChatGPT connector first; verify custom MCP access before building a server. Do not default to Android-local SQLite. |
 | D-2 | Adapter implementation | **Open** | No durable adapter exists yet. Keep Lean's pure model separate from I/O; establish Android host and Lean integration path. |
 | D-3 | Identity-read attestation | **Open** | Derive completeness from actual adapter-controlled query/pagination/permission behavior; never accept caller-supplied Bool flags as authorization. |
 | D-4 | Append commit boundary | **Open** | Define what the selected SQLite configuration guarantees after success, timeout, process crash, and restart. A successful call or queued write alone is not durable commit evidence. |
@@ -25,11 +25,11 @@ Prevent implementation from quietly turning open assumptions into adopted archit
 | D-10 | Fork representation | **Provisional** | Destination-recorded fork with explicit source anchor is a candidate; source-side visibility and exact anchor semantics remain open. Missing anchors must remain explicit. |
 | D-11 | Integrity / digest | **Open** | Make no cryptographic digest claim until canonical encoding, threat model, and digest/verification rules are reviewed and implemented. |
 | D-12 | Integration release gate | **Proposed requirement** | Run IT-1 through IT-6 against the concrete Android-hosted SQLite adapter; record versions and outcomes, including skipped or failed cases, before claiming integration verification. |
-| D-13 | Public outcome constructors | **Known limitation** | They remain freely constructible in the reference API. Do not claim they enforce trust. Review API/module visibility only with a concrete adapter design. |
+| D-13 | Public outcome constructors | **Known limitation** | They remain freely constructible in the reference API. Do not claim they enforce trust. Review API/module visibility only with a concrete adapter design. |\n| D-14 | ChatGPT integration feasibility | **Open; first implementation gate** | Inspect available connector options; explicitly authorize connection; test a disposable pilot. Do not infer availability from documentation or a listed app. |
 
 ## Backend selection criteria and current fit
 
-The current target is Android mobile, with durable offline history on one device. Device-local SQLite is provisionally selected because it is available on Android and supports transactions. This is a target choice, not a claim that the repository has a working SQLite binding or adapter.
+The governing target is durable, searchable, recoverable review history usable from within ChatGPT. The backend remains unselected until a real ChatGPT access path is demonstrated. See [ChatGPT-Integrated Adaptive Filesystem Architecture Decision 001](CHATGPT_INTEGRATED_ADAPTIVE_FILESYSTEM_ARCHITECTURE_DECISION_001.md) for the candidate comparison and staged feasibility test. The Android-local SQLite decision is preserved as historical rationale, not the current default.
 
 The remaining gates are:
 1. Demonstrate the Android host and Lean integration boundary.
