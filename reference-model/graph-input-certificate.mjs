@@ -141,3 +141,62 @@ export function serializeGraphInputCertificate(certificate) {
   };
   return JSON.stringify(payload);
 }
+/**
+ * Verify a serialized handoff before its graph input is trusted.
+ * This checks structural consistency and recomputes graphDigest. It does not
+ * prove that source records are complete or that sourceDigest is authentic.
+ */
+export function verifySerializedGraphInputArtifact(serialized) {
+  let artifact;
+  try {
+    artifact = JSON.parse(serialized);
+  } catch {
+    return { valid: false, code: "INVALID_JSON" };
+  }
+  if (!artifact || typeof artifact !== "object" ||
+      artifact.schema !== "yggdrasil-parent-graph-v1" ||
+      !Array.isArray(artifact.sourceVertexBindings) ||
+      !artifact.graphInput ||
+      !Array.isArray(artifact.graphInput.vertices) ||
+      !Array.isArray(artifact.graphInput.edges) ||
+      typeof artifact.graphDigest !== "string") {
+    return { valid: false, code: "MALFORMED_ARTIFACT" };
+  }
+
+  const bindings = artifact.sourceVertexBindings;
+  const recordIds = bindings.map((binding) => binding?.recordId);
+  const vertexIds = bindings.map((binding) => binding?.vertexId);
+  if (bindings.some((binding) =>
+      !binding || typeof binding.recordId !== "string" ||
+      binding.recordId.length === 0 || binding.recordId.trim() !== binding.recordId ||
+      !Number.isSafeInteger(binding.vertexId) || binding.vertexId < 1) ||
+      new Set(recordIds).size !== recordIds.length ||
+      new Set(vertexIds).size !== vertexIds.length) {
+    return { valid: false, code: "INVALID_SOURCE_VERTEX_BINDINGS" };
+  }
+  const sortedVertices = [...vertexIds].sort((a, b) => a - b);
+  const graphVertices = artifact.graphInput.vertices;
+  if (graphVertices.some((v) => !Number.isSafeInteger(v) || v < 1) ||
+      JSON.stringify([...graphVertices].sort((a, b) => a - b)) !== JSON.stringify(sortedVertices) ||
+      artifact.graphInput.edges.some((edge) =>
+        !Array.isArray(edge) || edge.length !== 2 ||
+        !edge.every((v) => Number.isSafeInteger(v) && v >= 1) ||
+        !sortedVertices.includes(edge[0]) || !sortedVertices.includes(edge[1]))) {
+    return { valid: false, code: "GRAPH_MAPPING_MISMATCH" };
+  }
+
+  const canonicalGraph = JSON.stringify({
+    vertices: bindings.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
+    edges: artifact.graphInput.edges.map(([child, parent]) => [child, parent]),
+  });
+  const actualDigest = createHash("sha256").update(canonicalGraph, "utf8").digest("hex");
+  if (actualDigest !== artifact.graphDigest) {
+    return { valid: false, code: "GRAPH_DIGEST_MISMATCH" };
+  }
+  return {
+    valid: true,
+    code: "VERIFIED_GRAPH_PAYLOAD",
+    sourceCompletenessVerified: artifact.sourceCompletenessVerified === true,
+    certificateReady: artifact.certificateReady === true,
+  };
+}
