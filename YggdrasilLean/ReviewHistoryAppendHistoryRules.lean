@@ -10,12 +10,16 @@ import YggdrasilLean.ReviewHistoryAppendRules
 
 namespace YggdrasilLean
 
-/-- Combine identity classifications; a conflict anywhere in the supplied history wins. -/
+/-- Combine identity classifications; conflicts dominate, then ambiguous history. -/
 def combineIdentityDecisions
     (left right : AppendIdentityDecision) : AppendIdentityDecision :=
   match left, right with
   | .conflict, _ => .conflict
   | _, .conflict => .conflict
+  | .ambiguousHistory, _ => .ambiguousHistory
+  | _, .ambiguousHistory => .ambiguousHistory
+  | .alreadyCommitted leftId, .alreadyCommitted rightId =>
+      if leftId == rightId then .alreadyCommitted leftId else .ambiguousHistory
   | .alreadyCommitted eventId, _ => .alreadyCommitted eventId
   | _, .alreadyCommitted eventId => .alreadyCommitted eventId
   | .fresh, .fresh => .fresh
@@ -23,7 +27,9 @@ def combineIdentityDecisions
 /--
 Classify an append against every supplied known record. This only reasons over the
 provided list; it does not establish that the list is complete or atomically current.
-A conflict in any record takes precedence over a possible retry classification.
+A conflict in any record takes precedence over retry or ambiguity classifications.
+Two matching retry records with distinct event IDs produce ambiguousHistory instead
+of selecting a canonical event based on list order.
 -/
 def classifyAppendAgainstHistory
     (intent : AppendIntent) (history : List KnownAppend) : AppendIdentityDecision :=
@@ -38,7 +44,7 @@ theorem emptyHistory_isFresh (intent : AppendIntent) :
     classifyAppendAgainstHistory intent [] = .fresh := by
   simp [classifyAppendAgainstHistory]
 
-/-- A conflicting identity found anywhere in the supplied history cannot be masked by a retry. -/
+/-- A conflicting identity found anywhere in the supplied history cannot be masked. -/
 theorem conflictDominatesHistory
     (intent : AppendIntent) (prefix suffix : List KnownAppend)
     (known : KnownAppend)
