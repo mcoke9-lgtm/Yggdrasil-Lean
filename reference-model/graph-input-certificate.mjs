@@ -201,15 +201,43 @@ export function verifySerializedGraphInputArtifact(serialized) {
   };
 }
 /**
+/**
+ * Validate the shape and internal consistency of a source-read evidence manifest.
+ * This establishes consistency, not authenticity: the manifest must ultimately
+ * be produced by a trusted source adapter to be authoritative.
+ */
+export function validateSourceReadEvidence(evidence, artifact) {
+  if (!evidence || typeof evidence !== "object" ||
+      evidence.schema !== "yggdrasil-source-read-evidence-v1" ||
+      typeof evidence.sourceReadId !== "string" ||
+      evidence.sourceReadId !== artifact.sourceReadId ||
+      typeof evidence.sourceDigest !== "string" ||
+      evidence.sourceDigest !== artifact.sourceDigest ||
+      !Number.isSafeInteger(evidence.returnedRecordCount) ||
+      evidence.returnedRecordCount < 0 ||
+      !Number.isSafeInteger(evidence.reportedTotalRecordCount) ||
+      evidence.reportedTotalRecordCount < 0 ||
+      evidence.returnedRecordCount !== evidence.reportedTotalRecordCount ||
+      evidence.returnedRecordCount !== artifact.sourceVertexBindings.length ||
+      evidence.paginationComplete !== true ||
+      typeof evidence.sourceScope !== "string" || evidence.sourceScope.trim().length === 0 ||
+      evidence.digestAlgorithm !== "sha256") {
+    return { valid: false, code: "SOURCE_READ_EVIDENCE_INVALID" };
+  }
+  return { valid: true, code: "SOURCE_READ_EVIDENCE_CONSISTENT" };
+}
+
+/**
  * Trusted-consumer gate: downstream code receives graphInput only when the
- * graph digest verifies, the artifact reports no findings, source metadata is
- * present, and the caller independently supplies a completeness attestation.
+ * artifact verifies, has no findings, and a source-read evidence manifest
+ * matches its source identity, digest, count, scope, and pagination status.
  *
- * sourceCompletenessAttested is an explicit caller premise, not something this
- * module can prove. The sourceDigest's authenticity is likewise external.
+ * Manifest consistency is not source authenticity. A trusted adapter must
+ * produce the evidence; this module cannot prove that caller-supplied claims
+ * are true merely because they are internally consistent.
  */
 export function consumeVerifiedGraphInputArtifact(serialized, {
-  sourceCompletenessAttested = false,
+  sourceReadEvidence = null,
 } = {}) {
   const verification = verifySerializedGraphInputArtifact(serialized);
   if (!verification.valid) {
@@ -225,9 +253,12 @@ export function consumeVerifiedGraphInputArtifact(serialized, {
   if (!Array.isArray(artifact.findings) || artifact.findings.length !== 0) {
     return { accepted: false, code: "SOURCE_FINDINGS_PRESENT" };
   }
-  if (artifact.certificateReady !== true || artifact.sourceCompletenessVerified !== true ||
-      sourceCompletenessAttested !== true) {
+  if (artifact.certificateReady !== true || artifact.sourceCompletenessVerified !== true) {
     return { accepted: false, code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED" };
+  }
+  const evidenceCheck = validateSourceReadEvidence(sourceReadEvidence, artifact);
+  if (!evidenceCheck.valid) {
+    return { accepted: false, code: evidenceCheck.code };
   }
   return {
     accepted: true,
