@@ -148,3 +148,38 @@ This document is a test plan only. It does not establish that an adapter exists,
 4. **Status:** proposed specification; not an implemented suite, not executed, not adopted as a permanent architecture decision.
 5. **Recheck:** release gate requires actual backend execution and evidence before making durability or concurrency claims.
 6. **Persistence/uncertainty:** document intended for version control; no adapter/test results are created by this specification itself.
+
+
+## Boundary-policy mapping (review memo 001)
+
+This mapping links the six integration-test groups to the recommendations in `REVIEW_HISTORY_ADAPTER_BOUNDARY_DECISIONS_001.md`. The recommendations are not adopted policy; test expectations that depend on them remain conditional until the corresponding decisions are explicitly adopted.
+
+| Test group | Boundary dependency | Current test treatment |
+|---|---|---|
+| IT-1 — Retry after uncertain commit | Logical payload equality | Require same-key/same-logical-payload retries to avoid duplicates. Exact structural equality rules must be defined before implementation tests can assert equivalence across alternate encodings. |
+| IT-2 — Concurrent append at same expected position | Expected-position atomicity; cursor consistency if readback paginates | Require backend-level concurrent clients and atomic compare-and-append. A successful Lean model or sequential simulation is insufficient. |
+| IT-3 — Event-ID/idempotency-key reuse | Logical payload equality; ID generation/collision handling | Keep cross-encoding equality cases blocked until schema-level equality is specified. Exercise collision handling only once the identifier-generation policy is defined. |
+| IT-4 — Ordered history, pagination, recovery | Cursor/snapshot consistency | Test snapshot-bound pagination if supported. Otherwise require explicit non-snapshot labeling and assert that the adapter does not certify a mixed traversal as a complete point-in-time history. |
+| IT-5 — Fork lineage and destination genesis | Fork source-side observability; source-anchor semantics | Destination genesis remains the provisional canonical record. Test source-anchor resolution and incomplete lineage. Do not require a source-side event unless that policy is separately adopted. |
+| IT-6 — Corruption, unsupported schema, unavailable storage | Payload/schema equality; integrity boundary | Preserve distinct outcomes. Do not claim digest-based integrity until canonical encoding and threat model are specified. |
+
+### Implementation gate
+
+Before selecting a concrete adapter signature or claiming integration coverage, record explicit disposition for:
+1. Schema-defined logical payload equality and schema evolution.
+2. Event-ID generation and collision handling.
+3. Cursor snapshot semantics and expiry behavior.
+4. Fork source-anchor representation and whether source-side observability is required.
+5. Backend durability and atomic compare-and-append guarantees.
+6. Canonical encoding and integrity scope, including whether digest verification remains unsupported in the first milestone.
+
+A disposition may remain **open**; unresolved items must be visible in the implementation plan and tests must not assert unsupported guarantees.
+
+### Six-Part Integrity Check — boundary mapping
+
+1. **Count:** Six integration-test groups mapped.
+2. **Roles:** Retry; concurrency; identity reuse; ordered recovery; fork lineage; corruption/schema/service failure.
+3. **Completeness:** Each group has a named boundary dependency and a conditional test treatment; unresolved dependencies are enumerated.
+4. **Status:** Mapping added to the proposed test specification; no adapter implemented and no integration tests executed.
+5. **Recheck:** Group IDs match IT-1 through IT-6 in this document; policy references are to the retrieved boundary memo.
+6. **Persistence/uncertainty:** Update is saved in the repository; CI and any downstream implementation remain to be verified.
