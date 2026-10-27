@@ -1,4 +1,4 @@
-""""Pure decision rules for recovering uncertain external side effects.
+"""Pure decision rules for recovering uncertain external side effects.
 
 A ledger records what the caller knows about an attempt. It cannot infer whether
 an external action happened when acknowledgement/evidence is missing.
@@ -94,4 +94,3 @@ def decide_recovery(facts: RecoveryFacts) -> RecoveryDecision:
         "RECONCILE_REQUIRED",
         "action may have occurred; outcome is unknown and safe replay is not established",
     )
-"
