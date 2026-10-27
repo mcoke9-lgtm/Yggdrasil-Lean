@@ -86,7 +86,7 @@ test("audits the retrieved ten-record pilot snapshot without silent fallback", (
   const result = auditDataset(pilotSnapshot);
   assert.deepEqual(result.duplicateRecordIds, []);
   assert.deepEqual(result.duplicateBranchSequences, []);
-  assert.equal(result.parentCycle, false);
+  assert.equal(result.parentCycle, "NO_CYCLE");
   const missingAnchor = result.records.find((r) => r.recordId === "AF-PILOT-005");
   assert.equal(missingAnchor.sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
   assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-004").sourceAnchor,
