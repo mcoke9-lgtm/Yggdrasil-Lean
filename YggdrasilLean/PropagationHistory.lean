@@ -200,6 +200,23 @@ example :
         exampleRoutes).identityBranch = false := by
   decide
 
+/-- A project-ID change is visible in the unified transition review. -/
+example :
+    (assessCompleteTransition
+      ⟨identityReviewExampleState,
+        { identityReviewExampleState with projectId := "project-B" }⟩
+      exampleRoutes).identityBranch.projectIdentityChanged = true := by
+  decide
+
+/-- A project-ID change is flagged for identity review in the unified record. -/
+example :
+    identityBranchReviewRequired
+      (assessCompleteTransition
+        ⟨identityReviewExampleState,
+          { identityReviewExampleState with projectId := "project-B" }⟩
+        exampleRoutes).identityBranch = true := by
+  decide
+
 /-- An explicit fork is retained alongside its identity-review signal in one record. -/
 example :
     (assessCompleteTransition
