@@ -163,6 +163,18 @@ export function verifySerializedGraphInputArtifact(serialized) {
     return { valid: false, code: "MALFORMED_ARTIFACT" };
   }
 
+  if (typeof artifact.sourceReadId !== "string" || artifact.sourceReadId.length === 0 ||
+      artifact.sourceReadId.trim() !== artifact.sourceReadId ||
+      typeof artifact.sourceDigest !== "string" || artifact.sourceDigest.length === 0 ||
+      artifact.sourceDigest.trim() !== artifact.sourceDigest ||
+      typeof artifact.sourceCompletenessVerified !== "boolean" ||
+      typeof artifact.certificateReady !== "boolean" ||
+      !Array.isArray(artifact.findings) ||
+      artifact.findings.some((finding) => !finding || typeof finding !== "object" ||
+        Array.isArray(finding) || typeof finding.code !== "string" || finding.code.length === 0)) {
+    return { valid: false, code: "INVALID_ARTIFACT_METADATA" };
+  }
+
   const bindings = artifact.sourceVertexBindings;
   const recordIds = bindings.map((binding) => binding?.recordId);
   const vertexIds = bindings.map((binding) => binding?.vertexId);
@@ -174,15 +186,25 @@ export function verifySerializedGraphInputArtifact(serialized) {
       new Set(vertexIds).size !== vertexIds.length) {
     return { valid: false, code: "INVALID_SOURCE_VERTEX_BINDINGS" };
   }
-  const sortedVertices = [...vertexIds].sort((a, b) => a - b);
+  const canonicalRecordIds = [...recordIds].sort();
+  const expectedVertexIds = bindings.map((_, index) => index + 1);
   const graphVertices = artifact.graphInput.vertices;
-  if (graphVertices.some((v) => !Number.isSafeInteger(v) || v < 1) ||
-      JSON.stringify([...graphVertices].sort((a, b) => a - b)) !== JSON.stringify(sortedVertices) ||
+  if (JSON.stringify(recordIds) !== JSON.stringify(canonicalRecordIds) ||
+      JSON.stringify(vertexIds) !== JSON.stringify(expectedVertexIds) ||
+      JSON.stringify(graphVertices) !== JSON.stringify(expectedVertexIds) ||
       artifact.graphInput.edges.some((edge) =>
         !Array.isArray(edge) || edge.length !== 2 ||
         !edge.every((v) => Number.isSafeInteger(v) && v >= 1) ||
-        !sortedVertices.includes(edge[0]) || !sortedVertices.includes(edge[1]))) {
+        !expectedVertexIds.includes(edge[0]) || !expectedVertexIds.includes(edge[1]))) {
     return { valid: false, code: "GRAPH_MAPPING_MISMATCH" };
+  }
+  const edges = artifact.graphInput.edges;
+  for (let i = 1; i < edges.length; i += 1) {
+    const [previousChild, previousParent] = edges[i - 1];
+    const [child, parent] = edges[i];
+    if (child < previousChild || (child === previousChild && parent <= previousParent)) {
+      return { valid: false, code: "NON_CANONICAL_GRAPH_ORDER" };
+    }
   }
   // Parent history is a single-parent relation: each child may have at most
   // one parent edge. Reject ambiguous topology before downstream projection.
