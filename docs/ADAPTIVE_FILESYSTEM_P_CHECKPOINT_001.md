@@ -172,3 +172,22 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** identified and documented; not implemented, tested, or adopted.
 5. **Recheck:** source code confirms graph digest is recomputed while source digest is only equality-checked against the manifest.
 6. **Persistence / uncertainty:** checkpoint update is committed and reread below; the exploitability is limited to the current consumer's trust boundary and does not establish that a production connector is present or compromised.
+
+
+## 16. Source-digest-to-graph binding implementation (2026-10-27)
+
+- Implemented the binding check in `consumeVerifiedGraphInputArtifact`, after structural verification, findings rejection, completeness checks, and source-evidence consistency checks. For findings-free artifacts, the consumer reconstructs the canonical `recordId/parentRecordId` projection from source-vertex bindings and graph edges, applies code-unit record-ID ordering, hashes the JSON projection with SHA-256, and rejects disagreement as `SOURCE_DIGEST_MISMATCH`.
+- Placement at the consumer gate is deliberate: artifacts with findings can contain unresolved parent references that are not represented as graph edges, so their original source projection cannot always be reconstructed from topology. Such artifacts remain rejected before graph release. The general serialized-artifact verifier continues to validate graph structure/digest without pretending it can reconstruct source rows that were discarded during graph construction.
+- Updated accepted-path fixtures to use actual canonical source digests. Added a regression that changes the artifact digest and forges matching evidence while leaving the graph unchanged; the consumer rejects it with `SOURCE_DIGEST_MISMATCH`. Existing valid adapter and pilot snapshot tests exercise the positive path.
+- Exact active-head commit: `e7786ee7b248f826adfa1ce37ee4895fbe6c8710`. Resolver tests passed on [push run 223](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40603653800); Lean build passed on [push run 687](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40603653779). The immediately preceding implementation-only commit's resolver-test runs failed because accepted-path fixtures still used placeholder digests; the follow-up test commit corrected those fixtures and passed. Do not attribute the passing tests to the implementation-only commit.
+- Status: **implemented, regression-tested, and exact-head push CI-verified**. Not adopted as proof of external source authenticity. The digest is now internally bound to the graph accepted by this consumer, but a caller can still forge both artifact and evidence together if the consumer trusts caller-created inputs. Trusted adapter provenance and multi-page snapshot consistency remain separate unresolved requirements.
+- No Airtable records were changed; no new branch was created; PR #1 remains unmerged.
+
+### Six-Part Integrity Check
+
+1. **Count:** six checks, exactly.
+2. **Roles:** (a) source digest versus graph digest; (b) consumer-gate placement; (c) positive and tampering regression coverage; (d) implementation/test/CI status; (e) exact-head workflow recheck; (f) persistence and residual provenance limits.
+3. **Completeness:** the new test covers an artifact and evidence pair forged to agree with each other but not with the graph; existing successful full-read paths retain coverage. Finding-bearing artifacts are rejected before this reconstruction because unresolved parent text may be lost from the edge list.
+4. **Status:** implemented; tested; push CI verified on exact active head; not proof of authenticity and not a production-adapter adoption.
+5. **Recheck:** branch head and workflow records were reread; both required push workflows completed successfully for `e7786ee7b248f826adfa1ce37ee4895fbe6c8710`.
+6. **Persistence / uncertainty:** implementation, tests, and this checkpoint update are on the existing branch. External source authenticity, trusted adapter enforcement, snapshot consistency across pages, and production deployment remain unresolved.
