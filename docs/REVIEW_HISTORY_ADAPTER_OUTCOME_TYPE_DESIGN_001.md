@@ -81,6 +81,25 @@ The result family preserves these rules:
 
 The exact shape of `scopeEvidence` remains open; it must state enough about lookup scope and completeness to distinguish confirmed absence from an incomplete or failed search.
 
+### Identity-read ambiguity disposition — proposed
+
+**Recommendation for review:** Give identity reads a dedicated `AmbiguousIdentity` primary outcome when the requested identity resolves to multiple competing records, rather than representing this condition only as a generic diagnostic attached to `Found` or `Unavailable`.
+
+Rationale:
+- `Found(record, provenance)` asserts one validated record is the result; it must not conceal a competing identity match.
+- `Unavailable` means the operation could not establish a reliable result; it is not the right category when the lookup did establish a conflict among multiple candidates.
+- A diagnostic-only convention is easier for callers to ignore and weakens exhaustive handling of a safety-relevant identity condition. A distinct constructor makes the branch explicit while allowing diagnostics to carry candidate IDs and lookup limits.
+- This recommendation is consistent with the contract's append/reconciliation treatment of competing identities, while refining the read-by-identity operation whose listed outcomes do not yet name this case.
+
+Candidate conceptual shape:
+- `AmbiguousIdentity(diagnostic, observedCandidateEventIds?, lookupEvidence)`
+
+The candidate list is not asserted complete unless lookup evidence establishes completeness for the relevant identity scope. Do not include inaccessible or unobserved candidates as though they were inspected. If multiple physical matches resolve to the same event ID, that alone does not establish competing event identity; full-history uniqueness and payload consistency remain separate checks.
+
+**Confirmed absence boundary:** `NotFound(scopeEvidence)` remains valid only when the adapter establishes that the identity was absent across the complete declared lookup scope. Incomplete indexes, partial pages, permission failures, unavailable storage, unsupported schema, and corruption cannot be converted into `NotFound`. If the lookup scope or completeness cannot be established, return `Unavailable` or a distinct incomplete/unknown read outcome if the final contract/API defines one; do not guess absence.
+
+**Status:** proposed type-level disposition only. The adapter contract currently lists `Found`, `NotFound`, `UnsupportedSchema`, `Corrupt`, and `Unavailable` for identity reads; this recommendation is a contract refinement candidate, not an adopted change. Review the persisted-record schema and API outcome inventory before changing Lean declarations.
+
 ### 4. Ordered-page completeness and cursor consistency
 
 - `Completeness = complete | incomplete | unknown`
