@@ -100,8 +100,9 @@ def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResu
 
     A blank optional reference yields state blank_unclassified; this schema cannot
     distinguish an intentional root/N/A from an omitted or unknown value. A missing
-    branch predecessor means only that none was present in this snapshot. Parent
-    references across the supplied snapshot are checked for missing links and cycles.
+    branch predecessor means only that none was present in this snapshot. Missing
+    parent links and cycles are checked only along the requested record's parent chain;
+    unrelated branches do not prevent resolving the requested record.
     """
     index = _index(records)
     target = index.get(record_id)
