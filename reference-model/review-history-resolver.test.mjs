@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
-import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact } from "./graph-input-certificate.mjs";
+import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -370,4 +370,62 @@ test("handoff verifier keeps source completeness separate from graph digest vali
   assert.equal(result.valid, true);
   assert.equal(result.sourceCompletenessVerified, false);
   assert.equal(result.certificateReady, false);
+});
+
+test("consumer gate withholds graph until independent completeness attestation", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "read-gate-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const blocked = consumeVerifiedGraphInputArtifact(serialized);
+  assert.deepEqual(blocked, {
+    accepted: false,
+    code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
+  });
+  const accepted = consumeVerifiedGraphInputArtifact(serialized, {
+    sourceCompletenessAttested: true,
+  });
+  assert.equal(accepted.accepted, true);
+  assert.deepEqual(accepted.graphInput, { vertices: [1, 2], edges: [[2, 1]] });
+});
+
+test("consumer gate rejects tampering and artifacts with findings before exposing graph", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "MISSING" },
+  ], {
+    sourceReadId: "read-gate-invalid-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const blocked = consumeVerifiedGraphInputArtifact(serialized, {
+    sourceCompletenessAttested: true,
+  });
+  assert.deepEqual(blocked, {
+    accepted: false,
+    code: "SOURCE_FINDINGS_PRESENT",
+  });
+
+  const valid = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-gate-002",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(valid));
+  artifact.graphInput.vertices = [99];
+  const rejected = consumeVerifiedGraphInputArtifact(JSON.stringify(artifact), {
+    sourceCompletenessAttested: true,
+  });
+  assert.deepEqual(rejected, {
+    accepted: false,
+    code: "GRAPH_MAPPING_MISMATCH",
+  });
 });
