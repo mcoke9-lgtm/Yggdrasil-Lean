@@ -24,6 +24,15 @@ function sourceReadEvidence(serialized, { complete = true } = {}) {
   };
 }
 
+function digestFor(records) {
+  return buildSourceReadEvidenceManifest(records, {
+    sourceReadId: "test-digest",
+    reportedTotalRecordCount: records.length,
+    paginationComplete: true,
+    sourceScope: "test-fixture:graph-relevant-records",
+  }).sourceDigest;
+}
+
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
   { recordId: "B", branchId: "main", sequence: 2, parentRecordId: "A", revisionOfId: "A" },
@@ -456,7 +465,10 @@ test("consumer gate withholds graph until a consistent source-read evidence mani
     { recordId: "B", parentRecordId: "A" },
   ], {
     sourceReadId: "read-gate-001",
-    sourceDigest: "source-sha256:example",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
     sourceCompletenessVerified: true,
   });
   const serialized = serializeGraphInputCertificate(certificate);
@@ -508,6 +520,29 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
   });
 });
 import { analyzeVerifiedGraphInput } from "./verified-graph-consumer.mjs";
+
+
+test("consumer rejects a source digest forged to agree with the evidence but not the graph", () => {
+  const records = [
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ];
+  const certificate = buildGraphInputCertificate(records, {
+    sourceReadId: "digest-tamper-001",
+    sourceDigest: digestFor(records),
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
+  artifact.sourceDigest = "f".repeat(64);
+  const serialized = JSON.stringify(artifact);
+  const forgedEvidence = {
+    ...sourceReadEvidence(serialized),
+    sourceDigest: artifact.sourceDigest,
+  };
+  assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: forgedEvidence,
+  }), { accepted: false, code: "SOURCE_DIGEST_MISMATCH" });
+});
 
 test("fresh read-only Airtable pilot graph snapshot passes the complete gated flow", () => {
   // The projection was refreshed from the live Airtable Records table on
@@ -840,7 +875,10 @@ test("source-read evidence rejects count, pagination, scope, and digest mismatch
     { recordId: "B", parentRecordId: "A" },
   ], {
     sourceReadId: "evidence-test-001",
-    sourceDigest: "sha256:source",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
     sourceCompletenessVerified: true,
   });
   const serialized = serializeGraphInputCertificate(certificate);
@@ -885,7 +923,10 @@ test("graph analysis entry point passes only verified graph input to analysis", 
     { recordId: "B", parentRecordId: "A" },
   ], {
     sourceReadId: "analysis-gate-002",
-    sourceDigest: "source-sha256:example",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
     sourceCompletenessVerified: true,
   });
   const result = analyzeVerifiedGraphInput(
