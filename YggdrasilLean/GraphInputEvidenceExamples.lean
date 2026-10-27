@@ -51,12 +51,7 @@ theorem missing_parent_target_fails_resolution :
 theorem extra_mapping_entry_breaks_exact_domain :
     ¬ mappingDomainMatchesRecords exampleRecords
       [("A", 1), ("B", 2), ("EXTRA", 3)] := by
-  intro h
-  have extraBinding := h.1 ("EXTRA", 3) (by simp)
-  obtain ⟨record, recordIn, recordIdEq⟩ := extraBinding
-  simp [exampleRecords] at recordIn
-  subst recordIdEq
-  simp at recordIn
+  simp [mappingDomainMatchesRecords, exampleRecords]
 
 /-- Evidence carries source completeness as its own premise. -/
 theorem graph_input_evidence_preserves_completeness_premise
