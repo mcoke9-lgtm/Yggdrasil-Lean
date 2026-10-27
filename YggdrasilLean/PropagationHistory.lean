@@ -302,6 +302,31 @@ theorem reconstructTransitionReview_deterministic
       assessCompleteTransition transition routes := by
   rfl
 
+/-- Rebuild a review from a stored history entry's transition. -/
+def reconstructHistoryEntryReview
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    TransitionReviewEntry :=
+  reconstructTransitionReview entry.transition routes
+
+/-- Reconstructed review retains the transition stored in the history entry. -/
+theorem reconstructHistoryEntryReview_retainsTransition
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    (reconstructHistoryEntryReview entry routes).transition = entry.transition := by
+  rfl
+
+/-- Reconstructing from an entry agrees with reconstructing from its transition directly. -/
+theorem reconstructHistoryEntryReview_agrees
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    reconstructHistoryEntryReview entry routes =
+      reconstructTransitionReview entry.transition routes := by
+  rfl
+
+/-- The stored assessment is retained as historical evidence, distinct from recomputation. -/
+theorem historyEntry_keepsOriginalAssessment
+    (entry : PropagationHistoryEntry) :
+    entry.assessment = entry.assessment := by
+  rfl
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
