@@ -153,3 +153,9 @@ The verifier identity and verification-record reference are still supplied input
 `adaptive_filesystem_runtime.evidence_adapter` defines a replaceable protocol for checking a requested evidence reference and claim, plus a result validator that rejects mismatched references/claims and incomplete `VERIFIED` metadata. Outcomes are explicit: `VERIFIED`, `INVALID`, or `UNAVAILABLE`; unavailable is not success. The accompanying fake-adapter tests exercise the contract without network access.
 
 This is an interface and consistency guard, **not a live authoritative-source integration**. The validator cannot authenticate an adapter or verifier, establish source authority, fetch evidence, or prove cryptographic integrity. A production implementation must independently authorize and query the source, validate its response, and durably record the verification. No external evidence is contacted by these tests.
+
+## Adapter-to-recovery integration (AF-RECOVERY-012)
+
+`adaptive_filesystem_runtime.evidence_integration.decide_recovery_with_adapter` connects the adapter contract to recovery provenance policy. When an outcome reference exists, it asks the adapter to verify that exact reference as an `OUTCOME` claim, validates the returned type/status/reference/claim and required metadata, then supplies verified provenance to the recovery policy. `UNAVAILABLE` and adapter exceptions yield `RECONCILE_REQUIRED`; `INVALID`, malformed, or mismatched results yield `STOP_CONFLICT`. A missing outcome reference does not call the adapter and cannot confirm completion.
+
+This integration validates response consistency but **does not authenticate the adapter or verifier**. The adapter implementation remains responsible for source authorization, retrieval, source authority, evidence interpretation, and durable verification records. Tests use a fake adapter only; no live source is contacted.
