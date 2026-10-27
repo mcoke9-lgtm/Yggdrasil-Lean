@@ -70,3 +70,12 @@ Verification for the adapter and its tests:
 `reference-model/source-read-adapter.mjs` now exports `analyzeCompleteSourceRead(read)` as the end-to-end reference entry point. It calls `adaptCompleteSourceRead`, then `analyzeVerifiedGraphInput`, and returns scope/count metadata only after the gate accepts the artifact. Tests cover a complete acyclic read and verify that a non-null next-page cursor is rejected before analysis.
 
 This reduces caller-side assembly of manifests and artifacts, but it is **not a security boundary by itself**: any code with access to the function can still pass a fabricated object. Production integration must invoke this function directly on the actual connector response at the trusted connector boundary, with source identity/scope established by that integration. The current tests are deterministic reference-model tests, not a live connector integration.
+
+
+## Airtable response-shape adapter
+
+`reference-model/source-read-adapter.mjs` now exports `analyzeAirtableTableResponse(response, config)`. It maps the connector's `records[].cellValuesByFieldId`, `metadata.totalRecordCount`, and `nextCursor` fields into the existing gated source-read path. The field IDs and table/base IDs are supplied explicitly from the Airtable schema; the adapter rejects missing application record IDs and forwards pagination/count validation to the source-read gate.
+
+A read-only connector query was performed against base `appaUa8VbUJZmzmxe`, table `tblvy8J5UC6Y6SylE`, using the schema's Record ID and Parent Record ID field IDs. The connector returned 10 records, reported total count 10, and returned no next cursor. The recorded-value test exercises the same response shape and confirms 10 graph vertices, 8 parent edges, and `NO_CYCLE`; a separate test rejects a non-null cursor.
+
+**Evidence boundary:** this is a real read-only connector observation plus a deterministic recorded-value test, not a live Airtable call executed by CI. The test's Airtable-shaped response is constructed from the observed values; it does not preserve a signed or connector-issued receipt. Source authenticity remains a trusted-integration responsibility.
