@@ -33,6 +33,12 @@ def sourceMappingInjective (records : List SourceParentRecord)
   (∀ left ∈ mapping, ∀ right ∈ mapping,
     left.1 ≠ right.1 → left.2 ≠ right.2)
 
+/-- Every mapping entry refers to a source record; extra vertices are not silently admitted. -/
+def mappingDomainMatchesRecords (records : List SourceParentRecord)
+    (mapping : List SourceVertexBinding) : Prop :=
+  (∀ binding ∈ mapping, ∃ record ∈ records, record.recordId = binding.1) ∧
+  (∀ record ∈ records, ∃ binding ∈ mapping, binding.1 = record.recordId)
+
 /-- Vertex IDs derived from the explicit source identity mapping. -/
 def mappedVertices (mapping : List SourceVertexBinding) : List Nat :=
   mapping.map Prod.snd
@@ -70,8 +76,10 @@ def graphMatchesSource (records : List SourceParentRecord)
 structure GraphInputEvidence (records : List SourceParentRecord)
     (mapping : List SourceVertexBinding) (graph : ParentGraphInput) : Prop where
   mappingInjective : sourceMappingInjective records mapping
+  mappingDomainExact : mappingDomainMatchesRecords records mapping
   parentReferencesResolve : allParentReferencesResolve records mapping
   exactGraphBinding : graphMatchesSource records mapping
+  graphInternallyWellFormed : parentGraphInputWellFormed graph
   sourceScopeComplete : Prop
 
 /-- Exact graph binding entails that the supplied vertices equal the mapping's vertex IDs. -/
