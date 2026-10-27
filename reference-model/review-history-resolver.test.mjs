@@ -579,6 +579,13 @@ test("Airtable response adapter maps the recorded 10-record table read", () => {
   assert.equal(result.analysis, "NO_CYCLE");
   assert.equal(result.graphInput.vertices.length, 10);
   assert.equal(result.graphInput.edges.length, 8);
+  const sourceRecord = result.analysisRecords.find((record) => record.recordId === "AF-PILOT-010");
+  assert.deepEqual(sourceRecord, {
+    recordId: "AF-PILOT-010",
+    parentRecordId: "AF-PILOT-009",
+  });
+  assert.ok(result.sourceVertexBindings.some((binding) =>
+    binding.recordId === "AF-PILOT-010" && Number.isSafeInteger(binding.vertexId)));
 });
 
 test("Airtable response adapter rejects a paginated response before analysis", () => {
