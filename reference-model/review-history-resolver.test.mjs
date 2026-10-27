@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
+import { buildGraphInputCertificate } from "./graph-input-certificate.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -216,4 +217,53 @@ test("NO_CYCLE bridge rejects missing-parent fixture without completeness certif
   assert.equal(missingParent.runtime, "INDETERMINATE");
   assert.equal(mapGraphOutcomeForLean(missingParent.runtime).accepted, true);
   assert.equal(mapGraphOutcomeForLean(missingParent.runtime).leanOutcome, "indeterminate");
+});
+
+
+test("graph certificate binds deterministic vertices and edges to source metadata", () => {
+  const records = [
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ];
+  const options = { sourceReadId: "snapshot-001", sourceDigest: "sha256:source", sourceCompletenessVerified: true };
+  const certificate = buildGraphInputCertificate(records, options);
+  const reversed = buildGraphInputCertificate([...records].reverse(), options);
+  assert.equal(certificate.certificateReady, true);
+  assert.deepEqual(certificate.vertices, [
+    { recordId: "A", vertexId: 1 }, { recordId: "B", vertexId: 2 },
+  ]);
+  assert.deepEqual(certificate.edges, [{ childVertexId: 2, parentVertexId: 1 }]);
+  assert.equal(certificate.graphDigest, reversed.graphDigest);
+  assert.equal(certificate.sourceReadId, "snapshot-001");
+});
+
+test("graph certificate does not infer source completeness from a well-formed graph", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], { sourceReadId: "snapshot-002", sourceDigest: "sha256:source" });
+  assert.equal(certificate.identityIntegrityCertain, true);
+  assert.equal(certificate.sourceCompletenessVerified, false);
+  assert.equal(certificate.certificateReady, false);
+});
+
+test("graph certificate makes duplicate IDs and unresolved parents explicit", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: "MISSING" },
+    { recordId: "A", parentRecordId: null },
+    { recordId: " B ", parentRecordId: null },
+  ], { sourceReadId: "snapshot-003", sourceDigest: "sha256:source", sourceCompletenessVerified: true });
+  assert.equal(certificate.certificateReady, false);
+  assert.equal(certificate.identityIntegrityCertain, false);
+  assert.ok(certificate.findings.some((finding) => finding.code === "DUPLICATE_RECORD_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "MALFORMED_RECORD_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "UNRESOLVED_PARENT_REFERENCE"));
+});
+
+test("graph certificate rejects absent or malformed source identity metadata", () => {
+  const certificate = buildGraphInputCertificate([{ recordId: "A" }], {
+    sourceReadId: " read ", sourceDigest: "", sourceCompletenessVerified: true,
+  });
+  assert.equal(certificate.certificateReady, false);
+  assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_READ_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_DIGEST"));
 });
