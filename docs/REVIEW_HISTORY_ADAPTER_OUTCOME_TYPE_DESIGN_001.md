@@ -395,3 +395,61 @@ Recommendation remains to make known incompleteness a caller-visible, exhaustive
 4. **Status:** Semantic invariant adopted; current type gaps verified by source inspection; proposed constructor/evidence shape not adopted; no code changed.
 5. **Recheck:** No partial lookup can justify NotFound; ambiguity cannot be hidden; history completeness and snapshot consistency are not conflated.
 6. **Persistence/uncertainty:** This section is being added to the design record only. Compilation, runtime behavior, backend capabilities, and integration tests remain unverified.
+
+
+## Smallest compatible identity-read API proposal — review 004
+
+**Status: proposed for review only; not adopted.** This proposal narrows the next decision to identity reads. It does not change Lean declarations, choose an evidence schema, or bundle ordered-history changes into the same milestone.
+
+### Proposed semantic shape
+
+Retain the existing operation-specific outcomes, but make evidence-bearing results mandatory and add explicit branches for known incomplete coverage and competing identities. Conceptually:
+
+```text
+IdentityReadOutcome(
+  Record,
+  Provenance,
+  ScopeEvidence,
+  LookupEvidence,
+  Diagnostic
+)
+  = Found(record, provenance, scopeEvidence)
+  | NotFound(completeScopeEvidence)
+  | Incomplete(observedMatches, lookupEvidence)
+  | AmbiguousIdentity(observedCandidates, lookupEvidence)
+  | UnsupportedSchema(diagnostic)
+  | Corrupt(diagnostic)
+  | Unavailable(diagnostic)
+```
+
+This is pseudocode, **not Lean source**. The generic evidence types stand in for records that still need review; they are not asserted to exist in the repository. `LookupEvidence` must expose at least whether the declared scope is complete, incomplete, or unknown, and whether the candidate list is exhaustive. `ScopeEvidence` must identify the declared lookup scope and support any claim of complete coverage. `Provenance` must distinguish stored original data from reconstruction or reassessment. `Diagnostic` must not substitute for a primary outcome.
+
+### Required interpretation
+
+- **Found:** one validated record was established within the declared scope, and evidence supports the scope claim. It must not conceal competing event IDs.
+- **NotFound:** constructible only with evidence that the complete declared scope was searched and no match was found.
+- **Incomplete:** coverage is positively known to be partial. Zero or one observed match remains partial evidence, not proof of absence or uniqueness.
+- **AmbiguousIdentity:** multiple competing event IDs were observed. Evidence must say whether the observed candidates are exhaustive. If the lookup later fails or remains partial, preserve that limitation in the evidence rather than selecting a winner.
+- **Unavailable:** the operation could not establish a reliable result before completeness could be assessed. Do not use it to erase ambiguity already observed; if ambiguity has been observed, the primary outcome remains ambiguous and the evidence records incomplete/unknown coverage.
+- **UnsupportedSchema / Corrupt:** remain distinct from absence and unavailability.
+
+### Compatibility and limits
+
+1. This expands the current identity-read API and changes constructor call sites, so it is **not source-compatible** with callers that construct or pattern-match the existing five constructors.
+2. The smallest semantic correction is not necessarily the fewest constructor edits: adding a dedicated `Incomplete` branch and evidence-bearing `NotFound` prevents callers from treating partial coverage as absence. The exact Lean encoding still needs a decision on shared evidence structures and exhaustiveness.
+3. Do not add lookup-completeness fields to each persisted event. They describe the read operation, not necessarily the stored event.
+4. Keep `AppendOutcome` / `ReconcileOutcome` commit uncertainty separate from identity-read incompleteness.
+5. Keep `OrderedHistoryOutcome` out of this change. Its traversal completeness and snapshot consistency are separate API dimensions and need their own reviewed compatibility decision.
+
+### Decision requested by this proposal
+
+Review whether to adopt the **semantic API requirements**—evidence-bearing `Found` and `NotFound`, explicit `Incomplete`, explicit `AmbiguousIdentity`, and separate `Unavailable`—before choosing concrete Lean structures and editing the source file. Until then, do not modify the Lean declarations.
+
+### Six-Part Integrity Check — proposal 004
+
+1. **Count:** Six integrity roles remain; this is an API proposal, not a new test group.
+2. **Role mapping:** Found/provenance; confirmed absence; known incomplete coverage; competing identities; failures before completeness is known; schema/corruption.
+3. **Completeness:** Overlap between observed ambiguity and partial coverage is retained in lookup evidence; ordered history is explicitly out of scope.
+4. **Status:** Semantic invariant adopted earlier; this API shape is proposed, not adopted; Lean code unchanged.
+5. **Recheck:** Partial zero/one matches cannot become NotFound or unique Found; ambiguity cannot be erased by a later failure; candidate exhaustiveness is evidence-bounded.
+6. **Persistence/uncertainty:** This proposal is being added to the design record and must be read back before persistence is claimed. Lean compilation, caller migration, backend evidence, and tests remain unverified.
