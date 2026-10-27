@@ -390,7 +390,7 @@ test("handoff verifier keeps source completeness separate from graph digest vali
   assert.equal(result.certificateReady, false);
 });
 
-test("consumer gate withholds graph until independent completeness attestation", () => {
+test("consumer gate withholds graph until a consistent source-read evidence manifest is supplied", () => {
   const certificate = buildGraphInputCertificate([
     { recordId: "A", parentRecordId: null },
     { recordId: "B", parentRecordId: "A" },
