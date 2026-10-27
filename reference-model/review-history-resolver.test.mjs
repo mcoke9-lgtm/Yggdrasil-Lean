@@ -2,7 +2,8 @@ import test from "node:test";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import assert from "node:assert/strict";
-import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
+import { Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
+import { auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
@@ -443,15 +444,10 @@ test("graph analysis entry point never invokes consumer on a rejected artifact",
   });
   const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
   artifact.graphDigest = "0".repeat(64);
-  let invoked = false;
   const result = analyzeVerifiedGraphInput(JSON.stringify(artifact), {
     sourceCompletenessAttested: true,
-  }, () => {
-    invoked = true;
-    return "should never run";
   });
   assert.deepEqual(result, { accepted: false, code: "GRAPH_DIGEST_MISMATCH" });
-  assert.equal(invoked, false);
 });
 
 test("graph analysis entry point passes only verified graph input to analysis", () => {
@@ -463,18 +459,13 @@ test("graph analysis entry point passes only verified graph input to analysis", 
     sourceDigest: "source-sha256:example",
     sourceCompletenessVerified: true,
   });
-  let received;
   const result = analyzeVerifiedGraphInput(
     serializeGraphInputCertificate(certificate),
     { sourceCompletenessAttested: true },
-    (graphInput) => {
-      received = graphInput;
-      return graphInput.edges.length === 1 ? "one-edge" : "unexpected";
-    },
   );
   assert.equal(result.accepted, true);
-  assert.equal(result.analysis, "one-edge");
-  assert.deepEqual(received, { vertices: [1, 2], edges: [[2, 1]] });
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.deepEqual(result.graphInput, { vertices: [1, 2], edges: [[2, 1]] });
 });
 
 test("graph analysis entry point blocks incomplete source despite valid digest", () => {
@@ -485,18 +476,13 @@ test("graph analysis entry point blocks incomplete source despite valid digest",
     sourceDigest: "source-sha256:example",
     sourceCompletenessVerified: false,
   });
-  let invoked = false;
   const result = analyzeVerifiedGraphInput(serializeGraphInputCertificate(certificate), {
     sourceCompletenessAttested: false,
-  }, () => {
-    invoked = true;
-    return null;
   });
   assert.deepEqual(result, {
     accepted: false,
     code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
   });
-  assert.equal(invoked, false);
 });
 
 test("architecture guard: production reference-model modules cannot import raw graph analyzers", async () => {
@@ -509,7 +495,7 @@ test("architecture guard: production reference-model modules cannot import raw g
       if (entry.isDirectory()) await walk(path);
       else if (entry.isFile() && entry.name.endsWith(".mjs") &&
           !entry.name.endsWith(".test.mjs") &&
-          entry.name !== "review-history-resolver.mjs") files.push(path);
+          entry.name !== "review-history-resolver.internal.mjs") files.push(path);
     }
   }
   await walk(root);
@@ -522,5 +508,5 @@ test("architecture guard: production reference-model modules cannot import raw g
       if (importPattern.test(source)) violations.push({ file, name });
     }
   }
-  assert.deepEqual(violations, [], "raw graph-analysis imports are reserved for tests and the resolver's own module");
+  assert.deepEqual(violations, [], "raw graph-analysis imports are reserved for the gated consumer and tests");
 });
