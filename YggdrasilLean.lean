@@ -7,3 +7,4 @@ import YggdrasilLean.BranchDivergence
 import YggdrasilLean.SelectivePropagation
 import YggdrasilLean.PropagationHistory
 import YggdrasilLean.ReviewHistoryAdapterTypes
+import YggdrasilLean.ReviewHistoryAppendRules
