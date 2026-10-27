@@ -87,9 +87,17 @@ def decide_recovery_with_provenance(
         if not facts.outcome_evidence or provenance.evidence_reference != facts.outcome_evidence:
             bad = RecoveryDecision("STOP_CONFLICT", "verified outcome provenance must match the exact outcome evidence reference")
             return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)
-    if provenance.claim == "RECONCILIATION" and facts.explicit_reconciliation_result is None:
-        bad = RecoveryDecision("STOP_CONFLICT", "verified reconciliation provenance has no matching reconciliation claim")
-        return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)
+    if provenance.claim == "RECONCILIATION":
+        if facts.explicit_reconciliation_result is None:
+            bad = RecoveryDecision("STOP_CONFLICT", "verified reconciliation provenance has no matching reconciliation claim")
+            return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)
+        if (not facts.reconciliation_evidence_reference
+                or provenance.evidence_reference != facts.reconciliation_evidence_reference):
+            bad = RecoveryDecision(
+                "STOP_CONFLICT",
+                "verified reconciliation provenance must match the exact reconciliation evidence reference",
+            )
+            return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)
     if provenance.claim == "NONE":
         bad = RecoveryDecision("STOP_CONFLICT", "evidence reference must identify its claim type")
         return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)

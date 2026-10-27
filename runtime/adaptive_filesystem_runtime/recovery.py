@@ -26,6 +26,7 @@ class RecoveryFacts:
     idempotent_external_action: bool
     idempotency_key_supported_by_target: bool
     explicit_reconciliation_result: str | None = None
+    reconciliation_evidence_reference: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,14 +52,20 @@ def decide_recovery(facts: RecoveryFacts) -> RecoveryDecision:
     ):
         if not isinstance(getattr(facts, name), bool):
             return RecoveryDecision("STOP_CONFLICT", f"{name} must be boolean")
-    for name in ("outcome_evidence", "explicit_reconciliation_result"):
+    for name in ("outcome_evidence", "explicit_reconciliation_result", "reconciliation_evidence_reference"):
         value = getattr(facts, name)
         if value is not None and (not isinstance(value, str) or not value.strip()):
             return RecoveryDecision("STOP_CONFLICT", f"{name} must be non-empty text or None")
 
+    if facts.reconciliation_evidence_reference is not None and facts.explicit_reconciliation_result is None:
+        return RecoveryDecision(
+            "STOP_CONFLICT",
+            "reconciliation evidence reference has no matching reconciliation result",
+        )
+
     # Do not let a missing intent record bypass contradictory outcome claims.
     if not facts.durable_intent_recorded:
-        if facts.outcome_evidence or facts.explicit_reconciliation_result is not None:
+        if facts.outcome_evidence or facts.explicit_reconciliation_result is not None or facts.reconciliation_evidence_reference is not None:
             return RecoveryDecision(
                 "STOP_CONFLICT",
                 "outcome evidence or reconciliation conflicts with missing durable intent",

@@ -13,6 +13,7 @@ def facts(**overrides):
         outcome_evidence="receipt://1", idempotent_external_action=False,
         idempotency_key_supported_by_target=False,
         explicit_reconciliation_result=None,
+        reconciliation_evidence_reference=None,
     )
     values.update(overrides)
     return RecoveryFacts(**values)
@@ -75,6 +76,14 @@ class EvidenceProvenanceTests(unittest.TestCase):
                        verification_reference=None),
         )
         self.assertEqual(result.outcome, "RECONCILE_REQUIRED")
+
+    def test_verified_reconciliation_requires_exact_reference_match(self):
+        result = decide_recovery_with_provenance(
+            facts(explicit_reconciliation_result="completed",
+                  reconciliation_evidence_reference="reconcile://1"),
+            provenance(claim="RECONCILIATION", evidence_reference="reconcile://other"),
+        )
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
     def test_verified_reconciliation_requires_matching_claim(self):
         result = decide_recovery_with_provenance(
