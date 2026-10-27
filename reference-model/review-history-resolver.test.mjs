@@ -371,6 +371,10 @@ test("handoff verifier accepts intact artifact and rejects altered mapping, edge
     "GRAPH_DIGEST_MISMATCH",
   );
   assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphInput.edges = [[2, 1], [2, 1]]; })).code,
+    "MULTIPLE_PARENT_EDGES_FOR_VERTEX",
+  );
+  assert.equal(
     verifySerializedGraphInputArtifact(mutate((a) => { a.graphDigest = "0".repeat(64); })).code,
     "GRAPH_DIGEST_MISMATCH",
   );
