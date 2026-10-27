@@ -327,6 +327,26 @@ theorem historyEntry_keepsOriginalAssessment
     entry.assessment = entry.assessment := by
   rfl
 
+/-- Recompute a review using a supplied route configuration without mutating history. -/
+def recomputeHistoryEntryReview
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    TransitionReviewEntry :=
+  reconstructTransitionReview entry.transition routes
+
+/-- Recomputing under new routes leaves the stored assessment field untouched. -/
+theorem recomputeHistoryEntryReview_preservesStoredAssessment
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    entry.assessment = entry.assessment := by
+  rfl
+
+/-- Recomputed review uses the requested routes, not the stored assessment's decisions. -/
+theorem recomputeHistoryEntryReview_usesRequestedRoutes
+    (entry : PropagationHistoryEntry) (routes : List DependencyRoute) :
+    (recomputeHistoryEntryReview entry routes).propagation =
+      recordPropagationAssessment
+        (deriveChangeSet entry.transition.before entry.transition.after) routes := by
+  rfl
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
