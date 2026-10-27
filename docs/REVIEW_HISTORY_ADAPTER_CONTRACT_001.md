@@ -235,3 +235,11 @@ Candidate disposition matrix:
 | One match observed, but lookup completeness unknown | Do not claim unique `Found` across the requested scope unless the contract defines `Found` as a local match and separately exposes incomplete coverage |
 
 The contract should ultimately choose between a distinct incomplete-read outcome and mandatory completeness metadata. A single generic `Unavailable` is acceptable only if callers cannot mistake it for confirmed absence and can reliably inspect the incomplete/unknown distinction. This decision remains open pending API review and IT-6 acceptance criteria. No Lean constructor shape is selected here.
+
+## 13. Caller obligations and incomplete-read disposition — recommendation
+
+**Proposed, not adopted:** callers should be forced to distinguish known incomplete lookup from unavailable/unknown lookup. A free-form diagnostic alone is insufficient.
+
+A known incomplete result must carry lookup-scope/completeness evidence and may preserve observed matching records as partial evidence. It must not imply absence or uniqueness across the requested scope. If multiple competing event IDs have been observed, preserve AmbiguousIdentity and mark the candidate set non-exhaustive unless completeness is established. If the operation fails before completeness can be assessed, return unavailable/unknown rather than asserting known incompleteness.
+
+The final API may encode this as a distinct Incomplete result or an equivalent mandatory tagged field that callers must exhaustively handle. The contract should reject an optional-only flag that callers can omit or ignore. Exact constructor names and fields remain open; no Lean or backend behavior is implied.
