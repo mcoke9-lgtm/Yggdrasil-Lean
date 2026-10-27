@@ -47,10 +47,19 @@ def _index(records: Iterable[Record]) -> dict[str, Record]:
     if any(not isinstance(r, Record) for r in items):
         raise ResolutionError("MALFORMED_RECORD", "every input item must be a Record")
     for record in items:
-        if not record.record_id or not record.branch_id:
-            raise ResolutionError("MALFORMED_RECORD", "record_id and branch_id are required")
+        if (not isinstance(record.record_id, str) or not record.record_id
+                or record.record_id != record.record_id.strip()
+                or not isinstance(record.branch_id, str) or not record.branch_id
+                or record.branch_id != record.branch_id.strip()):
+            raise ResolutionError("MALFORMED_RECORD", "record_id and branch_id must be non-empty, trimmed text")
         if not isinstance(record.sequence, int) or isinstance(record.sequence, bool) or record.sequence < 0:
             raise ResolutionError("MALFORMED_RECORD", f"invalid sequence for {record.record_id}")
+        for name in ("parent_record_id", "source_branch_id", "source_anchor_id", "revision_of_id"):
+            value = getattr(record, name)
+            if value is not None and not isinstance(value, str):
+                raise ResolutionError("MALFORMED_REFERENCE", f"{record.record_id}.{name} must be text or None")
+            if isinstance(value, str) and value != value.strip():
+                raise ResolutionError("MALFORMED_REFERENCE", f"{record.record_id}.{name} has surrounding whitespace")
         if bool(record.source_branch_id) != bool(record.source_anchor_id):
             raise ResolutionError(
                 "MALFORMED_SOURCE_REFERENCE",
