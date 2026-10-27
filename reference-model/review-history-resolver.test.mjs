@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome } from "./review-history-resolver.mjs";
+import { pilotSnapshot } from "./pilot-snapshot.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -77,4 +78,21 @@ test("matches the pilot's known missing-anchor fixture without fallback", () => 
   ];
   assert.equal(resolveRecordReferences(pilot, pilot[1]).sourceAnchor, Outcome.RESOLVED);
   assert.equal(resolveRecordReferences(pilot, pilot[2]).sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
+});
+
+
+test("audits the retrieved ten-record pilot snapshot without silent fallback", () => {
+  assert.equal(pilotSnapshot.length, 10);
+  const result = auditDataset(pilotSnapshot);
+  assert.deepEqual(result.duplicateRecordIds, []);
+  assert.deepEqual(result.duplicateBranchSequences, []);
+  assert.equal(result.parentCycle, false);
+  const missingAnchor = result.records.find((r) => r.recordId === "AF-PILOT-005");
+  assert.equal(missingAnchor.sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-004").sourceAnchor,
+    Outcome.RESOLVED);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-002").revision,
+    Outcome.RESOLVED);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-003").revision,
+    Outcome.RESOLVED);
 });
