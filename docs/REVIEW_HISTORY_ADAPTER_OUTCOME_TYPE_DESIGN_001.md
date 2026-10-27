@@ -264,3 +264,43 @@ Prefer the **semantic distinction**, not yet a constructor choice: distinguish *
 4. **Status:** Semantic recommendation proposed, not adopted; no constructor or Lean declaration changed.
 5. **Recheck:** `NotFound` still requires complete scope; unavailable is not absence; observed ambiguity is not hidden.
 6. **Persistence/uncertainty:** This is a design proposal only. Backend behavior and test execution remain unverified.
+
+## Caller obligations review — disposition 001
+
+**Recommendation: prefer a distinct incomplete-read semantic branch, with evidence for any observed matches; constructor spelling and exact fields remain unadopted.**
+
+The decisive question is whether a caller can accidentally treat “one match was observed” as “this is the unique matching record.” That is a material safety risk when lookup scope is incomplete. The result must force callers to account for incomplete coverage rather than rely on an optional diagnostic.
+
+### Caller obligations by semantic result
+
+| Semantic result | Minimum caller obligation |
+|---|---|
+| Complete Found | May use the validated record within the declared scope; must not infer uniqueness outside that scope |
+| NotFound | May treat the identity as absent only within the declared scope proven complete by evidence |
+| Known Incomplete | Must not treat the lookup as absent or unique; may inspect observed matches only as partial evidence |
+| AmbiguousIdentity | Must not choose a winner without an independently justified resolution rule; candidate list may be partial unless completeness is proven |
+| Unavailable / completeness unknown | Must not infer absence, uniqueness, commit state, or a known partial-coverage cause |
+| UnsupportedSchema / Corrupt | Must not treat the record as absent or silently reinterpret it as a valid record |
+
+### Why the recommendation favors a distinct incomplete branch
+
+1. Incomplete coverage is a positive fact about the lookup, not merely a transient service failure.
+2. An optional diagnostic can be ignored; a distinct result branch can be exhaustively handled by callers.
+3. An incomplete result may include zero or one observed matching record. It must preserve that evidence without asserting complete-scope uniqueness.
+4. If multiple competing event IDs have already been observed, retain AmbiguousIdentity as the primary semantic condition and mark the candidate set non-exhaustive unless completeness is proven. If a later failure prevents completing the search, preserve both the observed ambiguity and the incomplete/unknown coverage metadata.
+5. If lookup fails before the adapter can determine whether scope coverage is complete, use unavailable/unknown—not known Incomplete.
+
+This recommendation does not require a particular Lean encoding. An API may represent the distinction with a dedicated Incomplete constructor or an equivalent mandatory tagged result field, but the latter must make omission impossible and must support exhaustive caller handling. A free-form diagnostic is insufficient.
+
+### Disposition
+
+**Proposed, not adopted:** make known incompleteness an exhaustively handled semantic result, separate from unavailable/unknown; carry observed-match and lookup-scope evidence; preserve observed ambiguity even when the candidate set is incomplete. Keep constructor/API fields open until contract and test-spec wording are reconciled. No Lean declarations or implementation changed.
+
+### Six-Part Integrity Check — caller obligations
+
+1. **Count:** The six integration-test groups remain unchanged.
+2. **Role mapping:** IT-3 handles competing identities; IT-4 handles traversal completeness; IT-6 verifies caller-visible read-result distinctions.
+3. **Completeness:** Covers zero/one observed matches under incomplete scope, multiple observed candidates, and failures before completeness is known.
+4. **Status:** Preferred semantic design proposed; no API adoption or implementation.
+5. **Recheck:** Known incomplete is not NotFound; one observed match is not complete-scope uniqueness; unavailable is not proof of incompleteness; observed ambiguity remains visible.
+6. **Persistence/uncertainty:** Design decision rationale is recorded for review. Caller behavior and backend evidence remain untested.
