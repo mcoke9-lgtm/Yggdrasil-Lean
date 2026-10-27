@@ -154,3 +154,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** normalization implemented; regression tested; both resolver tests and Lean build verified on the exact code/test commit; not a source-authenticity proof.
 5. **Recheck:** successful workflow records above are tied to `4f70484e57b52e793698dea5f006dc0a79bcb4a8`. Any later documentation-only commit has its own CI status and should not inherit this exact-commit claim automatically.
 6. **Persistence / uncertainty:** code and test commits are on the existing active branch; checkpoint update is being committed now. Trusted source authenticity, multi-page snapshot consistency, and live Airtable integration remain unresolved.
+
+
+## 15. Source-digest-to-graph binding audit (2026-10-27)
+
+- Reviewed `verifySerializedGraphInputArtifact` and `validateSourceReadEvidence`. The graph verifier recomputes `graphDigest` from the canonical graph payload, while source-evidence validation checks that the manifest's `sourceDigest` equals the artifact's `sourceDigest` and that counts/scope/completion fields are structurally consistent.
+- **Open integrity gap:** the verifier does not recompute `sourceDigest` from the artifact's record-ID bindings and parent edges. A caller can therefore supply a digest that does not correspond to the graph projection and supply a manifest repeating that same digest; the current checks establish agreement between claims, not agreement of the source digest with graph content.
+- This is distinct from source authenticity and snapshot consistency. Recomputing the canonical graph-relevant source projection from bindings plus edges could close the *internal binding* gap, but cannot prove the records came from the claimed external source.
+- Status: **identified; not implemented**. No code change was made in this audit pass because the existing unit-test fixtures intentionally use placeholder source digests; hardening the verifier requires updating fixtures to build real matching digests and adding explicit tampering regressions. Treat the consumer gate as an integrity consistency check with this known limitation, not as proof of source provenance.
+- No Airtable records were changed. No branch was created.
+
+### Six-Part Integrity Check
+
+1. **Count:** six checks, exactly.
+2. **Roles:** (a) separate graph digest from source digest; (b) identify the missing binding; (c) identify fixture impact; (d) distinguish identified from implemented; (e) verify the audit against current verifier functions; (f) preserve the finding in the durable checkpoint.
+3. **Completeness:** records the gap, impact, likely remediation, and what remediation would not prove.
+4. **Status:** identified and documented; not implemented, tested, or adopted.
+5. **Recheck:** source code confirms graph digest is recomputed while source digest is only equality-checked against the manifest.
+6. **Persistence / uncertainty:** checkpoint update is committed and reread below; the exploitability is limited to the current consumer's trust boundary and does not establish that a production connector is present or compromised.
