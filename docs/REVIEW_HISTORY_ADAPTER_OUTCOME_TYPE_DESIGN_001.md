@@ -175,9 +175,9 @@ Do not resolve these by assumption while translating this draft into Lean. Revie
 1. **Count:** Six integration-test groups remain, IT-1 through IT-6; the identity-read family is explicitly covered within IT-6 rather than creating an accidental seventh group.
 2. **Role mapping:** IT-1 covers reconciliation evidence; IT-3 covers identity ambiguity; IT-6 covers identity-read outcomes and failure distinctions.
 3. **Completeness:** The prior omission is addressed. Backend atomicity, uniqueness, durability, encoding, lifecycle, lookup authority, and access-control guarantees remain outside what types alone can prove.
-4. **Status:** Candidate design only; the contract and outcome-design documents now agree on the proposed identity-read ambiguity outcome, but no policy is adopted, no Lean types changed, no adapter implemented, and no integration tests executed.
+4. **Status:** Candidate type design; the identity-ambiguity semantic invariant is adopted in the boundary decision record, but the proposed identity-read constructor/API shape is not adopted. No Lean types changed, no adapter implemented, and no integration tests executed.
 5. **Recheck:** Identity-read results align with the contract; `NotCommitted` has a stricter evidence boundary; unknown remains explicit; no field is described as proof of storage behavior.
-6. **Persistence/uncertainty:** This reconciliation revision is saved and read back at commit `dc3cffa2166db002efbab941451e005bcea43fa5`. Persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
+6. **Persistence/uncertainty:** The original reconciliation was saved at commit `dc3cffa2166db002efbab941451e005bcea43fa5`; the latest decision-alignment revision is saved and read back at commit `d549117258b4a156f44d6e284e465ed23e5c6309`. Persistence records the scoped semantic adoption and proposed API shape, not successful compilation or backend verification.
 
 
 ## Decision alignment — disposition 002
