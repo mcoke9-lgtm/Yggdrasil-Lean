@@ -271,6 +271,52 @@ example :
       revised.review.propagation.decisions.head!.selectedForReview = false := by
   decide
 
+/-! The versioned records can themselves be accumulated without replacing history. -/
+
+/-- In-memory append-only sequence of versioned transition reviews. -/
+structure VersionedTransitionReviewHistory where
+  entries : List VersionedTransitionReviewEntry
+  deriving DecidableEq, Repr
+
+/-- Append one versioned review as a new historical entry. -/
+def appendVersionedReview
+    (history : VersionedTransitionReviewHistory)
+    (entry : VersionedTransitionReviewEntry) : VersionedTransitionReviewHistory :=
+  ⟨history.entries ++ [entry]⟩
+
+/-- Appending a versioned review preserves the exact prior prefix and appends one entry. -/
+theorem appendVersionedReview_preservesOrder
+    (history : VersionedTransitionReviewHistory)
+    (entry : VersionedTransitionReviewEntry) :
+    (appendVersionedReview history entry).entries = history.entries ++ [entry] := by
+  rfl
+
+/-- The appended versioned review is the final entry. -/
+theorem appendVersionedReview_retainsLast
+    (history : VersionedTransitionReviewHistory)
+    (entry : VersionedTransitionReviewEntry) :
+    (appendVersionedReview history entry).entries.getLast? = some entry := by
+  simp [appendVersionedReview]
+
+/-- Appending a reassessment preserves the original assessment as the first historical entry. -/
+example :
+    let transition : TransitionRecord :=
+      ⟨identityReviewExampleState,
+        { identityReviewExampleState with evidence := ["source-1"] }⟩
+    let oldSnapshot : PropagationRuleSnapshot :=
+      ⟨"rules-v1", [⟨"evidence-route", [.evidence]⟩]⟩
+    let original := assessWithRuleSnapshot transition oldSnapshot
+    let history : VersionedTransitionReviewHistory := ⟨[original]⟩
+    let newSnapshot : PropagationRuleSnapshot :=
+      ⟨"rules-v2", [⟨"agreement-route", [.agreements]⟩]⟩
+    let reassessed := reassessWithRuleSnapshot original newSnapshot
+    let revisedHistory := appendVersionedReview history reassessed
+    revisedHistory.entries = [original, reassessed] ∧
+      revisedHistory.entries.head! = original ∧
+      revisedHistory.entries.getLast? = some reassessed ∧
+      revisedHistory.entries.head!.ruleSnapshot.ruleSetId = "rules-v1" := by
+  decide
+
 /-- An in-memory review history retains transition reviews in append order. -/
 structure TransitionReviewHistory where
   entries : List TransitionReviewEntry
