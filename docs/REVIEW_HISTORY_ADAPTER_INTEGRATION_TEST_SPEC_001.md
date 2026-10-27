@@ -208,3 +208,15 @@ These are cases within IT-6, not separate integration-test groups. The final API
 4. **Status:** Test assertions proposed, not implemented or executed.
 5. **Recheck:** No incomplete/unknown search can produce `NotFound`; observed ambiguity cannot be hidden; full-scope uniqueness requires completeness.
 6. **Persistence/uncertainty:** This specification describes expected tests only; backend-specific injection capability and results remain unverified.
+
+## IT-6 caller-obligation assertions — proposed
+
+Extend the existing IT-6 assertions to verify the caller-visible semantic contract, without creating a seventh test group:
+
+- A known-incomplete lookup is an explicit, exhaustively distinguishable result or mandatory tagged status—not only an optional free-form diagnostic.
+- Zero or one observed matches under incomplete coverage are preserved as partial evidence and are not presented as confirmed absence or unique full-scope success.
+- If multiple competing event IDs are observed, AmbiguousIdentity remains visible; candidate evidence is marked non-exhaustive unless complete coverage is established.
+- A failure before completeness can be assessed is unavailable/unknown, not a falsely asserted known-incomplete result.
+- A complete-scope NotFound includes evidence of the declared scope and its completeness.
+
+These are proposed acceptance assertions; implementation and execution remain outstanding.
