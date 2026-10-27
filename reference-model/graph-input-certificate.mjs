@@ -105,3 +105,39 @@ export function buildGraphInputCertificate(records, {
     certificateReady,
   };
 }
+
+/**
+ * Export a versioned, deterministic handoff artifact for the Lean adapter.
+ *
+ * The digest binds the source-ID mapping and numeric graph input together.
+ * Lean must still check the mapping/graph obligations; this JSON artifact is
+ * not itself a Lean proof or an assertion of source completeness.
+ */
+export function serializeGraphInputCertificate(certificate) {
+  if (!certificate || typeof certificate !== "object" ||
+      typeof certificate.graphDigest !== "string" ||
+      !Array.isArray(certificate.vertices) ||
+      !Array.isArray(certificate.edges) ||
+      !certificate.leanGraphInput ||
+      !Array.isArray(certificate.leanGraphInput.vertices) ||
+      !Array.isArray(certificate.leanGraphInput.edges)) {
+    throw new TypeError("Malformed graph-input certificate");
+  }
+
+  const payload = {
+    schema: "yggdrasil-parent-graph-v1",
+    sourceReadId: certificate.sourceReadId ?? null,
+    sourceDigest: certificate.sourceDigest ?? null,
+    sourceCompletenessVerified: certificate.sourceCompletenessVerified === true,
+    graphDigest: certificate.graphDigest,
+    sourceVertexBindings: certificate.vertices.map(({ recordId, vertexId }) =>
+      ({ recordId, vertexId })),
+    graphInput: {
+      vertices: [...certificate.leanGraphInput.vertices],
+      edges: certificate.leanGraphInput.edges.map(([child, parent]) => [child, parent]),
+    },
+    findings: [...(certificate.findings ?? [])],
+    certificateReady: certificate.certificateReady === true,
+  };
+  return JSON.stringify(payload);
+}
