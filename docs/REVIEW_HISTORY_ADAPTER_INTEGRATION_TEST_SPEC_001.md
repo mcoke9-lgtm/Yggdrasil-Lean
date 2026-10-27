@@ -220,3 +220,25 @@ Extend the existing IT-6 assertions to verify the caller-visible semantic contra
 - A complete-scope NotFound includes evidence of the declared scope and its completeness.
 
 These are proposed acceptance assertions; implementation and execution remain outstanding.
+
+## IT-6 semantic refinement — incomplete, unresolved, and unavailable
+
+**Status: proposed acceptance criteria; not implemented or executed.** These cases remain within IT-6 and do not create a seventh integration-test group.
+
+Use distinct semantics:
+- **Incomplete:** positive evidence that the declared lookup scope is only partially searched.
+- **Unresolved:** the operation completed, but the available evidence cannot establish whether the scope was complete.
+- **Unavailable:** the operation failed before producing a usable lookup result.
+
+Required cases/assertions:
+1. Known partial coverage must not produce Found or NotFound as full-scope conclusions.
+2. Completed lookup with unknown completeness must produce an unresolved result, not confirmed absence or unique success.
+3. Storage/permission/connectivity failure before a usable result must remain unavailable; it must not be mislabeled as a completed incomplete search.
+4. Complete scope with zero matches may produce NotFound only with complete-scope evidence issued by the adapter's documented validation boundary.
+5. Multiple competing event IDs remain visible even if coverage is partial or a later lookup step fails; mark the candidates non-exhaustive unless completeness is established.
+6. A single observed match under incomplete or unknown coverage must not yield unique full-scope Found.
+7. Complete scope plus exactly one validated match is the positive control for Found, including record provenance and complete-scope evidence.
+
+The test fixture must not manufacture complete-scope evidence merely by setting a Boolean. It should exercise the adapter's actual evidence-producing path or a documented test seam for that path. The type-level evidence marker alone does not establish real-backend completeness.
+
+**No group-count change:** IT-1 through IT-6 remain the six test groups. These are additional IT-6 subcases. Tests remain unexecuted until run against a concrete adapter and target backend.
