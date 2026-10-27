@@ -485,7 +485,7 @@ test("graph analysis entry point blocks incomplete source despite valid digest",
   });
 });
 
-test("architecture guard: production reference-model modules cannot import raw graph analyzers", async () => {
+test("architecture guard: raw graph analyzers are internal to the gated consumer", async () => {
   const root = new URL(".", import.meta.url).pathname;
   const rawNames = ["analyzeParentGraph", "hasParentCycle", "auditDataset", "resolveRecordReferences"];
   const files = [];
@@ -503,10 +503,15 @@ test("architecture guard: production reference-model modules cannot import raw g
   for (const file of files) {
     const source = await readFile(file, "utf8");
     for (const name of rawNames) {
-      // Guard import declarations, not the raw module's own exported definitions.
-      const importPattern = new RegExp("import\\\\s+(?:\\\\{[^}]*\\\\b" + name + "\\\\b[^}]*\\\\}|[^;]*?\\\\b" + name + "\\\\b[^;]*?)\\\\s+from\\\\s+[\\\"'][^\\\"']*review-history-resolver\\\\.mjs[\\\"']", "s");
-      if (importPattern.test(source)) violations.push({ file, name });
+      const importPattern = new RegExp("import\\\\s+(?:\\\\{[^}]*\\\\b" + name + "\\\\b[^}]*\\\\}|[^;]*?\\\\b" + name + "\\\\b[^;]*?)\\\\s+from\\\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\\\.internal)?\\\\.mjs[\\\"']", "s");
+      if (importPattern.test(source) && !file.endsWith("/verified-graph-consumer.mjs")) {
+        violations.push({ file, name });
+      }
+      if (file.endsWith("/review-history-resolver.mjs") &&
+          new RegExp("\\\\b" + name + "\\\\b").test(source)) {
+        violations.push({ file, name, reason: "public-api-mentions-raw-analyzer" });
+      }
     }
   }
-  assert.deepEqual(violations, [], "raw graph-analysis imports are reserved for the gated consumer and tests");
+  assert.deepEqual(violations, [], "only the gated consumer may import raw graph analyzers; public API must not expose them");
 });
