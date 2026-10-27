@@ -1,51 +1,43 @@
 # Review History Adapter Backend Candidate Comparison 001
 
-**Status:** conditional comparison; no backend selected  
+**Status:** Android-mobile-first target selected provisionally; implementation not yet present.  
 **Branch:** `review-history-identity-read-evidence-001`  
-**Inputs:** deployment requirements register 001; adapter contract 001; integration test specification 001
+**Decision record:** [Android-Mobile-First Backend Decision 001](REVIEW_HISTORY_ADAPTER_ANDROID_MOBILE_BACKEND_DECISION_001.md).
 
 ## Decision boundary
 
-The current project records do not establish whether history is local to one process, shared by multiple local processes, or shared across machines. This is a blocking requirement, not permission to assume a deployment. Therefore, the comparison below is conditional and does not rank a winner.
+The immediate target is an Android mobile workflow that can retain durable review history locally and operate offline. For this target, **device-local SQLite is the provisional backend choice**. This does not establish that the repository's Lean library has an Android host, SQLite binding, or working adapter. The choice is reversible if a later requirement establishes shared multi-device history.
 
-## Candidate fit by deployment shape
+## Candidate fit for Android mobile
 
-| Candidate family | One local process | Multiple local processes | Multiple machines | Principal gates / risks |
-|---|---|---|---|---|
-| In-memory state | Only for ephemeral sessions; fails restart durability | Not shared by default | Not shared by default | Does not meet durable history after restart; unsuitable if persistence is required. |
-| Local append-only files | Potentially feasible with explicit crash-safe writes and recovery | Requires proven cross-process locking/atomicity and repair rules | Not suitable as shared storage by default; network filesystem semantics would need evidence | Partial writes, concurrent append, torn/corrupt records, indexing, pagination, recovery. |
-| Embedded transactional database (e.g., SQLite) | Often a plausible candidate | Potentially feasible on a supported local filesystem with tested transaction and locking behavior | Not a default multi-machine shared database; avoid assuming a database file on a network share is safe | Atomic compare-and-append, durability settings, backup, migration, reader snapshots, busy/failure handling. |
-| Client/server database | Feasible but may add unnecessary operational dependencies | Plausible when multiple local clients need one authoritative history | Plausible when machines need shared history | Service availability, authentication/authorization, transactions, backups, migration, complete-read semantics, network failure and uncertain commit handling. |
+| Candidate family | Fit for current target | Decision |
+|---|---|---|
+| In-memory state | Offline and simple but loses history across process restart | Reject for durable history |
+| Local append-only files | Possible, but requires custom atomicity, recovery, indexing, and concurrent-write rules | Not preferred for first implementation |
+| Device-local SQLite | Available on Android; transactions and constraints can support durable ordered records and atomic operations when correctly implemented/configured | **Provisionally selected** |
+| Client/server database | Adds network, service availability, authentication, and operational dependencies; unnecessary for a single-device offline-first first target | Defer unless shared history becomes required |
 
-These are general engineering fit observations, not test results for this repository or guarantees about any particular configuration.
+If the Android host is Kotlin, Android SQLite APIs or Room may be considered as the integration layer. Room is an abstraction over SQLite, not a separate persistence-engine choice. If storage must be accessed directly from Lean, a compatible SQLite binding and Android build path must be demonstrated first.
 
-## Selection gates
+## Implementation gates
 
-Before scoring candidates, resolve:
+1. Identify the Android host boundary and Lean integration mechanism.
+2. Define schema, migrations, stable event identity, idempotency scope, and payload equality.
+3. Enforce append plus expected-position checks transactionally.
+4. Reconcile uncertain commit outcomes without duplicate events.
+5. Define ordered history, pagination/cursor, and snapshot semantics.
+6. Preserve exact original assessments, identity/provenance, and fork source anchors.
+7. Distinguish corruption, unsupported schema, incomplete reads, and unavailability.
+8. Test restart/reopen, recovery, backup/export, and migration behavior.
+9. Execute integration tests IT-1 through IT-6 against the actual Android-hosted adapter.
 
-- **DEP-1:** where the adapter runs.
-- **DEP-2:** which processes/machines must share the same history and who may write.
-- **DEP-3:** what must survive process exit, restart, and power loss.
-- **DEP-7:** which component is trusted to attest lookup scope/completeness and validate identity matches.
-- **DEP-8:** whether network or external service dependencies are acceptable.
-
-Then score each viable candidate against the same evidence checklist:
-
-1. Atomic append plus expected-position enforcement.
-2. Safe retry after an uncertain commit result.
-3. Durable ordered history after restart.
-4. Complete identity lookup or an explicit incomplete/unresolved result.
-5. Pagination consistency and snapshot semantics.
-6. Recovery, backup, portability, and schema migration.
-7. Distinct reporting of corruption, unsupported schema, incomplete reads, and unavailability.
-8. Execution of integration tests IT-1 through IT-6 against the real adapter.
-
-Unknowns must be marked **unknown**, not scored as passes. Do not claim that Lean's pure classifier proves backend completeness or operational trust.
+Unknown behavior must remain unknown, not be scored as a pass. Lean's pure classifier does not prove SQLite query completeness or operational trust.
 
 ## Current decision
 
-- **Known requirement:** durable history must preserve identity/provenance, exact snapshots and original assessments, atomic/idempotent writes, ordered retrieval after restart, corruption/failure reporting, and the distinction between original assessment and reassessment.
-- **Unresolved:** runtime topology, cross-process/machine sharing, exact durability boundary, and operational trust boundary.
-- **Not adopted:** backend family, deployment topology, cursor/snapshot semantics, identifier generation, or integrity/digest guarantee.
-- **Not tested:** all real-backend integration gates.
-- **Next justified action:** recover or establish the deployment requirements; then eliminate incompatible candidates before any backend is chosen.
+- **Chosen provisionally:** device-local SQLite for Android-mobile-first use.
+- **Known requirement:** durable history preserves identity/provenance, exact snapshots and original assessments, atomic/idempotent writes, ordered retrieval after restart, corruption/failure reporting, and the distinction between original assessment and reassessment.
+- **Unresolved:** Android host/runtime bridge, exact durability configuration, trusted read-completeness boundary, cursor/snapshot semantics, migration and backup behavior.
+- **Not selected:** client/server database, cross-device synchronization.
+- **Not implemented or tested:** real adapter and all backend integration gates.
+- **Next justified action:** establish the Android integration boundary and build the smallest SQLite-backed vertical slice, then run IT-1 through IT-6.
