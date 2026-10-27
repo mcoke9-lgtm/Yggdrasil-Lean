@@ -57,6 +57,13 @@ export function analyzeParentGraph(records) {
       parent.trim() !== parent ? null : parent);
   }
 
+  // A non-empty parent reference that does not resolve is an incomplete
+  // graph edge, not evidence that the record is a root. Keep scanning so a
+  // definite cycle elsewhere can still take precedence over uncertainty.
+  for (const parent of ids.values()) {
+    if (parent !== null && !ids.has(parent)) indeterminate = true;
+  }
+
   const completed = new Set();
   for (const start of ids.keys()) {
     const path = new Set();
