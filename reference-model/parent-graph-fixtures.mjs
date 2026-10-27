@@ -28,7 +28,7 @@ export const parentGraphFixtures = [
   {
     name: "missing parent target",
     records: [{ recordId: "A", parentRecordId: "MISSING" }],
-    runtime: "NO_CYCLE",
+    runtime: "INDETERMINATE",
     bridgeWithoutEvidence: "indeterminate",
   },
   {
