@@ -324,6 +324,28 @@ export function consumeVerifiedGraphInputArtifact(serialized, {
   if (!evidenceCheck.valid) {
     return { accepted: false, code: evidenceCheck.code };
   }
+
+  // With findings absent, every source parent reference is represented by the
+  // graph (or is null). Reconstruct the source projection and bind its digest
+  // to the graph actually being released. This is internal consistency, not
+  // proof that the source read was authentic or snapshot-consistent.
+  const recordIdByVertex = new Map(
+    artifact.sourceVertexBindings.map(({ recordId, vertexId }) => [vertexId, recordId]),
+  );
+  const parentByChild = new Map(
+    artifact.graphInput.edges.map(([child, parent]) => [child, recordIdByVertex.get(parent)]),
+  );
+  const sourceProjection = artifact.sourceVertexBindings.map(({ recordId, vertexId }) => ({
+    recordId,
+    parentRecordId: parentByChild.get(vertexId) ?? null,
+  })).sort((a, b) => a.recordId < b.recordId ? -1 : a.recordId > b.recordId ? 1 : 0);
+  const reconstructedSourceDigest = createHash("sha256")
+    .update(JSON.stringify(sourceProjection), "utf8")
+    .digest("hex");
+  if (reconstructedSourceDigest !== artifact.sourceDigest) {
+    return { accepted: false, code: "SOURCE_DIGEST_MISMATCH" };
+  }
+
   return {
     accepted: true,
     code: "ACCEPTED_VERIFIED_GRAPH_INPUT",
