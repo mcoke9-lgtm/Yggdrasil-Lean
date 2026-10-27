@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
-import { buildGraphInputCertificate } from "./graph-input-certificate.mjs";
+import { buildGraphInputCertificate, serializeGraphInputCertificate } from "./graph-input-certificate.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -267,4 +267,38 @@ test("graph certificate rejects absent or malformed source identity metadata", (
   assert.equal(certificate.certificateReady, false);
   assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_READ_ID"));
   assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_DIGEST"));
+});
+
+test("serialized graph handoff is versioned, deterministic, and binds mapping to Lean input", () => {
+  const options = {
+    sourceReadId: "read-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  };
+  const certificate = buildGraphInputCertificate([
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ], options);
+  const reordered = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], options);
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.equal(serialized, serializeGraphInputCertificate(reordered));
+  const artifact = JSON.parse(serialized);
+  assert.equal(artifact.schema, "yggdrasil-parent-graph-v1");
+  assert.deepEqual(artifact.sourceVertexBindings, [
+    { recordId: "A", vertexId: 1 },
+    { recordId: "B", vertexId: 2 },
+  ]);
+  assert.deepEqual(artifact.graphInput, {
+    vertices: [1, 2],
+    edges: [[2, 1]],
+  });
+  assert.equal(artifact.graphDigest, certificate.graphDigest);
+  assert.equal(artifact.certificateReady, true);
+});
+
+test("serializer rejects missing graph binding fields", () => {
+  assert.throws(() => serializeGraphInputCertificate({ graphDigest: "x" }), TypeError);
 });
