@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Literal
 
 from .resolver import Record, ResolutionError, _index
 
@@ -20,6 +20,7 @@ class SnapshotFinding:
 class SnapshotAudit:
     record_count: int
     findings: tuple[SnapshotFinding, ...]
+    coverage_state: Literal["declared_complete", "declared_partial", "unknown"] = "unknown"
 
     @property
     def status(self) -> str:
@@ -34,13 +35,31 @@ class SnapshotAudit:
         return sum(f.severity == "error" for f in self.findings)
 
 
-def audit_snapshot(records: Iterable[Record]) -> SnapshotAudit:
-    """Check every record relationship without repairing or inferring blanks.
+def audit_snapshot(
+    records: Iterable[Record],
+    *,
+    coverage: Literal["complete", "partial", "unknown"] = "unknown",
+) -> SnapshotAudit:
+    """Audit supplied records without implying that the snapshot is exhaustive.
 
-    Structural index failures return a single snapshot-level error. Blank optional
-    relationships are reported as informational findings, not treated as failures.
-    Parent cycles and missing references are reported for all affected records.
+    The coverage value records the caller's declaration, not independent proof of
+    completeness. Structural index failures return a snapshot-level error. Blank
+    optional relationships are informational; cycles and missing links are reported.
     """
+    if coverage not in ("complete", "partial", "unknown"):
+        return SnapshotAudit(
+            record_count=0,
+            findings=(SnapshotFinding(
+                None, "snapshot", "INVALID_COVERAGE_DECLARATION",
+                "coverage must be complete, partial, or unknown.", "error",
+            ),),
+            coverage_state="unknown",
+        )
+    coverage_state = {
+        "complete": "declared_complete",
+        "partial": "declared_partial",
+        "unknown": "unknown",
+    }[coverage]
     items = list(records)
     try:
         index = _index(items)
@@ -48,6 +67,7 @@ def audit_snapshot(records: Iterable[Record]) -> SnapshotAudit:
         return SnapshotAudit(
             record_count=len(items),
             findings=(SnapshotFinding(None, "snapshot", exc.code, exc.detail, "error"),),
+            coverage_state=coverage_state,
         )
 
     findings: list[SnapshotFinding] = []
@@ -104,4 +124,4 @@ def audit_snapshot(records: Iterable[Record]) -> SnapshotAudit:
     findings.sort(key=lambda f: (
         f.record_id or "", f.relationship, f.code, f.detail
     ))
-    return SnapshotAudit(len(items), tuple(findings))
+    return SnapshotAudit(len(items), tuple(findings), coverage_state)
