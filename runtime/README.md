@@ -72,3 +72,12 @@ A CI pass with these variables absent verifies the offline suite only; the live 
 - Freshness and completeness are established only to the extent that the live read completes pagination and passes the explicit expected-record checks.
 - The resolver does not infer or repair missing links.
 - This is a reference implementation, not production deployment.
+
+## Durable retry-history boundary (verified against the pilot schema)
+
+A fresh schema read of the pilot's `Records` table shows fields for record identity, project/branch identity, parent and fork lineage, sequence, event type, content, status, evidence references, revision target, open gaps, and last justified next action. It does **not** currently define dedicated structured fields for an operation fingerprint, prior retry fingerprints/attempt ledger, material-change evidence, or search-scope exhaustion.
+
+Consequently, AF-AWR-001's fingerprint check is a caller-supplied guard, not durable deduplication across requests or chats. The existing pilot schema cannot independently establish that a retry was already attempted, that two requests describe the same operation, or that a search scope is truly exhausted. A new chat must therefore preserve the active project branch and checkpoint explicitly; a chat boundary alone is not evidence of a new project branch or a new operation.
+
+No Airtable fields or records were added or changed during this inspection. Any future ledger design should first specify stable operation identity, attempt ordering, provenance, and idempotent write semantics, then be tested against an explicitly approved schema change.
+
