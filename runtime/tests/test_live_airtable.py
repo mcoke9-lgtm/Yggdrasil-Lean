@@ -14,6 +14,10 @@ from adaptive_filesystem_runtime.airtable_adapter import records_from_airtable
 
 
 REQUIRED_ENV = ("AIRTABLE_PAT", "AIRTABLE_BASE_ID", "AIRTABLE_TABLE_ID")
+FIELDS = (
+    "Record ID", "Branch ID", "Sequence", "Parent Record ID",
+    "Source Branch ID", "Source Anchor ID", "Revision Of ID",
+)
 
 
 def fetch_all_records():
@@ -24,14 +28,12 @@ def fetch_all_records():
     rows = []
     offset = None
     while True:
-        params = {"pageSize": "100"}
-        for field in ("Record ID", "Branch ID", "Sequence", "Parent Record ID",
-                      "Source Branch ID", "Source Anchor ID", "Revision Of ID"):
-            params.setdefault("fields[]", field)
+        params = [("pageSize", "100")]
+        params.extend(("fields[]", field) for field in FIELDS)
         if offset:
-            params["offset"] = offset
+            params.append(("offset", offset))
         request = Request(
-            base_url + "?" + urlencode(params, doseq=True),
+            base_url + "?" + urlencode(params),
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
             method="GET",
         )
