@@ -7,7 +7,7 @@ import { Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
-import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
+import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
 
 function sourceReadEvidence(serialized, { complete = true } = {}) {
   const artifact = JSON.parse(serialized);
@@ -457,10 +457,14 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
     recordId,
     parentRecordId: parentRecordId ?? null,
   }));
-  const sourceDigest = createHash("sha256")
-    .update(JSON.stringify(graphRecords), "utf8")
-    .digest("hex");
   const sourceReadId = "airtable:appaUa8VbUJZmzmxe/tblvy8J5UC6Y6SylE:read-only-2026-10-27";
+  const sourceReadEvidence = buildSourceReadEvidenceManifest(graphRecords, {
+    sourceReadId,
+    reportedTotalRecordCount: 10,
+    paginationComplete: true,
+    sourceScope: "Airtable Records table; fields: Record ID, Parent Record ID",
+  });
+  const sourceDigest = sourceReadEvidence.sourceDigest;
   const certificate = buildGraphInputCertificate(graphRecords, {
     sourceReadId,
     sourceDigest,
@@ -479,7 +483,7 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
   assert.equal(artifact.graphInput.edges.length, 8);
 
   const result = analyzeVerifiedGraphInput(serialized, {
-    sourceReadEvidence: sourceReadEvidence(serialized),
+    sourceReadEvidence,
   });
   assert.equal(result.accepted, true);
   assert.equal(result.sourceReadId, sourceReadId);
