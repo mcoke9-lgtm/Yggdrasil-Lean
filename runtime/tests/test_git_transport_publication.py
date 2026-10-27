@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from adaptive_filesystem_runtime.git_transport_publication import (
     GitTransportRefAdapter,
@@ -73,6 +74,23 @@ class GitTransportPublicationIntegrationTests(unittest.TestCase):
             self.assertEqual(result.observed_head, newer_head)
             self.assertEqual(adapter.read_head("main"), newer_head)
             self.assertNotEqual(adapter.read_head("main"), stale_candidate)
+
+
+    def test_failed_push_response_with_desired_head_observed_is_reconciled(self):
+        adapter = GitTransportRefAdapter(".", "origin")
+        successful_validation = subprocess.CompletedProcess(
+            args=["git", "check-ref-format"], returncode=0, stdout="", stderr=""
+        )
+        failed_push = subprocess.CompletedProcess(
+            args=["git", "push"], returncode=1, stdout="",
+            stderr="connection closed after remote update"
+        )
+        with patch.object(
+            adapter, "_run", side_effect=[successful_validation, failed_push]
+        ), patch.object(adapter, "read_head", return_value="b" * 40):
+            # The remote already contains the requested commit despite the
+            # client's failed push response; this is not a stale-head rejection.
+            adapter.compare_and_swap("main", "a" * 40, "b" * 40)
 
     def test_current_lease_can_publish_candidate(self):
         with tempfile.TemporaryDirectory() as temp:
