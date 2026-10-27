@@ -429,3 +429,70 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
     code: "GRAPH_MAPPING_MISMATCH",
   });
 });
+import { analyzeVerifiedGraphInput } from "./verified-graph-consumer.mjs";
+
+test("graph analysis entry point never invokes consumer on a rejected artifact", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "analysis-gate-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
+  artifact.graphDigest = "0".repeat(64);
+  let invoked = false;
+  const result = analyzeVerifiedGraphInput(JSON.stringify(artifact), {
+    sourceCompletenessAttested: true,
+  }, () => {
+    invoked = true;
+    return "should never run";
+  });
+  assert.deepEqual(result, { accepted: false, code: "GRAPH_DIGEST_MISMATCH" });
+  assert.equal(invoked, false);
+});
+
+test("graph analysis entry point passes only verified graph input to analysis", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "analysis-gate-002",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  let received;
+  const result = analyzeVerifiedGraphInput(
+    serializeGraphInputCertificate(certificate),
+    { sourceCompletenessAttested: true },
+    (graphInput) => {
+      received = graphInput;
+      return graphInput.edges.length === 1 ? "one-edge" : "unexpected";
+    },
+  );
+  assert.equal(result.accepted, true);
+  assert.equal(result.analysis, "one-edge");
+  assert.deepEqual(received, { vertices: [1, 2], edges: [[2, 1]] });
+});
+
+test("graph analysis entry point blocks incomplete source despite valid digest", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "analysis-gate-003",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: false,
+  });
+  let invoked = false;
+  const result = analyzeVerifiedGraphInput(serializeGraphInputCertificate(certificate), {
+    sourceCompletenessAttested: false,
+  }, () => {
+    invoked = true;
+    return null;
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
+  });
+  assert.equal(invoked, false);
+});
