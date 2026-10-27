@@ -493,6 +493,31 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
   assert.equal(result.analysis, "NO_CYCLE");
 });
 
+test("source-read manifest digest is canonical and binds parent references", () => {
+  const records = [
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ];
+  const options = {
+    sourceReadId: "adapter-read-001",
+    reportedTotalRecordCount: 2,
+    paginationComplete: true,
+    sourceScope: "Records: Record ID and Parent Record ID",
+  };
+  const manifest = buildSourceReadEvidenceManifest(records, options);
+  const reordered = buildSourceReadEvidenceManifest([...records].reverse(), options);
+  const changed = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  assert.equal(manifest.schema, "yggdrasil-source-read-evidence-v1");
+  assert.equal(manifest.returnedRecordCount, 2);
+  assert.equal(manifest.reportedTotalRecordCount, 2);
+  assert.equal(manifest.paginationComplete, true);
+  assert.equal(manifest.sourceDigest, reordered.sourceDigest);
+  assert.notEqual(manifest.sourceDigest, changed.sourceDigest);
+});
+
 test("source-read evidence rejects count, pagination, scope, and digest mismatches", () => {
   const certificate = buildGraphInputCertificate([
     { recordId: "A", parentRecordId: null },
