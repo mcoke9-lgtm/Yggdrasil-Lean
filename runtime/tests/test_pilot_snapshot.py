@@ -1,7 +1,7 @@
-"""Relationship regression cases transcribed from the 2026-10-27 pilot read.
+""""Relationship regression cases transcribed from the 2026-10-27 pilot read.
 
 This is a checked-in snapshot fixture, not a live Airtable adapter. It intentionally
-preserves AF-PILOT-005's nonexistent source anchor so the resolver must fail closed.
+preserves AF-PILOT-005's nonexistent source anchor and AF-PILOT-007's absent parent.
 """
 import unittest
 
@@ -19,7 +19,8 @@ def pilot_snapshot():
         ("AF-PILOT-005", "missing-anchor-test", 1, "AF-PILOT-004",
          "chatgpt-first-integration", "AF-ANCHOR-DOES-NOT-EXIST", None),
         ("AF-PILOT-006", "chatgpt-first-integration", 4, "AF-PILOT-005", None, None, None),
-        ("AF-PILOT-007", "chatgpt-first-integration", 5, "AF-PILOT-006", None, None, None),
+        # The live read returned no Parent Record ID for AF-PILOT-007. Do not infer one.
+        ("AF-PILOT-007", "chatgpt-first-integration", 5, None, None, None, None),
         ("AF-PILOT-008", "chatgpt-first-integration", 6, "AF-PILOT-007", None, None, None),
         ("AF-PILOT-009", "chatgpt-first-integration", 7, "AF-PILOT-008", None, None, None),
         ("AF-PILOT-010", "chatgpt-first-integration", 8, "AF-PILOT-009", None, None, None),
@@ -29,11 +30,11 @@ def pilot_snapshot():
 
 
 class PilotSnapshotTests(unittest.TestCase):
-    def test_live_observed_fork_anchor_resolves_exactly(self):
+    def test_fork_anchor_resolves_exactly(self):
         result = resolve_history(pilot_snapshot(), "AF-PILOT-004")
         self.assertEqual(result.parent_record_id, "AF-PILOT-003")
         self.assertEqual(result.source_anchor_id, "AF-PILOT-001")
-        self.assertEqual(result.branch_predecessor_id, None)
+        self.assertIsNone(result.branch_predecessor_id)
 
     def test_historical_missing_anchor_fixture_fails_closed(self):
         with self.assertRaises(ResolutionError) as caught:
@@ -45,10 +46,15 @@ class PilotSnapshotTests(unittest.TestCase):
         self.assertEqual(result.parent_record_id, "AF-PILOT-002")
         self.assertEqual(result.revision_of_id, "AF-PILOT-001")
 
-    def test_global_parent_chain_and_branch_local_predecessor_are_distinct(self):
+    def test_global_parent_and_branch_local_predecessor_are_distinct(self):
         result = resolve_history(pilot_snapshot(), "AF-PILOT-006")
         self.assertEqual(result.parent_record_id, "AF-PILOT-005")
         self.assertEqual(result.branch_predecessor_id, "AF-PILOT-003")
+
+    def test_absent_parent_on_007_is_preserved_not_inferred(self):
+        result = resolve_history(pilot_snapshot(), "AF-PILOT-007")
+        self.assertIsNone(result.parent_record_id)
+        self.assertEqual(result.branch_predecessor_id, "AF-PILOT-006")
 
 
 if __name__ == "__main__":
