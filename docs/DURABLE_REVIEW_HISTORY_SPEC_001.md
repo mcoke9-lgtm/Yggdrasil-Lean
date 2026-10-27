@@ -33,7 +33,7 @@ A persisted review event MUST preserve, directly or through immutable content-ad
 - **Assessment result:** original route decisions, trigger fields, selection flags, and decision order as actually assessed.
 - **Lineage:** parent/prior event reference where applicable, and a link to the original event for reassessments.
 - **Integrity metadata:** a verifiable digest or equivalent integrity mechanism over a canonical representation, with algorithm/version identified.
-- **Lifecycle evidence:** storage outcome and any available commit/receipt identifier. Wall-clock timestamps may be recorded, but must not be the sole ordering authority.
+- **Lifecycle evidence:** storage outcome and any available commit/receipt identifier must be associated with the event. Commit receipts and adapter-generated status are operation metadata by default, not part of the immutable event payload or its payload digest; if retained durably, their relationship to the event must be explicit. Wall-clock timestamps may be recorded, but must not be the sole ordering authority.
 
 If a field is unavailable, the record must mark it as unavailable and explain why; it must not silently fabricate a value.
 
