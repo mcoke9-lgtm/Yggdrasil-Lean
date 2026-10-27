@@ -225,4 +225,26 @@ example :
       exampleRoutes).identityBranch.branchIdentityChanged = true := by
   decide
 
+/-- One transition review can report an evidence change and project identity change together. -/
+example :
+    let after := { identityReviewExampleState with
+      projectId := "project-B"
+      evidence := ["source-1"] }
+    let review := assessCompleteTransition
+      ⟨identityReviewExampleState, after⟩ exampleRoutes
+    review.propagation.change = ⟨[.evidence]⟩ ∧
+      review.identityBranch.projectIdentityChanged = true ∧
+      identityBranchReviewRequired review.identityBranch = true := by
+  decide
+
+/-- In a combined transition, the evidence consumer is selected for review. -/
+example :
+    let after := { identityReviewExampleState with
+      projectId := "project-B"
+      evidence := ["source-1"] }
+    let review := assessCompleteTransition
+      ⟨identityReviewExampleState, after⟩ exampleRoutes
+    (review.propagation.decisions.head!).selectedForReview = true := by
+  decide
+
 end YggdrasilLean
