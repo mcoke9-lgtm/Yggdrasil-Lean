@@ -74,11 +74,18 @@ class AlternativeWorkTests(unittest.TestCase):
         self.assertEqual(spent.outcome, "STOP_NO_ALTERNATIVE")
 
     def test_wait_only_when_dependency_wait_is_productive(self):
-        waiting = candidate("wait", feasible=False, waiting_on_dependency=True)
+        waiting = candidate("wait", feasible=False, waiting_on_dependency=True, dependency_id="dep-42")
         no_wait = evaluate_work(request(candidates=(waiting,), dependency_wait_is_productive=False))
         yes_wait = evaluate_work(request(candidates=(waiting,), dependency_wait_is_productive=True))
         self.assertEqual(no_wait.outcome, "UNRESOLVED")
         self.assertEqual(yes_wait.outcome, "WAIT_FOR_DEPENDENCY")
+        self.assertEqual(yes_wait.recommended_candidate_ids, ("wait",))
+        self.assertEqual(yes_wait.unresolved_dependencies, ("dep-42",))
+
+    def test_dependency_wait_needs_explicit_dependency_identity(self):
+        unnamed = candidate("wait", feasible=False, waiting_on_dependency=True)
+        result = evaluate_work(request(candidates=(unnamed,), dependency_wait_is_productive=True))
+        self.assertEqual(result.outcome, "UNRESOLVED")
 
     def test_dependency_wait_requires_known_blocking_dependency(self):
         uncertain = candidate("wait-unknown", feasible=None, waiting_on_dependency=True)
