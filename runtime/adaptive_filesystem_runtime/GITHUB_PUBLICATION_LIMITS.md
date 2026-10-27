@@ -33,6 +33,19 @@ the candidate commit; the configured remote and credentials must be correct; the
 caller must supply the exact expected old SHA and intended branch. Use a disposable
 branch for any live-host validation before relying on this adapter operationally.
 
+## Live-host test harness
+
+`.github/workflows/live-stale-publisher-cas.yml` adds a manually dispatched test
+that creates a unique temporary ref, publishes an intervening commit with a current
+lease, attempts a stale update with the old lease, verifies that GitHub retained the
+intervening head, and attempts cleanup. It uses a fixed test-ref prefix, has no
+user-supplied branch input, and is restricted to `refs/heads/main`.
+
+The workflow needs `contents: write` only to create and delete its temporary ref.
+It is intentionally `workflow_dispatch`-only; it must be reviewed and present on
+the default branch before it can be launched. Do not run it from an untrusted branch.
+A cleanup warning means the temporary ref needs manual inspection and deletion.
+
 ## Required safe behavior
 
 - Do not describe a read-then-write check as atomic publication fencing.
@@ -58,6 +71,8 @@ branch for any live-host validation before relying on this adapter operationally
   confirmed the branch stayed at the newer head. That outcome is safe, but it does
   not prove whether the connector rejected the stale lease atomically or failed
   before applying the request.
+- Live-host test harness: added on the draft feature branch; not yet available to
+  dispatch until the workflow is reviewed and merged to the default branch.
 - End-to-end live GitHub stale-publisher rejection: not verified.
 
 The adapter is a tested prototype, not a production deployment or a live GitHub
