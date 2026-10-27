@@ -77,7 +77,7 @@ class RecoveryClaimTests(unittest.TestCase):
         self.assertTrue(self.ledger.release_recovery_review(
             "project-1", "operation-1", "claim-a", "worker-a", 1))
         self.assertFalse(self.ledger.release_recovery_review(
-            "project-1", "operation-1", "claim-a", "worker-a"))
+            "project-1", "operation-1", "claim-a", "worker-a", 1))
 
     def test_competing_workers_have_one_claim_winner(self):
         ledgers = (SQLiteAttemptLedger(self.path), SQLiteAttemptLedger(self.path))
