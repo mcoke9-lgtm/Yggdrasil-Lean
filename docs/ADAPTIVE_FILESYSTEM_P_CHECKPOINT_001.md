@@ -106,3 +106,12 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - No Airtable pilot records were mutated. This does not establish live connector integration, source authenticity, or production deployment.
 - Next work remains the planned runtime integration boundary: determine whether an authenticated connector wrapper can supply trusted read evidence, keeping the live integration distinct from fixture-based CI.
 - **Six-Part Integrity Check:** (1) exact six roles remain history, actions, learning, state, plan, persistence; (2) verifier checks metadata, identity mapping, topology, and ordering; (3) regression cases cover demonstrated tampering gaps without removing the multi-parent check; (4) implemented and CI-verified on the exact code commit; (5) both resolver tests and Lean build rechecked green after correcting failure precedence; (6) this checkpoint update records the verified state, while source authenticity and live integration remain unresolved.
+
+## 11. Source-digest canonical ordering audit (2026-10-27)
+
+- Static review found buildSourceReadEvidenceManifest used locale-sensitive localeCompare to order record IDs before hashing. The graph certificate uses JavaScript's default code-unit ordering. Mixed-case or punctuation-bearing IDs could therefore produce a source digest whose canonical order depends on runtime locale and differs from the graph binding order.
+- Changed source-manifest ordering to an explicit locale-independent code-unit comparator in commit b5b8760ac379a69fea839ea1e3b4e4c83e2d9f3a.
+- Added a regression test that independently computes the expected SHA-256 digest for mixed-case, punctuation, and numeric IDs in commit 0066ad3b698e4d42226e9df93f558a091c0f30c7.
+- **Status:** implemented; CI verification is pending/not yet observed for this commit. The available commit-workflow lookup returned no runs, so this is not marked tested or verified.
+- This correction improves deterministic digest construction; it does not authenticate the source, prove completeness, or establish live Airtable integration. No Airtable records were mutated.
+- **Six-Part Integrity Check:** (1) six roles remain history, actions, learning, state, plan, persistence; (2) canonical source ordering belongs to evidence/determinism; (3) mixed-character ordering regression added; (4) implemented, verification pending; (5) CI result must be checked before marking verified; (6) checkpoint records commits and unresolved trust boundary.
