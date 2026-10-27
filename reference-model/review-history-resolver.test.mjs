@@ -553,3 +553,35 @@ test("architecture guard: raw graph analyzers are internal to the gated consumer
   }
   assert.deepEqual(violations, [], "only the gated consumer may import raw graph analyzers; public API must not expose them");
 });
+
+
+test("fresh Airtable pilot snapshot traverses the serialized graph gate read-only", async () => {
+  const { analyzeVerifiedGraphInput } = await import("./verified-graph-consumer.mjs");
+  const sourceDigest = "sha256:6c645c5a6ff84d5e498caeab17e1d68ddbad1a71c1290f06373acc8a10218789";
+  const sourceReadId = "airtable-read-2026-10-27-records-10";
+  const graphRecords = pilotSnapshot.map(({ recordId, parentRecordId }) => ({
+    recordId,
+    parentRecordId: parentRecordId ?? null,
+  }));
+  const certificate = buildGraphInputCertificate(graphRecords, {
+    sourceReadId,
+    sourceDigest,
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const verification = verifySerializedGraphInputArtifact(serialized);
+  assert.equal(verification.valid, true);
+  assert.equal(certificate.findings.length, 0);
+  assert.equal(certificate.vertices.length, 10);
+  assert.equal(certificate.edges.length, 8);
+
+  const result = analyzeVerifiedGraphInput(serialized, {
+    sourceCompletenessAttested: true,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.sourceReadId, sourceReadId);
+  assert.equal(result.sourceDigest, sourceDigest);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.equal(result.graphInput.vertices.length, 10);
+  assert.equal(result.graphInput.edges.length, 8);
+});
