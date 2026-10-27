@@ -191,7 +191,8 @@ def evaluate_work(request: WorkRequest) -> WorkDecision:
 
     waiting = tuple(sorted(
         c.candidate_id for c in request.candidates
-        if c.waiting_on_dependency and c.integrity_ok is True and c.authorized is True
+        if c.waiting_on_dependency and c.relevant is True and c.integrity_ok is True
+        and c.authorized is True and c.duplicate is False
     ))
     if waiting and request.dependency_wait_is_productive:
         return WorkDecision(
