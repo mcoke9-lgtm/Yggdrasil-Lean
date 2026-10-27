@@ -18,13 +18,6 @@ structure PropagationHistoryEntry where
   assessment : PropagationAssessment
   deriving DecidableEq, Repr
 
-/-- One review record unifies content routing and identity/branch review for a transition. -/
-structure TransitionReviewEntry where
-  transition : TransitionRecord
-  propagation : PropagationAssessment
-  identityBranch : IdentityBranchReview
-  deriving DecidableEq, Repr
-
 /-- Associate an assessment with the transition that prompted review. -/
 def recordPropagationWithTransition
     (transition : TransitionRecord)
@@ -92,6 +85,13 @@ structure IdentityBranchReview where
   projectIdentityChanged : Bool
   branchIdentityChanged : Bool
   deriving DecidableEq, Repr
+/-- One review record unifies content routing and identity/branch review for a transition. -/
+structure TransitionReviewEntry where
+  transition : TransitionRecord
+  propagation : PropagationAssessment
+  identityBranch : IdentityBranchReview
+  deriving DecidableEq, Repr
+
 
 /-- Compare project and branch identities across a recorded transition. -/
 def assessIdentityBranchTransition (before after : ProjectState) :
