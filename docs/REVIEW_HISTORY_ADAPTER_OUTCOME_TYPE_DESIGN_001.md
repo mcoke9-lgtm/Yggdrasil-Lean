@@ -230,4 +230,4 @@ This crosswalk maps the remaining operational information before any Lean constr
 3. **Completeness:** Required metadata ownership and failure boundaries are mapped. Exact incomplete-read constructor and diagnostic vocabulary remain open.
 4. **Status:** Semantic identity invariant adopted separately; this crosswalk is proposed; API and implementation unadopted/untested.
 5. **Recheck:** No absence inferred from incomplete evidence; no commit inferred from a handle; no validity inferred from missing checks; no arbitrary identity winner.
-6. **Persistence/uncertainty:** Awaiting repository write and readback; no runtime or backend claim follows from this document.
+6. **Persistence/uncertainty:** Saved and read back at commit `9ec8c9859cc417867b6322cf462b297d81df25c8`; no runtime or backend claim follows from this document.
