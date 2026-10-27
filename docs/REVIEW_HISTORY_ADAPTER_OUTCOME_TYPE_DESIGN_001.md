@@ -339,3 +339,59 @@ This recommendation does not require a particular Lean encoding. An API may repr
 4. **Status:** Inventory and recommendation proposed; API shape not adopted.
 5. **Recheck:** `NotFound` requires complete scope; `NotCommitted` requires authoritative evidence; incomplete history is not complete recovery; unsupported/incomplete verification is not valid.
 6. **Persistence/uncertainty:** This review is documentation only. No Lean compilation, adapter implementation, or integration-test execution is claimed.
+
+## Current Lean declaration crosswalk — source review 003
+
+**Status:** Source comparison completed; design recommendation remains proposed. No Lean declarations changed and no compiler/test run is claimed.
+
+### Exact declarations retrieved
+
+- `YggdrasilLean/ReviewHistoryAdapterTypes.lean`, blob `ccc3106d06c5e927c6d5b1f23373d9d4cae7117d`.
+- `YggdrasilLean.lean`, blob `d38a80ecf9d72e49f5e0c32a34d2cc8a25183c50`, confirming the adapter outcome-types module is imported by the library entry point.
+- The proposed contract, integration-test specification, and boundary-decision record were also retrieved and compared.
+
+### Actual current type inventory
+
+`IdentityReadOutcome (Record : Type)` currently has these constructors:
+
+- `found (record : Record)`
+- `notFound`
+- `unsupportedSchema`
+- `corrupt`
+- `unavailable`
+
+It has neither an `ambiguousIdentity` constructor nor an `incomplete` constructor, and its `notFound` constructor carries no scope/completeness evidence. This is a mismatch with the adopted semantic invariant and the proposed contract: the invariant is a semantic requirement, but the current type does not yet make callers represent that evidence.
+
+`OrderedHistoryOutcome (Record Cursor : Type)` currently has `page (records) (nextCursor)`, `empty`, `gapOrConflict`, `unsupportedSchema`, and `unavailable`. The page constructor carries no explicit completeness or snapshot-consistency field. The design's separate history-completeness and consistency axes therefore also remain unrepresented in this type. Do not treat this observation as authorization to change that type in the same edit; its constructor shape and first-milestone scope require separate review.
+
+`VerificationOutcome` already has `incomplete`, but this is an operation-specific verification result and does not supply the missing identity-read distinction.
+
+### Proposed semantic crosswalk (not a finalized API)
+
+| Observed condition | Required semantic handling | Current type gap |
+|---|---|---|
+| One validated match, complete declared scope | Found with scope-bounded provenance/evidence | `found` has no provenance/evidence field |
+| No match, complete declared scope | NotFound only with complete-scope evidence | `notFound` carries no evidence |
+| Known partial lookup coverage | Explicit incomplete result; observed match is partial evidence only | No incomplete identity-read constructor or mandatory completeness tag |
+| Multiple competing event IDs observed | Explicit AmbiguousIdentity; candidate exhaustiveness separately evidenced | No ambiguity constructor |
+| Failure before completeness can be assessed | Unavailable/unknown, never NotFound | `unavailable` exists but carries no reason/completeness metadata |
+| Ordered page with uncertain traversal completeness or snapshot consistency | Carry completeness and consistency as separate dimensions | `page` carries only records and next cursor |
+
+Recommendation remains to make known incompleteness a caller-visible, exhaustively handled semantic state, distinct from unavailability before completeness can be assessed. If competing IDs have already been observed, ambiguity must remain visible even if the search later fails or its candidate list is incomplete. A single observed match from incomplete coverage must not be presented as unique across the declared scope.
+
+### Scope and decision gate
+
+1. Do not add lookup-completeness fields to every persisted event merely to solve a read-time question; the evidence belongs to the adapter operation result unless a separate schema decision establishes otherwise.
+2. Keep append/reconciliation `CommitUnknown` / `StillUnknown` distinct from identity-read incompleteness; they concern different questions.
+3. Keep ordered-history completeness separate from snapshot consistency.
+4. Before changing Lean declarations, reconcile the exact constructor/evidence design against caller obligations and IT-6; review the ordered-history type as a separate API decision.
+5. No constructor spelling, parameters, metadata record, or implementation is adopted by this crosswalk.
+
+### Six-Part Integrity Check — source review 003
+
+1. **Count:** Six integrity roles preserved; this is a source crosswalk, not a new six-test suite.
+2. **Roles:** Identity success/absence; known incomplete coverage; competing identities; service failure; ordered-history completeness; snapshot consistency.
+3. **Completeness:** Actual identity and ordered-history declarations were retrieved; persisted-schema ownership remains separate from read-operation evidence.
+4. **Status:** Semantic invariant adopted; current type gaps verified by source inspection; proposed constructor/evidence shape not adopted; no code changed.
+5. **Recheck:** No partial lookup can justify NotFound; ambiguity cannot be hidden; history completeness and snapshot consistency are not conflated.
+6. **Persistence/uncertainty:** This section is being added to the design record only. Compilation, runtime behavior, backend capabilities, and integration tests remain unverified.
