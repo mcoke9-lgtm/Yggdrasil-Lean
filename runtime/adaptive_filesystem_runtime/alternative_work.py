@@ -86,10 +86,11 @@ class WorkDecision:
 
 
 def _invalid(message: str, request: WorkRequest | None = None) -> WorkDecision:
+    valid_request = request if isinstance(request, WorkRequest) else None
     return WorkDecision(
-        request_id=request.request_id if request else None,
-        active_branch=request.active_branch if request else None,
-        checkpoint_id=request.checkpoint_id if request else None,
+        request_id=valid_request.request_id if valid_request else None,
+        active_branch=valid_request.active_branch if valid_request else None,
+        checkpoint_id=valid_request.checkpoint_id if valid_request else None,
         evaluation_status="failed",
         outcome="INVALID_INPUT",
         execution_status="not_attempted",
@@ -213,8 +214,8 @@ def evaluate_work(request: WorkRequest) -> WorkDecision:
 
     waiting = tuple(sorted(
         c.candidate_id for c in request.candidates
-        if c.waiting_on_dependency and c.relevant is True and c.integrity_ok is True
-        and c.authorized is True and c.duplicate is False
+        if c.waiting_on_dependency and c.relevant is True and c.feasible is False
+        and c.integrity_ok is True and c.authorized is True and c.duplicate is False
     ))
     if waiting and request.dependency_wait_is_productive:
         return WorkDecision(
