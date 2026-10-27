@@ -24,7 +24,7 @@ Each committed review event has the following logical sections.
 | Rule snapshot | `rule_snapshot_id`, `routes`, optional canonical snapshot digest | Retain the actual route definitions, not only their label |
 | Assessment | `identity_branch_review`, `route_decisions`, `review_required` | Preserve the assessment as originally made, including ordering |
 | Integrity | `integrity_algorithm`, `integrity_value` or an explicitly defined equivalent | Detect accidental or unauthorized record changes |
-| Commit receipt | `commit_status`, backend receipt/reference when available | Distinguish committed storage from an in-memory or queued value |
+| Adapter commit metadata (separate from event payload) | `commit_status`, backend receipt/reference when available | Record the storage outcome and evidence associated with the event; do not treat post-commit receipt metadata as part of the event payload being committed |
 
 The schema must define whether each field is mandatory, conditionally mandatory, or explicitly unavailable. A missing value cannot be silently substituted with a default that changes meaning.
 
