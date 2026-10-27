@@ -1,10 +1,10 @@
 /-!
 ReviewHistoryAdapterTypes.lean
 
-Status: backend-neutral outcome vocabulary for the durable review-history adapter contract.
-These are pure result types only. They do not implement storage, generate identifiers,
-enforce atomicity, or establish durability. The adapter contract's distinctions remain
-visible instead of collapsing uncertain, unavailable, conflicting, and corrupt states.
+Status: backend-neutral reference vocabulary and policy model for the durable review-history adapter contract.
+These pure types/functions do not implement storage, generate identifiers, enforce atomicity,
+establish durability, or enforce a trusted adapter boundary. Callers must not treat them as
+security/correctness guarantees about a real backend.
 -/
 
 namespace YggdrasilLean
@@ -52,9 +52,9 @@ structure IdentityLookupEvidence (EventId : Type) where
   observedCandidateEventIds : List EventId
 
 /--
-Results when reading one event by identity.
-CompleteEvidence is an adapter-issued marker; the type alone does not prove backend
-completeness. A checked adapter boundary must control its construction.
+Reference outcome vocabulary when reading one event by identity.
+CompleteEvidence is only a type parameter here; this module does not control its construction
+or prove backend completeness. These constructors are public and freely constructible.
 -/
 inductive IdentityReadOutcome
     (Record EventId CompleteEvidence Diagnostic : Type) where
@@ -198,10 +198,9 @@ inductive IdentityReadGateResult (EventId : Type) where
   | invalidRecord (evidence : IdentityLookupEvidence EventId)
 
 /--
-Gate a classified read before any adapter maps it to the public outcome type.
-The adapter must supply both attestation flags from its own trusted implementation.
-Because these are Bool inputs, this is a defensive policy gate, not a capability-security
-boundary; arbitrary callers can still lie about the flags.
+Reference policy gate for a classified read. The Boolean inputs model the decisions a trusted
+adapter would have to establish; they do not establish those facts themselves. This function
+is intentionally only a defensive reference model, not a trusted boundary or capability.
 -/
 def gateIdentityRead [DecidableEq EventId]
     (scopeAttested recordMatchesRequestedIdentity : Bool)
