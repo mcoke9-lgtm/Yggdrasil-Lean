@@ -34,6 +34,7 @@ class Candidate:
     concrete_progress: bool
     unresolved_dependencies: int = 0
     waiting_on_dependency: bool = False
+    dependency_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,9 @@ def _valid(request: WorkRequest) -> str | None:
                      "concrete_progress", "waiting_on_dependency"):
             if not isinstance(getattr(candidate, name), bool):
                 return f"{candidate.candidate_id}.{name} must be a boolean"
+        if candidate.dependency_id is not None and (
+                not isinstance(candidate.dependency_id, str) or not candidate.dependency_id.strip()):
+            return f"{candidate.candidate_id}.dependency_id must be non-empty text or None"
         if (not isinstance(candidate.unresolved_dependencies, int)
                 or isinstance(candidate.unresolved_dependencies, bool)
                 or candidate.unresolved_dependencies < 0):
@@ -213,15 +217,19 @@ def evaluate_work(request: WorkRequest) -> WorkDecision:
         )
 
     waiting = tuple(sorted(
-        c.candidate_id for c in request.candidates
+        (c.candidate_id, c.dependency_id) for c in request.candidates
         if c.waiting_on_dependency and c.relevant is True and c.feasible is False
         and c.integrity_ok is True and c.authorized is True and c.duplicate is False
+        and c.dependency_id is not None
     ))
     if waiting and request.dependency_wait_is_productive:
+        candidate_ids = tuple(candidate_id for candidate_id, _ in waiting)
+        dependency_ids = tuple(sorted({dependency_id for _, dependency_id in waiting}))
         return WorkDecision(
             request.request_id, request.active_branch, request.checkpoint_id,
             "passed", "WAIT_FOR_DEPENDENCY", "not_attempted", "not_persisted",
-            tuple(assessments), waiting, waiting, ("dependency_wait_is_productive",),
+            tuple(assessments), candidate_ids, dependency_ids,
+            ("dependency_wait_is_productive", "dependency_ids_explicit"),
             "Wait for the named dependency; do independent work only if separately identified.",
         )
 
