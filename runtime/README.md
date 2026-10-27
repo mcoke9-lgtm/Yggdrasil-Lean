@@ -98,3 +98,8 @@ The contract is only a tested in-memory decision rule. It does not write a ledge
 
 The prototype's guarantee is limited to cooperating writes through this database file and its transaction/constraint behavior. It does not synchronize separate machines or databases, authenticate callers, validate evidence URIs, infer operation identity, or change the Airtable pilot schema. Stable `operation_id` remains a caller responsibility. Live Airtable behavior remains untested.
 
+## Uncertain side-effect recovery (AF-RECOVERY-001 draft)
+
+`adaptive_filesystem_runtime.recovery.decide_recovery` separates a durable attempt record from knowledge of the external outcome. If an external action may have started but there is no outcome evidence, recovery requires reconciliation unless the target itself supports the same stable idempotency key and the action is declared idempotent. Caller assertions alone do not establish target-side idempotency. Completion requires outcome evidence; contradictory or malformed facts fail closed.
+
+This is a pure decision rule, not a worker or external-action executor. It does not perform reconciliation, prove evidence authenticity, or atomically coordinate an external service with the local ledger. The safe default for uncertain non-idempotent side effects is to stop and reconcile, not to repeat blindly.
