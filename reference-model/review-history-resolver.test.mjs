@@ -978,3 +978,21 @@ test("source evidence digest uses locale-independent code-unit ordering", () => 
   const expected = createHash("sha256").update(JSON.stringify(projection), "utf8").digest("hex");
   assert.equal(manifest.sourceDigest, expected);
 });
+
+test("source evidence digest canonicalizes blank and absent parent references equally", () => {
+  const options = {
+    sourceReadId: "blank-parent-normalization",
+    reportedTotalRecordCount: 2,
+    paginationComplete: true,
+    sourceScope: "test:blank-parent-normalization",
+  };
+  const withBlank = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: "" },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  const withAbsent = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  assert.equal(withBlank.sourceDigest, withAbsent.sourceDigest);
+});
