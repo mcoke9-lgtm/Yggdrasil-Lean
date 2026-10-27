@@ -559,3 +559,56 @@ Do **not** copy this sketch into Lean yet. First decide the two unresolved seman
 4. **Status:** Candidate encoding only; no constructor/API shape adopted and no Lean source changed.
 5. **Recheck:** `NotFound` uses a distinct complete-scope evidence type; ambiguity retains lookup limits; no claim that evidence references prove backend truth.
 6. **Persistence/uncertainty:** Save and read-back required. This sketch has not been compiled; caller migration, backend behavior, and tests remain unverified.
+
+## Design decisions and refined type boundary — review 006
+
+This review resolves the two design questions left open by candidate encoding 005. These are **design decisions proposed for review**, not adopted implementation/API decisions. The semantic invariant already adopted in `REVIEW_HISTORY_ADAPTER_BOUNDARY_DECISIONS_001.md` remains controlling.
+
+### Decision 1 — `Found` requires complete-scope evidence
+
+For an identity lookup whose result is intended to establish uniqueness, `Found` must not be returned when the declared lookup scope is known incomplete or its completeness is unknown. A single observed match does not establish uniqueness if another matching record could remain unseen.
+
+- **Complete scope + exactly one validated identity:** eligible for `Found(record, recordProvenance, completeScopeEvidence)`.
+- **Complete scope + no matching identity:** eligible for `NotFound(completeScopeEvidence)`.
+- **More than one competing identity/event ID:** `AmbiguousIdentity`, retaining the observed candidates and lookup evidence. Do not choose by order.
+- **Known incomplete scope, including one observed match:** `Incomplete`, retaining observed matches and the incomplete-scope evidence.
+- **Completeness unknown:** do not claim `Found` or `NotFound`. Return an explicitly non-conclusive outcome carrying unknown completeness; the final constructor name/shape remains an API decision. Reserve `Unavailable` for an actual inability to obtain/use the required service or read, rather than using it as a synonym for an inconclusive search.
+- **Failure before any reliable lookup status is available:** `Unavailable` may be appropriate, with a diagnostic that does not claim the lookup was complete.
+
+This decision concerns identity uniqueness. If a future API needs to return a *local observed match* under partial coverage, model that as a distinct, explicitly non-unique result; do not overload `Found`.
+
+### Decision 2 — separate record provenance from assessment provenance
+
+A generic identity-read outcome should carry **record provenance**, not an assessment-specific provenance type. Record provenance describes how the returned record itself was obtained or produced. Candidate variants for discussion are:
+
+- `storedOriginal`
+- `reconstructed(methodVersion)`
+- `migrated(migrationVersion, sourceRef)`
+
+These are candidate semantics; the exact variants and fields still need alignment with the persisted-record schema and actual adapter behavior. Do not assert that reconstruction or migration occurred unless the adapter can supply evidence for it.
+
+**Assessment provenance remains separate** and should appear only in outcomes that actually return or assess an assessment—for example, stored assessment, reconstructed assessment, or reassessment under a named rule snapshot and linked event. It should not be mandatory on arbitrary records.
+
+### Evidence and identifier boundary
+
+- `NotFound` requires a distinct complete-scope evidence type, not a free-form diagnostic or a Boolean flag alone.
+- `Found` also needs complete-scope evidence when its meaning promises unique identity within the declared scope.
+- `Incomplete` and `AmbiguousIdentity` carry lookup evidence, including the declared scope, completeness status, observed matches/candidates, and a way to identify the supporting read evidence where available.
+- An evidence reference is provenance for an audit trail, not proof that the backend was truthful or exhaustive.
+- Do not assume a canonical `EventId` type exists. The current Lean source uses `String` fields for fork-lineage identifiers, but that alone does not establish the canonical type for review-event IDs. Before source changes, inspect the persisted schema and all relevant type definitions; otherwise keep candidate identifiers abstract/generic in the design.
+- Keep lookup completeness on the adapter operation result. Do not add it to every persisted event merely to solve this read-outcome problem.
+
+### Revised implementation gate
+
+Before changing Lean source, settle the final constructor names and evidence types against the actual persisted schema and adapter boundary, then revise IT-6 so it asserts the semantic rules independently of constructor spelling. In particular, IT-6 must reject a unique `Found` result for a single observed match under incomplete or unknown coverage, preserve competing identities as ambiguous, and allow `NotFound` only with complete-scope evidence.
+
+No Lean source was changed in this review. No compiler or integration tests were run. The proposed distinctions have not yet been adopted as the final public API.
+
+### Six-Part Integrity Check — design decisions 006
+
+1. **Count:** Six integrity roles are checked below; this is a design review, not a six-constructor inventory.
+2. **Role mapping:** Scope/uniqueness; record provenance; assessment provenance; evidence boundary; identifier typing; implementation/test gate.
+3. **Completeness:** The two prior questions are answered at the semantic level; exact Lean encoding and canonical event-ID type remain unresolved.
+4. **Status:** Strict completeness rule and provenance separation are proposed decisions; neither source API nor tests are adopted/verified.
+5. **Recheck:** A single observed match under incomplete/unknown coverage cannot become a uniqueness claim; `NotFound` requires complete scope; assessment provenance is not imposed on generic records.
+6. **Persistence/uncertainty:** This review must be saved and read back. No Lean compilation, test execution, adapter behavior, or backend evidence is claimed.
