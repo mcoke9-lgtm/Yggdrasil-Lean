@@ -103,6 +103,8 @@ def _invalid(message: str, request: WorkRequest | None = None) -> WorkDecision:
 
 
 def _valid(request: WorkRequest) -> str | None:
+    if not isinstance(request, WorkRequest):
+        return "request must be a WorkRequest"
     required = {
         "request_id": request.request_id,
         "active_branch": request.active_branch,
@@ -114,8 +116,18 @@ def _valid(request: WorkRequest) -> str | None:
     for name, value in required.items():
         if not isinstance(value, str) or not value.strip():
             return f"{name} must be non-empty text"
-    if request.prior_retry_count < 0 or request.retry_budget < 0:
-        return "retry counts and budget must be non-negative"
+    for name in ("blocked", "search_scope_exhausted", "retry_requested",
+                 "retry_material_change", "dependency_wait_is_productive"):
+        if not isinstance(getattr(request, name), bool):
+            return f"{name} must be a boolean"
+    for name in ("prior_retry_count", "retry_budget"):
+        value = getattr(request, name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return f"{name} must be a non-negative integer"
+    if not isinstance(request.candidates, (tuple, list)):
+        return "candidates must be a tuple or list"
+    if any(not isinstance(candidate, Candidate) for candidate in request.candidates):
+        return "every candidate must be a Candidate"
     ids = [candidate.candidate_id for candidate in request.candidates]
     if any(not isinstance(candidate.candidate_id, str) or not candidate.candidate_id.strip()
            for candidate in request.candidates):
@@ -123,10 +135,20 @@ def _valid(request: WorkRequest) -> str | None:
     if len(set(ids)) != len(ids):
         return "candidate IDs must be unique"
     for candidate in request.candidates:
-        if not isinstance(candidate.unresolved_dependencies, int) or isinstance(candidate.unresolved_dependencies, bool) or candidate.unresolved_dependencies < 0:
-            return f"{candidate.candidate_id}.unresolved_dependencies must be a non-negative integer"
         if not isinstance(candidate.description, str) or not candidate.description.strip():
             return f"{candidate.candidate_id}.description must be non-empty text"
+        for name in ("relevant", "feasible", "authorized", "duplicate", "integrity_ok"):
+            value = getattr(candidate, name)
+            if value is not None and not isinstance(value, bool):
+                return f"{candidate.candidate_id}.{name} must be true, false, or unknown"
+        for name in ("preserves_continuity", "removes_dependency",
+                     "concrete_progress", "waiting_on_dependency"):
+            if not isinstance(getattr(candidate, name), bool):
+                return f"{candidate.candidate_id}.{name} must be a boolean"
+        if (not isinstance(candidate.unresolved_dependencies, int)
+                or isinstance(candidate.unresolved_dependencies, bool)
+                or candidate.unresolved_dependencies < 0):
+            return f"{candidate.candidate_id}.unresolved_dependencies must be a non-negative integer"
     return None
 
 
