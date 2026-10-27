@@ -102,6 +102,87 @@ export function analyzeAirtableTableResponse(response, {
 }
 
 /**
+ * Fetch every page through a trusted connector function, then pass the
+ * aggregated connector-returned records to the Airtable response adapter.
+ *
+ * listRecordsForTable must be a trusted integration wrapper around the actual
+ * connector. It receives { baseId, tableId, fieldIds, pageSize, cursor? } and
+ * returns the connector's unmodified page response. This function detects
+ * inconsistent totals and repeated cursors; it cannot authenticate a malicious
+ * or incorrectly implemented connector wrapper.
+ */
+export async function readAndAnalyzeAirtableTable({
+  listRecordsForTable,
+  sourceReadId,
+  baseId,
+  tableId,
+  recordIdFieldId,
+  parentRecordIdFieldId,
+  pageSize = 100,
+} = {}) {
+  if (typeof listRecordsForTable !== "function" ||
+      !Number.isSafeInteger(pageSize) || pageSize < 1 ||
+      typeof sourceReadId !== "string" || !sourceReadId.trim() ||
+      typeof baseId !== "string" || !baseId.trim() ||
+      typeof tableId !== "string" || !tableId.trim() ||
+      typeof recordIdFieldId !== "string" || !recordIdFieldId.trim() ||
+      typeof parentRecordIdFieldId !== "string" || !parentRecordIdFieldId.trim()) {
+    return { accepted: false, code: "AIRTABLE_READ_CONFIG_MALFORMED" };
+  }
+
+  const records = [];
+  const seenCursors = new Set();
+  let cursor;
+  let reportedTotalRecordCount = null;
+  do {
+    const page = await listRecordsForTable({
+      baseId,
+      tableId,
+      fieldIds: [recordIdFieldId, parentRecordIdFieldId],
+      pageSize,
+      ...(cursor ? { cursor } : {}),
+    });
+    if (!page || typeof page !== "object" || !Array.isArray(page.records) ||
+        !page.metadata || !Number.isSafeInteger(page.metadata.totalRecordCount) ||
+        page.metadata.totalRecordCount < 0) {
+      return { accepted: false, code: "AIRTABLE_RESPONSE_MALFORMED" };
+    }
+    if (reportedTotalRecordCount === null) {
+      reportedTotalRecordCount = page.metadata.totalRecordCount;
+    } else if (reportedTotalRecordCount !== page.metadata.totalRecordCount) {
+      return { accepted: false, code: "AIRTABLE_TOTAL_COUNT_CHANGED_DURING_READ" };
+    }
+    records.push(...page.records);
+    const nextCursor = page.nextCursor ?? null;
+    if (nextCursor === null) {
+      cursor = undefined;
+    } else {
+      if (typeof nextCursor !== "string" || !nextCursor ||
+          seenCursors.has(nextCursor)) {
+        return { accepted: false, code: "AIRTABLE_CURSOR_INVALID_OR_REPEATED" };
+      }
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
+    }
+    if (records.length > reportedTotalRecordCount) {
+      return { accepted: false, code: "AIRTABLE_RETURNED_COUNT_EXCEEDS_TOTAL" };
+    }
+  } while (cursor);
+
+  return analyzeAirtableTableResponse({
+    records,
+    metadata: { totalRecordCount: reportedTotalRecordCount },
+    nextCursor: null,
+  }, {
+    sourceReadId,
+    baseId,
+    tableId,
+    recordIdFieldId,
+    parentRecordIdFieldId,
+  });
+}
+
+/**
  * End-to-end reference entry point for the connector boundary.
  * Keep the actual connector response and analysis in this call path so callers
  * do not manually assemble an evidence manifest or graph artifact.
