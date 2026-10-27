@@ -480,3 +480,82 @@ Before source changes, choose concrete Lean representations for: (a) scope ident
 4. **Status:** Semantic requirements adopted for the design; exact types/fields not adopted; Lean source unchanged.
 5. **Recheck:** No partial lookup can justify `NotFound`; no single partial match implies uniqueness; a later failure cannot erase already observed ambiguity.
 6. **Persistence/uncertainty:** This disposition must be read back after commit. Compilation, caller migration, backend evidence, and tests remain unverified.
+
+
+## Concrete Lean representation candidate — review 005
+
+**Status: candidate encoding for review; not adopted and not compiled.** This pass chooses a deliberately small type boundary while leaving backend-specific evidence payloads abstract. It is intended to make the semantic requirements expressible without inventing a storage schema or changing persisted events.
+
+### Proposed declarations (illustrative Lean, not yet source)
+
+```lean
+inductive LookupCompleteness where
+  | complete
+  | incomplete
+  | unknown
+  deriving DecidableEq, Repr
+
+inductive AssessmentProvenance where
+  | storedOriginal
+  | reconstructed (methodVersion : String)
+  | reassessed (ruleSnapshot linkedEventId : String)
+  deriving DecidableEq, Repr
+
+/-- Evidence for a fully searched, declared identity scope. -/
+structure CompleteScopeEvidence where
+  declaredScope : String
+  evidenceRef : String
+
+/-- Lookup limits and observations; candidate IDs are exhaustive only when evidenced. -/
+structure IdentityLookupEvidence (Record : Type) where
+  declaredScope : String
+  completeness : LookupCompleteness
+  observedMatches : List Record
+  observedCandidateEventIds : List String
+  candidatesExhaustive : Bool
+  evidenceRef : Option String
+
+inductive IdentityReadOutcome
+    (Record : Type)
+    (LookupEvidence : Type)
+    (CompleteScope : Type)
+    (Diagnostic : Type) where
+  | found (record : Record) (provenance : AssessmentProvenance)
+      (scopeEvidence : LookupEvidence)
+  | notFound (evidence : CompleteScope)
+  | incomplete (observedMatches : List Record) (evidence : LookupEvidence)
+  | ambiguousIdentity (observedCandidateEventIds : List String)
+      (evidence : LookupEvidence)
+  | unsupportedSchema (version : String)
+  | corrupt (diagnostic : Diagnostic)
+  | unavailable (diagnostic : Diagnostic)
+```
+
+This sketch is a design candidate, not a compiler-verified patch. Before adoption, resolve these points:
+
+1. **Evidence types:** decide whether to use the illustrative structures above or adapter-defined opaque evidence types. The `CompleteScope` type parameter in the outcome is intentionally distinct from general lookup evidence so `NotFound` cannot be constructed with the general evidence type by accident; it does not, by itself, prove that a caller's evidence is truthful.
+2. **Record provenance:** `AssessmentProvenance` may be too assessment-specific for every event read. If identity reads return general events, rename/generalize it to `RecordProvenance` while retaining stored-original, reconstructed, and reassessed distinctions where applicable.
+3. **Candidate representation:** the sketch uses event-ID strings because the current `ForkLineage` uses strings for IDs, but this does not establish a canonical event-ID type. Prefer an existing repository type if one exists after a full source audit.
+4. **Overlap:** `ambiguousIdentity` carries lookup evidence so an observed conflict can remain primary when coverage is partial or unknown. Its evidence must disclose whether candidates are exhaustive. The caller must not downgrade it to `incomplete` merely because the search did not finish.
+5. **Found scope:** the evidence attached to `found` must state whether the scope was complete. If it was incomplete, the API must not use `found` to imply uniqueness across that scope; either represent the observed record only inside `incomplete` or add a separately reviewed partial-match representation.
+6. **No inferred guarantees:** `evidenceRef` is a reference, not proof that a backend is authoritative. The adapter contract must define how evidence is produced and validated.
+
+### Compatibility review
+
+- This changes the current `IdentityReadOutcome Record` type's parameters and constructor payloads, so existing call sites and pattern matches would require migration.
+- A less disruptive alternative is a new evidence-bearing wrapper around the existing outcome, but that wrapper must still prevent `notFound` without complete-scope evidence and must expose incomplete coverage as a mandatory state. Merely adding optional diagnostics would not satisfy the adopted requirements.
+- No ordered-history constructors are changed in this proposal.
+- No lookup-completeness field is added to persisted event records.
+
+### Recommendation
+
+Do **not** copy this sketch into Lean yet. First decide the two unresolved semantic questions that affect constructor safety: whether `Found` is permitted when the declared scope is incomplete, and whether provenance is general record provenance or assessment-specific. Then settle the evidence type boundary and migrate IT-6 assertions to the chosen names.
+
+### Six-Part Integrity Check — candidate encoding 005
+
+1. **Count:** Six integrity roles retained; this is one candidate type sketch, not a new test group.
+2. **Role mapping:** complete-scope evidence; general lookup evidence; provenance; incomplete observations; ambiguous candidates; unsupported/corrupt/unavailable failures.
+3. **Completeness:** partial coverage and non-exhaustive candidate lists are represented; the `Found`/partial-scope boundary remains explicitly unresolved.
+4. **Status:** Candidate encoding only; no constructor/API shape adopted and no Lean source changed.
+5. **Recheck:** `NotFound` uses a distinct complete-scope evidence type; ambiguity retains lookup limits; no claim that evidence references prove backend truth.
+6. **Persistence/uncertainty:** Save and read-back required. This sketch has not been compiled; caller migration, backend behavior, and tests remain unverified.
