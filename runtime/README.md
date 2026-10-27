@@ -92,3 +92,9 @@ No Airtable fields or records were added or changed during this inspection. Any 
 
 The contract is only a tested in-memory decision rule. It does not write a ledger, prevent races, prove evidence references, or provide durable deduplication. A real adapter must enforce the check-and-append atomically (for example with a conditional write or uniqueness constraints), and must preserve a stable operation ID across chats. The existing Airtable pilot schema has no dedicated ledger fields, so no Airtable integration or schema change is implied by this draft.
 
+## SQLite persistence experiment (AF-LEDGER-002)
+
+`adaptive_filesystem_runtime.sqlite_ledger.SQLiteAttemptLedger` is a local persistence prototype, not a production service. It uses a SQLite transaction plus uniqueness constraints for attempt IDs, idempotency keys, and (project, operation, attempt number). Tests exercise reopening the database, replay after restart, retry ordering across a branch/chat change, and conflict rejection.
+
+The prototype's guarantee is limited to cooperating writes through this database file and its transaction/constraint behavior. It does not synchronize separate machines or databases, authenticate callers, validate evidence URIs, infer operation identity, or change the Airtable pilot schema. Stable `operation_id` remains a caller responsibility. Live Airtable behavior remains untested.
+
