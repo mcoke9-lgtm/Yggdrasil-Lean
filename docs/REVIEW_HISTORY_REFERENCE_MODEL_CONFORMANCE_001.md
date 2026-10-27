@@ -77,3 +77,10 @@ The current model is sufficient to serve as a small pure reference for decision 
 4. **Status:** Review memo only; recommendations not adopted; no adapter implemented.
 5. **Recheck:** The six findings map to the three retrieved Lean modules and adapter contract; no claim of backend behavior is made.
 6. **Persistence/uncertainty:** To be verified after saving. Backend choice, schema equality, identifier policy, cursor semantics, and concrete verifier behavior remain unresolved.
+
+
+## Follow-up: duplicate retry ambiguity outcome (2026-10-27)
+
+The pure reference classifier now returns `ambiguousHistory` when matching retry records identify different event IDs. The backend-neutral adapter outcome vocabulary adds `ambiguousIdentity` to append and reconciliation results. The proposed adapter contract now describes this as distinct from caller conflict and independently established corruption, and the integration-test specification adds corresponding cases under IT-3.
+
+This closes part of the earlier outcome-vocabulary gap for this specific identity ambiguity. It does not complete the general operational metadata mapping described in G4: receipts, retryability, page completeness/snapshot state, structured diagnostics, and provenance still need explicit type-level treatment. The integration scenarios remain specified, not executed; no durable adapter exists.
