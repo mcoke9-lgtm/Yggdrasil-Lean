@@ -66,6 +66,42 @@ export function adaptCompleteSourceRead(read) {
 }
 
 /**
+ * Normalize the shape returned by the Airtable table connector and route the
+ * same response through the source-read gate. Field IDs must come from the
+ * table schema, not be guessed from display values.
+ */
+export function analyzeAirtableTableResponse(response, {
+  sourceReadId,
+  baseId,
+  tableId,
+  recordIdFieldId,
+  parentRecordIdFieldId,
+} = {}) {
+  if (!response || typeof response !== "object" || !Array.isArray(response.records) ||
+      !response.metadata || !Number.isSafeInteger(response.metadata.totalRecordCount) ||
+      typeof baseId !== "string" || !baseId.trim() ||
+      typeof tableId !== "string" || !tableId.trim() ||
+      typeof recordIdFieldId !== "string" || !recordIdFieldId.trim() ||
+      typeof parentRecordIdFieldId !== "string" || !parentRecordIdFieldId.trim()) {
+    return { accepted: false, code: "AIRTABLE_RESPONSE_MALFORMED" };
+  }
+  const records = response.records.map((record) => ({
+    recordId: record?.cellValuesByFieldId?.[recordIdFieldId],
+    parentRecordId: record?.cellValuesByFieldId?.[parentRecordIdFieldId] ?? null,
+  }));
+  if (records.some((record) => typeof record.recordId !== "string" || !record.recordId.trim())) {
+    return { accepted: false, code: "AIRTABLE_RECORD_ID_MISSING" };
+  }
+  return analyzeCompleteSourceRead({
+    sourceReadId,
+    sourceScope: `airtable:${baseId}/${tableId}; fields:${recordIdFieldId},${parentRecordIdFieldId}`,
+    records,
+    totalRecordCount: response.metadata.totalRecordCount,
+    nextCursor: response.nextCursor ?? null,
+  });
+}
+
+/**
  * End-to-end reference entry point for the connector boundary.
  * Keep the actual connector response and analysis in this call path so callers
  * do not manually assemble an evidence manifest or graph artifact.
