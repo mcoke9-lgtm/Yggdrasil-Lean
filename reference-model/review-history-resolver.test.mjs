@@ -8,6 +8,7 @@ import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferenc
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
+import { adaptCompleteSourceRead } from "./source-read-adapter.mjs";
 
 function sourceReadEvidence(serialized, { complete = true } = {}) {
   const artifact = JSON.parse(serialized);
@@ -516,6 +517,43 @@ test("source-read manifest digest is canonical and binds parent references", () 
   assert.equal(manifest.paginationComplete, true);
   assert.equal(manifest.sourceDigest, reordered.sourceDigest);
   assert.notEqual(manifest.sourceDigest, changed.sourceDigest);
+});
+
+test("source adapter derives a complete manifest from one full read response", () => {
+  const adapted = adaptCompleteSourceRead({
+    sourceReadId: "adapter:read-001",
+    sourceScope: "Records table: Record ID and Parent Record ID",
+    records: [
+      { recordId: "B", parentRecordId: "A" },
+      { recordId: "A", parentRecordId: null },
+    ],
+    totalRecordCount: 2,
+    nextCursor: null,
+  });
+  assert.equal(adapted.accepted, true);
+  const result = consumeVerifiedGraphInputArtifact(adapted.serializedGraphInput, {
+    sourceReadEvidence: adapted.sourceReadEvidence,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.sourceReadId, "adapter:read-001");
+  assert.equal(result.graphInput.vertices.length, 2);
+  assert.equal(result.graphInput.edges.length, 1);
+});
+
+test("source adapter refuses pagination gaps, count mismatches, and malformed scope", () => {
+  const baseRead = {
+    sourceReadId: "adapter:read-002",
+    sourceScope: "Records table",
+    records: [{ recordId: "A", parentRecordId: null }],
+    totalRecordCount: 1,
+    nextCursor: null,
+  };
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, nextCursor: "cursor-next" }).code,
+    "SOURCE_READ_PAGINATION_INCOMPLETE");
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, totalRecordCount: 2 }).code,
+    "SOURCE_READ_COUNT_MISMATCH");
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, sourceScope: " " }).code,
+    "SOURCE_READ_RESPONSE_MALFORMED");
 });
 
 test("source-read evidence rejects count, pagination, scope, and digest mismatches", () => {
