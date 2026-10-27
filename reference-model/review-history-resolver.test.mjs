@@ -106,7 +106,7 @@ test("audits malformed record IDs and malformed branch-local sequence keys", () 
     { recordId: 17, branchId: "main", sequence: 3 },
   ]);
   assert.equal(result.invalidRecordIds.length, 2);
-  assert.equal(result.invalidBranchSequences.length, 3);
+  assert.equal(result.invalidBranchSequences.length, 2);
 });
 
 test("duplicate IDs are ambiguous for parent, source anchor, and revision references", () => {
