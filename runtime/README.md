@@ -108,7 +108,6 @@ This is a pure decision rule, not a worker or external-action executor. It does 
 
 `adaptive_filesystem_runtime.recovery_gate.gate_retry` combines the existing alternative-work recommendation with the recovery decision. A `RETRY_JUSTIFIED` recommendation is not sufficient by itself: retries are allowed only when recovery returns `SAFE_TO_START` or `SAFE_TO_REPLAY`. Unknown side effects, confirmed completion, and conflicting recovery facts block the retry. This is a decision gate only; it does not execute or persist the retry.
 
-
 ## End-to-end recovery reporting (AF-RECOVERY-003 draft)
 
 The `recover-evaluate` CLI command evaluates the work request, decides recovery from supplied facts, and emits `af.recovery-gated-work.v1`. Tests confirm an otherwise justified retry remains blocked when an external side effect is uncertain, including across separate fresh CLI invocations with the same input. The report explicitly keeps `retry_allowed`, `execution_status`, and `persistence_status` separate. Repeating a deterministic evaluation is not durable state or proof that external facts remained unchanged; no operation is executed.
@@ -116,3 +115,7 @@ The `recover-evaluate` CLI command evaluates the work request, decides recovery 
 ## Ledger-anchored recovery (AF-RECOVERY-004 draft)
 
 `adaptive_filesystem_runtime.ledger_recovery.decide_recovery_with_ledger` requires recovery facts to identify an attempt present in the SQLite ledger for the supplied project and operation, and requires it to be the latest attempt for that operation. Missing, cross-project, or stale attempt references fail closed. The ledger anchors attempt identity and sequence; it does not authenticate external evidence or independently prove the real-world outcome. Tests cover restart, missing identity, wrong project, stale attempts, and conflicting recovery facts. This remains a local SQLite prototype.
+
+## Recovery decision freshness (AF-RECOVERY-005 draft)
+
+`check_recovery_decision_freshness` re-reads the local ledger and detects when a decision names an attempt that is no longer the latest. Tests cover a current decision, a decision made stale by an append through a second ledger instance, and a missing attempt after database separation. This is a point-in-time freshness check only: another append can occur immediately after the check. It is **not** an atomic authorization for external effects. A safe external executor would need a durable claim/lease protocol and target-enforced idempotency or reconciliation; neither is implemented here. No Airtable writes or schema changes are involved.
