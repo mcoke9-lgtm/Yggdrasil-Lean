@@ -8,7 +8,7 @@ import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferenc
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
-import { adaptCompleteSourceRead } from "./source-read-adapter.mjs";
+import { adaptCompleteSourceRead, analyzeCompleteSourceRead } from "./source-read-adapter.mjs";
 
 function sourceReadEvidence(serialized, { complete = true } = {}) {
   const artifact = JSON.parse(serialized);
@@ -538,6 +538,38 @@ test("source adapter derives a complete manifest from one full read response", (
   assert.equal(result.sourceReadId, "adapter:read-001");
   assert.equal(result.graphInput.vertices.length, 2);
   assert.equal(result.graphInput.edges.length, 1);
+});
+
+test("end-to-end source-read entry point adapts and analyzes one complete read", () => {
+  const result = analyzeCompleteSourceRead({
+    sourceReadId: "adapter:e2e-001",
+    sourceScope: "Records table: Record ID and Parent Record ID",
+    records: [
+      { recordId: "B", parentRecordId: "A" },
+      { recordId: "A", parentRecordId: null },
+    ],
+    totalRecordCount: 2,
+    nextCursor: null,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.code, "SOURCE_READ_ANALYSIS_COMPLETED");
+  assert.equal(result.sourceRecordCount, 2);
+  assert.equal(result.sourceScope, "Records table: Record ID and Parent Record ID");
+  assert.equal(result.analysis, "NO_CYCLE");
+});
+
+test("end-to-end source-read entry point refuses incomplete reads before analysis", () => {
+  const read = {
+    sourceReadId: "adapter:e2e-002",
+    sourceScope: "Records table",
+    records: [{ recordId: "A", parentRecordId: null }],
+    totalRecordCount: 1,
+    nextCursor: "next-page-token",
+  };
+  assert.deepEqual(analyzeCompleteSourceRead(read), {
+    accepted: false,
+    code: "SOURCE_READ_PAGINATION_INCOMPLETE",
+  });
 });
 
 test("source adapter refuses pagination gaps, count mismatches, and malformed scope", () => {
