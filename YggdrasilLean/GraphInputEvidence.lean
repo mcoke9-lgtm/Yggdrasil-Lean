@@ -88,8 +88,8 @@ structure GraphInputHandoff where
 def handoffMatchesSource (records : List SourceParentRecord)
     (mapping : List SourceVertexBinding) (handoff : GraphInputHandoff) : Prop :=
   handoff.schemaVersion = "yggdrasil-parent-graph-v1" ∧
-  handoff.sourceVertexBindings = mapping ∧
-  graphMatchesSource records mapping handoff.graphInput
+  (handoff.sourceVertexBindings = mapping ∧
+    graphMatchesSource records mapping handoff.graphInput)
 
 /-- Structural handoff matching does not, by itself, prove source completeness or digest validity. -/
 theorem handoff_binding_preserves_graph_identity
