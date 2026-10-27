@@ -381,6 +381,61 @@ test("handoff verifier accepts intact artifact and rejects altered mapping, edge
   assert.equal(verifySerializedGraphInputArtifact("{").code, "INVALID_JSON");
 });
 
+test("handoff verifier rejects malformed metadata even when graph digest is intact", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-metadata-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  for (const mutate of [
+    (artifact) => { artifact.sourceReadId = " "; },
+    (artifact) => { artifact.sourceDigest = null; },
+    (artifact) => { artifact.sourceCompletenessVerified = "true"; },
+    (artifact) => { artifact.certificateReady = 1; },
+    (artifact) => { artifact.findings = {}; },
+    (artifact) => { artifact.findings = [{ code: 7 }]; },
+  ]) {
+    const artifact = JSON.parse(serialized);
+    mutate(artifact);
+    assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(artifact)).code,
+      "INVALID_ARTIFACT_METADATA");
+  }
+});
+
+test("handoff verifier rejects noncanonical mappings and edge order even after rehashing", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "C", parentRecordId: "B" },
+  ], {
+    sourceReadId: "read-order-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const artifact = JSON.parse(serialized);
+  const digest = (candidate) => createHash("sha256").update(JSON.stringify({
+    vertices: candidate.sourceVertexBindings.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
+    edges: candidate.graphInput.edges,
+  }), "utf8").digest("hex");
+
+  const reorderedBindings = structuredClone(artifact);
+  reorderedBindings.sourceVertexBindings.reverse();
+  reorderedBindings.graphInput.vertices.reverse();
+  reorderedBindings.graphDigest = digest(reorderedBindings);
+  assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(reorderedBindings)).code,
+    "GRAPH_MAPPING_MISMATCH");
+
+  const reorderedEdges = structuredClone(artifact);
+  reorderedEdges.graphInput.edges.reverse();
+  reorderedEdges.graphDigest = digest(reorderedEdges);
+  assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(reorderedEdges)).code,
+    "NON_CANONICAL_GRAPH_ORDER");
+});
+
 test("handoff verifier keeps source completeness separate from graph digest validity", () => {
   const certificate = buildGraphInputCertificate([
     { recordId: "A", parentRecordId: null },
