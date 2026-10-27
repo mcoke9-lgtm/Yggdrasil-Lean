@@ -58,13 +58,14 @@ A successful in-memory append, serialization, queue submission, or network reque
 
 **Outcomes:**
 
-- **Found(record, provenance):** a validated record was retrieved; provenance identifies it as stored historical data.
-- **NotFound:** the adapter can establish that the event is absent within the declared lookup scope.
+- **Found(record, provenance):** one validated record was retrieved; provenance identifies it as stored historical data.
+- **NotFound(scopeEvidence):** the adapter establishes absence across the complete declared lookup scope. The evidence must identify the scope and support its completeness; an empty partial result is insufficient.
+- **AmbiguousIdentity(diagnostic, candidateEventIds?, lookupEvidence):** the query resolves to multiple competing records with different event IDs. Do not choose a result by list order. Candidate IDs are only the observed candidates and must not be represented as exhaustive unless the lookup evidence establishes completeness for the relevant scope.
 - **UnsupportedSchema(version):** the record exists but cannot be interpreted safely by this implementation.
 - **Corrupt(details):** bytes, integrity metadata, lineage, or required references fail validation.
-- **Unavailable(retryability, reason):** the adapter cannot establish a reliable read result.
+- **Unavailable(retryability, reason):** the adapter cannot establish a reliable read result, including when lookup scope or completeness cannot be established and no more specific outcome applies.
 
-A read failure or inaccessible backend must never be reported as NotFound.
+A read failure or inaccessible backend must never be reported as NotFound. If multiple physical matches resolve to the same event ID, that alone does not establish competing event identity; uniqueness and payload consistency remain separate checks. Unsupported schema or corruption must not be converted into confirmed absence.
 
 ### 3.3 Read ordered history
 
@@ -137,7 +138,8 @@ Each path must return explicit findings for missing fields, unsupported versions
 | Confirmed durable write | Committed(receipt) | queued / serialized |
 | Same event already committed | AlreadyCommitted(receipt) | duplicate write |
 | Key, ID, or ordering conflict | Conflict | unavailable |
-| Backend cannot serve request | Unavailable | not found |
+| Multiple competing records for one queried identity | AmbiguousIdentity | arbitrary Found / list-order winner |
+| Backend cannot serve request or lookup completeness is unknown | Unavailable | not found |
 | Validation/integrity failure | Corrupt or Invalid | empty history |
 | Commit outcome uncertain | CommitUnknown / StillUnknown | committed or not committed |
 | Confirmed absence | NotFound / NotCommitted | read error |
@@ -204,8 +206,12 @@ These choices require evidence and review before implementation. Do not choose a
 Review this interface contract against the current Lean model and persisted-record schema. Resolve semantic ambiguities before writing an adapter API or selecting storage. Then implement one narrow adapter and run the six acceptance checks against its actual target storage, including a fresh-process restart.
 
 
-## 11. Duplicate retry identity outcome clarification
+## 11. Identity ambiguity and confirmed-absence boundary
 
-When more than one stored record matches a retry identity and equivalent logical payload but the records have different event IDs, return `AmbiguousIdentity`. Do not select a canonical event by list order. Reconciliation must preserve the same distinction if lookup by key or event ID discovers competing candidates.
+When more than one stored record matches a retry identity and equivalent logical payload but the records have different event IDs, return `AmbiguousIdentity`. Do not select a canonical event by list order. Append and reconciliation must preserve the same distinction if lookup by key or event ID discovers competing candidates.
 
-This outcome describes unresolved history identity, not an ordinary caller conflict or generic service unavailability. The required-outcome summary must distinguish this condition from a key/ID/ordering conflict and from corruption established by independent validation. This clarification remains part of the proposed contract; project-wide adoption and storage-backed behavior are not established.
+**Identity-read refinement proposed by the outcome-type review:** add `AmbiguousIdentity(diagnostic, candidateEventIds?, lookupEvidence)` to the read-by-event-identity outcomes when the queried identity resolves to multiple competing records with different event IDs. This is a primary outcome, not merely a diagnostic attached to `Found` or `Unavailable`. `Found` must not conceal competing matches; `Unavailable` is for a result that could not reliably be established. The candidate list is not exhaustive unless lookup evidence establishes completeness for the relevant scope. Multiple physical matches with the same event ID do not alone prove competing identity.
+
+**Confirmed absence:** `NotFound(scopeEvidence)` is permitted only when the adapter establishes absence across the complete declared identity lookup scope. Incomplete indexes, partial pages, permission failures, unavailable storage, unsupported schema, and corruption cannot be converted into `NotFound`. If scope or completeness cannot be established, return `Unavailable` or a separately defined incomplete/unknown outcome; do not guess absence.
+
+This is a proposed contract refinement, not adopted API semantics. It requires review against the persisted-record schema and final API outcome inventory before Lean declarations change. No current adapter or storage-backed behavior is implied.
