@@ -10,3 +10,4 @@ import YggdrasilLean.ReviewHistoryAdapterTypes
 import YggdrasilLean.ReviewHistoryAppendRules
 import YggdrasilLean.ReviewHistoryAppendInteraction
 import YggdrasilLean.ReviewHistoryAppendHistoryRules
+import YggdrasilLean.ReviewHistoryAppendHistoryInteraction
