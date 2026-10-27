@@ -298,5 +298,6 @@ export function consumeVerifiedGraphInputArtifact(serialized, {
     sourceDigest: artifact.sourceDigest,
     graphDigest: artifact.graphDigest,
     graphInput: artifact.graphInput,
+    sourceVertexBindings: artifact.sourceVertexBindings.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
   };
 }
