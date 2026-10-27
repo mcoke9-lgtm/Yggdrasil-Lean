@@ -44,6 +44,13 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(report["active_branch"], "branch-x")
         self.assertEqual(json.loads(json.dumps(report))["checkpoint_id"], "AF-PILOT-006")
 
+    def test_report_helpers_reject_wrong_dataclass_schema(self):
+        audit = audit_snapshot([Record("a", "main", 1)])
+        with self.assertRaises(TypeError):
+            resolution_report(audit)
+        with self.assertRaises(TypeError):
+            work_decision_report(audit)
+
     def test_report_helper_rejects_non_dataclass_values(self):
         with self.assertRaises(TypeError):
             resolution_report({"record_id": "a"})
