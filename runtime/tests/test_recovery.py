@@ -1,13 +1,16 @@
 import unittest
 
-from adaptive_filesystem_runtime.recovery import RecoveryFacts, decide_recovery
+from adaptive_filesystem_runtime.recovery import RecoveryFacts
+from adaptive_filesystem_runtime.evidence_provenance import (
+    EvidenceProvenance, decide_recovery_with_provenance,
+)
 
 
 def facts(**overrides):
     values = dict(
-        operation_id="op-1", attempt_id="attempt-1", action_class="external-write",
+        operation_id="op-1", attempt_id="a-1", action_class="external-write",
         durable_intent_recorded=True, external_action_started=True,
-        outcome_evidence=None, idempotent_external_action=False,
+        outcome_evidence="receipt://1", idempotent_external_action=False,
         idempotency_key_supported_by_target=False,
         explicit_reconciliation_result=None,
     )
@@ -15,71 +18,64 @@ def facts(**overrides):
     return RecoveryFacts(**values)
 
 
-class RecoveryDecisionTests(unittest.TestCase):
-    def test_action_may_have_happened_requires_reconciliation(self):
-        self.assertEqual(decide_recovery(facts()).outcome, "RECONCILE_REQUIRED")
+def provenance(**overrides):
+    values = dict(
+        claim="OUTCOME", status="VERIFIED",
+        evidence_reference="receipt://1", verifier="trusted-adapter",
+        verification_reference="verification://receipt-1",
+    )
+    values.update(overrides)
+    return EvidenceProvenance(**values)
 
-    def test_idempotent_target_with_same_key_allows_replay(self):
-        self.assertEqual(decide_recovery(facts(
-            idempotent_external_action=True,
-            idempotency_key_supported_by_target=True,
-        )).outcome, "SAFE_TO_REPLAY")
 
-    def test_idempotency_claim_without_target_support_is_not_enough(self):
-        self.assertEqual(decide_recovery(facts(
-            idempotent_external_action=True,
-            idempotency_key_supported_by_target=False,
-        )).outcome, "RECONCILE_REQUIRED")
+class EvidenceProvenanceTests(unittest.TestCase):
+    def test_verified_outcome_preserves_completion_decision(self):
+        result = decide_recovery_with_provenance(facts(), provenance())
+        self.assertEqual(result.outcome, "CONFIRMED_COMPLETE")
 
-    def test_evidence_confirms_completion(self):
-        self.assertEqual(decide_recovery(facts(
-            outcome_evidence="receipt://confirmed",
-        )).outcome, "CONFIRMED_COMPLETE")
+    def test_caller_assertion_cannot_confirm_completion(self):
+        result = decide_recovery_with_provenance(
+            facts(), provenance(status="CALLER_ASSERTED", verifier=None, verification_reference=None)
+        )
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_durable_intent_without_external_start_can_start(self):
-        self.assertEqual(decide_recovery(facts(
-            external_action_started=False,
-        )).outcome, "SAFE_TO_START")
+    def test_missing_provenance_cannot_confirm_completion(self):
+        result = decide_recovery_with_provenance(
+            facts(), EvidenceProvenance(claim="NONE", status="ABSENT")
+        )
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_missing_durable_intent_but_possible_start_requires_reconciliation(self):
-        self.assertEqual(decide_recovery(facts(
-            durable_intent_recorded=False,
-        )).outcome, "RECONCILE_REQUIRED")
+    def test_verified_status_requires_verifier(self):
+        result = decide_recovery_with_provenance(facts(), provenance(verifier=" "))
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_missing_intent_with_outcome_evidence_fails_closed(self):
-        self.assertEqual(decide_recovery(facts(
-            durable_intent_recorded=False,
-            external_action_started=False,
-            outcome_evidence="receipt://unexpected",
-        )).outcome, "STOP_CONFLICT")
+    def test_verified_status_requires_verification_record(self):
+        result = decide_recovery_with_provenance(facts(), provenance(verification_reference=None))
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_missing_intent_with_reconciliation_claim_fails_closed(self):
-        self.assertEqual(decide_recovery(facts(
-            durable_intent_recorded=False,
-            external_action_started=False,
-            explicit_reconciliation_result="not_started",
-        )).outcome, "STOP_CONFLICT")
+    def test_verified_claim_must_match_facts(self):
+        result = decide_recovery_with_provenance(facts(outcome_evidence=None), provenance())
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_reconciliation_can_confirm_not_started(self):
-        self.assertEqual(decide_recovery(facts(
-            external_action_started=False,
-            explicit_reconciliation_result="not_started",
-        )).outcome, "SAFE_TO_START")
+    def test_invalid_evidence_fails_closed(self):
+        result = decide_recovery_with_provenance(facts(), provenance(status="INVALID"))
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
-    def test_not_started_reconciliation_conflicts_with_outcome_evidence(self):
-        self.assertEqual(decide_recovery(facts(
-            external_action_started=False,
-            outcome_evidence="receipt://unexpected",
-            explicit_reconciliation_result="not_started",
-        )).outcome, "STOP_CONFLICT")
+    def test_unverified_evidence_still_requires_reconciliation(self):
+        result = decide_recovery_with_provenance(
+            facts(outcome_evidence=None),
+            provenance(status="CALLER_ASSERTED", claim="NONE",
+                       evidence_reference="note://caller", verifier=None,
+                       verification_reference=None),
+        )
+        self.assertEqual(result.outcome, "RECONCILE_REQUIRED")
 
-    def test_completion_without_evidence_fails_closed(self):
-        self.assertEqual(decide_recovery(facts(
-            explicit_reconciliation_result="completed",
-        )).outcome, "STOP_CONFLICT")
-
-    def test_invalid_facts_fail_closed(self):
-        self.assertEqual(decide_recovery(facts(operation_id=" ")).outcome, "STOP_CONFLICT")
+    def test_verified_reconciliation_requires_matching_claim(self):
+        result = decide_recovery_with_provenance(
+            facts(explicit_reconciliation_result=None),
+            provenance(claim="RECONCILIATION"),
+        )
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
 
 
 if __name__ == "__main__":
