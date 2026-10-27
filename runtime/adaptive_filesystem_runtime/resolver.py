@@ -3,6 +3,7 @@
 The caller supplies a snapshot. Parent links represent the global review-history
 chain; branch_id + sequence represents branch-local order; source branch + anchor
 represents fork origin; revision_of_id independently identifies a revision target.
+Blank references remain unclassified; they are not promoted to explicit N/A.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -27,6 +28,10 @@ class ResolutionResult:
     source_anchor_id: str | None
     revision_of_id: str | None
     branch_predecessor_id: str | None
+    parent_reference_state: str
+    source_anchor_reference_state: str
+    revision_reference_state: str
+    branch_predecessor_state: str
 
 
 class ResolutionError(ValueError):
@@ -96,7 +101,13 @@ def _check_parent_cycles(index: dict[str, Record]) -> None:
 
 
 def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResult:
-    """Resolve one record against a complete, caller-supplied snapshot."""
+    """Resolve one record against a caller-supplied snapshot.
+
+    A blank optional reference yields state blank_unclassified. No reference
+    state means explicit N/A or proven root, because the source schema has no
+    separate field for those declarations. A missing branch predecessor means
+    only that none was present in this snapshot.
+    """
     index = _index(records)
     target = index.get(record_id)
     if target is None:
@@ -122,4 +133,8 @@ def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResu
         source_anchor_id=source_anchor.record_id if source_anchor else None,
         revision_of_id=revision.record_id if revision else None,
         branch_predecessor_id=branch_predecessor.record_id if branch_predecessor else None,
+        parent_reference_state="linked" if parent else "blank_unclassified",
+        source_anchor_reference_state="linked" if source_anchor else "blank_unclassified",
+        revision_reference_state="linked" if revision else "blank_unclassified",
+        branch_predecessor_state="found_in_snapshot" if branch_predecessor else "none_found_in_snapshot",
     )
