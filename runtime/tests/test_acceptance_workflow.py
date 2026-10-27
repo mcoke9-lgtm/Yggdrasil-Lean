@@ -21,6 +21,8 @@ def fixture():
         Record("AF-PILOT-006", "main", 4, parent_record_id="AF-PILOT-005"),
         Record("AF-PILOT-007", "main", 5),  # Live read: parent blank, not inferred.
         Record("AF-PILOT-008", "main", 6, parent_record_id="AF-PILOT-007"),
+        Record("AF-PILOT-009", "main", 7, parent_record_id="AF-PILOT-008"),
+        Record("AF-PILOT-010", "main", 8, parent_record_id="AF-PILOT-009"),
     ]
 
 
