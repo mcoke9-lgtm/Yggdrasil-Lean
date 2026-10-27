@@ -268,3 +268,20 @@ These distinctions cross-check the outcome-design inventory and IT-1 through IT-
 4. **Status:** Contract reconciliation proposed; API and backend choices remain open.
 5. **Recheck:** Read completeness differs from service availability; commit uncertainty differs from incomplete lookup; traversal completeness differs from snapshot consistency.
 6. **Persistence/uncertainty:** Documentation only; no Lean declarations or tests changed or executed.
+
+## Proposed outcome semantics refinement — evidence and unresolved lookup
+
+**Status: proposed clarification only; not adopted or implemented.** This section aligns the contract with outcome-design review 008.
+
+Identity lookup should distinguish:
+- Incomplete: positive evidence that the declared scope was only partially searched;
+- Unresolved: the lookup completed as an operation, but the available evidence does not establish whether the declared scope was complete;
+- Unavailable: the operation failed to produce a usable lookup result.
+
+A generic CompleteScopeEvidence type is a boundary marker, not proof by itself that the backend was exhaustive. The adapter must define and test the conditions under which it issues that evidence, including pagination/index coverage, permissions, schema compatibility, and snapshot semantics where relevant. Avoid caller-manufactured strings or Boolean flags as sufficient evidence of confirmed absence.
+
+**Proposed candidate inventory:** Found(record, recordProvenance, completeScopeEvidence), NotFound(completeScopeEvidence), Incomplete(lookupEvidence), AmbiguousIdentity(candidateEventIds, lookupEvidence), Unresolved(lookupEvidence), UnsupportedSchema(version), Corrupt(diagnostic), and Unavailable(diagnostic).
+
+If multiple competing event IDs have been observed, preserve them even when the search is partial or a later read step fails; mark the candidate set non-exhaustive unless completeness is established. Do not select a winner by list order. Keep generic record provenance separate from assessment-specific provenance.
+
+This is a semantic contract recommendation, not a finalized constructor signature. No Lean source or adapter behavior is implied.
