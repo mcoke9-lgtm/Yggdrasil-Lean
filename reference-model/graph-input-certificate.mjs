@@ -198,6 +198,12 @@ export function verifySerializedGraphInputArtifact(serialized) {
         !expectedVertexIds.includes(edge[0]) || !expectedVertexIds.includes(edge[1]))) {
     return { valid: false, code: "GRAPH_MAPPING_MISMATCH" };
   }
+  // Parent history is a single-parent relation: each child may have at most
+  // one parent edge. Reject ambiguous topology before downstream projection.
+  const edgeChildren = artifact.graphInput.edges.map(([child]) => child);
+  if (new Set(edgeChildren).size !== edgeChildren.length) {
+    return { valid: false, code: "MULTIPLE_PARENT_EDGES_FOR_VERTEX" };
+  }
   const edges = artifact.graphInput.edges;
   for (let i = 1; i < edges.length; i += 1) {
     const [previousChild, previousParent] = edges[i - 1];
@@ -205,12 +211,6 @@ export function verifySerializedGraphInputArtifact(serialized) {
     if (child < previousChild || (child === previousChild && parent <= previousParent)) {
       return { valid: false, code: "NON_CANONICAL_GRAPH_ORDER" };
     }
-  }
-  // Parent history is a single-parent relation: each child may have at most
-  // one parent edge. Reject ambiguous topology before downstream projection.
-  const edgeChildren = artifact.graphInput.edges.map(([child]) => child);
-  if (new Set(edgeChildren).size !== edgeChildren.length) {
-    return { valid: false, code: "MULTIPLE_PARENT_EDGES_FOR_VERTEX" };
   }
 
   const canonicalGraph = JSON.stringify({
