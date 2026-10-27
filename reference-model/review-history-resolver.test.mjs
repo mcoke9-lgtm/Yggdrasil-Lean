@@ -96,3 +96,44 @@ test("audits the retrieved ten-record pilot snapshot without silent fallback", (
   assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-003").revision,
     Outcome.RESOLVED);
 });
+
+
+test("audits malformed record IDs and malformed branch-local sequence keys", () => {
+  const result = auditDataset([
+    { recordId: " GOOD ", branchId: "main", sequence: 1 },
+    { recordId: "B", branchId: " ", sequence: 2 },
+    { recordId: "C", branchId: "main", sequence: 0 },
+    { recordId: 17, branchId: "main", sequence: 3 },
+  ]);
+  assert.equal(result.invalidRecordIds.length, 2);
+  assert.equal(result.invalidBranchSequences.length, 3);
+});
+
+test("duplicate IDs are ambiguous for parent, source anchor, and revision references", () => {
+  const records = [
+    { recordId: "T", branchId: "main", sequence: 1 },
+    { recordId: "T", branchId: "main", sequence: 2 },
+  ];
+  const record = { recordId: "X", parentRecordId: "T", sourceAnchorId: "T",
+    sourceBranchId: "main", revisionOfId: "T" };
+  const result = resolveRecordReferences(records, record);
+  assert.equal(result.parent, Outcome.AMBIGUOUS_PARENT);
+  assert.equal(result.sourceAnchor, Outcome.AMBIGUOUS_SOURCE_ANCHOR);
+  assert.equal(result.revision, Outcome.AMBIGUOUS_REVISION_TARGET);
+});
+
+test("detects self-cycles and cycles in disconnected components", () => {
+  assert.equal(hasParentCycle([{ recordId: "A", parentRecordId: "A" }]), true);
+  assert.equal(hasParentCycle([
+    { recordId: "A" },
+    { recordId: "B", parentRecordId: "C" },
+    { recordId: "C", parentRecordId: "B" },
+  ]), true);
+});
+
+test("does not mistake a long acyclic parent chain for a cycle", () => {
+  const records = Array.from({ length: 500 }, (_, i) => ({
+    recordId: `R${i}`, parentRecordId: i === 0 ? undefined : `R${i - 1}`,
+  }));
+  assert.equal(hasParentCycle(records), false);
+});
