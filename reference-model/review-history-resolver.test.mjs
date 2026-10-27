@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome } from "./review-history-resolver.mjs";
+import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 
 const base = [
@@ -163,4 +163,28 @@ test("distinguishes a definite cycle from an indeterminate graph", async () => {
   assert.equal(analyzeParentGraph([
     { recordId: "A", parentRecordId: "MISSING" },
   ]), "NO_CYCLE");
+});
+
+
+test("bridge refuses to promote a cycle status without a validated witness", () => {
+  assert.deepEqual(mapGraphOutcomeForLean("CYCLE"), {
+    leanOutcome: "indeterminate", accepted: false,
+    reason: "cycle-witness-not-provided-or-validated",
+  });
+  assert.equal(mapGraphOutcomeForLean("CYCLE", { validatedCycleWitness: true }).leanOutcome, "cycle");
+});
+
+test("bridge preserves indeterminate and refuses uncertified no-cycle claims", () => {
+  assert.equal(mapGraphOutcomeForLean("INDETERMINATE").leanOutcome, "indeterminate");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE").leanOutcome, "indeterminate");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE", {
+    identityIntegrityCertain: true, edgeListComplete: true, acyclicityProven: true,
+  }).leanOutcome, "noCycle");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE", {
+    identityIntegrityCertain: true, edgeListComplete: false, acyclicityProven: true,
+  }).leanOutcome, "indeterminate");
+});
+
+test("bridge maps unknown runtime outcomes to indeterminate", () => {
+  assert.equal(mapGraphOutcomeForLean("SURPRISE").leanOutcome, "indeterminate");
 });
