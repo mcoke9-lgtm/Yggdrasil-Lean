@@ -62,3 +62,38 @@ theorem graph_input_evidence_preserves_completeness_premise
     evidence.sourceScopeComplete := evidence.sourceScopeComplete
 
 end YggdrasilLean
+
+/-- The serialized schema version is represented explicitly in the Lean fixture. -/
+private def exampleHandoff : GraphInputHandoff :=
+  { schemaVersion := "yggdrasil-parent-graph-v1"
+    sourceReadId := some "read-001"
+    sourceDigest := some "source-sha256:example"
+    graphDigest := "fixture-digest-not-cryptographically-verified"
+    sourceVertexBindings := exampleMapping
+    graphInput := exampleGraph
+    sourceCompletenessVerified := true }
+
+example : handoffMatchesSource exampleRecords exampleMapping exampleHandoff := by
+  constructor
+  · rfl
+  constructor
+  · rfl
+  · exact (by
+      constructor <;> decide)
+
+/-- Changing a vertex binding breaks structural handoff matching. -/
+theorem altered_mapping_rejected_by_handoff :
+    ¬ handoffMatchesSource exampleRecords [("A", 9), ("B", 2)] exampleHandoff := by
+  intro h
+  have bindings := h.2.1
+  simp [exampleHandoff, exampleMapping] at bindings
+
+/-- Changing the edge list breaks structural handoff matching. -/
+theorem altered_edges_rejected_by_handoff :
+    ¬ handoffMatchesSource exampleRecords exampleMapping
+      { exampleHandoff with graphInput := ⟨[1, 2], [(1, 2)]⟩ } := by
+  intro h
+  have graphMatch := h.2.2
+  have edgesMatch := graphMatch.2
+  simp [exampleRecords, exampleMapping, mappedParentEdges, mappedVertex] at edgesMatch
+
