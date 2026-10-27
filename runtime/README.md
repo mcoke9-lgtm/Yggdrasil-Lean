@@ -33,11 +33,12 @@ The package exports `resolution_report`, `snapshot_audit_report`, and `work_deci
 
 ## Run offline regression tests
 
-From the repository root:
+From the repository root, install the package and run the suite:
 
-    PYTHONPATH=runtime python -m unittest discover -s runtime/tests -v
+    python -m pip install --no-deps ./runtime
+    python -m unittest discover -s runtime/tests -v
 
-The GitHub Actions workflow runs this command on the feature branch and pull requests to `main`. The live Airtable tests are skipped unless all three environment variables below are set.
+The GitHub Actions workflow tests the installed package on the feature branch and pull requests to `main`. The live Airtable tests are skipped unless all three environment variables below are set.
 
 ## Optional live, read-only Airtable test
 
