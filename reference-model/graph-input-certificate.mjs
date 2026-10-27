@@ -71,7 +71,12 @@ export function buildGraphInputCertificate(records, {
   }
   edges.sort((a, b) => a.childVertexId - b.childVertexId || a.parentVertexId - b.parentVertexId);
 
+  // Bind the digest to both the Lean-facing topology and the source-ID mapping.
   const graphPayload = {
+    vertices: vertices.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
+    edges: edges.map(({ childVertexId, parentVertexId }) => [childVertexId, parentVertexId]),
+  };
+  const leanGraphInput = {
     vertices: vertices.map(({ vertexId }) => vertexId),
     edges: edges.map(({ childVertexId, parentVertexId }) => [childVertexId, parentVertexId]),
   };
@@ -95,6 +100,7 @@ export function buildGraphInputCertificate(records, {
     findings,
     identityIntegrityCertain,
     graphPayload,
+    leanGraphInput,
     graphDigest,
     certificateReady,
   };
