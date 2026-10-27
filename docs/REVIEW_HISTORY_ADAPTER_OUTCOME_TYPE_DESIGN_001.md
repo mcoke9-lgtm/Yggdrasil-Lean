@@ -453,3 +453,30 @@ Review whether to adopt the **semantic API requirements**—evidence-bearing `Fo
 4. **Status:** Semantic invariant adopted earlier; this API shape is proposed, not adopted; Lean code unchanged.
 5. **Recheck:** Partial zero/one matches cannot become NotFound or unique Found; ambiguity cannot be erased by a later failure; candidate exhaustiveness is evidence-bounded.
 6. **Persistence/uncertainty:** This proposal is being added to the design record and must be read back before persistence is claimed. Lean compilation, caller migration, backend evidence, and tests remain unverified.
+
+
+## Identity-read semantic requirements — disposition 001
+
+**Status: semantic requirements adopted for the design; concrete Lean encoding remains open.** This disposition adopts the caller-safety requirements below as the basis for the next API draft. It does not adopt the pseudocode in review 004 as a literal declaration and does not authorize editing Lean source yet.
+
+1. A successful identity read must carry the validated record and enough provenance/scope evidence to state what was actually established.
+2. `NotFound` must require evidence that the complete declared lookup scope was searched and no matching record was found.
+3. Known incomplete coverage must be a caller-visible, exhaustively handled semantic state. Zero or one observed match under partial coverage is not proof of absence or uniqueness.
+4. Multiple observed competing event IDs must remain explicitly ambiguous. Candidate evidence must distinguish observed candidates from an exhaustive candidate set.
+5. Failure before completeness can be assessed must remain unavailable/unknown, not `NotFound` or known `Incomplete`. If ambiguity was already observed, later failure must not erase it; the outcome/evidence must preserve both the ambiguity and the coverage limitation.
+6. Unsupported schema and corrupt evidence remain distinct from absence and service unavailability.
+7. Read-time lookup completeness belongs to the operation result/evidence by default, not to every persisted event.
+8. Append/reconciliation commit uncertainty and ordered-history completeness/snapshot consistency remain separate operation-specific decisions.
+
+### Next implementation-design gate
+
+Before source changes, choose concrete Lean representations for: (a) scope identity and completeness evidence, (b) record provenance, (c) observed candidate identities and candidate-set exhaustiveness, and (d) diagnostics for schema, corruption, and availability. Then reconcile the resulting constructor pattern against IT-6 and the existing contract. The ordered-history API must be reviewed separately. The new API will require caller migration; source compatibility with the current five-constructor `IdentityReadOutcome` is not presumed.
+
+### Six-Part Integrity Check — semantic disposition 001
+
+1. **Count:** Eight requirements are listed; this is a semantic decision record, not a new six-part artifact or test group.
+2. **Role mapping:** Provenance; confirmed absence; incomplete coverage; competing identities; unknown failure; schema/corruption; evidence ownership; operation-family separation.
+3. **Completeness:** Explicitly preserves ambiguity alongside partial coverage and leaves ordered-history dimensions separate.
+4. **Status:** Semantic requirements adopted for the design; exact types/fields not adopted; Lean source unchanged.
+5. **Recheck:** No partial lookup can justify `NotFound`; no single partial match implies uniqueness; a later failure cannot erase already observed ambiguity.
+6. **Persistence/uncertainty:** This disposition must be read back after commit. Compilation, caller migration, backend evidence, and tests remain unverified.
