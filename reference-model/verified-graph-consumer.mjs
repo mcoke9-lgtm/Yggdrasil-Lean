@@ -1,25 +1,23 @@
 import { consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
+import { analyzeParentGraph } from "./review-history-resolver.internal.mjs";
 
 /**
- * The reference-model graph-analysis entry point.
- *
- * The analysis callback is never invoked unless the serialized artifact passes
- * the consumer gate. This is a reference-model boundary, not production wiring.
+ * Gated reference-model graph-analysis entry point.
+ * Callers cannot inject an alternate analyzer; this module runs the internal
+ * analyzer only after artifact and completeness checks pass.
  */
-export function analyzeVerifiedGraphInput(serialized, options, analyzeGraph) {
-  if (typeof analyzeGraph !== "function") {
-    return { accepted: false, code: "INVALID_ANALYSIS_CALLBACK" };
-  }
+export function analyzeVerifiedGraphInput(serialized, options) {
   const gate = consumeVerifiedGraphInputArtifact(serialized, options);
-  if (!gate.accepted) {
-    return { accepted: false, code: gate.code };
-  }
+  if (!gate.accepted) return { accepted: false, code: gate.code };
   return {
     accepted: true,
     code: "ANALYSIS_COMPLETED",
     sourceReadId: gate.sourceReadId,
     sourceDigest: gate.sourceDigest,
     graphDigest: gate.graphDigest,
-    analysis: analyzeGraph(gate.graphInput),
+    analysis: analyzeParentGraph(gate.graphInput.vertices.map((vertex) => {
+      const parentEdge = gate.graphInput.edges.find(([child]) => child === vertex);
+      return { recordId: String(vertex), parentRecordId: parentEdge ? String(parentEdge[1]) : null };
+    })),
   };
 }
