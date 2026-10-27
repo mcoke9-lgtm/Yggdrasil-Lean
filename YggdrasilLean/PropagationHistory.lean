@@ -129,4 +129,31 @@ theorem forkProject_triggersBranchReview
     (assessIdentityBranchTransition state (forkProject state newBranchId)).branchIdentityChanged = true := by
   simp [assessIdentityBranchTransition, forkProject, h]
 
+/-! Concrete compile-time scenarios for identity and content changes. -/
+
+/-- A fixed baseline used by the identity-review scenarios. -/
+def identityReviewExampleState : ProjectState :=
+  ⟨"project-A", "main", 0, [], [], [], []⟩
+
+/-- Changing the project identity triggers identity/branch review. -/
+example :
+    identityBranchReviewRequired
+      (assessIdentityBranchTransition identityReviewExampleState
+        { identityReviewExampleState with projectId := "project-B" }) = true := by
+  decide
+
+/-- Explicitly forking to a distinct branch ID triggers identity/branch review. -/
+example :
+    identityBranchReviewRequired
+      (assessIdentityBranchTransition identityReviewExampleState
+        (forkProject identityReviewExampleState "experiment")) = true := by
+  decide
+
+/-- A content-only agreement update leaves both identities unchanged and needs no identity review. -/
+example :
+    identityBranchReviewRequired
+      (assessIdentityBranchTransition identityReviewExampleState
+        (recordAgreement identityReviewExampleState "new agreement")) = false := by
+  decide
+
 end YggdrasilLean
