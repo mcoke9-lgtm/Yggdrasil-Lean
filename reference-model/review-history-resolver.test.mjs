@@ -163,7 +163,7 @@ test("distinguishes a definite cycle from an indeterminate graph", async () => {
   ]), "CYCLE");
   assert.equal(analyzeParentGraph([
     { recordId: "A", parentRecordId: "MISSING" },
-  ]), "NO_CYCLE");
+  ]), "INDETERMINATE");
 });
 
 
