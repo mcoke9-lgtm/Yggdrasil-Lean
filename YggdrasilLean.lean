@@ -5,4 +5,5 @@ import YggdrasilLean.MultiStepHistory
 import YggdrasilLean.BranchForking
 import YggdrasilLean.BranchDivergence
 import YggdrasilLean.SelectivePropagation
-import YggdrasilLean.PropagationHistoryimport YggdrasilLean.ReviewHistoryAdapterTypes
+import YggdrasilLean.PropagationHistory
+import YggdrasilLean.ReviewHistoryAdapterTypes
