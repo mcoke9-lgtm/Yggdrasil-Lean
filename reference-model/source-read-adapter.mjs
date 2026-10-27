@@ -3,6 +3,7 @@ import {
   buildSourceReadEvidenceManifest,
   serializeGraphInputCertificate,
 } from "./graph-input-certificate.mjs";
+import { analyzeVerifiedGraphInput } from "./verified-graph-consumer.mjs";
 
 /**
  * Adapt one complete, already-retrieved source response into the gated graph
@@ -61,5 +62,28 @@ export function adaptCompleteSourceRead(read) {
     code: "SOURCE_READ_ADAPTED",
     serializedGraphInput: serializeGraphInputCertificate(certificate),
     sourceReadEvidence: evidence,
+  };
+}
+
+/**
+ * End-to-end reference entry point for the connector boundary.
+ * Keep the actual connector response and analysis in this call path so callers
+ * do not manually assemble an evidence manifest or graph artifact.
+ *
+ * This does not make an untrusted caller's response authentic. Production code
+ * must invoke it directly with the connector's actual returned response.
+ */
+export function analyzeCompleteSourceRead(read) {
+  const adapted = adaptCompleteSourceRead(read);
+  if (!adapted.accepted) return adapted;
+  const analysis = analyzeVerifiedGraphInput(adapted.serializedGraphInput, {
+    sourceReadEvidence: adapted.sourceReadEvidence,
+  });
+  if (!analysis.accepted) return analysis;
+  return {
+    ...analysis,
+    code: "SOURCE_READ_ANALYSIS_COMPLETED",
+    sourceScope: adapted.sourceReadEvidence.sourceScope,
+    sourceRecordCount: adapted.sourceReadEvidence.returnedRecordCount,
   };
 }
