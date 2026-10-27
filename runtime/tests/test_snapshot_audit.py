@@ -45,6 +45,21 @@ class SnapshotAuditTests(unittest.TestCase):
         self.assertEqual(len(cycles), 2)
         self.assertEqual(report.status, "failed")
 
+    def test_coverage_is_unknown_by_default_and_never_proven_by_audit(self):
+        records = [Record("a", "main", 1)]
+        default = audit_snapshot(records)
+        partial = audit_snapshot(records, coverage="partial")
+        declared = audit_snapshot(records, coverage="complete")
+        self.assertEqual(default.coverage_state, "unknown")
+        self.assertEqual(partial.coverage_state, "declared_partial")
+        self.assertEqual(declared.coverage_state, "declared_complete")
+        self.assertEqual(declared.status, "passed")
+
+    def test_invalid_coverage_declaration_fails_closed(self):
+        report = audit_snapshot([], coverage="complete-ish")
+        self.assertEqual(report.status, "failed")
+        self.assertEqual(report.findings[0].code, "INVALID_COVERAGE_DECLARATION")
+
     def test_malformed_snapshot_returns_structural_failure(self):
         report = audit_snapshot([
             Record("a", "main", 1),
