@@ -47,6 +47,17 @@ theorem missing_parent_target_fails_resolution :
   obtain ⟨parent, parentEq⟩ := parentExists
   simp [mappedVertex, exampleMapping] at parentEq
 
+/-- An extra mapping entry is detectable even if the resulting graph is well-formed. -/
+theorem extra_mapping_entry_breaks_exact_domain :
+    ¬ mappingDomainMatchesRecords exampleRecords
+      [("A", 1), ("B", 2), ("EXTRA", 3)] := by
+  intro h
+  have extraBinding := h.1 ("EXTRA", 3) (by simp)
+  obtain ⟨record, recordIn, recordIdEq⟩ := extraBinding
+  simp [exampleRecords] at recordIn
+  subst recordIdEq
+  simp at recordIn
+
 /-- Evidence carries source completeness as its own premise. -/
 theorem graph_input_evidence_preserves_completeness_premise
     (records : List SourceParentRecord)
