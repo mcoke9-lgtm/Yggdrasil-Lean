@@ -9,6 +9,20 @@ import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
 
+function sourceReadEvidence(serialized, { complete = true } = {}) {
+  const artifact = JSON.parse(serialized);
+  return {
+    schema: "yggdrasil-source-read-evidence-v1",
+    sourceReadId: artifact.sourceReadId,
+    sourceDigest: artifact.sourceDigest,
+    returnedRecordCount: artifact.sourceVertexBindings.length,
+    reportedTotalRecordCount: artifact.sourceVertexBindings.length,
+    paginationComplete: complete,
+    sourceScope: "test-fixture:graph-relevant-records",
+    digestAlgorithm: "sha256",
+  };
+}
+
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
   { recordId: "B", branchId: "main", sequence: 2, parentRecordId: "A", revisionOfId: "A" },
@@ -392,7 +406,7 @@ test("consumer gate withholds graph until independent completeness attestation",
     code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
   });
   const accepted = consumeVerifiedGraphInputArtifact(serialized, {
-    sourceCompletenessAttested: true,
+    sourceReadEvidence: sourceReadEvidence(serialized),
   });
   assert.equal(accepted.accepted, true);
   assert.deepEqual(accepted.graphInput, { vertices: [1, 2], edges: [[2, 1]] });
@@ -465,7 +479,7 @@ test("fresh read-only Airtable pilot graph snapshot passes the complete gated fl
   assert.equal(artifact.graphInput.edges.length, 8);
 
   const result = analyzeVerifiedGraphInput(serialized, {
-    sourceCompletenessAttested: true,
+    sourceReadEvidence: sourceReadEvidence(serialized),
   });
   assert.equal(result.accepted, true);
   assert.equal(result.sourceReadId, sourceReadId);
@@ -485,8 +499,9 @@ test("graph analysis entry point never invokes consumer on a rejected artifact",
   });
   const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
   artifact.graphDigest = "0".repeat(64);
-  const result = analyzeVerifiedGraphInput(JSON.stringify(artifact), {
-    sourceCompletenessAttested: true,
+  const tamperedSerialized = JSON.stringify(artifact);
+  const result = analyzeVerifiedGraphInput(tamperedSerialized, {
+    sourceReadEvidence: sourceReadEvidence(tamperedSerialized),
   });
   assert.deepEqual(result, { accepted: false, code: "GRAPH_DIGEST_MISMATCH" });
 });
@@ -502,7 +517,7 @@ test("graph analysis entry point passes only verified graph input to analysis", 
   });
   const result = analyzeVerifiedGraphInput(
     serializeGraphInputCertificate(certificate),
-    { sourceCompletenessAttested: true },
+    { sourceReadEvidence: sourceReadEvidence(serializeGraphInputCertificate(certificate)) },
   );
   assert.equal(result.accepted, true);
   assert.equal(result.analysis, "NO_CYCLE");
@@ -517,8 +532,9 @@ test("graph analysis entry point blocks incomplete source despite valid digest",
     sourceDigest: "source-sha256:example",
     sourceCompletenessVerified: false,
   });
-  const result = analyzeVerifiedGraphInput(serializeGraphInputCertificate(certificate), {
-    sourceCompletenessAttested: false,
+  const serialized = serializeGraphInputCertificate(certificate);
+  const result = analyzeVerifiedGraphInput(serialized, {
+    sourceReadEvidence: sourceReadEvidence(serialized),
   });
   assert.deepEqual(result, {
     accepted: false,
