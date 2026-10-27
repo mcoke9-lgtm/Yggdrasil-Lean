@@ -46,11 +46,32 @@ class RecoveryDecisionTests(unittest.TestCase):
             durable_intent_recorded=False,
         )).outcome, "RECONCILE_REQUIRED")
 
+    def test_missing_intent_with_outcome_evidence_fails_closed(self):
+        self.assertEqual(decide_recovery(facts(
+            durable_intent_recorded=False,
+            external_action_started=False,
+            outcome_evidence="receipt://unexpected",
+        )).outcome, "STOP_CONFLICT")
+
+    def test_missing_intent_with_reconciliation_claim_fails_closed(self):
+        self.assertEqual(decide_recovery(facts(
+            durable_intent_recorded=False,
+            external_action_started=False,
+            explicit_reconciliation_result="not_started",
+        )).outcome, "STOP_CONFLICT")
+
     def test_reconciliation_can_confirm_not_started(self):
         self.assertEqual(decide_recovery(facts(
             external_action_started=False,
             explicit_reconciliation_result="not_started",
         )).outcome, "SAFE_TO_START")
+
+    def test_not_started_reconciliation_conflicts_with_outcome_evidence(self):
+        self.assertEqual(decide_recovery(facts(
+            external_action_started=False,
+            outcome_evidence="receipt://unexpected",
+            explicit_reconciliation_result="not_started",
+        )).outcome, "STOP_CONFLICT")
 
     def test_completion_without_evidence_fails_closed(self):
         self.assertEqual(decide_recovery(facts(

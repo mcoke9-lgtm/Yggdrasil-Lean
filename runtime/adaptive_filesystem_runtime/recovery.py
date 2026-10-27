@@ -1,4 +1,4 @@
-"""Pure decision rules for recovering uncertain external side effects.
+""""Pure decision rules for recovering uncertain external side effects.
 
 A ledger records what the caller knows about an attempt. It cannot infer whether
 an external action happened when acknowledgement/evidence is missing.
@@ -56,7 +56,13 @@ def decide_recovery(facts: RecoveryFacts) -> RecoveryDecision:
         if value is not None and (not isinstance(value, str) or not value.strip()):
             return RecoveryDecision("STOP_CONFLICT", f"{name} must be non-empty text or None")
 
+    # Do not let a missing intent record bypass contradictory outcome claims.
     if not facts.durable_intent_recorded:
+        if facts.outcome_evidence or facts.explicit_reconciliation_result is not None:
+            return RecoveryDecision(
+                "STOP_CONFLICT",
+                "outcome evidence or reconciliation conflicts with missing durable intent",
+            )
         if facts.external_action_started:
             return RecoveryDecision(
                 "RECONCILE_REQUIRED",
@@ -69,8 +75,11 @@ def decide_recovery(facts: RecoveryFacts) -> RecoveryDecision:
             return RecoveryDecision("CONFIRMED_COMPLETE", "reconciliation confirms completion with evidence")
         return RecoveryDecision("STOP_CONFLICT", "completion claim requires outcome evidence")
     if facts.explicit_reconciliation_result == "not_started":
-        if facts.external_action_started:
-            return RecoveryDecision("STOP_CONFLICT", "reconciliation conflicts with recorded external start")
+        if facts.external_action_started or facts.outcome_evidence:
+            return RecoveryDecision(
+                "STOP_CONFLICT",
+                "not-started reconciliation conflicts with recorded start or outcome evidence",
+            )
         return RecoveryDecision("SAFE_TO_START", "reconciliation confirms the action did not start")
     if facts.explicit_reconciliation_result is not None:
         return RecoveryDecision("STOP_CONFLICT", "unrecognized reconciliation result")
@@ -85,3 +94,4 @@ def decide_recovery(facts: RecoveryFacts) -> RecoveryDecision:
         "RECONCILE_REQUIRED",
         "action may have occurred; outcome is unknown and safe replay is not established",
     )
+"
