@@ -53,8 +53,11 @@ branch for any live-host validation before relying on this adapter operationally
   CI passed on commit `d7a53e504137545af0c75ca65ea94b30502ce123`.
 - Lean build on that same commit: passed.
 - GitHub REST expected-head atomicity: unsupported by the documented endpoint shape.
-- Connector `expected_sha` behavior: unverified due generic errors and absent
-  evidence of server-side atomic enforcement.
+- Connector `expected_sha` behavior: unverified. A controlled stale-update attempt
+  against the disposable test branch returned a generic GraphQL error; read-back
+  confirmed the branch stayed at the newer head. That outcome is safe, but it does
+  not prove whether the connector rejected the stale lease atomically or failed
+  before applying the request.
 - End-to-end live GitHub stale-publisher rejection: not verified.
 
 The adapter is a tested prototype, not a production deployment or a live GitHub
