@@ -82,3 +82,14 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - No Airtable data was changed. No live connector wiring was claimed.
 - Next batch: confirm CI, then audit the serialized graph verifier for structural ambiguity (duplicate edges, canonical ordering, and metadata tampering); add concrete regression tests only for demonstrated gaps.
 - Six-Part Integrity Check: (1) six-part integrity framework remains unchanged; (2) this change strengthens the architecture guard's detection role; (3) focused matcher regression test added; (4) implemented, CI pending; (5) rerun CI before verification; (6) checkpoint persisted in GitHub, live-source authenticity remains unresolved.
+
+
+## 9. Gate structural audit: single-parent invariant (2026-10-27)
+
+- CI completed successfully on architecture-guard fix commit `7b47878f8bba659037cf1726428c915db9d66a39`: [resolver tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497578098); [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497578133).
+- Further review found the serialized-artifact verifier checked edge endpoints but did not reject two parent edges for the same child. The analyzer's source-record projection chooses one matching edge, so ambiguous artifacts could make the topology and projected analysis disagree.
+- Implemented verifier rejection code `MULTIPLE_PARENT_EDGES_FOR_VERTEX` in commit `78aa070339d1a00f9bc1975abf53924f1aa0f2e7`; added a duplicate-parent-edge regression test in commit `4280c48fbf946b5cfb10dde591f9a869f001be12`.
+- CI for the newest code commit is queued/running: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497748857); [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497748861). The new invariant is implemented but not yet CI-verified.
+- The earlier architecture-guard matcher regression is CI-verified. No Airtable pilot records were changed.
+- Next batch: verify CI for the single-parent invariant; if green, continue review of artifact metadata and source-evidence consistency, without claiming cryptographic authenticity from unkeyed digests.
+- Six-Part Integrity Check: (1) exact six-part rubric retained; (2) artifact structure, identity, topology, evidence, verification, persistence remain distinct; (3) multiple-parent ambiguity now explicitly rejected; (4) implemented, tests pending; (5) CI recheck required; (6) GitHub checkpoint persists implementation status and the unresolved source-authenticity boundary.
