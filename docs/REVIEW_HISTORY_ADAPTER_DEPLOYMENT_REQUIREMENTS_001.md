@@ -1,48 +1,49 @@
 # Adapter Deployment and Access Requirements 001
 
-**Status:** requirements register; unresolved, not an architecture decision  
+**Status:** Android-mobile-first target recorded; detailed implementation requirements remain open.  
 **Scope:** Review History Adapter in Yggdrasil-Lean  
-**Branch:** `review-history-identity-read-evidence-001`
+**Backend decision:** [Android-Mobile-First Backend Decision 001](REVIEW_HISTORY_ADAPTER_ANDROID_MOBILE_BACKEND_DECISION_001.md)  
+**Branch:** `review-history-identity-read-evidence-001`.
 
 ## Purpose
 
-Record the deployment facts needed to compare persistence backends without selecting a technology by assumption. The Lean outcome types and identity-read classifier are reference models; they are not an operational service or a durable adapter.
+Record deployment facts needed to implement durable review history without confusing a provisional backend target with a working adapter. The Lean outcome types and identity-read classifier are reference models; they are not an operational service or durable storage adapter.
 
-## Requirements that must be established
+## Requirements and current status
 
 | ID | Requirement | Current status | Why it matters |
 |---|---|---|---|
-| DEP-1 | Runtime that hosts the adapter (CLI, long-running service, CI job, desktop/local process, or other) | Open | Constrains lifecycle, dependencies, and available storage. |
-| DEP-2 | Number and location of writers/readers; whether separate processes or machines must share one history | Open | Determines whether local-only storage is sufficient and what coordination is required. |
-| DEP-3 | Durability expectation after process exit, machine restart, or power loss | Open | Defines the promised persistence boundary and recovery behavior. |
-| DEP-4 | Required atomicity for append and expected-position checks under concurrent writers | Requirement identified; exact contract open | A read-then-write sequence without an atomic commit boundary can admit races. |
-| DEP-5 | History size, retention, and expected query/pagination patterns | Open | Affects storage layout, indexing, and bounded reads. |
-| DEP-6 | Backup, portability, migration, and operator recovery requirements | Open | Determines whether a backend can be maintained and recovered in practice. |
-| DEP-7 | Access-control and trust boundary: who may write, read, repair, or declare an identity lookup complete | Open | A storage result alone does not establish trusted completeness or provenance. |
-| DEP-8 | Offline/network constraints and acceptable service dependencies | Open | Determines whether a remote/shared backend is feasible. |
-| DEP-9 | Failure reporting and observability requirements | Partially specified | Must preserve distinctions among confirmed absence, incomplete lookup, unavailable storage, and uncertain commit. |
+| DEP-1 | Runtime that hosts the adapter | **Target: Android mobile; exact host/runtime bridge open** | Determines APIs, lifecycle, packaging, and storage access. |
+| DEP-2 | Number and location of readers/writers | **Initial scope: one device-local history; cross-device sharing not selected** | SQLite is not to be treated as a multi-device shared database. |
+| DEP-3 | Durability after exit/restart/power loss | **Target: durable local history; exact SQLite transaction/sync configuration and guarantees open** | Defines truthful commit and recovery behavior. |
+| DEP-4 | Atomicity for append and expected-position checks | Requirement identified; transaction/schema design open | Read-then-write without atomic commit can admit races. |
+| DEP-5 | History size, retention, query/pagination patterns | Open | Affects schema, indexes, and bounded reads. |
+| DEP-6 | Backup, portability, migration, and recovery | Open | Determines how history can be inspected, restored, and upgraded. |
+| DEP-7 | Access-control and trust boundary | Open | Storage alone does not establish trusted completeness or provenance. |
+| DEP-8 | Offline/network constraints and service dependencies | **Target: offline-capable local-first; remote service not required for initial use** | Fits mobile continuity and avoids a network dependency. |
+| DEP-9 | Failure reporting and observability | Partially specified | Must preserve absence, incomplete lookup, unavailable storage, and uncertain commit distinctions. |
 
 ## Non-negotiable behavioral gates
 
-Before a backend is accepted, demonstrate all of the following against the actual implementation:
+Before the backend is accepted, demonstrate against the actual implementation:
 
 1. An uncertain append result is not treated as a confirmed failure; retry is safe only with duplicate-prevention evidence.
-2. Concurrent appends enforce the chosen expected-position rule atomically.
-3. Reuse of an event ID or idempotency key with different content is detected according to the adopted equality rule.
-4. Ordered reads, pagination, and recovery preserve the declared consistency contract.
+2. Concurrent or competing appends enforce the chosen expected-position rule atomically.
+3. Reuse of an event ID or idempotency key with different content is detected under the adopted equality rule.
+4. Ordered reads, pagination, restart/reopen, and recovery preserve the declared consistency contract.
 5. Forks preserve an explicit source anchor and destination-side lineage.
 6. Corruption, unsupported schema, incomplete reads, and unavailability remain distinguishable.
 
-These are acceptance gates, not evidence that an adapter or backend currently passes them. Integration test groups IT-1 through IT-6 remain specified but unexecuted until a real adapter/backend exists.
+These are acceptance gates, not evidence that an adapter currently passes them. Integration test groups IT-1 through IT-6 remain specified but unexecuted until a real Android-hosted SQLite adapter exists.
 
 ## Backend evaluation rule
 
-Do not select SQLite, filesystem files, or a remote database until DEP-1 through DEP-3 and DEP-7 through DEP-8 are resolved. Then compare feasible candidates against atomicity, durability, complete-read semantics, pagination/snapshot consistency, recovery/portability, failure semantics, and operational burden. Record evidence for each score; unknowns must remain unknown rather than being scored as passes.
+Device-local SQLite is the provisional target for the first Android-mobile implementation. Do not claim a working backend until the host integration, schema, transaction/durability settings, and recovery behavior are implemented and tested. If requirements later demand multi-device shared history, reopen the backend decision rather than assuming local SQLite meets it.
 
 ## Current conclusion
 
-- **Verified from project context:** no operational adapter or durable storage integration is present in the current design; the deployment environment and shared-access requirements have not been established.
-- **Proposed:** use this register as the prerequisite gate for backend selection.
-- **Not adopted:** no backend, deployment topology, or production trust boundary.
+- **Chosen provisionally:** device-local SQLite; offline-capable local-first behavior.
+- **Open:** Android host/runtime bridge, exact durability boundary, atomic append contract, trust boundary, pagination, backup, and migration.
+- **Not adopted:** remote database or cross-device synchronization.
 - **Not tested:** no real-backend integration tests.
-- **Next action:** establish DEP-1 through DEP-3 and DEP-7 through DEP-8 from the intended use case, then score only compatible backend candidates.
+- **Next action:** establish the Android host/integration path and implement a minimal SQLite-backed vertical slice, then run IT-1 through IT-6.
