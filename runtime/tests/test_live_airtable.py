@@ -1,4 +1,4 @@
-"""Opt-in, read-only integration test against a live Airtable Records table.
+""""Opt-in, read-only integration test against a live Airtable Records table.
 
 Set AIRTABLE_PAT, AIRTABLE_BASE_ID, and AIRTABLE_TABLE_ID in the environment.
 This test issues GET requests only. It never creates, updates, or deletes records.
@@ -55,7 +55,8 @@ class LiveAirtableIntegrationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.rows = fetch_all_records()
         cls.records = records_from_airtable(cls.rows)
-        cls.ids = {record.record_id for record in cls.records}
+        cls.by_id = {record.record_id: record for record in cls.records}
+        cls.ids = set(cls.by_id)
 
     def test_snapshot_contains_expected_pilot_records(self):
         expected = {f"AF-PILOT-{n:03d}" for n in range(1, 11)}
@@ -80,6 +81,12 @@ class LiveAirtableIntegrationTests(unittest.TestCase):
         revised = resolve_history(self.records, "AF-PILOT-003")
         self.assertEqual(revised.parent_record_id, "AF-PILOT-002")
         self.assertEqual(revised.revision_of_id, "AF-PILOT-001")
+
+    def test_absent_parent_on_007_is_preserved_not_inferred(self):
+        self.assertIsNone(self.by_id["AF-PILOT-007"].parent_record_id)
+        result = resolve_history(self.records, "AF-PILOT-007")
+        self.assertIsNone(result.parent_record_id)
+        self.assertEqual(result.branch_predecessor_id, "AF-PILOT-006")
 
 
 if __name__ == "__main__":
