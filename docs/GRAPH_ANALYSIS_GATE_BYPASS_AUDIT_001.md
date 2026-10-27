@@ -63,3 +63,10 @@ Added `reference-model/source-read-adapter.mjs` with `adaptCompleteSourceRead`. 
 Verification for the adapter and its tests:
 - Resolver tests: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493756631)
 - Lean build: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493750759)
+
+
+## Source-adapter boundary update
+
+`reference-model/source-read-adapter.mjs` now exports `analyzeCompleteSourceRead(read)` as the end-to-end reference entry point. It calls `adaptCompleteSourceRead`, then `analyzeVerifiedGraphInput`, and returns scope/count metadata only after the gate accepts the artifact. Tests cover a complete acyclic read and verify that a non-null next-page cursor is rejected before analysis.
+
+This reduces caller-side assembly of manifests and artifacts, but it is **not a security boundary by itself**: any code with access to the function can still pass a fabricated object. Production integration must invoke this function directly on the actual connector response at the trusted connector boundary, with source identity/scope established by that integration. The current tests are deterministic reference-model tests, not a live connector integration.
