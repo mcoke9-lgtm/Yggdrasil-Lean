@@ -185,3 +185,49 @@ Do not resolve these by assumption while translating this draft into Lean. Revie
 The boundary decision record now explicitly adopts one semantic invariant: multiple competing records with different event IDs must not be resolved by list order or concealed as a single `Found`; `NotFound` requires complete declared lookup-scope evidence. This adoption concerns semantics only. The constructor name, parameters, evidence schema, and representation of incomplete reads remain provisional. No Lean declarations were changed, and no adapter or tests were run.
 
 **Six-Part Integrity Check:** (1) one adopted semantic invariant; (2) identity ambiguity and confirmed absence are its two operational roles; (3) API-shape and evidence gaps remain explicit; (4) semantic rule adopted, constructor proposed, implementation untested; (5) aligned against the current proposed contract and persisted schema; (6) source change must be read back at the resulting commit before claiming persistence.
+
+
+## Outcome metadata crosswalk — review pass 002
+
+This crosswalk maps the remaining operational information before any Lean constructor decision. It separates the **primary outcome** (what the operation established) from **evidence/diagnostic metadata** (why that conclusion is justified and what remains unknown).
+
+| Concern | Primary outcome or status | Required accompanying metadata/evidence | If evidence is missing |
+|---|---|---|---|
+| Confirmed commit | Committed / AlreadyCommitted | Receipt: event, project, branch, assigned position; documented commit-boundary guarantee | Do not report success; retain unknown outcome |
+| Uncertain write | CommitUnknown / StillUnknown | Opaque reconciliation handle; diagnostic; observed lookup scope, completeness, consistency, retry guarantee when known | Stay unknown; do not guess commit or non-commit |
+| Definite non-commit | NotCommitted | Authoritative absence basis over complete relevant identity scope plus documented same-key retry-safety basis | Return unresolved/unknown, not NotCommitted |
+| Competing identities | AmbiguousIdentity semantic condition | Observed candidate event IDs where accessible; lookup scope/completeness; diagnostic code and limits | Preserve ambiguity; do not choose by order. Candidate IDs must not be presented as exhaustive without completeness evidence |
+| Payload or position conflict | Conflict | Stable diagnostic code, conflicting identity/position context where permitted, evidence reference | Do not collapse into generic unavailability if conflict was established |
+| Identity read success | Candidate Found(record, provenance) | Validation scope and provenance: stored original vs reconstruction vs reassessment | Do not label reconstructed/reassessed content as the original |
+| Confirmed absence | Candidate NotFound(scopeEvidence) | Declared identity scope and evidence it was searched completely | Partial/unknown lookup cannot establish absence |
+| Incomplete or failed lookup | No final constructor selected; unresolved result required | Reason category: partial index/page, permission/access failure, unavailable store, unknown scope/completeness, stale/non-snapshot read | Never map to NotFound; decide between Unavailable and distinct Incomplete/Unknown only after API review |
+| Malformed or contradictory stored data | Corrupt (or Conflict where the invariant disproved is a conflict) | Validation finding, affected record/reference, check performed | Do not report absence or validity |
+| Unsupported schema | UnsupportedSchema(version) | Observed schema identifier/version and unsupported capability | Do not conflate with absence or corruption |
+| Ordered history read | Page result with completeness and consistency; broad gapOrConflict retained provisionally | Ordered records, cursor state, completeness, snapshot/non-snapshot/unknown consistency, diagnostics distinguishing gap, identity conflict, broken lineage where established | Never claim complete snapshot from unknown/incomplete evidence |
+| Verification | valid / invalid / incomplete / unsupportedSchema / unavailable | Declared scope, checks performed, findings, schema version | Missing evidence/checks must not become valid |
+
+### Metadata ownership and non-duplication
+
+1. **Persisted event schema:** owns event identity, event payload, lineage, assessment/rule provenance, schema version, and explicitly defined integrity fields. It does not currently define completeness of a particular adapter lookup.
+2. **Adapter operation result:** owns operation-specific lookup scope, completeness/consistency evidence, receipt, cursor state, and reconciliation status.
+3. **Diagnostic/finding:** owns stable code, human-readable summary, severity where relevant, evidence references, and retryability only when supportable. A diagnostic supplements rather than replaces the primary outcome.
+4. **Backend conformance evidence:** owns claims about atomic append, durability, snapshot semantics, access-control behavior, and retry guarantees. Types and documentation alone do not prove these properties.
+
+### Crosswalk conclusions
+
+- The adopted semantic invariant concerns **competing identity and confirmed absence**, not a specific constructor list.
+- The strongest unresolved type boundary is **incomplete identity read**: Unavailable may be too broad, but a separate Incomplete/Unknown result should not be added until the contract defines its stable meaning and required evidence.
+- Candidate IDs, diagnostics, and retryability are metadata, not substitutes for primary outcomes. Candidate lists are exhaustive only when lookup completeness is established.
+- Unsupported schema, corruption, unavailable storage, incomplete evidence, and confirmed absence remain distinct.
+- No new persisted-record field is justified by this pass. Lookup completeness remains operation-result evidence unless a future schema review establishes a durable reason to persist it.
+
+**Disposition:** Crosswalk proposed for review; no constructor/API shape adopted, no Lean declarations changed, no adapter implemented, and no tests executed.
+
+## Six-Part Integrity Check — crosswalk 002
+
+1. **Count:** Six integrity roles preserved; the crosswalk has twelve rows because it maps individual outcomes/concerns, not a new six-item framework.
+2. **Roles:** Commit certainty; reconciliation; identity; conflict; read provenance/absence; lookup failure; corruption/schema; history consistency; verification.
+3. **Completeness:** Required metadata ownership and failure boundaries are mapped. Exact incomplete-read constructor and diagnostic vocabulary remain open.
+4. **Status:** Semantic identity invariant adopted separately; this crosswalk is proposed; API and implementation unadopted/untested.
+5. **Recheck:** No absence inferred from incomplete evidence; no commit inferred from a handle; no validity inferred from missing checks; no arbitrary identity winner.
+6. **Persistence/uncertainty:** Awaiting repository write and readback; no runtime or backend claim follows from this document.
