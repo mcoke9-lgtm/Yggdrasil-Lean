@@ -186,3 +186,25 @@ A disposition may remain **open**; unresolved items must be visible in the imple
 4. **Status:** Mapping added to the proposed test specification; no adapter implemented and no integration tests executed.
 5. **Recheck:** Group IDs match IT-1 through IT-6 in this document; policy references are to the retrieved boundary memo.
 6. **Persistence/uncertainty:** Update is saved in the repository; CI and any downstream implementation remain to be verified.
+## IT-6 refinement — incomplete lookup and unavailable service
+
+**Status: proposed assertion refinement; not executed. This remains part of IT-6 and does not create a seventh test group.**
+
+Add controlled identity-read cases that distinguish:
+
+1. **Known incomplete lookup:** inject or configure a response that positively identifies partial scope coverage (such as a partial page or incomplete index). Assert that the adapter preserves incomplete status/evidence and never returns `NotFound`.
+2. **Unavailable before completeness is known:** make storage/connectivity/permissions fail before lookup completeness can be established. Assert that the result remains unavailable/unknown and does not falsely assert either confirmed absence or a specifically known incomplete scope.
+3. **Complete absence:** query a controlled identity across a demonstrably complete declared scope with no match. Assert `NotFound` only with scope/completeness evidence.
+4. **Observed ambiguity during partial coverage:** if multiple competing event IDs are observed before the lookup becomes incomplete/unavailable, assert that the competing identities remain visible and the candidate set is not described as exhaustive without completeness evidence.
+5. **Single observed match with incomplete scope:** assert that the adapter does not claim uniqueness over the full declared scope; it must expose the scope limitation separately or return an unresolved result according to the final API contract.
+
+These are cases within IT-6, not separate integration-test groups. The final API may use a distinct `Incomplete` constructor or a mandatory completeness field; the tests should assert the semantic boundary rather than prematurely lock the constructor spelling.
+
+### Six-Part Integrity Check — IT-6 refinement
+
+1. **Count:** Six test groups remain; these cases are subcases of IT-6.
+2. **Roles:** Incomplete lookup; unavailable operation; confirmed absence; observed ambiguity; single match with unknown completeness.
+3. **Completeness:** Covers positive incompleteness and inability to establish completeness as different evidence states.
+4. **Status:** Test assertions proposed, not implemented or executed.
+5. **Recheck:** No incomplete/unknown search can produce `NotFound`; observed ambiguity cannot be hidden; full-scope uniqueness requires completeness.
+6. **Persistence/uncertainty:** This specification describes expected tests only; backend-specific injection capability and results remain unverified.
