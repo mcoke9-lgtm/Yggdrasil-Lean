@@ -76,6 +76,23 @@ class ResolverTests(unittest.TestCase):
             resolve_history([a, b], "a")
         self.assertEqual(caught.exception.code, "PARENT_CYCLE")
 
+    def test_malformed_direct_reference_is_rejected_without_type_error(self):
+        bad_records = [
+            Record("x", "main", 1, parent_record_id=[]),
+            Record("x", "main", 1, revision_of_id=123),
+            Record("x", "main", 1, source_anchor_id=" anchor "),
+        ]
+        for record in bad_records:
+            with self.subTest(record=record):
+                with self.assertRaises(ResolutionError) as caught:
+                    resolve_history([record], "x")
+                self.assertIn(caught.exception.code, {"MALFORMED_REFERENCE", "MALFORMED_SOURCE_REFERENCE"})
+
+    def test_whitespace_record_identity_is_rejected(self):
+        with self.assertRaises(ResolutionError) as caught:
+            resolve_history([Record(" x ", "main", 1)], " x ")
+        self.assertEqual(caught.exception.code, "MALFORMED_RECORD")
+
     def test_duplicate_record_id(self):
         with self.assertRaises(ResolutionError) as caught:
             resolve_history([self.base, self.base], "base-1")
