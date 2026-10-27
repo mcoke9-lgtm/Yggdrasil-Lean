@@ -157,6 +157,26 @@ theorem completeTransitionReview_usesTransitionIdentity
       assessIdentityBranchTransition transition.before transition.after := by
   rfl
 
+/-- Content review is needed when at least one dependency route is selected. -/
+def contentReviewRequired (review : PropagationAssessment) : Bool :=
+  review.decisions.any fun decision => decision.selectedForReview
+
+/-- The unified review requires attention if identity review or content review is flagged. -/
+def completeTransitionReviewRequired (review : TransitionReviewEntry) : Bool :=
+  identityBranchReviewRequired review.identityBranch ||
+    contentReviewRequired review.propagation
+
+/-- A transition with no identity or routed-content differences requires no flagged review. -/
+theorem unchangedTransition_noReviewRequired
+    (state : ProjectState) (routes : List DependencyRoute) :
+    completeTransitionReviewRequired
+      (assessCompleteTransition ⟨state, state⟩ routes) = false := by
+  simp [completeTransitionReviewRequired, identityBranchReviewRequired,
+    contentReviewRequired, assessCompleteTransition, assessIdentityBranchTransition,
+    assessIdentityBranchTransition, assessIdentityBranchTransition, deriveChangeSet,
+    recordPropagationAssessment, changedWatchedFields, assessRoute, routeAffected]
+
+
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
     (state : ProjectState) (newBranchId : String)
