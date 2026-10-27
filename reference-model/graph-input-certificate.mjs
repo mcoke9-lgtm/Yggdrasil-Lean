@@ -200,3 +200,41 @@ export function verifySerializedGraphInputArtifact(serialized) {
     certificateReady: artifact.certificateReady === true,
   };
 }
+/**
+ * Trusted-consumer gate: downstream code receives graphInput only when the
+ * graph digest verifies, the artifact reports no findings, source metadata is
+ * present, and the caller independently supplies a completeness attestation.
+ *
+ * sourceCompletenessAttested is an explicit caller premise, not something this
+ * module can prove. The sourceDigest's authenticity is likewise external.
+ */
+export function consumeVerifiedGraphInputArtifact(serialized, {
+  sourceCompletenessAttested = false,
+} = {}) {
+  const verification = verifySerializedGraphInputArtifact(serialized);
+  if (!verification.valid) {
+    return { accepted: false, code: verification.code };
+  }
+  const artifact = JSON.parse(serialized);
+  if (typeof artifact.sourceReadId !== "string" || artifact.sourceReadId.length === 0 ||
+      artifact.sourceReadId.trim() !== artifact.sourceReadId ||
+      typeof artifact.sourceDigest !== "string" || artifact.sourceDigest.length === 0 ||
+      artifact.sourceDigest.trim() !== artifact.sourceDigest) {
+    return { accepted: false, code: "INVALID_SOURCE_METADATA" };
+  }
+  if (!Array.isArray(artifact.findings) || artifact.findings.length !== 0) {
+    return { accepted: false, code: "SOURCE_FINDINGS_PRESENT" };
+  }
+  if (artifact.certificateReady !== true || artifact.sourceCompletenessVerified !== true ||
+      sourceCompletenessAttested !== true) {
+    return { accepted: false, code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED" };
+  }
+  return {
+    accepted: true,
+    code: "ACCEPTED_VERIFIED_GRAPH_INPUT",
+    sourceReadId: artifact.sourceReadId,
+    sourceDigest: artifact.sourceDigest,
+    graphDigest: artifact.graphDigest,
+    graphInput: artifact.graphInput,
+  };
+}
