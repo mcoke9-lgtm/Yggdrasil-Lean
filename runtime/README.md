@@ -15,6 +15,7 @@ The package resolves review-history relationships from a caller-supplied snapsho
 - Each optional relationship returns a state: \`linked\` or \`blank_unclassified\`. Blank fields are not silently promoted to explicit N/A or proof of a root.
 - Branch predecessor state is either \`found_in_snapshot\` or \`none_found_in_snapshot\`; the latter does not prove that the record is a branch root if the snapshot may be partial.
 - Missing records and references, malformed source references, source-branch mismatch, duplicate IDs or sequences, and parent cycles have stable error codes.
+- Parent-chain errors are scoped to the requested record's chain; unrelated broken branches do not block a valid resolution request.
 - The Airtable field adapter rejects malformed IDs, sequences, and whitespace-padded references. It does not silently repair data.
 - The live pilot read returned no Parent Record ID for AF-PILOT-007. Tests preserve that absence as \`blank_unclassified\` instead of inferring AF-PILOT-006 as its parent; the branch-local predecessor is separately AF-PILOT-006.
 
