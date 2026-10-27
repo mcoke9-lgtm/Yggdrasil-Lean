@@ -79,26 +79,20 @@ def _resolve_reference(index: dict[str, Record], ref_id: str | None, code: str, 
     return target
 
 
-def _check_parent_cycles(index: dict[str, Record]) -> None:
-    state: dict[str, int] = {}
-    for start in index:
-        if state.get(start, 0) == 2:
-            continue
-        path: list[str] = []
-        current: str | None = start
-        while current is not None:
-            mark = state.get(current, 0)
-            if mark == 1:
-                raise ResolutionError("PARENT_CYCLE", " -> ".join(path + [current]))
-            if mark == 2:
-                break
-            state[current] = 1
-            path.append(current)
-            record = index[current]
-            parent = _resolve_reference(index, record.parent_record_id, "MISSING_PARENT", current)
-            current = parent.record_id if parent else None
-        for record_id in path:
-            state[record_id] = 2
+def _check_parent_cycles(index: dict[str, Record], start_id: str) -> None:
+    """Validate only the requested record's parent chain, not unrelated branches."""
+    positions: dict[str, int] = {}
+    path: list[str] = []
+    current: str | None = start_id
+    while current is not None:
+        if current in positions:
+            cycle = path[positions[current]:] + [current]
+            raise ResolutionError("PARENT_CYCLE", " -> ".join(cycle))
+        positions[current] = len(path)
+        path.append(current)
+        record = index[current]
+        parent = _resolve_reference(index, record.parent_record_id, "MISSING_PARENT", current)
+        current = parent.record_id if parent else None
 
 
 def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResult:
@@ -113,7 +107,7 @@ def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResu
     target = index.get(record_id)
     if target is None:
         raise ResolutionError("MISSING_RECORD", f"record {record_id} is absent from snapshot")
-    _check_parent_cycles(index)
+    _check_parent_cycles(index, target.record_id)
     parent = _resolve_reference(index, target.parent_record_id, "MISSING_PARENT", target.record_id)
     source_anchor = _resolve_reference(index, target.source_anchor_id, "MISSING_SOURCE_ANCHOR", target.record_id)
     revision = _resolve_reference(index, target.revision_of_id, "MISSING_REVISION_TARGET", target.record_id)
