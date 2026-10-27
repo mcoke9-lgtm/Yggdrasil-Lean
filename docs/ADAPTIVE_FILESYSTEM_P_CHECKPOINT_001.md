@@ -191,3 +191,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** implemented; tested; push CI verified on exact active head; not proof of authenticity and not a production-adapter adoption.
 5. **Recheck:** branch head and workflow records were reread; both required push workflows completed successfully for `e7786ee7b248f826adfa1ce37ee4895fbe6c8710`.
 6. **Persistence / uncertainty:** implementation, tests, and this checkpoint update are on the existing branch. External source authenticity, trusted adapter enforcement, snapshot consistency across pages, and production deployment remain unresolved.
+
+
+## 17. Exact checkpoint CI and pagination snapshot boundary (2026-10-27)
+
+- Rechecked the checkpoint commit `871b816d72a5e0caf4d5aa6bd84a8fd452d50cd8` against workflow-run records after the earlier in-progress observation. Resolver tests passed on [pull-request run 40603738628](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40603738628); Lean build passed on [pull-request run 40603738555](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40603738555) and [push run 40603731813](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40603731813). Exact-head CI is now verified.
+- Re-audited `readAndAnalyzeAirtableTable`: it detects malformed pages, changing reported totals, repeated/invalid cursors, and returned-count overruns. It does **not** bind pages to a shared source snapshot/version. A source can change between pages while keeping the same total, so count consistency is not snapshot consistency.
+- **Disposition:** no speculative implementation was added. The generic connector contract currently supplies no documented snapshot/version token or transactional-read guarantee. An optional token check would only help when the actual connector provides a trustworthy token; making up a token or treating the caller's `sourceReadId` as one would give false assurance.
+- Next safe requirement before production use: inspect the actual connector contract for snapshot/version guarantees. If supported, bind every page to the same connector-issued snapshot/version and reject missing or changing tokens in strict mode. If unsupported, explicitly accept and label weaker best-effort consistency or use a source-side export/snapshot mechanism. A final record-count check alone is insufficient.
+- Status: exact-head CI **verified**; pagination snapshot limitation **reconfirmed and documented**; connector-specific remediation **not implemented** pending an actual contract. No Airtable records changed; no new branch created; PR #1 remains unmerged.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) exact checkpoint CI; (b) current pagination controls; (c) mixed-time-read risk; (d) implemented versus proposed status; (e) evidence-based remediation gate; (f) persistence and remaining source-contract uncertainty.
+3. **Completeness:** distinguishes changing totals/cursors from stable-total mixed-time reads and avoids inventing connector support.
+4. **Status:** snapshot gap confirmed; documentation committed; no snapshot enforcement implemented or adopted.
+5. **Recheck:** workflow records and current adapter implementation were reread; exact checkpoint commit has passing resolver and Lean workflows.
+6. **Persistence / uncertainty:** this record is committed on the active branch. The actual connector's snapshot semantics remain unknown; no production connector has been established.
