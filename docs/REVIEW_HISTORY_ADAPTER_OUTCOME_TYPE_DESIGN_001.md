@@ -304,3 +304,38 @@ This recommendation does not require a particular Lean encoding. An API may repr
 4. **Status:** Preferred semantic design proposed; no API adoption or implementation.
 5. **Recheck:** Known incomplete is not NotFound; one observed match is not complete-scope uniqueness; unavailable is not proof of incompleteness; observed ambiguity remains visible.
 6. **Persistence/uncertainty:** Design decision rationale is recorded for review. Caller behavior and backend evidence remain untested.
+
+
+## Cross-operation outcome inventory and caller crosswalk — review 002
+
+**Status: reconciliation review; semantic inventory proposed, not adopted.** This section reconciles the candidate outcome families with the caller obligations above and the existing IT-6 assertions. It does not select Lean constructor names or fields.
+
+| Operation family | Candidate semantic outcomes | Caller obligation / evidence boundary |
+|---|---|---|
+| Append | `Committed`, `AlreadyCommitted`, `Conflict`, `AmbiguousIdentity`, `Unavailable`, `Corrupt`, `CommitUnknown` | A receipt must identify the committed event and position. A retry must not duplicate an event. `CommitUnknown` is not `NotCommitted`; ambiguity cannot be resolved by list order. |
+| Reconciliation after uncertain append | `Committed`, `NotCommitted`, `StillUnknown`, `AmbiguousIdentity`, `Conflict`, `Corrupt`, `Unavailable` | `NotCommitted` requires authoritative evidence that the original operation did not commit and safe retry cannot duplicate it. Otherwise retain `StillUnknown`. |
+| Read by event identity or idempotency identity | `Found`, `NotFound`, `Incomplete`, `AmbiguousIdentity`, `UnsupportedSchema`, `Corrupt`, `Unavailable` | `NotFound` requires complete declared-scope evidence. `Incomplete` preserves observed matches only as partial evidence. `AmbiguousIdentity` remains visible even if candidate evidence is non-exhaustive. |
+| Ordered history read / pagination | Results plus completeness (`complete`, `incomplete`, or `unknown`) and consistency (`snapshotBound`, `nonSnapshot`, or `unknown`) | Do not certify complete point-in-time recovery from partial traversal or mixed snapshots. Empty results establish absence only within a fully searched declared scope. |
+| Assessment retrieval / reconstruction | Exact stored assessment, reconstruction from stored inputs, new reassessment, or unavailable original | Provenance must distinguish the original stored result from reconstruction or fresh reassessment; an unavailable original is not repaired merely by returning a new assessment. |
+| Verification | `valid`, `invalid`, `incomplete`, `unsupportedSchema`, `unavailable` | A partial or unsupported verification cannot be reported as valid. Integrity claims remain limited to the specified evidence and threat model. |
+
+### Reconciliation findings
+
+1. The identity-read family must represent known incomplete coverage as a caller-visible, exhaustively handled semantic state (recommended), while retaining a distinct unavailable/unknown state for failures before completeness is assessable.
+2. The same word must not collapse different operation meanings: for example, append `Conflict`, identity-read `AmbiguousIdentity`, and reconciliation `StillUnknown` express different caller obligations.
+3. Ordered history needs two separate axes: traversal completeness and snapshot consistency. Neither should be inferred from the other.
+4. Append uncertainty is not the same as incomplete identity lookup. An uncertain commit concerns whether a write took effect; incomplete lookup concerns whether a read searched its declared scope.
+5. The existing IT-6 subcases cover the identity-read boundary. IT-1/IT-2/IT-4 remain responsible for uncertain retry, atomic concurrency, and ordered recovery respectively; no seventh test group is needed.
+
+### Disposition
+
+**Proposed, not adopted:** retain operation-specific outcome families and mandatory evidence for claims of absence, uniqueness, commit status, history completeness, snapshot consistency, and assessment provenance. Keep exact type constructors/fields open pending complete contract review. No Lean declarations changed; no implementation or tests executed.
+
+### Six-Part Integrity Check — cross-operation review 002
+
+1. **Count:** The integration suite remains exactly six groups, IT-1 through IT-6.
+2. **Role mapping:** IT-1 retry uncertainty; IT-2 atomic concurrent append; IT-3 identity/key reuse; IT-4 ordered history and recovery; IT-5 fork lineage; IT-6 corruption/schema/unavailability and identity-read distinctions.
+3. **Completeness:** Crosswalk separates write uncertainty, read completeness, snapshot consistency, identity ambiguity, and assessment provenance; backend and canonicalization decisions remain open.
+4. **Status:** Inventory and recommendation proposed; API shape not adopted.
+5. **Recheck:** `NotFound` requires complete scope; `NotCommitted` requires authoritative evidence; incomplete history is not complete recovery; unsupported/incomplete verification is not valid.
+6. **Persistence/uncertainty:** This review is documentation only. No Lean compilation, adapter implementation, or integration-test execution is claimed.
