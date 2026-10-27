@@ -6,6 +6,8 @@ This test issues GET requests only. It never creates, updates, or deletes record
 import json
 import os
 import unittest
+from io import BytesIO
+from unittest.mock import patch
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
@@ -46,6 +48,49 @@ def fetch_all_records():
         offset = payload.get("offset")
         if not offset:
             return rows
+
+
+class AirtablePaginationTests(unittest.TestCase):
+    @patch.dict(os.environ, {
+        "AIRTABLE_PAT": "test-read-only-token",
+        "AIRTABLE_BASE_ID": "app-test",
+        "AIRTABLE_TABLE_ID": "tbl-test",
+    })
+    @patch("test_live_airtable.urlopen")
+    def test_fetch_all_records_follows_offset_with_get_only(self, mocked_urlopen):
+        first = {"records": [{"id": "airtable-1", "fields": {"Record ID": "AF-PILOT-001"}}],
+                 "offset": "cursor-2"}
+        second = {"records": [{"id": "airtable-2", "fields": {"Record ID": "AF-PILOT-002"}}]}
+        mocked_urlopen.side_effect = [
+            BytesIO(json.dumps(first).encode()),
+            BytesIO(json.dumps(second).encode()),
+        ]
+
+        rows = fetch_all_records()
+
+        self.assertEqual([row["fields"]["Record ID"] for row in rows],
+                         ["AF-PILOT-001", "AF-PILOT-002"])
+        self.assertEqual(mocked_urlopen.call_count, 2)
+        first_request = mocked_urlopen.call_args_list[0].args[0]
+        second_request = mocked_urlopen.call_args_list[1].args[0]
+        self.assertEqual(first_request.get_method(), "GET")
+        self.assertEqual(second_request.get_method(), "GET")
+        self.assertEqual(first_request.get_header("Authorization"), "Bearer test-read-only-token")
+        self.assertIn("offset=cursor-2", second_request.full_url)
+
+    @patch.dict(os.environ, {
+        "AIRTABLE_PAT": "test-read-only-token",
+        "AIRTABLE_BASE_ID": "app-test",
+        "AIRTABLE_TABLE_ID": "tbl-test",
+    })
+    @patch("test_live_airtable.urlopen")
+    def test_single_page_returns_without_offset(self, mocked_urlopen):
+        mocked_urlopen.return_value = BytesIO(json.dumps({"records": [{"id": "one"}]}).encode())
+        self.assertEqual(fetch_all_records(), [{"id": "one"}])
+        self.assertEqual(mocked_urlopen.call_count, 1)
+        request = mocked_urlopen.call_args.args[0]
+        self.assertEqual(request.get_method(), "GET")
+        self.assertNotIn("offset=", request.full_url)
 
 
 @unittest.skipUnless(all(os.environ.get(name) for name in REQUIRED_ENV),
