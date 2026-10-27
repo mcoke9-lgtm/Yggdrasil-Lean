@@ -218,6 +218,28 @@ theorem appendTransitionReview_retainsNewEntry
     (appendTransitionReview history entry).entries.getLast? = some entry := by
   simp [appendTransitionReview]
 
+/-- Append two reviews in sequence while retaining the initial history. -/
+def appendTwoTransitionReviews
+    (history : TransitionReviewHistory)
+    (first second : TransitionReviewEntry) : TransitionReviewHistory :=
+  appendTransitionReview (appendTransitionReview history first) second
+
+/-- Two sequential appends preserve the old prefix and the order of both new reviews. -/
+theorem appendTwoTransitionReviews_preservesOrder
+    (history : TransitionReviewHistory)
+    (first second : TransitionReviewEntry) :
+    (appendTwoTransitionReviews history first second).entries =
+      history.entries ++ [first, second] := by
+  simp [appendTwoTransitionReviews, appendTransitionReview, List.append_assoc]
+
+/-- After two sequential appends, the second review is the final entry. -/
+theorem appendTwoTransitionReviews_retainsLast
+    (history : TransitionReviewHistory)
+    (first second : TransitionReviewEntry) :
+    (appendTwoTransitionReviews history first second).entries.getLast? =
+      some second := by
+  simp [appendTwoTransitionReviews, appendTransitionReview]
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
