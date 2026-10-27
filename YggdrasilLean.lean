@@ -12,3 +12,4 @@ import YggdrasilLean.ReviewHistoryAppendInteraction
 import YggdrasilLean.ReviewHistoryAppendHistoryRules
 import YggdrasilLean.ReviewHistoryAppendHistoryInteraction
 import YggdrasilLean.ReviewHistoryAppendHistoryConflictTests
+import YggdrasilLean.IdentityReadClassificationTests
