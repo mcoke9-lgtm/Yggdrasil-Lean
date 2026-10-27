@@ -185,4 +185,61 @@ theorem unknown_coverage_stays_unresolved
         termination := .completed, observedCandidateEventIds := ids } := by
   simp [classifyIdentityRead, h]
 
+
+/-- Decisions after an adapter supplies explicit attestation and record-validation flags.
+These flags are assertions by the adapter, not proofs that a remote backend was exhaustive. -/
+inductive IdentityReadGateResult (EventId : Type) where
+  | foundCandidate (eventId : EventId) (evidence : IdentityLookupEvidence EventId)
+  | notFoundCandidate (evidence : IdentityLookupEvidence EventId)
+  | incomplete (evidence : IdentityLookupEvidence EventId)
+  | unresolved (evidence : IdentityLookupEvidence EventId)
+  | ambiguous (evidence : IdentityLookupEvidence EventId)
+  | unavailableAfterObservations (evidence : IdentityLookupEvidence EventId)
+  | invalidRecord (evidence : IdentityLookupEvidence EventId)
+
+/--
+Gate a classified read before any adapter maps it to the public outcome type.
+The adapter must supply both attestation flags from its own trusted implementation.
+Because these are Bool inputs, this is a defensive policy gate, not a capability-security
+boundary; arbitrary callers can still lie about the flags.
+-/
+def gateIdentityRead [DecidableEq EventId]
+    (scopeAttested recordMatchesRequestedIdentity : Bool)
+    (evidence : IdentityLookupEvidence EventId) :
+    IdentityReadGateResult EventId :=
+  match classifyIdentityRead evidence with
+  | .ambiguous e => .ambiguous e
+  | .incomplete e => .incomplete e
+  | .unresolved e => .unresolved e
+  | .unavailableAfterObservations e => .unavailableAfterObservations e
+  | .completeCandidates e =>
+      if scopeAttested then
+        match e.observedCandidateEventIds with
+        | [] => .notFoundCandidate e
+        | id :: _ =>
+            if recordMatchesRequestedIdentity then .foundCandidate id e
+            else .invalidRecord e
+      else
+        .unresolved e
+
+/-- Without adapter attestation, even complete-looking observations cannot authorize found. -/
+theorem no_scope_attestation_never_authorizes_candidate
+    [DecidableEq EventId] (evidence : IdentityLookupEvidence EventId) :
+    gateIdentityRead false true evidence =
+      match classifyIdentityRead evidence with
+      | .ambiguous e => .ambiguous e
+      | .incomplete e => .incomplete e
+      | .unresolved e => .unresolved e
+      | .unavailableAfterObservations e => .unavailableAfterObservations e
+      | .completeCandidates e => .unresolved e := by
+  cases h : classifyIdentityRead evidence <;> simp [gateIdentityRead, h]
+
+/-- A candidate with failed identity validation is rejected rather than returned as found. -/
+theorem failed_record_validation_rejects_candidate
+    [DecidableEq EventId] (evidence : IdentityLookupEvidence EventId)
+    (h : classifyIdentityRead evidence =
+      .completeCandidates evidence) :
+    gateIdentityRead true false evidence = .invalidRecord evidence := by
+  simp [gateIdentityRead, h, evidence]
+
 end YggdrasilLean
