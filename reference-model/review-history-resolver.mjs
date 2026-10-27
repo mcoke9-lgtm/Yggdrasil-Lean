@@ -34,26 +34,46 @@ function resolveExact(records, rawId, missingOutcome, ambiguousOutcome) {
   return { outcome: Outcome.RESOLVED, record: matches[0] };
 }
 
-export function hasParentCycle(records) {
+export function analyzeParentGraph(records) {
   const ids = new Map();
+  let indeterminate = false;
+
   for (const record of records) {
-    if (typeof record.recordId === "string" && !ids.has(record.recordId)) {
-      ids.set(record.recordId, record.parentRecordId || null);
+    const id = record.recordId;
+    if (typeof id !== "string" || id.length === 0 || id.trim() !== id) {
+      indeterminate = true;
+      continue;
     }
+    if (ids.has(id)) {
+      indeterminate = true;
+      continue;
+    }
+    const parent = record.parentRecordId;
+    if (!optionalRef(parent) &&
+        (typeof parent !== "string" || parent.trim() !== parent)) {
+      indeterminate = true;
+    }
+    ids.set(id, optionalRef(parent) || typeof parent !== "string" ||
+      parent.trim() !== parent ? null : parent);
   }
+
   const completed = new Set();
   for (const start of ids.keys()) {
     const path = new Set();
     let current = start;
     while (current && ids.has(current)) {
-      if (path.has(current)) return true;
+      if (path.has(current)) return "CYCLE";
       if (completed.has(current)) break;
       path.add(current);
       current = ids.get(current);
     }
     for (const id of path) completed.add(id);
   }
-  return false;
+  return indeterminate ? "INDETERMINATE" : "NO_CYCLE";
+}
+
+export function hasParentCycle(records) {
+  return analyzeParentGraph(records) === "CYCLE";
 }
 
 export function resolveRecordReferences(records, record) {
@@ -79,7 +99,7 @@ export function resolveRecordReferences(records, record) {
     sourceAnchor: anchorOutcome,
     revision: revision.outcome,
     malformedReference: malformed ? Outcome.MALFORMED_REFERENCE : "OK",
-    parentCycle: hasParentCycle(records) ? Outcome.PARENT_CYCLE : "OK",
+    parentCycle: analyzeParentGraph(records),
   };
 }
 
@@ -113,7 +133,7 @@ export function auditDataset(records) {
     invalidBranchSequences,
     duplicateBranchSequences: [...sequenceCounts]
       .filter(([, count]) => count > 1).map(([key]) => JSON.parse(key)),
-    parentCycle: hasParentCycle(records),
+    parentCycle: analyzeParentGraph(records),
     records: records.map((record) => resolveRecordReferences(records, record)),
   };
 }
