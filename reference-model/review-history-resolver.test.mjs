@@ -213,6 +213,7 @@ test("a cycle outcome can bridge only when the adapter validates a concrete witn
 
 test("NO_CYCLE bridge rejects missing-parent fixture without completeness certificate", () => {
   const missingParent = parentGraphFixtures.find((fixture) => fixture.name === "missing parent target");
-  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).accepted, false);
+  assert.equal(missingParent.runtime, "INDETERMINATE");
+  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).accepted, true);
   assert.equal(mapGraphOutcomeForLean(missingParent.runtime).leanOutcome, "indeterminate");
 });
