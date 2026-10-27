@@ -15,7 +15,8 @@ The work developed from review-history resolution and parent-graph auditing into
 - Added a serialized graph artifact verifier that checks mapping consistency and recomputes the graph payload digest.
 - Refreshed the checked-in 10-record pilot snapshot after a read-only Airtable read showed that AF-PILOT-007 has no parent reference.
 - Added structured `yggdrasil-source-read-evidence-v1` validation in `graph-input-certificate.mjs`. It checks matching source-read identity and digest, returned count, reported total, pagination completion, non-empty scope, and digest algorithm label.
-- Added tests for inconsistent counts, incomplete pagination, blank scope, and digest mismatch.
+- Added `buildSourceReadEvidenceManifest`, which computes a SHA-256 digest over a canonical projection of record IDs and parent references, sorted by record ID.
+- Added tests for inconsistent counts, incomplete pagination, blank scope, digest mismatch, order-invariant digest, and changed-parent digest sensitivity.
 - Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with the evidence-manifest design and limitations.
 
 ## 3. What we've learned
