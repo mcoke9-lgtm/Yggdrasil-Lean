@@ -8,7 +8,7 @@ import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferenc
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
-import { adaptCompleteSourceRead, analyzeCompleteSourceRead, analyzeAirtableTableResponse } from "./source-read-adapter.mjs";
+import { adaptCompleteSourceRead, analyzeCompleteSourceRead, analyzeAirtableTableResponse, readAndAnalyzeAirtableTable } from "./source-read-adapter.mjs";
 
 function sourceReadEvidence(serialized, { complete = true } = {}) {
   const artifact = JSON.parse(serialized);
@@ -586,6 +586,69 @@ test("Airtable response adapter maps the recorded 10-record table read", () => {
   });
   assert.ok(result.sourceVertexBindings.some((binding) =>
     binding.recordId === "AF-PILOT-010" && Number.isSafeInteger(binding.vertexId)));
+});
+
+test("trusted Airtable reader paginates connector responses and preserves source IDs", async () => {
+  const recordIdFieldId = "fldd49StaAWbIMfH3";
+  const parentRecordIdFieldId = "fldeI9DErAnstWE5W";
+  const calls = [];
+  const pages = [
+    {
+      records: [
+        { cellValuesByFieldId: { [recordIdFieldId]: "A", [parentRecordIdFieldId]: "B" } },
+      ],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: "page-2",
+    },
+    {
+      records: [
+        { cellValuesByFieldId: { [recordIdFieldId]: "B" } },
+      ],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: null,
+    },
+  ];
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async (args) => {
+      calls.push(args);
+      return pages[calls.length - 1];
+    },
+    sourceReadId: "connector-test-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId,
+    parentRecordIdFieldId,
+    pageSize: 1,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.deepEqual(calls.map((call) => call.cursor ?? null), [null, "page-2"]);
+  assert.deepEqual(result.analysisRecords, [
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "B", parentRecordId: null },
+  ]);
+});
+
+test("trusted Airtable reader rejects inconsistent totals across pages", async () => {
+  let call = 0;
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => {
+      call += 1;
+      return call === 1
+        ? { records: [], metadata: { totalRecordCount: 2 }, nextCursor: "page-2" }
+        : { records: [], metadata: { totalRecordCount: 3 }, nextCursor: null };
+    },
+    sourceReadId: "connector-test-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_TOTAL_COUNT_CHANGED_DURING_READ",
+  });
 });
 
 test("Airtable response adapter rejects a paginated response before analysis", () => {
