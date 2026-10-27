@@ -61,3 +61,14 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - **Evidence status:** the live read evidence is observational; the checked-in fixture is not a live CI integration.
 - **Remaining uncertainty:** source-read manifest authenticity, independently established source completeness, and JS/Lean semantic equivalence are unresolved.
 - **Six-Part Integrity Check:** count = 6; roles = history, actions, learning, state, plan, persistence; distinguish implemented from CI-verified; recheck after every material change.
+
+
+## 7. Autonomous batch-mode milestone (2026-10-27)
+
+- User agreed to autonomous batch mode: proceed through routine implementation, tests, correction, and checkpointing without asking for confirmation at each build step; report consolidated milestones instead.
+- Added `docs/ADAPTIVE_FILESYSTEM_AUTONOMOUS_BATCH_MODE_001.md` (commit `8b5618f8a9e8c53a16fa0787ffa773f100886b96`). Resolver tests and Lean build both passed on that commit.
+- Added `docs/AIRTABLE_RUNTIME_INTEGRATION_CONTRACT_001.md`: defines the real connector wrapper contract, read-only boundary, evidence labels, fail-closed cases, and acceptance checks.
+- Integration boundary: `readAndAnalyzeAirtableTable` accepts a dependency-injected connector callback, but this repository does not have a callable ChatGPT Airtable connector binding or deployed runtime credentials. Do not claim live CI integration.
+- Latest verified CI on autonomous-mode commit: resolver tests [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40496146897); Lean build [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40496146906).
+- Next batch: continue static review of source adapter and graph gate, add tests/docs for any concrete correctness gap found, then update this checkpoint and verify CI on the resulting commit.
+- Six-Part Integrity Check: (1) six checkpoint sections retained with this new operational addendum; (2) history/actions/learning/state/plan/persistence remain distinct; (3) no pilot mutation; (4) runtime contract is documented, not deployed; (5) recheck CI on latest commit; (6) checkpoint persistence and source-authenticity uncertainty remain explicitly separated.
