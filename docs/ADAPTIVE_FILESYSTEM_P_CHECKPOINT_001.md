@@ -135,3 +135,22 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - CI status is verified from workflow-run and job-step records: locale-ordering test commit `0066ad3b698e4d42226e9df93f558a091c0f30c7` passed resolver tests (run 209) and Lean build (run 651); the preceding checkpoint commit `2b6838e0a57a63e025e212032fb7ef8430c5524a` passed resolver tests (run 213) and Lean build (run 667). The current documentation-only commit is newer than those runs, and no run for that exact commit has been established. The combined-status endpoint remains empty, so the successful run/job records—not that endpoint—are the evidence.
 - No Airtable records were changed; no live connector or production integration was established.
 - **Six-Part Integrity Check:** (1) six integrity roles remain history, actions, learning, state, plan, persistence; (2) the finding belongs to API boundary and provenance; (3) distinguishes checked-in import discipline from external import enforcement; (4) finding documented, remediation proposed, not implemented/adopted; (5) rechecked the three relevant modules and absence of the expected root package manifest; (6) persisted here with CI and distribution-boundary uncertainty explicit.
+
+
+## 14. Source-evidence parent normalization (2026-10-27)
+
+- Static review found a canonicalization mismatch: graph construction treats `parentRecordId: ""` as no parent, while the source-evidence digest previously distinguished the empty string from `null`. That meant semantically equivalent graph inputs could receive different source digests.
+- Implemented normalization of an empty parent reference to `null` in `buildSourceReadEvidenceManifest` (commit `a44b57a3b7b26aaeac4617d87e433c772436d16b`).
+- Added a regression test asserting that a blank parent and an absent parent yield the same digest (commit `4f70484e57b52e793698dea5f006dc0a79bcb4a8`).
+- Exact-commit CI on `4f70484e57b52e793698dea5f006dc0a79bcb4a8`: resolver tests [passed, push run 217](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40588609095) and [passed, pull-request run 218](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40588614721); Lean build [passed, push run 675](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40588609178) and [passed, pull-request run 676](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40588614831).
+- Status: **implemented and CI-verified** on the exact test commit. This is canonicalization consistency, not proof of source authenticity. Caller-forged but internally consistent evidence remains possible unless a trusted adapter/provenance mechanism is enforced.
+- No Airtable records were changed. No new branch was created.
+
+### Six-Part Integrity Check
+
+1. **Count:** six checks, exactly.
+2. **Roles:** (a) artifact scope; (b) source/graph semantic alignment; (c) test coverage; (d) implementation-versus-verification status; (e) exact-commit CI recheck; (f) persistence and unresolved provenance.
+3. **Completeness:** the blank-parent edge case is covered; no duplicate test was added for the existing locale-independent ordering case.
+4. **Status:** normalization implemented; regression tested; both resolver tests and Lean build verified on the exact code/test commit; not a source-authenticity proof.
+5. **Recheck:** successful workflow records above are tied to `4f70484e57b52e793698dea5f006dc0a79bcb4a8`. Any later documentation-only commit has its own CI status and should not inherit this exact-commit claim automatically.
+6. **Persistence / uncertainty:** code and test commits are on the existing active branch; checkpoint update is being committed now. Trusted source authenticity, multi-page snapshot consistency, and live Airtable integration remain unresolved.
