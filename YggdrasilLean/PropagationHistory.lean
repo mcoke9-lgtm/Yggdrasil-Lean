@@ -195,6 +195,82 @@ example :
         []) = true := by
   decide
 
+/-!
+Named rule snapshots make the review configuration itself auditable. The snapshot ID
+is supplied by the caller; this model does not enforce global uniqueness or durable storage.
+-/
+
+/-- A named snapshot of the route configuration used for a review. -/
+structure PropagationRuleSnapshot where
+  ruleSetId : String
+  routes : List DependencyRoute
+  deriving DecidableEq, Repr
+
+/-- A complete review record retains the transition, rule snapshot, and resulting review. -/
+structure VersionedTransitionReviewEntry where
+  transition : TransitionRecord
+  ruleSnapshot : PropagationRuleSnapshot
+  review : TransitionReviewEntry
+  deriving DecidableEq, Repr
+
+/-- Assess a transition under one explicit, named rule snapshot. -/
+def assessWithRuleSnapshot
+    (transition : TransitionRecord) (snapshot : PropagationRuleSnapshot) :
+    VersionedTransitionReviewEntry :=
+  ⟨transition, snapshot, assessCompleteTransition transition snapshot.routes⟩
+
+/-- The versioned record retains the exact named rule snapshot. -/
+theorem assessWithRuleSnapshot_retainsSnapshot
+    (transition : TransitionRecord) (snapshot : PropagationRuleSnapshot) :
+    (assessWithRuleSnapshot transition snapshot).ruleSnapshot = snapshot := by
+  rfl
+
+/-- The review is computed using the routes held in the retained snapshot. -/
+theorem assessWithRuleSnapshot_usesSnapshotRoutes
+    (transition : TransitionRecord) (snapshot : PropagationRuleSnapshot) :
+    (assessWithRuleSnapshot transition snapshot).review =
+      assessCompleteTransition transition snapshot.routes := by
+  rfl
+
+/-- Reassess the same transition under a new named snapshot, producing a separate value. -/
+def reassessWithRuleSnapshot
+    (historical : VersionedTransitionReviewEntry)
+    (newSnapshot : PropagationRuleSnapshot) : VersionedTransitionReviewEntry :=
+  assessWithRuleSnapshot historical.transition newSnapshot
+
+/-- Reassessment preserves transition identity while recording the new snapshot explicitly. -/
+theorem reassessWithRuleSnapshot_retainsTransition
+    (historical : VersionedTransitionReviewEntry)
+    (newSnapshot : PropagationRuleSnapshot) :
+    (reassessWithRuleSnapshot historical newSnapshot).transition =
+      historical.transition := by
+  rfl
+
+/-- Reassessment uses the new snapshot rather than silently inheriting the old one. -/
+theorem reassessWithRuleSnapshot_usesNewSnapshot
+    (historical : VersionedTransitionReviewEntry)
+    (newSnapshot : PropagationRuleSnapshot) :
+    (reassessWithRuleSnapshot historical newSnapshot).ruleSnapshot = newSnapshot := by
+  rfl
+
+/-- Example: a reassessment can change rules without rewriting the historical record. -/
+example :
+    let transition : TransitionRecord :=
+      ⟨identityReviewExampleState,
+        { identityReviewExampleState with evidence := ["source-1"] }⟩
+    let oldSnapshot : PropagationRuleSnapshot :=
+      ⟨"rules-v1", [⟨"evidence-route", [.evidence]⟩]⟩
+    let historical := assessWithRuleSnapshot transition oldSnapshot
+    let newSnapshot : PropagationRuleSnapshot :=
+      ⟨"rules-v2", [⟨"agreement-route", [.agreements]⟩]⟩
+    let revised := reassessWithRuleSnapshot historical newSnapshot
+    historical.ruleSnapshot.ruleSetId = "rules-v1" ∧
+      historical.ruleSnapshot.routes = [⟨"evidence-route", [.evidence]⟩] ∧
+      historical.review.propagation.decisions.head!.selectedForReview = true ∧
+      revised.ruleSnapshot.ruleSetId = "rules-v2" ∧
+      revised.review.propagation.decisions.head!.selectedForReview = false := by
+  decide
+
 /-- An in-memory review history retains transition reviews in append order. -/
 structure TransitionReviewHistory where
   entries : List TransitionReviewEntry
