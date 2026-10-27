@@ -72,3 +72,13 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - Latest verified CI on autonomous-mode commit: resolver tests [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40496146897); Lean build [passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40496146906).
 - Next batch: continue static review of source adapter and graph gate, add tests/docs for any concrete correctness gap found, then update this checkpoint and verify CI on the resulting commit.
 - Six-Part Integrity Check: (1) six checkpoint sections retained with this new operational addendum; (2) history/actions/learning/state/plan/persistence remain distinct; (3) no pilot mutation; (4) runtime contract is documented, not deployed; (5) recheck CI on latest commit; (6) checkpoint persistence and source-authenticity uncertainty remain explicitly separated.
+
+
+## 8. Architecture-guard regression fix (2026-10-27)
+
+- Static review found the architecture-guard test used over-escaped regular expressions, so its import-matching checks could fail to recognize raw analyzer imports.
+- Updated `reference-model/review-history-resolver.test.mjs` in commit `7b47878f8bba659037cf1726428c915db9d66a39`: corrected the regex escaping and added a focused matcher regression test that must detect an import of `analyzeParentGraph`.
+- CI on that code commit was still running at checkpoint time: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497578098) and [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40497578133). Do not mark this fix verified until the test run passes.
+- No Airtable data was changed. No live connector wiring was claimed.
+- Next batch: confirm CI, then audit the serialized graph verifier for structural ambiguity (duplicate edges, canonical ordering, and metadata tampering); add concrete regression tests only for demonstrated gaps.
+- Six-Part Integrity Check: (1) six-part integrity framework remains unchanged; (2) this change strengthens the architecture guard's detection role; (3) focused matcher regression test added; (4) implemented, CI pending; (5) rerun CI before verification; (6) checkpoint persisted in GitHub, live-source authenticity remains unresolved.
