@@ -49,7 +49,8 @@ def decide_recovery_with_adapter(
             )
             return ProvenanceRecoveryDecision(bad.outcome, bad.reason, bad)
         result = validate_adapter_result(
-            raw, expected_reference=reference, expected_claim="RECONCILIATION"
+            raw, expected_reference=reference, expected_claim="RECONCILIATION",
+            expected_reconciliation_result=facts.explicit_reconciliation_result,
         )
         if result.status == "UNAVAILABLE":
             bad = RecoveryDecision(

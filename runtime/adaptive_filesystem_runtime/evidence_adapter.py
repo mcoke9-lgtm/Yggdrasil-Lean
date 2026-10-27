@@ -19,6 +19,7 @@ class EvidenceVerificationResult:
     verifier: str | None = None
     verification_reference: str | None = None
     reason: str | None = None
+    reconciliation_result: Literal["completed", "not_started"] | None = None
 
 @runtime_checkable
 class AuthoritativeEvidenceAdapter(Protocol):
@@ -26,7 +27,7 @@ class AuthoritativeEvidenceAdapter(Protocol):
     def verify_evidence(self, evidence_reference: str, claim: EvidenceClaim) -> EvidenceVerificationResult:
         """Return VERIFIED, INVALID, or UNAVAILABLE explicitly."""
 
-def validate_adapter_result(result: EvidenceVerificationResult, *, expected_reference: str, expected_claim: EvidenceClaim) -> EvidenceVerificationResult:
+def validate_adapter_result(result: EvidenceVerificationResult, *, expected_reference: str, expected_claim: EvidenceClaim, expected_reconciliation_result: str | None = None) -> EvidenceVerificationResult:
     """Check result/request consistency; this does not authenticate the adapter."""
     def invalid(reason: str) -> EvidenceVerificationResult:
         return EvidenceVerificationResult("INVALID", expected_claim, expected_reference, reason=reason)
@@ -38,4 +39,10 @@ def validate_adapter_result(result: EvidenceVerificationResult, *, expected_refe
         return invalid("result does not match requested reference and claim")
     if result.status == "VERIFIED" and any(not isinstance(v, str) or not v.strip() for v in (result.source_reference, result.verifier, result.verification_reference)):
         return invalid("verified result requires source, verifier, and verification-record references")
+    if result.status == "VERIFIED" and expected_claim == "RECONCILIATION":
+        if result.reconciliation_result not in ("completed", "not_started"):
+            return invalid("verified reconciliation requires its exact result")
+        if (expected_reconciliation_result is not None
+                and result.reconciliation_result != expected_reconciliation_result):
+            return invalid("verified reconciliation result does not match the recovery claim")
     return result

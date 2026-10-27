@@ -29,10 +29,10 @@ class FakeAdapter:
 
 
 class EvidenceIntegrationTests(unittest.TestCase):
-    def verified(self, reference="receipt://1", claim="OUTCOME"):
+    def verified(self, reference="receipt://1", claim="OUTCOME", reconciliation_result=None):
         return EvidenceVerificationResult(
             "VERIFIED", claim, reference, "source://1",
-            "verifier-1", "verification://1",
+            "verifier-1", "verification://1", reconciliation_result=reconciliation_result,
         )
 
     def test_verified_adapter_result_can_confirm_completion(self):
@@ -78,7 +78,7 @@ class EvidenceIntegrationTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
 
     def test_verified_reconciliation_can_confirm_completed_claim(self):
-        adapter = FakeAdapter(self.verified("reconcile://1", "RECONCILIATION"))
+        adapter = FakeAdapter(self.verified("reconcile://1", "RECONCILIATION", "completed"))
         result = decide_recovery_with_adapter(facts(
             explicit_reconciliation_result="completed",
             reconciliation_evidence_reference="reconcile://1",
@@ -87,7 +87,7 @@ class EvidenceIntegrationTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [("reconcile://1", "RECONCILIATION")])
 
     def test_verified_not_started_reconciliation_allows_safe_start(self):
-        adapter = FakeAdapter(self.verified("reconcile://1", "RECONCILIATION"))
+        adapter = FakeAdapter(self.verified("reconcile://1", "RECONCILIATION", "not_started"))
         result = decide_recovery_with_adapter(facts(
             external_action_started=False, outcome_evidence=None,
             explicit_reconciliation_result="not_started",
@@ -106,7 +106,15 @@ class EvidenceIntegrationTests(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
 
     def test_reconciliation_reference_mismatch_is_rejected(self):
-        adapter = FakeAdapter(self.verified("reconcile://other", "RECONCILIATION"))
+        adapter = FakeAdapter(self.verified("reconcile://other", "RECONCILIATION", "completed"))
+        result = decide_recovery_with_adapter(facts(
+            explicit_reconciliation_result="completed",
+            reconciliation_evidence_reference="reconcile://1",
+        ), adapter)
+        self.assertEqual(result.outcome, "STOP_CONFLICT")
+
+    def test_verified_reconciliation_requires_exact_result(self):
+        adapter = FakeAdapter(self.verified("reconcile://1", "RECONCILIATION"))
         result = decide_recovery_with_adapter(facts(
             explicit_reconciliation_result="completed",
             reconciliation_evidence_reference="reconcile://1",
