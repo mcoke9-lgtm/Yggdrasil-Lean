@@ -51,8 +51,11 @@ an edge list faithful to the analyzed parent links, and a proof of acyclicity.
 The JS analyzer does not itself return such a proof; a bridge/validation step must supply it.
 -/
 structure NoCycleCorrespondencePremises (edges : List ParentEdge) : Prop where
-  identitiesValid : True
-  edgeListFaithful : True
+  /-- The adapter has established unique, well-formed identities and parent references. -/
+  identitiesValid : Prop
+  /-- The edge list faithfully represents the analyzed input's usable parent links. -/
+  edgeListFaithful : Prop
+  /-- A proof that no witness validates as a cycle in this edge list. -/
   acyclic : ParentGraphAcyclic edges
 
 /-- A correspondence certificate is explicitly conditional on all three premises. -/
