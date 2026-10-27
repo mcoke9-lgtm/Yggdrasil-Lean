@@ -66,6 +66,7 @@ The outcome design must cover the contract's separate **read by event identity**
 
 - `Found(record, provenance)`
 - `NotFound(scopeEvidence)`
+- `AmbiguousIdentity(diagnostic, observedCandidateEventIds?, lookupEvidence)`
 - `UnsupportedSchema(version)`
 - `Corrupt(diagnostic)`
 - `Unavailable(diagnostic)`
@@ -77,7 +78,7 @@ The result family preserves these rules:
 - `UnsupportedSchema` means a record exists but this implementation cannot safely interpret its version; it is not equivalent to absence or corruption.
 - `Corrupt` requires a validation failure or contradictory required reference actually observed.
 - `Unavailable` means a reliable identity-read outcome could not be established. Retryability is included only when supported by evidence.
-- If the read can find competing records for one identity, the design must preserve the contract's identity-ambiguity distinction rather than return an arbitrary `Found`. Whether that case is a separate `AmbiguousIdentity` constructor or a structured identity-read diagnostic remains open pending the reference-model and API review.
+- If the read finds multiple competing records with different event IDs for one queried identity, return the proposed primary `AmbiguousIdentity` outcome rather than an arbitrary `Found`. The contract revision now proposes the same distinction for identity reads; it remains unadopted pending final API review.
 
 The exact shape of `scopeEvidence` remains open; it must state enough about lookup scope and completeness to distinguish confirmed absence from an incomplete or failed search.
 
@@ -98,7 +99,7 @@ The candidate list is not asserted complete unless lookup evidence establishes c
 
 **Confirmed absence boundary:** `NotFound(scopeEvidence)` remains valid only when the adapter establishes that the identity was absent across the complete declared lookup scope. Incomplete indexes, partial pages, permission failures, unavailable storage, unsupported schema, and corruption cannot be converted into `NotFound`. If the lookup scope or completeness cannot be established, return `Unavailable` or a distinct incomplete/unknown read outcome if the final contract/API defines one; do not guess absence.
 
-**Status:** proposed type-level disposition only. The adapter contract currently lists `Found`, `NotFound`, `UnsupportedSchema`, `Corrupt`, and `Unavailable` for identity reads; this recommendation is a contract refinement candidate, not an adopted change. Review the persisted-record schema and API outcome inventory before changing Lean declarations.
+**Status:** proposed type-level disposition only. The adapter contract now also proposes `AmbiguousIdentity` for identity reads in its saved revision, but neither that contract refinement nor these candidate constructors are adopted. The persisted-record schema contains event IDs, idempotency keys, and schema-version fields, but does not define lookup-completeness evidence; that evidence belongs to the adapter's read result/diagnostics unless a later reviewed schema decision says otherwise. Review the complete API outcome inventory before changing Lean declarations.
 
 ### 4. Ordered-page completeness and cursor consistency
 
@@ -146,7 +147,7 @@ These mappings define observability requirements only. They do not mean the test
 
 This revision is checked against the retrieved adapter contract and integration-test specification:
 
-1. **Identity read:** the candidate family now mirrors the contract's `Found`, `NotFound`, `UnsupportedSchema`, `Corrupt`, and `Unavailable` distinctions. Multiple competing matches remain explicit rather than allowing arbitrary selection.
+1. **Identity read:** the candidate family now includes `AmbiguousIdentity`, matching the contract's proposed identity-read refinement as saved in its latest reviewed revision. This is consistency between two proposals, not adoption. The persisted-record schema supplies record identity fields but does not itself prove lookup completeness; scope evidence must be established by the adapter.
 2. **Reconciliation:** the contract's `NotCommitted` rule requires authoritative evidence of non-commit and a safe retry under the documented idempotency guarantee. The strengthened boundary now makes lookup scope, completeness, consistency, and retry guarantee explicit evidence requirements.
 3. **No false absence:** empty or incomplete search results, access failures, and unavailable storage cannot justify `NotFound` or `NotCommitted`.
 4. **No false success:** a receipt still requires the documented commit boundary; a reconciliation handle remains opaque and does not prove commit.
@@ -174,6 +175,6 @@ Do not resolve these by assumption while translating this draft into Lean. Revie
 1. **Count:** Six integration-test groups remain, IT-1 through IT-6; the identity-read family is explicitly covered within IT-6 rather than creating an accidental seventh group.
 2. **Role mapping:** IT-1 covers reconciliation evidence; IT-3 covers identity ambiguity; IT-6 covers identity-read outcomes and failure distinctions.
 3. **Completeness:** The prior omission is addressed. Backend atomicity, uniqueness, durability, encoding, lifecycle, lookup authority, and access-control guarantees remain outside what types alone can prove.
-4. **Status:** Candidate design only; no Lean types changed, no policy adopted, no adapter implemented, no integration tests executed.
+4. **Status:** Candidate design only; the contract and outcome-design documents now agree on the proposed identity-read ambiguity outcome, but no policy is adopted, no Lean types changed, no adapter implemented, and no integration tests executed.
 5. **Recheck:** Identity-read results align with the contract; `NotCommitted` has a stricter evidence boundary; unknown remains explicit; no field is described as proof of storage behavior.
-6. **Persistence/uncertainty:** This revision is saved in the repository at commit `03e195dbee6a1b79b501a6c0d4d17e4725c29a05`. That persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
+6. **Persistence/uncertainty:** This outcome-design record was last read at commit `a2c89047ddd0c634faeac998fb1119e1449bb400` before this reconciliation edit. After saving, update this entry to the new commit and verify by readback. Persistence records the proposal only, not semantic adoption, successful compilation, or backend verification.
