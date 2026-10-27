@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from adaptive_filesystem_runtime import ResolutionError, resolve_history
@@ -50,7 +51,7 @@ class AirtableAdapterTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "MALFORMED_REFERENCE")
 
     def test_noninteger_sequence_is_rejected(self):
-        for value in (1.5, True, "2"):
+        for value in (1.5, True, "2", math.nan, math.inf, -math.inf):
             with self.subTest(value=value):
                 with self.assertRaises(ResolutionError) as caught:
                     records_from_airtable([row("x", "main", value)])
