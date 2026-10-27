@@ -2,7 +2,7 @@
 
 Status: read-only reference implementation and regression suite on feature branch \`af-runtime-001-reference-resolver\`; pull request #2 is draft and unmerged.
 
-The package resolves review-history relationships from a caller-supplied snapshot. The Airtable adapter maps field dictionaries into the model without making network requests or writing records. An opt-in integration test can fetch a fresh snapshot through Airtable's read-only REST endpoint when explicit environment credentials are supplied.
+The package resolves review-history relationships from a caller-supplied snapshot and also provides a snapshot-wide audit. The Airtable adapter maps field dictionaries into the model without making network requests or writing records. An opt-in integration test can fetch a fresh snapshot through Airtable's read-only REST endpoint when explicit environment credentials are supplied.
 
 ## Implemented semantics
 
@@ -18,6 +18,10 @@ The package resolves review-history relationships from a caller-supplied snapsho
 - Parent-chain errors are scoped to the requested record's chain; unrelated broken branches do not block a valid resolution request.
 - The Airtable field adapter rejects malformed IDs, sequences, and whitespace-padded references. It does not silently repair data.
 - The live pilot read returned no Parent Record ID for AF-PILOT-007. Tests preserve that absence as \`blank_unclassified\` instead of inferring AF-PILOT-006 as its parent; the branch-local predecessor is separately AF-PILOT-006.
+
+## Snapshot-wide audit
+
+Use `audit_snapshot(records)` to inspect every record's parent, source-anchor, and revision relationships, rather than resolving a single target. It reports missing links, source-branch mismatches, duplicate IDs/sequences, malformed records, and parent cycles. Blank references are reported as informational `BLANK_UNCLASSIFIED` findings; they do not become explicit roots or N/A values. The report status fails on errors but may pass with unclassified blanks, so callers must inspect both `status` and `unclassified_count`.
 
 ## Run offline regression tests
 
