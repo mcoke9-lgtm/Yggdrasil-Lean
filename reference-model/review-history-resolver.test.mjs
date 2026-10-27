@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
+import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 
 const base = [
   { recordId: "A", branchId: "main", sequence: 1 },
@@ -187,4 +188,31 @@ test("bridge preserves indeterminate and refuses uncertified no-cycle claims", (
 
 test("bridge maps unknown runtime outcomes to indeterminate", () => {
   assert.equal(mapGraphOutcomeForLean("SURPRISE").leanOutcome, "indeterminate");
+});
+
+
+test("shared parent-graph fixtures document runtime and conservative bridge outcomes", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  for (const fixture of parentGraphFixtures) {
+    assert.equal(analyzeParentGraph(fixture.records), fixture.runtime, fixture.name);
+    assert.equal(
+      mapGraphOutcomeForLean(fixture.runtime).leanOutcome,
+      fixture.bridgeWithoutEvidence,
+      fixture.name,
+    );
+  }
+});
+
+test("a cycle outcome can bridge only when the adapter validates a concrete witness", () => {
+  const cycle = parentGraphFixtures.find((fixture) => fixture.runtime === "CYCLE");
+  assert.ok(cycle, "at least one cycle fixture is required");
+  assert.equal(mapGraphOutcomeForLean("CYCLE", {
+    validatedCycleWitness: true,
+  }).leanOutcome, "cycle");
+});
+
+test("NO_CYCLE bridge rejects missing-parent fixture without completeness certificate", () => {
+  const missingParent = parentGraphFixtures.find((fixture) => fixture.name === "missing parent target");
+  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).accepted, false);
+  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).leanOutcome, "indeterminate");
 });
