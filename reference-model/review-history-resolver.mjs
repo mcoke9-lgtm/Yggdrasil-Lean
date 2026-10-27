@@ -137,3 +137,28 @@ export function auditDataset(records) {
     records: records.map((record) => resolveRecordReferences(records, record)),
   };
 }
+
+/**
+ * Conservative bridge contract for comparing runtime results with the Lean model.
+ * This does not prove implementation equivalence: callers must supply evidence
+ * that the candidate cycle witness was checked, or that the graph-wide no-cycle
+ * claim has complete edges and a valid acyclicity certificate.
+ */
+export function mapGraphOutcomeForLean(outcome, evidence = {}) {
+  if (outcome === "INDETERMINATE") {
+    return { leanOutcome: "indeterminate", accepted: true, reason: "runtime-indeterminate" };
+  }
+  if (outcome === "CYCLE") {
+    return evidence.validatedCycleWitness === true
+      ? { leanOutcome: "cycle", accepted: true, reason: "validated-witness-required" }
+      : { leanOutcome: "indeterminate", accepted: false, reason: "cycle-witness-not-provided-or-validated" };
+  }
+  if (outcome === "NO_CYCLE") {
+    const certified = evidence.identityIntegrityCertain === true &&
+      evidence.edgeListComplete === true && evidence.acyclicityProven === true;
+    return certified
+      ? { leanOutcome: "noCycle", accepted: true, reason: "complete-graph-acyclicity-certified" }
+      : { leanOutcome: "indeterminate", accepted: false, reason: "no-cycle-evidence-incomplete" };
+  }
+  return { leanOutcome: "indeterminate", accepted: false, reason: "unknown-runtime-outcome" };
+}
