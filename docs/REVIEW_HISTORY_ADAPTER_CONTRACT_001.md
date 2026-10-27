@@ -183,6 +183,7 @@ These rules narrow interface ambiguity without selecting a backend or encoding.
 6. **Receipt meaning:** a receipt identifies the committed event and its assigned history position. The adapter documents the failure scenarios covered by its commit guarantee, including any limits around process crash, host loss, replication, or restore. No universal durability guarantee is inferred from the word “committed.”
 7. **Assessment provenance:** each read result identifies whether it is the exact stored assessment, a reconstruction from stored inputs, or a new reassessment. If the original is unavailable, return that fact separately from any reconstructed result.
 8. **Migration fidelity:** a migration must retain the original record or an immutable reference to it, record migration method/version, and disclose any field that cannot be preserved. A migrated representation must not be passed off as the byte-identical original.
+9. **Fork-event placement:** a `branch_fork` event must identify its source and destination branches and specify which branch history (or histories) contain the event, how sequence positions are assigned, and how the destination branch's initial history links to the fork. These rules must be explicit before implementation; a conversation change alone never creates a fork event.
 
 ## 9. Decisions deliberately left open
 
