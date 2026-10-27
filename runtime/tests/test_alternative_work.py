@@ -80,6 +80,17 @@ class AlternativeWorkTests(unittest.TestCase):
         self.assertEqual(no_wait.outcome, "UNRESOLVED")
         self.assertEqual(yes_wait.outcome, "WAIT_FOR_DEPENDENCY")
 
+    def test_dependency_wait_requires_known_blocking_dependency(self):
+        uncertain = candidate("wait-unknown", feasible=None, waiting_on_dependency=True)
+        result = evaluate_work(request(candidates=(uncertain,), dependency_wait_is_productive=True))
+        self.assertEqual(result.outcome, "UNRESOLVED")
+        self.assertEqual(result.recommended_candidate_ids, ())
+
+    def test_non_work_request_is_rejected_without_exception(self):
+        result = evaluate_work(None)
+        self.assertEqual(result.outcome, "INVALID_INPUT")
+        self.assertIsNone(result.request_id)
+
     def test_stop_requires_exhausted_search_scope(self):
         candidate_unknown = candidate("unknown", relevant=None)
         not_done = evaluate_work(request(candidates=(candidate_unknown,), search_scope_exhausted=False))
