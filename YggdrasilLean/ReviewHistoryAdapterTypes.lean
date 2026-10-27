@@ -130,4 +130,59 @@ theorem onlyValidVerification_succeeds (outcome : VerificationOutcome)
 theorem validVerification_succeeds :
     verificationSucceeded .valid = true := rfl
 
+
+/-- Evidence-level classification, deliberately separate from public read outcomes.
+This classifier can classify observations but cannot attest backend exhaustiveness. -/
+inductive IdentityReadClassification (EventId : Type) where
+  | completeCandidates (evidence : IdentityLookupEvidence EventId)
+  | incomplete (evidence : IdentityLookupEvidence EventId)
+  | unresolved (evidence : IdentityLookupEvidence EventId)
+  | ambiguous (evidence : IdentityLookupEvidence EventId)
+  | unavailableAfterObservations (evidence : IdentityLookupEvidence EventId)
+
+/-- Whether the observed list contains at least two distinct event IDs.
+Repeated observations of the same ID do not count as competing identities. -/
+def hasAtLeastTwoDistinctIds [DecidableEq EventId] : List EventId → Bool
+  | [] => false
+  | id :: rest =>
+      (rest.any (fun other => decide (other ≠ id))) ||
+        hasAtLeastTwoDistinctIds rest
+
+/--
+Classify lookup observations without trusting a caller-selected outcome.
+Ambiguity takes precedence over termination; a completed/complete result remains
+only an evidence-level candidate set, not proof that the backend was exhaustive.
+-/
+def classifyIdentityRead [DecidableEq EventId]
+    (evidence : IdentityLookupEvidence EventId) :
+    IdentityReadClassification EventId :=
+  if hasAtLeastTwoDistinctIds evidence.observedCandidateEventIds then
+    .ambiguous evidence
+  else
+    match evidence.termination, evidence.completeness with
+    | .failedAfterObservations, _ => .unavailableAfterObservations evidence
+    | .stoppedEarly, _ => .incomplete evidence
+    | .completed, .incomplete => .incomplete evidence
+    | .completed, .unknown => .unresolved evidence
+    | .completed, .complete => .completeCandidates evidence
+
+/-- Distinct observed IDs force ambiguity even if lookup continuation failed. -/
+theorem distinct_ids_override_failed_termination
+    [DecidableEq EventId] (evidence : IdentityLookupEvidence EventId)
+    (h : hasAtLeastTwoDistinctIds evidence.observedCandidateEventIds = true) :
+    classifyIdentityRead evidence = .ambiguous evidence := by
+  simp [classifyIdentityRead, h]
+
+/-- A completed lookup with unknown coverage is never classified as complete. -/
+theorem unknown_coverage_stays_unresolved
+    [DecidableEq EventId] (scope : String) (ids : List EventId)
+    (h : hasAtLeastTwoDistinctIds ids = false) :
+    classifyIdentityRead
+      { declaredScope := scope, completeness := .unknown,
+        termination := .completed, observedCandidateEventIds := ids } =
+      .unresolved
+      { declaredScope := scope, completeness := .unknown,
+        termination := .completed, observedCandidateEventIds := ids } := by
+  simp [classifyIdentityRead, h]
+
 end YggdrasilLean
