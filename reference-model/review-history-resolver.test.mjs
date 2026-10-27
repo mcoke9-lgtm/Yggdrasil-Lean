@@ -518,7 +518,7 @@ test("architecture guard: production reference-model modules cannot import raw g
     const source = await readFile(file, "utf8");
     for (const name of rawNames) {
       // Guard import declarations, not the raw module's own exported definitions.
-      const importPattern = new RegExp(String.raw`import\\s+(?:\\{[^}]*\\b${name}\\b[^}]*\\}|[^;]*?\\b${name}\\b[^;]*?)\\s+from\\s+["'][^"']*review-history-resolver\\.mjs["']`, "s");
+      const importPattern = new RegExp("import\\\\s+(?:\\\\{[^}]*\\\\b" + name + "\\\\b[^}]*\\\\}|[^;]*?\\\\b" + name + "\\\\b[^;]*?)\\\\s+from\\\\s+[\\\"'][^\\\"']*review-history-resolver\\\\.mjs[\\\"']", "s");
       if (importPattern.test(source)) violations.push({ file, name });
     }
   }
