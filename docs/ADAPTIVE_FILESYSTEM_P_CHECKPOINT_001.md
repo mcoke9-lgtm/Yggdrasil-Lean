@@ -24,7 +24,7 @@ The work developed from review-history resolution and parent-graph auditing into
 - Added tests for the Airtable-shaped response and for rejecting a pagination cursor before analysis.
 - CI passed for commit `2b9b0edfb23cc49b30b2fd6933bd665f7df0abb4`: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40494589116) and [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40494589117).
 - A code review found the graph consumer was analyzing numeric vertex IDs as if they were source record IDs. The consumer now preserves the verified source-vertex bindings and reconstructs original parent IDs for analysis; a regression assertion checks AF-PILOT-010 → AF-PILOT-009.
-- Added `readAndAnalyzeAirtableTable`, a paginated integration seam that calls a trusted connector callback, follows cursors, rejects repeated cursors and changing totals, and forwards the actual returned page records to the gate. Mock tests cover two-page cursor propagation, source-ID preservation, and inconsistent totals.
+- Added `readAndAnalyzeAirtableTable`, a paginated integration seam that calls a trusted connector callback, follows cursors, rejects repeated cursors and changing totals, and forwards the actual returned page records to the gate. Mock tests cover two-page cursor propagation, source-ID preservation, inconsistent totals, repeated cursors, and returned-count overruns.
 - Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with adapter limits, identity preservation, and the paginated connector seam.
 
 ## 3. What we've learned
@@ -47,7 +47,7 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 ## 5. Plan
 
-1. **Verified:** resolver tests and Lean build passed on checkpoint commit `182cf71b744af09e364b096a7c286c42d1bae984`: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195334), [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195140).
+1. **Verified:** resolver tests and Lean build passed on checkpoint commit `182cf71b744af09e364b096a7c286c42d1bae984`: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195334), [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40495195140). Additional rejection tests were then added for repeated cursors and record-count overruns; CI for those new tests is pending.
 2. **Next:** wire `readAndAnalyzeAirtableTable` to the real Airtable connector callback in an integration runtime; retain a live read test distinct from mock-based CI.
 3. If the connector exposes a stable read/run identifier or exportable response receipt, capture it; otherwise document that source-read identity is integration-assigned and not independently authenticated.
 4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
