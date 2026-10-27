@@ -243,7 +243,8 @@ export function buildSourceReadEvidenceManifest(records, {
   if (!Array.isArray(records)) throw new TypeError("records must be an array");
   const projection = records.map((record) => ({
     recordId: record?.recordId,
-    parentRecordId: record?.parentRecordId ?? null,
+    // Empty parent references are equivalent to absent parents in the graph model.
+    parentRecordId: record?.parentRecordId === "" ? null : record?.parentRecordId ?? null,
   })).sort((a, b) => {
     const left = String(a.recordId);
     const right = String(b.recordId);
