@@ -36,6 +36,7 @@ jobs:
           test_branch="test/stale-publisher-cas-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           initial_sha="$(git rev-parse HEAD)"
           tree_sha="$(git rev-parse "${initial_sha}^{tree}")"
+          push_log="$(mktemp)"
 
           intervening_sha="$(printf '%s\n' 'intervening publication for stale-CAS test' | git commit-tree "$tree_sha" -p "$initial_sha")"
           stale_sha="$(printf '%s\n' 'stale candidate for stale-CAS test' | git commit-tree "$tree_sha" -p "$initial_sha")"
@@ -47,6 +48,7 @@ jobs:
                 echo "::warning::Could not delete temporary ref refs/heads/$test_branch; inspect and remove it manually."
               }
             fi
+            rm -f "$push_log"
           }
           trap cleanup EXIT
 
@@ -57,10 +59,16 @@ jobs:
           git push --force-with-lease="refs/heads/$test_branch:$initial_sha" \
             origin "$intervening_sha:refs/heads/$test_branch"
 
-          # A stale publisher still expects initial_sha. Its update must be rejected.
+          # A stale publisher still expects initial_sha. Confirm the failure is specifically stale-lease rejection.
           if git push --force-with-lease="refs/heads/$test_branch:$initial_sha" \
-              origin "$stale_sha:refs/heads/$test_branch"; then
+              origin "$stale_sha:refs/heads/$test_branch" >"$push_log" 2>&1; then
+            cat "$push_log"
             echo "::error::Stale publication unexpectedly succeeded."
+            exit 1
+          fi
+          cat "$push_log"
+          if ! grep -Eiq 'stale info|stale lease|rejected.*stale' "$push_log"; then
+            echo "::error::Push failed, but output did not identify stale-lease rejection."
             exit 1
           fi
 
