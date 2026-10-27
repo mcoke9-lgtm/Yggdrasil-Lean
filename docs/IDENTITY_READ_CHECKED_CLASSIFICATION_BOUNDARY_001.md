@@ -82,7 +82,7 @@ Add these cases to the existing IT-6 identity-read scenarios. The current IT-6 l
 
 ## Six-Part Integrity Check
 
-1. **Count:** twelve specified checks, C-1 through C-12; current theorem file contains twelve classifier regression theorems.
+1. **Count:** twelve specified checks, C-1 through C-12; current theorem file contains thirteen classifier regression theorems.
 2. **Roles:** cardinality, duplicate normalization, ambiguity precedence, failure preservation, incomplete/unknown handling, trust-boundary enforcement, record validation, and order independence.
 3. **Completeness:** pure classifier cases are partially implemented and build-checked; checked-boundary and record-validation cases remain unimplemented; actual backend completeness semantics remain backend-specific and unresolved.
 4. **Status:** classifier implemented; theorem checks build-verified; checked boundary proposed only; API not adopted as final.
