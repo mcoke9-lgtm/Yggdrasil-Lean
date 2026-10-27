@@ -50,4 +50,34 @@ theorem propagationEntry_retains_result
       transition.after := by
   rfl
 
+
+/-- Derive the propagation-relevant field set by comparing transition endpoints. -/
+def deriveChangeSet (before after : ProjectState) : ChangeSet :=
+  ⟨(if before.agreements != after.agreements then [.agreements] else []) ++
+   (if before.evidence != after.evidence then [.evidence] else []) ++
+   (if before.dependencies != after.dependencies then [.dependencies] else []) ++
+   (if before.unresolved != after.unresolved then [.unresolved] else []) ++
+   (if before.stateVersion != after.stateVersion then [.stateVersion] else [])⟩
+
+/-- Build an assessment from the transition itself, rather than accepting a free change set. -/
+def assessTransitionForPropagation
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    PropagationHistoryEntry :=
+  recordPropagationWithTransition transition
+    (recordPropagationAssessment
+      (deriveChangeSet transition.before transition.after) routes)
+
+/-- The attached assessment's change set is computed from the recorded endpoints. -/
+theorem transitionAssessment_usesDerivedChangeSet
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (assessTransitionForPropagation transition routes).assessment.change =
+      deriveChangeSet transition.before transition.after := by
+  rfl
+
+/-- If the tracked state fields are identical, the derived change set is empty. -/
+theorem identicalTrackedFields_deriveEmptyChangeSet
+    (state : ProjectState) :
+    deriveChangeSet state state = ⟨[]⟩ := by
+  simp [deriveChangeSet]
+
 end YggdrasilLean
