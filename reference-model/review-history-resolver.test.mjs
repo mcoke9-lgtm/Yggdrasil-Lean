@@ -8,7 +8,7 @@ import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferenc
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
-import { adaptCompleteSourceRead, analyzeCompleteSourceRead } from "./source-read-adapter.mjs";
+import { adaptCompleteSourceRead, analyzeCompleteSourceRead, analyzeAirtableTableResponse } from "./source-read-adapter.mjs";
 
 function sourceReadEvidence(serialized, { complete = true } = {}) {
   const artifact = JSON.parse(serialized);
@@ -538,6 +538,65 @@ test("source adapter derives a complete manifest from one full read response", (
   assert.equal(result.sourceReadId, "adapter:read-001");
   assert.equal(result.graphInput.vertices.length, 2);
   assert.equal(result.graphInput.edges.length, 1);
+});
+
+test("Airtable response adapter maps the recorded 10-record table read", () => {
+  const recordIdFieldId = "fldd49StaAWbIMfH3";
+  const parentRecordIdFieldId = "fldeI9DErAnstWE5W";
+  const rows = [
+    ["AF-PILOT-010", "AF-PILOT-009"],
+    ["AF-PILOT-006", "AF-PILOT-005"],
+    ["AF-PILOT-002", "AF-PILOT-001"],
+    ["AF-PILOT-009", "AF-PILOT-008"],
+    ["AF-PILOT-008", "AF-PILOT-007"],
+    ["AF-PILOT-001", null],
+    ["AF-PILOT-007", null],
+    ["AF-PILOT-003", "AF-PILOT-002"],
+    ["AF-PILOT-005", "AF-PILOT-004"],
+    ["AF-PILOT-004", "AF-PILOT-003"],
+  ];
+  const response = {
+    records: rows.map(([recordId, parentRecordId]) => ({
+      id: "fixture-only-not-a-live-airtable-id",
+      cellValuesByFieldId: {
+        [recordIdFieldId]: recordId,
+        ...(parentRecordId === null ? {} : { [parentRecordIdFieldId]: parentRecordId }),
+      },
+    })),
+    metadata: { totalRecordCount: 10 },
+    nextCursor: null,
+  };
+  const result = analyzeAirtableTableResponse(response, {
+    sourceReadId: "recorded-airtable-read:2026-10-27",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId,
+    parentRecordIdFieldId,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.code, "SOURCE_READ_ANALYSIS_COMPLETED");
+  assert.equal(result.sourceRecordCount, 10);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.equal(result.graphInput.vertices.length, 10);
+  assert.equal(result.graphInput.edges.length, 8);
+});
+
+test("Airtable response adapter rejects a paginated response before analysis", () => {
+  const result = analyzeAirtableTableResponse({
+    records: [{ cellValuesByFieldId: { "fldd49StaAWbIMfH3": "AF-PILOT-001" } }],
+    metadata: { totalRecordCount: 1 },
+    nextCursor: "another-page",
+  }, {
+    sourceReadId: "fixture-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "SOURCE_READ_PAGINATION_INCOMPLETE",
+  });
 });
 
 test("end-to-end source-read entry point adapts and analyzes one complete read", () => {
