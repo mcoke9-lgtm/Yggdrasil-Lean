@@ -874,12 +874,12 @@ test("architecture guard: raw graph analyzers are internal to the gated consumer
   for (const file of files) {
     const source = await readFile(file, "utf8");
     for (const name of rawNames) {
-      const importPattern = new RegExp("import\\\\s+(?:\\\\{[^}]*\\\\b" + name + "\\\\b[^}]*\\\\}|[^;]*?\\\\b" + name + "\\\\b[^;]*?)\\\\s+from\\\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\\\.internal)?\\\\.mjs[\\\"']", "s");
+      const importPattern = new RegExp("import\\s+(?:\\{[^}]*\\b" + name + "\\b[^}]*\\}|[^;]*?\\b" + name + "\\b[^;]*?)\\s+from\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\.internal)?\\.mjs[\\\"']", "s");
       if (importPattern.test(source) && !file.endsWith("/verified-graph-consumer.mjs")) {
         violations.push({ file, name });
       }
       if (file.endsWith("/review-history-resolver.mjs") &&
-          new RegExp("\\\\b" + name + "\\\\b").test(source)) {
+          new RegExp("\\b" + name + "\\b").test(source)) {
         violations.push({ file, name, reason: "public-api-mentions-raw-analyzer" });
       }
     }
@@ -887,5 +887,13 @@ test("architecture guard: raw graph analyzers are internal to the gated consumer
   assert.deepEqual(violations, [], "only the gated consumer may import raw graph analyzers; public API must not expose them");
 });
 
-
-
+test("architecture guard matcher detects a raw analyzer import", () => {
+  const rawNames = ["analyzeParentGraph", "hasParentCycle", "auditDataset", "resolveRecordReferences"];
+  const source = 'import { analyzeParentGraph } from "./review-history-resolver.internal.mjs";';
+  const violations = [];
+  for (const name of rawNames) {
+    const importPattern = new RegExp("import\\s+(?:\\{[^}]*\\b" + name + "\\b[^}]*\\}|[^;]*?\\b" + name + "\\b[^;]*?)\\s+from\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\.internal)?\\.mjs[\\\"']", "s");
+    if (importPattern.test(source)) violations.push(name);
+  }
+  assert.deepEqual(violations, ["analyzeParentGraph"]);
+});
