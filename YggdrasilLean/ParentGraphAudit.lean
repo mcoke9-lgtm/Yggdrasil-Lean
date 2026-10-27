@@ -49,6 +49,30 @@ theorem dangling_parent_makes_integrity_indeterminate
     integrityFromParentTargets vertices edges = .indeterminate := by
   simp [integrityFromParentTargets, h]
 
+/-- A graph input pairs its declared vertex identities with its directed parent edges. -/
+structure ParentGraphInput where
+  vertices : List Nat
+  edges : List ParentEdge
+
+/-- All edge endpoints belong to the declared vertex set, and every parent target resolves. -/
+def parentGraphInputWellFormed (graph : ParentGraphInput) : Prop :=
+  (∀ edge ∈ graph.edges, edge.1 ∈ graph.vertices ∧ edge.2 ∈ graph.vertices) ∧
+  parentTargetsResolve graph.vertices graph.edges
+
+/-- Convert graph-input validation into the existing integrity vocabulary. -/
+def integrityOfParentGraphInput (graph : ParentGraphInput) : ParentGraphIntegrity :=
+  if h : parentGraphInputWellFormed graph then .valid else .indeterminate
+
+/-- A graph with a dangling parent target is not declared well-formed. -/
+theorem dangling_target_rejects_graph_input
+    (graph : ParentGraphInput)
+    (h : ¬ parentTargetsResolve graph.vertices graph.edges) :
+    integrityOfParentGraphInput graph = .indeterminate := by
+  have hbad : ¬ parentGraphInputWellFormed graph := by
+    intro hgood
+    exact h hgood.2
+  simp [integrityOfParentGraphInput, hbad]
+
 /-- Three-way result: only a verified witness establishes a cycle. -/
 inductive ParentGraphResult where
   | cycle (witness : List Nat)
