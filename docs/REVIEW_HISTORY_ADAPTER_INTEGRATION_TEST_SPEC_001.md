@@ -69,6 +69,9 @@ Use isolated project/branch fixtures. Do not use production records. Tests must 
 - Logical payload equality is defined by the schema/canonicalization policy, not an accidental serialization difference.
 - The test must remain blocked or marked provisional until that equality policy is specified.
 - Identifier collision handling is observable and does not silently overwrite data.
+- If two supplied matching retry records share the project/key/branch/logical payload but have different event IDs, the reference classifier returns `ambiguousHistory` in either record order; the adapter maps this to `AmbiguousIdentity` rather than selecting one event.
+- If repeated matching records carry the same event ID, the reference model may resolve to that event, but the adapter must still validate full-history uniqueness and must not infer global uniqueness from an incomplete page.
+- When reconciliation by key or event ID discovers multiple competing candidates, it returns `AmbiguousIdentity` and preserves diagnostic evidence rather than reporting committed/already committed.
 
 **Status:** specified with a noted dependency on unresolved canonical logical-payload equality and ID-generation policy; not executed.
 
