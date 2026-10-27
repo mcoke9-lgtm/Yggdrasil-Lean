@@ -64,7 +64,7 @@ class GitTransportPublicationIntegrationTests(unittest.TestCase):
             git(newer, "add", "state.txt")
             git(newer, "commit", "-m", "intervening update")
             newer_head = git(newer, "rev-parse", "HEAD")
-            git(newer, "push", "origin", "HEAD:refs/heads/main")
+            git(newer, "push", f"--force-with-lease=refs/heads/main:{base}", "origin", "HEAD:refs/heads/main")
 
             adapter = GitTransportRefAdapter(stale, "origin")
             result = publish_once(adapter, "main", base, stale_candidate)
