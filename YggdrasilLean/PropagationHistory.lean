@@ -18,6 +18,13 @@ structure PropagationHistoryEntry where
   assessment : PropagationAssessment
   deriving DecidableEq, Repr
 
+/-- One review record unifies content routing and identity/branch review for a transition. -/
+structure TransitionReviewEntry where
+  transition : TransitionRecord
+  propagation : PropagationAssessment
+  identityBranch : IdentityBranchReview
+  deriving DecidableEq, Repr
+
 /-- Associate an assessment with the transition that prompted review. -/
 def recordPropagationWithTransition
     (transition : TransitionRecord)
@@ -122,6 +129,34 @@ theorem unchangedIdentities_noIdentityReview
 def assessTransitionIdentityBranch (transition : TransitionRecord) : IdentityBranchReview :=
   assessIdentityBranchTransition transition.before transition.after
 
+/-- Build both review dimensions from the same immutable transition endpoints. -/
+def assessCompleteTransition
+    (transition : TransitionRecord) (routes : List DependencyRoute) : TransitionReviewEntry :=
+  ⟨transition,
+    recordPropagationAssessment
+      (deriveChangeSet transition.before transition.after) routes,
+    assessTransitionIdentityBranch transition⟩
+
+/-- The unified review retains the exact transition that was assessed. -/
+theorem completeTransitionReview_retainsTransition
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (assessCompleteTransition transition routes).transition = transition := by
+  rfl
+
+/-- Content propagation is derived from the unified review's transition endpoints. -/
+theorem completeTransitionReview_usesDerivedChangeSet
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (assessCompleteTransition transition routes).propagation.change =
+      deriveChangeSet transition.before transition.after := by
+  rfl
+
+/-- Identity review is derived from the same unified review's transition endpoints. -/
+theorem completeTransitionReview_usesTransitionIdentity
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (assessCompleteTransition transition routes).identityBranch =
+      assessIdentityBranchTransition transition.before transition.after := by
+  rfl
+
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
     (state : ProjectState) (newBranchId : String)
@@ -154,6 +189,23 @@ example :
     identityBranchReviewRequired
       (assessIdentityBranchTransition identityReviewExampleState
         (recordAgreement identityReviewExampleState "new agreement")) = false := by
+  decide
+
+/-- A content-only update produces an empty identity-review signal in the unified record. -/
+example :
+    identityBranchReviewRequired
+      (assessCompleteTransition
+        ⟨identityReviewExampleState,
+          recordAgreement identityReviewExampleState "new agreement"⟩
+        exampleRoutes).identityBranch = false := by
+  decide
+
+/-- An explicit fork is retained alongside its identity-review signal in one record. -/
+example :
+    (assessCompleteTransition
+      ⟨identityReviewExampleState,
+        forkProject identityReviewExampleState "experiment"⟩
+      exampleRoutes).identityBranch.branchIdentityChanged = true := by
   decide
 
 end YggdrasilLean
