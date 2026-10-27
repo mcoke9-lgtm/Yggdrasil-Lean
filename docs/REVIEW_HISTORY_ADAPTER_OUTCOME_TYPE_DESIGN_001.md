@@ -716,3 +716,71 @@ Review 007 proposes the above semantic/API shape for review. It does **not** ado
 4. **Status:** Proposed design only; not adopted, not implemented, not compiled, and tests not executed.
 5. **Recheck:** `Found` and `NotFound` both require complete-scope evidence; partial single match is incomplete; partial competing IDs remain ambiguous; unknown is not absence.
 6. **Persistence/uncertainty:** Save and read back this proposal before reporting it persisted. No source file is changed in this review.
+
+## Evidence trust boundary and inconclusive outcomes — review 008
+
+**Status: recommended design refinement, not adopted API.** This review resolves the three gates listed after review 007 at the semantic level.
+
+### 1. Separate three lookup states
+
+Use three caller-visible outcomes for non-conclusive lookup states:
+
+- **Incomplete:** the operation has positive evidence that only part of the declared scope was searched. Preserve observed matches/candidate IDs and mark the candidate set non-exhaustive unless independently established otherwise.
+- **Unresolved:** the lookup operation returned normally, but the available evidence does not establish whether the declared scope was complete. Do not claim unique Found or confirmed NotFound.
+- **Unavailable:** the operation could not obtain a usable lookup result because the service/read failed (for example, connectivity, permission, or storage failure). It must not be used as a catch-all for a completed but inconclusive lookup.
+
+This distinction is useful to callers: Incomplete says coverage is known to be partial; Unresolved says completeness could not be established; Unavailable says the operation itself failed to produce a usable result. If a backend failure also provides positive partial-coverage evidence, preserve that evidence in diagnostics/lookup evidence without pretending the service was fully available.
+
+### 2. Treat complete-scope evidence as an adapter trust boundary
+
+A public structure containing only declaredScope and evidenceRef is not proof that a scope was actually searched completely. Recommend a dedicated CompleteScopeEvidence type whose values are constructed only by a narrow adapter validation boundary after the backend-specific completeness condition has been checked. Keep its raw constructor private to the adapter module where practical; expose a checked constructor that requires an adapter-specific completeness witness/result.
+
+This still does not prove arbitrary external storage behavior by Lean's type system alone. The adapter and its evidence-producing boundary remain trusted code unless the backend property is formally modeled and proved. Therefore:
+
+- document exactly what makes a lookup scope complete for each adapter (index coverage, pagination termination, permissions, schema compatibility, and any snapshot requirements);
+- do not allow ordinary caller-supplied strings or a Boolean alone to manufacture confirmed absence;
+- test the boundary against the real adapter/backend;
+- avoid claiming the evidence is proof of truth merely because it has a distinct Lean type.
+
+For the initial backend-neutral type layer, use an abstract evidence parameter in outcome constructors and document that only the adapter boundary may issue it. Defer a universal proof-bearing implementation until the concrete adapter and completeness semantics are known.
+
+### 3. Provenance scope
+
+Retain generic RecordProvenance on a generic identity-read Found result, but do not force assessment provenance into the generic outcome. Keep assessment provenance on assessment-specific retrieval/reconstruction/reassessment operations. The proposed storedOriginal, reconstructed, and migrated variants are only admissible if the adapter can substantiate them; final fields must match the concrete adapter and schema.
+
+### 4. Recommended candidate outcome boundary
+
+The recommended semantic inventory is now:
+
+- Found(record, recordProvenance, completeScopeEvidence)
+- NotFound(completeScopeEvidence)
+- Incomplete(lookupEvidence)
+- AmbiguousIdentity(candidateEventIds, lookupEvidence)
+- Unresolved(lookupEvidence)
+- UnsupportedSchema(version)
+- Corrupt(diagnostic)
+- Unavailable(diagnostic)
+
+Ambiguity takes precedence whenever competing event IDs have actually been observed; preserve those IDs even if the search later becomes incomplete or unavailable, and mark the candidate set non-exhaustive unless full-scope evidence exists. Do not choose a winner by order. The inventory is a candidate API, not adopted source.
+
+### 5. Required IT-6 semantics
+
+Keep exactly six integration-test groups. IT-6 must separately cover:
+1. positive known-incomplete coverage;
+2. operation completes but completeness remains unknown;
+3. operation failure before a usable lookup result;
+4. complete-scope absence with evidence;
+5. competing event IDs observed, including under partial coverage;
+6. one observed match under incomplete or unknown coverage, which must not yield unique full-scope Found;
+7. complete-scope unique match, which is eligible for Found.
+
+These are subcases of IT-6, not a seventh group. For an observed ambiguity followed by a failed continuation, the outcome must preserve the competing IDs and disclose non-exhaustive coverage; the final constructor packaging remains to be fixed.
+
+### Six-Part Integrity Check — trust boundary 008
+
+1. **Count:** Six integration-test groups remain; the cases above are IT-6 subcases.
+2. **Role mapping:** Known partial coverage; unknown completeness; operation failure; confirmed absence; ambiguity; uniqueness; provenance/evidence trust.
+3. **Completeness:** The three inconclusive states now have distinct meanings; exact adapter witness and constructor privacy are implementation-specific.
+4. **Status:** Semantic recommendation recorded; candidate API remains unadopted and unimplemented.
+5. **Recheck:** Unknown completeness cannot become absence; known incomplete cannot become unique success; service failure is not equated with partial coverage; observed competing IDs remain visible.
+6. **Persistence/uncertainty:** Save/read-back required. No source change, compilation, backend test, or integration result is claimed.
