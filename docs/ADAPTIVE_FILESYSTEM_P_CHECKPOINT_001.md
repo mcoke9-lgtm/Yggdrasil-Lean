@@ -22,7 +22,9 @@ The work developed from review-history resolution and parent-graph auditing into
 - Added `analyzeAirtableTableResponse(response, config)` to map the real connector response shape using schema-confirmed field IDs and connector pagination/count metadata.
 - Performed a fresh read-only Airtable query on 2026-10-27: 10 returned records, reported total 10, no next cursor. The observed Record ID / Parent Record ID projection has 10 vertices and 8 parent edges; the recorded-value test expects `NO_CYCLE`.
 - Added tests for the Airtable-shaped response and for rejecting a pagination cursor before analysis.
-- Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with the adapter entry point and its limitations.
+- CI passed for commit `2b9b0edfb23cc49b30b2fd6933bd665f7df0abb4`: [resolver tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40494589116) and [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40494589117).
+- A code review found the graph consumer was analyzing numeric vertex IDs as if they were source record IDs. The consumer now preserves the verified source-vertex bindings and reconstructs original parent IDs for analysis; a regression assertion checks AF-PILOT-010 → AF-PILOT-009.
+- Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with adapter limits and the identity-preservation correction.
 
 ## 3. What we've learned
 
@@ -44,7 +46,7 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 ## 5. Plan
 
-1. **Next:** verify resolver CI and Lean build for the Airtable response-shape adapter and docs updates.
+1. **Next:** verify resolver CI and Lean build for the identity-preservation correction and checkpoint updates.
 2. Reduce reconstruction at the integration boundary by passing the actual connector response directly into `analyzeAirtableTableResponse` in any runtime integration.
 3. If the connector exposes a stable read/run identifier or exportable response receipt, capture it; otherwise document that source-read identity is integration-assigned and not independently authenticated.
 4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
