@@ -2,7 +2,7 @@
 
 Status: read-only reference implementation and regression suite on feature branch \`af-runtime-001-reference-resolver\`; pull request #2 is draft and unmerged.
 
-The package resolves review-history relationships from a caller-supplied snapshot and also provides a snapshot-wide audit. The Airtable adapter maps field dictionaries into the model without making network requests or writing records. An opt-in integration test can fetch a fresh snapshot through Airtable's read-only REST endpoint when explicit environment credentials are supplied.
+The package resolves review-history relationships from a caller-supplied snapshot, provides a snapshot-wide audit, and includes a deterministic alternative-work evaluator. The Airtable adapter maps field dictionaries into the model without making network requests or writing records. An opt-in integration test can fetch a fresh snapshot through Airtable's read-only REST endpoint when explicit environment credentials are supplied.
 
 ## Implemented semantics
 
@@ -18,6 +18,10 @@ The package resolves review-history relationships from a caller-supplied snapsho
 - Parent-chain errors are scoped to the requested record's chain; unrelated broken branches do not block a valid resolution request.
 - The Airtable field adapter rejects malformed IDs, sequences, and whitespace-padded references. It does not silently repair data.
 - The live pilot read returned no Parent Record ID for AF-PILOT-007. Tests preserve that absence as \`blank_unclassified\` instead of inferring AF-PILOT-006 as its parent; the branch-local predecessor is separately AF-PILOT-006.
+
+## Alternative-work evaluator (AF-AWR-001 v0.1.0)
+
+Use `evaluate_work(WorkRequest(...))` for a side-effect-free recommendation when an operation is blocked. It preserves branch/checkpoint, validates input, applies hard relevance/feasibility/authorization/non-duplication/integrity gates, ranks eligible alternatives deterministically, permits a retry only when materially changed and within budget, and only emits `STOP_NO_ALTERNATIVE` when the search scope is declared exhausted. Exact ranking ties are returned together. The result explicitly says execution was not attempted and persistence was not performed. This is a reference evaluator, not a background agent or a production orchestration service.
 
 ## Snapshot-wide audit
 
