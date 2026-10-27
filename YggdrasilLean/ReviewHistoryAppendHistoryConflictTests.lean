@@ -9,50 +9,52 @@ import YggdrasilLean.ReviewHistoryAppendHistoryRules
 
 namespace YggdrasilLean
 
-/--
-If one known record is a retry match and another is a same-key/different-payload
-conflict, the conflict must win when the retry match appears first.
--/
+/-- A same-key/different-payload conflict wins when a retry match appears first. -/
 theorem sameKeyPayloadConflict_winsAfterRetryMatch
     (intent : AppendIntent) (retry conflict : KnownAppend)
     (hRetry : classifyAppendIdentity intent (some retry) =
       .alreadyCommitted retry.eventId)
-    (hConflict : classifyAppendIdentity intent (some conflict) = .conflict) :
+    (hProject : intent.projectId = conflict.projectId)
+    (hKey : intent.idempotencyKey = conflict.idempotencyKey)
+    (hPayload : intent.payload ≠ conflict.payload) :
     classifyAppendAgainstHistory intent [retry, conflict] = .conflict := by
+  have hConflict := sameKeyDifferentPayload_conflicts intent conflict hProject hKey hPayload
   exact conflictDominatesHistory intent [retry] [] conflict hConflict
 
-/--
-The same conflict must win when the conflicting record appears before the retry match.
--/
+/-- The same-key/different-payload conflict wins when it appears before the retry match. -/
 theorem sameKeyPayloadConflict_winsBeforeRetryMatch
     (intent : AppendIntent) (retry conflict : KnownAppend)
     (hRetry : classifyAppendIdentity intent (some retry) =
       .alreadyCommitted retry.eventId)
-    (hConflict : classifyAppendIdentity intent (some conflict) = .conflict) :
+    (hProject : intent.projectId = conflict.projectId)
+    (hKey : intent.idempotencyKey = conflict.idempotencyKey)
+    (hPayload : intent.payload ≠ conflict.payload) :
     classifyAppendAgainstHistory intent [conflict, retry] = .conflict := by
+  have hConflict := sameKeyDifferentPayload_conflicts intent conflict hProject hKey hPayload
   exact conflictDominatesHistory intent [] [retry] conflict hConflict
 
-/--
-If one known record is a retry match and another conflicts because the event ID
-is reused under a different key, conflict wins in either order (retry first).
--/
+/-- An event-ID reuse conflict wins when a retry match appears first. -/
 theorem eventIdConflict_winsAfterRetryMatch
     (intent : AppendIntent) (retry conflict : KnownAppend)
     (hRetry : classifyAppendIdentity intent (some retry) =
       .alreadyCommitted retry.eventId)
-    (hConflict : classifyAppendIdentity intent (some conflict) = .conflict) :
+    (hProject : intent.projectId = conflict.projectId)
+    (hKey : intent.idempotencyKey ≠ conflict.idempotencyKey)
+    (hEvent : intent.eventId = conflict.eventId) :
     classifyAppendAgainstHistory intent [retry, conflict] = .conflict := by
+  have hConflict := sameEventIdDifferentKey_conflicts intent conflict hProject hKey hEvent
   exact conflictDominatesHistory intent [retry] [] conflict hConflict
 
-/--
-The event-ID conflict also wins when the conflicting record appears before the retry match.
--/
+/-- The event-ID reuse conflict wins when it appears before the retry match. -/
 theorem eventIdConflict_winsBeforeRetryMatch
     (intent : AppendIntent) (retry conflict : KnownAppend)
     (hRetry : classifyAppendIdentity intent (some retry) =
       .alreadyCommitted retry.eventId)
-    (hConflict : classifyAppendIdentity intent (some conflict) = .conflict) :
+    (hProject : intent.projectId = conflict.projectId)
+    (hKey : intent.idempotencyKey ≠ conflict.idempotencyKey)
+    (hEvent : intent.eventId = conflict.eventId) :
     classifyAppendAgainstHistory intent [conflict, retry] = .conflict := by
+  have hConflict := sameEventIdDifferentKey_conflicts intent conflict hProject hKey hEvent
   exact conflictDominatesHistory intent [] [retry] conflict hConflict
 
 end YggdrasilLean
