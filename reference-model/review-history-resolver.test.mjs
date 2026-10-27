@@ -956,3 +956,25 @@ test("architecture guard matcher detects a raw analyzer import", () => {
   }
   assert.deepEqual(violations, ["analyzeParentGraph"]);
 });
+
+
+test("source evidence digest uses locale-independent code-unit ordering", () => {
+  const records = [
+    { recordId: "a", parentRecordId: null },
+    { recordId: "Z", parentRecordId: "B" },
+    { recordId: "_", parentRecordId: null },
+    { recordId: "10", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ];
+  const manifest = buildSourceReadEvidenceManifest(records, {
+    sourceReadId: "locale-order-check",
+    reportedTotalRecordCount: records.length,
+    paginationComplete: true,
+    sourceScope: "test:canonical-order",
+  });
+  const projection = records.map(({ recordId, parentRecordId }) => ({
+    recordId, parentRecordId: parentRecordId ?? null,
+  })).sort((a, b) => a.recordId < b.recordId ? -1 : a.recordId > b.recordId ? 1 : 0);
+  const expected = createHash("sha256").update(JSON.stringify(projection), "utf8").digest("hex");
+  assert.equal(manifest.sourceDigest, expected);
+});
