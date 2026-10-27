@@ -24,7 +24,7 @@ Adapter operations use logical records from the persisted-record schema, indepen
 
 - **Event ID:** stable identity of one historical event.
 - **Idempotency key:** retry identity, scoped according to a future reviewed policy.
-- **Payload identity:** equality of logical event payload under a future defined canonical comparison rule. Byte equality must not be assumed until encoding is specified.
+- **Payload identity:** equality of all schema-defined logical fields, including explicit unavailable markers and order-sensitive lists. This is a logical comparison, not byte equality; the encoding must not change it.
 - **Commit boundary:** backend-specific point at which the adapter can truthfully report a record as durably committed under its documented failure model.
 - **Receipt:** evidence identifying the committed event and its assigned history position, plus any backend receipt/reference available. Its guarantees and limitations must be documented.
 - **Cursor:** opaque continuation token for a read; representation and lifetime are adapter-defined and documented.
@@ -43,7 +43,7 @@ The following are logical operations, not proposed Lean signatures. A later API 
 **Outcomes:**
 
 - **Committed(receipt):** the event crossed the documented commit boundary and is visible as a complete record.
-- **AlreadyCommitted(receipt):** the same key and equivalent logical payload already identify a committed event; no duplicate was created.
+- **AlreadyCommitted(receipt):** the same idempotency key and equivalent logical payload already identify a committed event; no duplicate was created. If the same event ID is found with equivalent payload under a different key, the adapter must also avoid duplication and return a documented existing-event outcome or an explicit conflict; it must never silently create a second copy.
 - **Conflict(reason):** the key is associated with a different payload, an event ID conflicts with existing history, or a concurrency condition failed.
 - **Unavailable(retryability, reason):** a service, permission, capacity, or connectivity failure prevents establishing the requested outcome. Retryability must be stated as known, not guessed.
 - **Corrupt(details):** relevant stored data or required references failed validation, so the operation cannot safely proceed.
@@ -76,7 +76,7 @@ A read failure or inaccessible backend must never be reported as NotFound.
 - **GapOrConflict(details):** a missing sequence, conflicting identity, broken lineage, or inconsistent ordering was detected.
 - **UnsupportedSchema(version), Corrupt(details), or Unavailable(retryability, reason)** as applicable.
 
-The adapter must define ordering and cursor behavior across concurrent appends. Wall-clock timestamps alone are not a sufficient order. If order cannot be established, disclose that limitation rather than invent one.
+The adapter must define ordering and cursor behavior across concurrent appends. Wall-clock timestamps alone are not a sufficient order. A multi-page read must either bind its cursor to a consistent history snapshot or explicitly report that the pages are not a consistent snapshot; it must not imply complete snapshot recovery when it cannot provide it. If order cannot be established, disclose that limitation rather than invent one.
 
 ### 3.4 Reconcile uncertain commit
 
@@ -171,7 +171,20 @@ A check is **passed** only with recorded evidence from the actual adapter and ta
 
 **Count check:** six checks, mapped one-to-one to six adapter responsibilities. The contract does not claim any check is implemented, tested, or adopted.
 
-## 8. Decisions deliberately left open
+## 8. Semantic clarifications required of every implementation
+
+These rules narrow interface ambiguity without selecting a backend or encoding.
+
+1. **Logical payload equality:** compare all schema-defined fields. Preserve the exact order of ordered lists and distinguish absent, unavailable, and empty values. Canonical bytes are not required for this logical comparison, but a later encoding must preserve the same distinctions.
+2. **Idempotency and event identity:** the same idempotency key with a different logical payload is always a conflict. The same key and same payload must not create a duplicate. Reuse of an event ID must likewise never create a second event: equivalent payload resolves to the existing event under a documented result; a different payload is a conflict.
+3. **Per-branch order:** every committed event has one unambiguous position in its project/branch history. Position assignment and append visibility must be atomic with respect to competing writers. The implementation may serialize writers or reject stale expected positions, but must disclose which policy it uses.
+4. **Read completeness:** an empty result is valid only when the adapter can establish that the requested scope was queried completely. Pagination must preserve order. For multi-page reads, either a cursor binds a consistent snapshot or the API explicitly marks the read as non-snapshot and cannot label it a complete snapshot recovery.
+5. **Safe retry after uncertainty:** NotCommitted is allowed only when the adapter has authoritative evidence that the original event did not commit and retrying with the same key cannot create a duplicate. Otherwise the result remains StillUnknown.
+6. **Receipt meaning:** a receipt identifies the committed event and its assigned history position. The adapter documents the failure scenarios covered by its commit guarantee, including any limits around process crash, host loss, replication, or restore. No universal durability guarantee is inferred from the word “committed.”
+7. **Assessment provenance:** each read result identifies whether it is the exact stored assessment, a reconstruction from stored inputs, or a new reassessment. If the original is unavailable, return that fact separately from any reconstructed result.
+8. **Migration fidelity:** a migration must retain the original record or an immutable reference to it, record migration method/version, and disclose any field that cannot be preserved. A migrated representation must not be passed off as the byte-identical original.
+
+## 9. Decisions deliberately left open
 
 - Backend, hosting boundary, and durability/replication guarantees.
 - Canonical encoding, normalization, digest algorithm, and threat model.
@@ -184,6 +197,6 @@ A check is **passed** only with recorded evidence from the actual adapter and ta
 
 These choices require evidence and review before implementation. Do not choose a backend merely because its interface makes the proposed contract easier to satisfy.
 
-## 9. Next step
+## 10. Next step
 
 Review this interface contract against the current Lean model and persisted-record schema. Resolve semantic ambiguities before writing an adapter API or selecting storage. Then implement one narrow adapter and run the six acceptance checks against its actual target storage, including a fresh-process restart.
