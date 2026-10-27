@@ -15,6 +15,7 @@ export function analyzeVerifiedGraphInput(serialized, options) {
     sourceReadId: gate.sourceReadId,
     sourceDigest: gate.sourceDigest,
     graphDigest: gate.graphDigest,
+    graphInput: gate.graphInput,
     analysis: analyzeParentGraph(gate.graphInput.vertices.map((vertex) => {
       const parentEdge = gate.graphInput.edges.find(([child]) => child === vertex);
       return { recordId: String(vertex), parentRecordId: parentEdge ? String(parentEdge[1]) : null };
