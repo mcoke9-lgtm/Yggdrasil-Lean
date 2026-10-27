@@ -1,4 +1,4 @@
-""""Relationship regression cases transcribed from the 2026-10-27 pilot read.
+"""Relationship regression cases transcribed from the 2026-10-27 pilot read.
 
 This is a checked-in snapshot fixture, not a live Airtable adapter. It intentionally
 preserves AF-PILOT-005's nonexistent source anchor and AF-PILOT-007's absent parent.
@@ -35,6 +35,9 @@ class PilotSnapshotTests(unittest.TestCase):
         self.assertEqual(result.parent_record_id, "AF-PILOT-003")
         self.assertEqual(result.source_anchor_id, "AF-PILOT-001")
         self.assertIsNone(result.branch_predecessor_id)
+        self.assertEqual(result.parent_reference_state, "linked")
+        self.assertEqual(result.source_anchor_reference_state, "linked")
+        self.assertEqual(result.branch_predecessor_state, "none_found_in_snapshot")
 
     def test_historical_missing_anchor_fixture_fails_closed(self):
         with self.assertRaises(ResolutionError) as caught:
@@ -45,16 +48,21 @@ class PilotSnapshotTests(unittest.TestCase):
         result = resolve_history(pilot_snapshot(), "AF-PILOT-003")
         self.assertEqual(result.parent_record_id, "AF-PILOT-002")
         self.assertEqual(result.revision_of_id, "AF-PILOT-001")
+        self.assertEqual(result.revision_reference_state, "linked")
 
     def test_global_parent_and_branch_local_predecessor_are_distinct(self):
         result = resolve_history(pilot_snapshot(), "AF-PILOT-006")
         self.assertEqual(result.parent_record_id, "AF-PILOT-005")
         self.assertEqual(result.branch_predecessor_id, "AF-PILOT-003")
+        self.assertEqual(result.parent_reference_state, "linked")
+        self.assertEqual(result.branch_predecessor_state, "found_in_snapshot")
 
     def test_absent_parent_on_007_is_preserved_not_inferred(self):
         result = resolve_history(pilot_snapshot(), "AF-PILOT-007")
         self.assertIsNone(result.parent_record_id)
+        self.assertEqual(result.parent_reference_state, "blank_unclassified")
         self.assertEqual(result.branch_predecessor_id, "AF-PILOT-006")
+        self.assertEqual(result.branch_predecessor_state, "found_in_snapshot")
 
 
 if __name__ == "__main__":
