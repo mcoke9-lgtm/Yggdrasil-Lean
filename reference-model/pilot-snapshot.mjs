@@ -1,4 +1,4 @@
-// Read-only snapshot of the 10-record Airtable pilot retrieved on 2026-10-27.
+// Read-only snapshot of the 10-record Airtable pilot refreshed by direct read on 2026-10-27.
 // Application IDs are preserved exactly; this fixture is not live-linked to Airtable.
 export const pilotSnapshot = [
   { recordId: "AF-PILOT-001", branchId: "chatgpt-first-integration", sequence: 1 },
@@ -14,8 +14,7 @@ export const pilotSnapshot = [
     sourceAnchorId: "AF-ANCHOR-DOES-NOT-EXIST" },
   { recordId: "AF-PILOT-006", branchId: "chatgpt-first-integration", sequence: 4,
     parentRecordId: "AF-PILOT-005" },
-  { recordId: "AF-PILOT-007", branchId: "chatgpt-first-integration", sequence: 5,
-    parentRecordId: "AF-PILOT-006" },
+  { recordId: "AF-PILOT-007", branchId: "chatgpt-first-integration", sequence: 5 },
   { recordId: "AF-PILOT-008", branchId: "chatgpt-first-integration", sequence: 6,
     parentRecordId: "AF-PILOT-007" },
   { recordId: "AF-PILOT-009", branchId: "chatgpt-first-integration", sequence: 7,
