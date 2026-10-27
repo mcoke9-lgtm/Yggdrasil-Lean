@@ -1,6 +1,6 @@
 # Identity-Read Checked Classification Boundary 001
 
-Status: classifier implemented and imported into the library; pure Lean regression theorems added and build-checked by GitHub Actions. Trusted-boundary enforcement and backend integration remain design-only. This document does not change the public API.
+Status: classifier and a defensive identity-read policy gate are implemented; regression theorems cover both. GitHub Actions build verification for the newest gate commit is pending. The Bool attestation inputs are adapter assertions, not a capability-security boundary; backend integration remains unimplemented.
 
 ## Purpose
 
@@ -20,9 +20,11 @@ Use three layers, in this order:
 2. **Outcome classification (pure Lean):** derive the evidence-level state from normalized distinct IDs, completeness, and termination. Callers do not choose the classification constructor.
 3. **Trusted adapter validation (backend-specific):** only after a successful, complete lookup over the declared scope may the adapter issue the marker used by `found` or `notFound`. The adapter must document and test how it warrants that claim. A Boolean or generic marker passed in by an arbitrary caller is not a proof of exhaustiveness.
 
-### Checked-boundary recommendation
+### Checked-boundary recommendation and implemented policy gate
 
-Do not treat `IdentityReadClassification.completeCandidates` as authorization to construct `IdentityReadOutcome.found` or `.notFound`. Keep classification and authorization separate. A future adapter-facing API should own the conversion from backend result to an opaque or module-controlled attestation; expose a function that accepts raw backend observations and returns a public outcome only after checking completion, scope, schema, and requested identity. Avoid a publicly constructible `CompleteEvidence` token as a security boundary: callers can manufacture values of public types. If the repository remains a specification/reference model rather than a trust-enforcing library, state that limitation explicitly rather than implying the type system guarantees it.
+`gateIdentityRead` now separates evidence classification from a final candidate decision. It refuses to authorize candidate results when `scopeAttested = false`, rejects a single candidate when `recordMatchesRequestedIdentity = false`, and permits a zero-candidate result only after the scope-attestation flag is true. Regression theorems cover these cases.
+
+**Important limitation:** the two flags are ordinary `Bool` inputs. This gate is a defensive policy function, not a capability-security boundary; any caller can pass `true`. A concrete adapter must keep this function behind its own trusted implementation and derive those flags from actual backend completion, declared scope, schema checks, and requested-identity validation. A future API may use module-controlled attestation types, but a marker type alone is not proof that a remote query was exhaustive.
 
 Record validation (schema, integrity, provenance) is a separate check. A unique candidate ID alone does not prove that the record is valid or that the observed record matches the requested identity.
 
@@ -77,7 +79,7 @@ Add these cases to the existing IT-6 identity-read scenarios. The current IT-6 l
 - A pure classifier can count distinct IDs among observations; it cannot prove that all matching records were observed.
 - A `CompleteEvidence` marker is not self-authenticating merely because it has a distinct type parameter.
 - The pure classifier and its regression theorems are compiled by the Lean build workflow; this is not backend integration testing.
-- The trusted boundary is not implemented, and public outcome constructors remain freely constructible.
+- The policy gate is implemented, but trusted backend attestation is not; public outcome constructors remain freely constructible.
 - The existing PR remains a draft proposal until API shape and visibility are reviewed.
 
 ## Six-Part Integrity Check
@@ -85,6 +87,6 @@ Add these cases to the existing IT-6 identity-read scenarios. The current IT-6 l
 1. **Count:** twelve specified checks, C-1 through C-12; current theorem file contains thirteen classifier regression theorems.
 2. **Roles:** cardinality, duplicate normalization, ambiguity precedence, failure preservation, incomplete/unknown handling, trust-boundary enforcement, record validation, and order independence.
 3. **Completeness:** pure classifier cases are partially implemented and build-checked; checked-boundary and record-validation cases remain unimplemented; actual backend completeness semantics remain backend-specific and unresolved.
-4. **Status:** classifier implemented; theorem checks build-verified; checked boundary proposed only; API not adopted as final.
+4. **Status:** classifier and defensive policy gate implemented; gate theorem checks added; newest CI verification pending; trusted adapter enforcement not implemented.
 5. **Recheck:** ambiguity has priority over later failure; complete candidate classification is explicitly not equivalent to trusted completeness; list order cannot select a winner.
-6. **Persistence:** design and theorem tests are on the PR branch. Remaining uncertainty: the correct module visibility/API boundary and concrete backend attestation mechanism.
+6. **Persistence:** implementation, tests, and design record are on the PR branch. Remaining uncertainty: trusted module/API boundary and concrete backend attestation mechanism.
