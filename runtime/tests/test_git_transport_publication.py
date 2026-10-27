@@ -1,4 +1,3 @@
-import os
 import subprocess
 import tempfile
 import unittest
@@ -46,6 +45,7 @@ class GitTransportPublicationIntegrationTests(unittest.TestCase):
             base = git(seed, "rev-parse", "HEAD")
             git(seed, "branch", "-M", "main")
             git(seed, "push", "-u", "origin", "main")
+            git(root, "--git-dir", str(bare), "symbolic-ref", "HEAD", "refs/heads/main")
 
             git(root, "clone", str(bare), str(stale))
             git(root, "clone", str(bare), str(newer))
