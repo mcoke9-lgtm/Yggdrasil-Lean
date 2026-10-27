@@ -44,6 +44,13 @@ class ResolverTests(unittest.TestCase):
             resolve_history([Record("x", "main", 2, parent_record_id="absent")], "x")
         self.assertEqual(caught.exception.code, "MISSING_PARENT")
 
+    def test_unrelated_broken_parent_does_not_block_requested_record(self):
+        good = Record("good", "main", 1)
+        unrelated = Record("unrelated", "other", 1, parent_record_id="absent")
+        result = resolve_history([good, unrelated], "good")
+        self.assertEqual(result.record_id, "good")
+        self.assertEqual(result.parent_reference_state, "blank_unclassified")
+
     def test_missing_source_anchor(self):
         record = Record("fork", "fork", 1, source_branch_id="main", source_anchor_id="absent")
         with self.assertRaises(ResolutionError) as caught:
