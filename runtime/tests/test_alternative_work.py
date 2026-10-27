@@ -103,6 +103,23 @@ class AlternativeWorkTests(unittest.TestCase):
         self.assertFalse(result.candidate_assessments[0].eligible)
         self.assertEqual(len(result.candidate_assessments[0].rejected_reasons), 3)
 
+    def test_nonboolean_ranking_flag_is_rejected(self):
+        result = evaluate_work(request(candidates=(
+            candidate("bad", preserves_continuity="yes"),
+        )))
+        self.assertEqual(result.outcome, "INVALID_INPUT")
+        self.assertIn("preserves_continuity", result.unresolved_dependencies[0])
+
+    def test_noninteger_retry_budget_is_rejected(self):
+        result = evaluate_work(request(retry_budget=True))
+        self.assertEqual(result.outcome, "INVALID_INPUT")
+        self.assertIn("retry_budget", result.unresolved_dependencies[0])
+
+    def test_non_candidate_input_is_rejected_without_exception(self):
+        result = evaluate_work(request(candidates=(None,)))
+        self.assertEqual(result.outcome, "INVALID_INPUT")
+        self.assertEqual(result.execution_status, "not_attempted")
+
     def test_decision_preserves_branch_and_checkpoint(self):
         result = evaluate_work(request(candidates=(candidate("alt"),)))
         self.assertEqual(result.active_branch, "branch-a")
