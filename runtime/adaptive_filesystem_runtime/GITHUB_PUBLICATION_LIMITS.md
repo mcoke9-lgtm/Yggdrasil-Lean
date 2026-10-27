@@ -15,26 +15,47 @@ The connector's `expected_sha` option is a wrapper-level feature, not a document
 parameter of the underlying REST request. Until its implementation and race behavior
 are independently established, it must not be treated as server-enforced CAS.
 
+## Implemented Git transport path
+
+`git_transport_publication.py` provides an opt-in adapter using
+`git push --force-with-lease=refs/heads/<branch>:<expected-sha>`. The lease names
+the exact expected old object ID; a mismatch is rejected by the Git ref-update
+mechanism. The adapter distinguishes a confirmed stale head from an unresolved
+push failure and does not blindly retry.
+
+`test_git_transport_publication.py` exercises successful publication and stale
+publisher rejection against a disposable local bare Git remote. This validates the
+adapter's Git transport behavior in that test environment, not the behavior of a
+live GitHub-hosted repository.
+
+Operational preconditions: Git must be installed; the local repository must contain
+the candidate commit; the configured remote and credentials must be correct; the
+caller must supply the exact expected old SHA and intended branch. Use a disposable
+branch for any live-host validation before relying on this adapter operationally.
+
 ## Required safe behavior
 
 - Do not describe a read-then-write check as atomic publication fencing.
-- Prefer publishing through a mechanism that actually enforces an expected old
-  object ID atomically, such as a Git transport ref update with a lease, where the
-  transport and server behavior are verified.
+- Prefer a mechanism that actually enforces an expected old object ID atomically,
+  such as Git transport ref update with a lease.
 - If only the GitHub REST ref endpoint is available, classify publication as
   best-effort and do not claim stale-writer exclusion.
 - After an ambiguous response, re-read the ref and classify the observed outcome;
   never blindly retry an uncertain write.
-- Keep the pure publication contract and fake-adapter tests as contract tests only.
-  They do not establish live GitHub integration behavior.
+- Pure publication contract and fake-adapter tests remain contract tests only.
+  Local bare-remote integration tests improve coverage but do not establish live
+  GitHub integration behavior.
 
 ## Status
 
-- Local Git compare-and-swap / lease primitive: locally verified in a disposable test.
-- Pure publication contract and regression tests: CI passed on the feature branch.
+- Local Git compare-and-swap / lease primitive: verified in a disposable local test.
+- Git transport adapter + local bare-remote integration tests: implemented; runtime
+  CI passed on commit `d7a53e504137545af0c75ca65ea94b30502ce123`.
+- Lean build on that same commit: passed.
 - GitHub REST expected-head atomicity: unsupported by the documented endpoint shape.
 - Connector `expected_sha` behavior: unverified due generic errors and absent
   evidence of server-side atomic enforcement.
 - End-to-end live GitHub stale-publisher rejection: not verified.
 
-This document records a limitation; it does not implement a production publisher.
+The adapter is a tested prototype, not a production deployment or a live GitHub
+verification claim.
