@@ -8,13 +8,14 @@ The package resolves review-history relationships from a caller-supplied snapsho
 
 - Record IDs are unique within the supplied snapshot.
 - Branch ID plus sequence must be unique; sequence is a non-negative integer.
-- Parent record ID identifies the global review-history chain.
-- Branch ID plus sequence separately identifies the branch-local predecessor.
+- Parent Record ID represents the global review-history link.
+- Branch ID plus sequence separately identifies the branch-local predecessor; it must not be substituted for a missing parent link.
 - Source branch plus source anchor identifies a fork origin and checks that the anchor belongs to the declared source branch.
 - Revision target is resolved independently of parent history.
 - Missing records and references, malformed source references, source-branch mismatch, duplicate IDs or sequences, and parent cycles have stable error codes.
 - Empty optional references are treated as absent only when represented by null or an empty string. This is not evidence that the original record explicitly declared NOT_APPLICABLE.
 - The Airtable field adapter rejects malformed IDs, sequences, and whitespace-padded references. It does not silently repair data.
+- The live pilot read returned no Parent Record ID for AF-PILOT-007. Tests preserve that absence instead of inferring AF-PILOT-006 as its parent; the branch-local predecessor is separately AF-PILOT-006.
 
 ## Run offline regression tests
 
