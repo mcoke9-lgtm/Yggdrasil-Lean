@@ -81,3 +81,14 @@ Consequently, AF-AWR-001's fingerprint check is a caller-supplied guard, not dur
 
 No Airtable fields or records were added or changed during this inspection. Any future ledger design should first specify stable operation identity, attempt ordering, provenance, and idempotent write semantics, then be tested against an explicitly approved schema change.
 
+## Attempt ledger contract (AF-LEDGER-001 draft)
+
+`adaptive_filesystem_runtime.attempt_ledger` defines a pure, side-effect-free append contract for future persistence adapters. It distinguishes:
+
+- **Operation identity:** stable `project_id + operation_id`, preserved across retries and chat transitions.
+- **Attempt identity:** unique `attempt_id` and `idempotency_key`; an exact repeated append is an idempotent replay, while identifier reuse with different content is rejected.
+- **Attempt order:** attempt numbers must be sequential within an operation; a different branch/checkpoint is provenance and does not reset the attempt number.
+- **Changed inputs:** a later attempt may carry a different operation fingerprint, while retaining the same operation identity.
+
+The contract is only a tested in-memory decision rule. It does not write a ledger, prevent races, prove evidence references, or provide durable deduplication. A real adapter must enforce the check-and-append atomically (for example with a conditional write or uniqueness constraints), and must preserve a stable operation ID across chats. The existing Airtable pilot schema has no dedicated ledger fields, so no Airtable integration or schema change is implied by this draft.
+
