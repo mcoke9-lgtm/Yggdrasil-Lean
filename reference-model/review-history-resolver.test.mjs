@@ -588,6 +588,21 @@ test("source adapter refuses pagination gaps, count mismatches, and malformed sc
     "SOURCE_READ_RESPONSE_MALFORMED");
 });
 
+test("source-read evidence is mandatory even when caller booleans claim completeness", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "evidence-required-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized), {
+    accepted: false,
+    code: "SOURCE_READ_EVIDENCE_INVALID",
+  });
+});
+
 test("source-read evidence rejects count, pagination, scope, and digest mismatches", () => {
   const certificate = buildGraphInputCertificate([
     { recordId: "A", parentRecordId: null },
