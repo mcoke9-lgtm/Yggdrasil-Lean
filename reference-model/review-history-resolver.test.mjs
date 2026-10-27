@@ -2,6 +2,7 @@ import test from "node:test";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
@@ -433,6 +434,43 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
   });
 });
 import { analyzeVerifiedGraphInput } from "./verified-graph-consumer.mjs";
+
+test("fresh read-only Airtable pilot graph snapshot passes the complete gated flow", () => {
+  // The projection was refreshed from the live Airtable Records table on
+  // 2026-10-27: 10 records returned, totalRecordCount=10, no nextCursor.
+  // Digest scope is explicitly the graph-relevant recordId/parentRecordId projection.
+  const graphRecords = pilotSnapshot.map(({ recordId, parentRecordId }) => ({
+    recordId,
+    parentRecordId: parentRecordId ?? null,
+  }));
+  const sourceDigest = createHash("sha256")
+    .update(JSON.stringify(graphRecords), "utf8")
+    .digest("hex");
+  const sourceReadId = "airtable:appaUa8VbUJZmzmxe/tblvy8J5UC6Y6SylE:read-only-2026-10-27";
+  const certificate = buildGraphInputCertificate(graphRecords, {
+    sourceReadId,
+    sourceDigest,
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const artifact = JSON.parse(serialized);
+  assert.equal(artifact.sourceReadId, sourceReadId);
+  assert.equal(artifact.sourceDigest, sourceDigest);
+  assert.equal(artifact.sourceCompletenessVerified, true);
+  assert.equal(artifact.sourceVertexBindings.length, 10);
+  assert.equal(artifact.graphInput.vertices.length, 10);
+  assert.equal(artifact.graphInput.edges.length, 9);
+
+  const result = analyzeVerifiedGraphInput(serialized, {
+    sourceCompletenessAttested: true,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.sourceReadId, sourceReadId);
+  assert.equal(result.sourceDigest, sourceDigest);
+  assert.equal(result.graphInput.vertices.length, 10);
+  assert.equal(result.graphInput.edges.length, 9);
+  assert.equal(result.analysis, "NO_CYCLE");
+});
 
 test("graph analysis entry point never invokes consumer on a rejected artifact", () => {
   const certificate = buildGraphInputCertificate([
