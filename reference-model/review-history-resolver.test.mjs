@@ -248,8 +248,9 @@ test("graph certificate does not infer source completeness from a well-formed gr
 
 test("graph certificate makes duplicate IDs and unresolved parents explicit", () => {
   const certificate = buildGraphInputCertificate([
-    { recordId: "A", parentRecordId: "MISSING" },
     { recordId: "A", parentRecordId: null },
+    { recordId: "A", parentRecordId: null },
+    { recordId: "C", parentRecordId: "MISSING" },
     { recordId: " B ", parentRecordId: null },
   ], { sourceReadId: "snapshot-003", sourceDigest: "sha256:source", sourceCompletenessVerified: true });
   assert.equal(certificate.certificateReady, false);
