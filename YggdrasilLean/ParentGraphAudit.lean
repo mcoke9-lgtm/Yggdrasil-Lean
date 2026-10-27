@@ -33,6 +33,22 @@ inductive ParentGraphIntegrity where
   | indeterminate
   deriving DecidableEq, Repr
 
+/-- Every parent target named by an edge is present in the supplied vertex set. -/
+def parentTargetsResolve (vertices : List Nat) (edges : List ParentEdge) : Prop :=
+  ∀ edge : ParentEdge, edge ∈ edges → edge.2 ∈ vertices
+
+/-- Missing parent targets make structural integrity indeterminate. -/
+def integrityFromParentTargets
+    (vertices : List Nat) (edges : List ParentEdge) : ParentGraphIntegrity :=
+  if h : parentTargetsResolve vertices edges then .valid else .indeterminate
+
+/-- A dangling parent edge cannot be certified as structurally valid. -/
+theorem dangling_parent_makes_integrity_indeterminate
+    (vertices : List Nat) (edges : List ParentEdge)
+    (h : ¬ parentTargetsResolve vertices edges) :
+    integrityFromParentTargets vertices edges = .indeterminate := by
+  simp [integrityFromParentTargets, h]
+
 /-- Three-way result: only a verified witness establishes a cycle. -/
 inductive ParentGraphResult where
   | cycle (witness : List Nat)
