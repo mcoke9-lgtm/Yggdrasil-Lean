@@ -112,3 +112,7 @@ This is a pure decision rule, not a worker or external-action executor. It does 
 ## End-to-end recovery reporting (AF-RECOVERY-003 draft)
 
 The `recover-evaluate` CLI command evaluates the work request, decides recovery from supplied facts, and emits `af.recovery-gated-work.v1`. Tests confirm an otherwise justified retry remains blocked when an external side effect is uncertain, including across separate fresh CLI invocations with the same input. The report explicitly keeps `retry_allowed`, `execution_status`, and `persistence_status` separate. Repeating a deterministic evaluation is not durable state or proof that external facts remained unchanged; no operation is executed.
+
+## Ledger-anchored recovery (AF-RECOVERY-004 draft)
+
+`adaptive_filesystem_runtime.ledger_recovery.decide_recovery_with_ledger` requires recovery facts to identify an attempt present in the SQLite ledger for the supplied project and operation, and requires it to be the latest attempt for that operation. Missing, cross-project, or stale attempt references fail closed. The ledger anchors attempt identity and sequence; it does not authenticate external evidence or independently prove the real-world outcome. Tests cover restart, missing identity, wrong project, stale attempts, and conflicting recovery facts. This remains a local SQLite prototype.
