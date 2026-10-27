@@ -7,6 +7,7 @@ It maps actual pilot field names to the resolver model and never repairs links.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from math import isfinite
 from typing import Any
 
 from .resolver import Record, ResolutionError
@@ -44,8 +45,10 @@ def records_from_airtable(rows: Sequence[Mapping[str, Any]]) -> list[Record]:
             raise ResolutionError("MALFORMED_FIELD", f"row {position} has invalid Record ID")
         if not isinstance(branch_id, str) or not branch_id or branch_id != branch_id.strip():
             raise ResolutionError("MALFORMED_FIELD", f"{record_id}.Branch ID is required text")
-        if not isinstance(sequence, (int, float)) or isinstance(sequence, bool) or int(sequence) != sequence:
-            raise ResolutionError("MALFORMED_FIELD", f"{record_id}.Sequence must be an integer")
+        if (not isinstance(sequence, (int, float)) or isinstance(sequence, bool)
+                or (isinstance(sequence, float) and not isfinite(sequence))
+                or int(sequence) != sequence):
+            raise ResolutionError("MALFORMED_FIELD", f"{record_id}.Sequence must be a finite integer")
         normalized.append(
             Record(
                 record_id=record_id,
