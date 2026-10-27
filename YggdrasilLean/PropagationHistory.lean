@@ -269,6 +269,39 @@ theorem appendTransitionReviews_composes
   cases history
   simp [appendTransitionReviews, List.append_assoc]
 
+/-- Reconstruct a transition review from its recorded transition and route configuration. -/
+def reconstructTransitionReview
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    TransitionReviewEntry :=
+  assessCompleteTransition transition routes
+
+/-- Reconstructed review retains the exact source transition. -/
+theorem reconstructTransitionReview_retainsTransition
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (reconstructTransitionReview transition routes).transition = transition := by
+  rfl
+
+/-- Reconstructed content assessment is derived from the source transition endpoints. -/
+theorem reconstructTransitionReview_usesDerivedChanges
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (reconstructTransitionReview transition routes).propagation.change =
+      deriveChangeSet transition.before transition.after := by
+  rfl
+
+/-- Reconstructed identity review is derived from the same source transition. -/
+theorem reconstructTransitionReview_usesIdentity
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    (reconstructTransitionReview transition routes).identityBranch =
+      assessIdentityBranchTransition transition.before transition.after := by
+  rfl
+
+/-- Reconstructing from the same transition and routes is deterministic. -/
+theorem reconstructTransitionReview_deterministic
+    (transition : TransitionRecord) (routes : List DependencyRoute) :
+    reconstructTransitionReview transition routes =
+      assessCompleteTransition transition routes := by
+  rfl
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
