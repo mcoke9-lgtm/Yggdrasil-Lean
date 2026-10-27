@@ -57,7 +57,8 @@ def _index(records: Iterable[Record]) -> dict[str, Record]:
                 f"{record.record_id} must provide both source_branch_id and source_anchor_id",
             )
     ids = [r.record_id for r in items]
-    duplicates = sorted({record_id for record_id in ids if ids.count(record_id) > 1})
+    from collections import Counter
+    duplicates = sorted(record_id for record_id, count in Counter(ids).items() if count > 1)
     if duplicates:
         raise ResolutionError("DUPLICATE_RECORD_ID", ", ".join(duplicates))
     seen_sequences: set[tuple[str, int]] = set()
@@ -103,10 +104,10 @@ def _check_parent_cycles(index: dict[str, Record]) -> None:
 def resolve_history(records: Iterable[Record], record_id: str) -> ResolutionResult:
     """Resolve one record against a caller-supplied snapshot.
 
-    A blank optional reference yields state blank_unclassified. No reference
-    state means explicit N/A or proven root, because the source schema has no
-    separate field for those declarations. A missing branch predecessor means
-    only that none was present in this snapshot.
+    A blank optional reference yields state blank_unclassified; this schema cannot
+    distinguish an intentional root/N/A from an omitted or unknown value. A missing
+    branch predecessor means only that none was present in this snapshot. Parent
+    references across the supplied snapshot are checked for missing links and cycles.
     """
     index = _index(records)
     target = index.get(record_id)
