@@ -1,4 +1,6 @@
 import test from "node:test";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import { auditDataset, hasParentCycle, resolveRecordReferences, Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
@@ -495,4 +497,30 @@ test("graph analysis entry point blocks incomplete source despite valid digest",
     code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
   });
   assert.equal(invoked, false);
+});
+
+test("architecture guard: production reference-model modules cannot import raw graph analyzers", async () => {
+  const root = new URL(".", import.meta.url).pathname;
+  const rawNames = ["analyzeParentGraph", "hasParentCycle", "auditDataset", "resolveRecordReferences"];
+  const files = [];
+  async function walk(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else if (entry.isFile() && entry.name.endsWith(".mjs") &&
+          !entry.name.endsWith(".test.mjs") &&
+          entry.name !== "review-history-resolver.mjs") files.push(path);
+    }
+  }
+  await walk(root);
+  const violations = [];
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const name of rawNames) {
+      // Guard import declarations, not the raw module's own exported definitions.
+      const importPattern = new RegExp(String.raw`import\\s+(?:\\{[^}]*\\b${name}\\b[^}]*\\}|[^;]*?\\b${name}\\b[^;]*?)\\s+from\\s+["'][^"']*review-history-resolver\\.mjs["']`, "s");
+      if (importPattern.test(source)) violations.push({ file, name });
+    }
+  }
+  assert.deepEqual(violations, [], "raw graph-analysis imports are reserved for tests and the resolver's own module");
 });
