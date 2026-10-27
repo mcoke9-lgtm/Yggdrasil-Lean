@@ -1,4 +1,4 @@
-""""Opt-in, read-only integration test against a live Airtable Records table.
+"""Opt-in, read-only integration test against a live Airtable Records table.
 
 Set AIRTABLE_PAT, AIRTABLE_BASE_ID, and AIRTABLE_TABLE_ID in the environment.
 This test issues GET requests only. It never creates, updates, or deletes records.
@@ -67,7 +67,10 @@ class LiveAirtableIntegrationTests(unittest.TestCase):
         result = resolve_history(self.records, "AF-PILOT-004")
         self.assertEqual(result.parent_record_id, "AF-PILOT-003")
         self.assertEqual(result.source_anchor_id, "AF-PILOT-001")
+        self.assertEqual(result.parent_reference_state, "linked")
+        self.assertEqual(result.source_anchor_reference_state, "linked")
         self.assertIsNone(result.branch_predecessor_id)
+        self.assertEqual(result.branch_predecessor_state, "none_found_in_snapshot")
 
     def test_historical_missing_anchor_stays_explicit(self):
         with self.assertRaises(ResolutionError) as caught:
@@ -78,15 +81,20 @@ class LiveAirtableIntegrationTests(unittest.TestCase):
         result = resolve_history(self.records, "AF-PILOT-006")
         self.assertEqual(result.parent_record_id, "AF-PILOT-005")
         self.assertEqual(result.branch_predecessor_id, "AF-PILOT-003")
+        self.assertEqual(result.parent_reference_state, "linked")
+        self.assertEqual(result.branch_predecessor_state, "found_in_snapshot")
         revised = resolve_history(self.records, "AF-PILOT-003")
         self.assertEqual(revised.parent_record_id, "AF-PILOT-002")
         self.assertEqual(revised.revision_of_id, "AF-PILOT-001")
+        self.assertEqual(revised.revision_reference_state, "linked")
 
     def test_absent_parent_on_007_is_preserved_not_inferred(self):
         self.assertIsNone(self.by_id["AF-PILOT-007"].parent_record_id)
         result = resolve_history(self.records, "AF-PILOT-007")
         self.assertIsNone(result.parent_record_id)
+        self.assertEqual(result.parent_reference_state, "blank_unclassified")
         self.assertEqual(result.branch_predecessor_id, "AF-PILOT-006")
+        self.assertEqual(result.branch_predecessor_state, "found_in_snapshot")
 
 
 if __name__ == "__main__":
