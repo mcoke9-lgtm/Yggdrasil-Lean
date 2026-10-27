@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import { Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
-import { auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
+import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
 import { pilotSnapshot } from "./pilot-snapshot.mjs";
 import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
 import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact } from "./graph-input-certificate.mjs";
