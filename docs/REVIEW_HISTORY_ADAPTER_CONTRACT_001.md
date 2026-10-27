@@ -215,3 +215,23 @@ When more than one stored record matches a retry identity and equivalent logical
 **Confirmed absence:** `NotFound(scopeEvidence)` is permitted only when the adapter establishes absence across the complete declared identity lookup scope. Incomplete indexes, partial pages, permission failures, unavailable storage, unsupported schema, and corruption cannot be converted into `NotFound`. If scope or completeness cannot be established, return `Unavailable` or a separately defined incomplete/unknown outcome; do not guess absence.
 
 This is a proposed contract refinement, not adopted API semantics. It requires review against the persisted-record schema and final API outcome inventory before Lean declarations change. No current adapter or storage-backed behavior is implied.
+## 12. Incomplete identity lookup versus unavailable operation — clarification proposed
+
+**Status: proposed contract clarification; not adopted and not an implementation claim.**
+
+The adapter must distinguish two facts when the evidence supports them:
+
+- **Known incomplete lookup:** the adapter has positive evidence that the required declared lookup scope was not fully searched (for example, a partial page or incomplete index result). It must not return `NotFound`.
+- **Unavailable/unknown lookup:** the operation failed before it could establish completeness or a reliable identity result (for example, storage, connectivity, or permission failure). The adapter must not pretend it knows the lookup was incomplete in a specific way unless it has that evidence.
+
+Candidate disposition matrix:
+
+| Evidence observed | Required behavior |
+|---|---|
+| Complete declared scope searched; no match | Candidate `NotFound(scopeEvidence)` |
+| Explicitly partial coverage | Preserve incomplete status/evidence; no `NotFound` |
+| Cannot determine whether scope was complete | Return unresolved/unavailable with completeness marked unknown |
+| Multiple competing event IDs observed | Preserve `AmbiguousIdentity`; state whether candidate list is exhaustive |
+| One match observed, but lookup completeness unknown | Do not claim unique `Found` across the requested scope unless the contract defines `Found` as a local match and separately exposes incomplete coverage |
+
+The contract should ultimately choose between a distinct incomplete-read outcome and mandatory completeness metadata. A single generic `Unavailable` is acceptable only if callers cannot mistake it for confirmed absence and can reliably inspect the incomplete/unknown distinction. This decision remains open pending API review and IT-6 acceptance criteria. No Lean constructor shape is selected here.
