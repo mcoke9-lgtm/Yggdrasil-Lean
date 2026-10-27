@@ -17,11 +17,22 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(result.revision_of_id, "base-1")
         self.assertIsNone(result.source_anchor_id)
         self.assertEqual(result.branch_predecessor_id, "main-2")
+        self.assertEqual(result.parent_reference_state, "linked")
+        self.assertEqual(result.source_anchor_reference_state, "blank_unclassified")
+        self.assertEqual(result.revision_reference_state, "linked")
+        self.assertEqual(result.branch_predecessor_state, "found_in_snapshot")
+
+    def test_blank_parent_is_not_promoted_to_explicit_root_or_na(self):
+        result = resolve_history([self.base], "base-1")
+        self.assertIsNone(result.parent_record_id)
+        self.assertEqual(result.parent_reference_state, "blank_unclassified")
+        self.assertEqual(result.branch_predecessor_state, "none_found_in_snapshot")
 
     def test_fork_anchor_and_parent_resolve(self):
         result = resolve_history([self.base, self.main2, self.fork1], "fork-1")
         self.assertEqual(result.source_anchor_id, "base-1")
         self.assertEqual(result.parent_record_id, "main-2")
+        self.assertEqual(result.source_anchor_reference_state, "linked")
 
     def test_missing_requested_record(self):
         with self.assertRaises(ResolutionError) as caught:
