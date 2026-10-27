@@ -195,6 +195,29 @@ example :
         []) = true := by
   decide
 
+/-- An in-memory review history retains transition reviews in append order. -/
+structure TransitionReviewHistory where
+  entries : List TransitionReviewEntry
+  deriving DecidableEq, Repr
+
+/-- Append one completed review without replacing earlier entries. -/
+def appendTransitionReview
+    (history : TransitionReviewHistory) (entry : TransitionReviewEntry) :
+    TransitionReviewHistory :=
+  ⟨history.entries ++ [entry]⟩
+
+/-- Appending retains the prior history as the exact prefix of the new history. -/
+theorem appendTransitionReview_preservesPriorEntries
+    (history : TransitionReviewHistory) (entry : TransitionReviewEntry) :
+    (appendTransitionReview history entry).entries = history.entries ++ [entry] := by
+  rfl
+
+/-- The appended review is the final entry in the resulting history. -/
+theorem appendTransitionReview_retainsNewEntry
+    (history : TransitionReviewHistory) (entry : TransitionReviewEntry) :
+    (appendTransitionReview history entry).entries.getLast? = some entry := by
+  simp [appendTransitionReview]
+
 
 /-- Explicit forks are distinguishable as branch-identity changes. -/
 theorem forkProject_triggersBranchReview
