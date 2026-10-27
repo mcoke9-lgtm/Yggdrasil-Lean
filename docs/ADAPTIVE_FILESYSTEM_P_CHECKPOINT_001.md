@@ -93,3 +93,16 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - The earlier architecture-guard matcher regression is CI-verified. No Airtable pilot records were changed.
 - Next batch: verify CI for the single-parent invariant; if green, continue review of artifact metadata and source-evidence consistency, without claiming cryptographic authenticity from unkeyed digests.
 - Six-Part Integrity Check: (1) exact six-part rubric retained; (2) artifact structure, identity, topology, evidence, verification, persistence remain distinct; (3) multiple-parent ambiguity now explicitly rejected; (4) implemented, tests pending; (5) CI recheck required; (6) GitHub checkpoint persists implementation status and the unresolved source-authenticity boundary.
+
+## 10. Autonomous Root Branch — artifact verifier hardening (2026-10-27)
+
+- User named this workstream **Autonomous Root Branch**. This is the workstream name; the existing Git branch remains `review-history-identity-read-evidence-001`.
+- Audit finding: the serialized graph verifier previously allowed malformed metadata types and noncanonical binding/vertex/edge order to pass if an artifact was rehashed consistently. A valid unkeyed digest proves payload consistency, not trusted authorship.
+- Implemented stricter validation in `reference-model/graph-input-certificate.mjs`: require well-formed source-read ID/digest, boolean completeness/readiness flags, structurally valid findings, canonical record-ID-to-vertex bindings, canonical vertex order, and canonical edge order. Duplicate-parent rejection remains a distinct earlier check so the specific failure is preserved.
+- Added regression cases in `reference-model/review-history-resolver.test.mjs` for malformed metadata and rehashed noncanonical mappings/edges.
+- Latest code commit: `9f0fa812465110dc568b810676b790ff9b61743c`.
+- CI for that exact commit completed successfully: [resolver tests — run 205](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40582175682); [Lean build — run 646](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40582175754).
+- Earlier intermediate CI failed because the new ordering check took precedence over the existing duplicate-parent error. Validation order was corrected, and the final resolver and Lean runs above are green.
+- No Airtable pilot records were mutated. This does not establish live connector integration, source authenticity, or production deployment.
+- Next work remains the planned runtime integration boundary: determine whether an authenticated connector wrapper can supply trusted read evidence, keeping the live integration distinct from fixture-based CI.
+- **Six-Part Integrity Check:** (1) exact six roles remain history, actions, learning, state, plan, persistence; (2) verifier checks metadata, identity mapping, topology, and ordering; (3) regression cases cover demonstrated tampering gaps without removing the multi-parent check; (4) implemented and CI-verified on the exact code commit; (5) both resolver tests and Lean build rechecked green after correcting failure precedence; (6) this checkpoint update records the verified state, while source authenticity and live integration remain unresolved.
