@@ -231,3 +231,36 @@ This crosswalk maps the remaining operational information before any Lean constr
 4. **Status:** Semantic identity invariant adopted separately; this crosswalk is proposed; API and implementation unadopted/untested.
 5. **Recheck:** No absence inferred from incomplete evidence; no commit inferred from a handle; no validity inferred from missing checks; no arbitrary identity winner.
 6. **Persistence/uncertainty:** Saved and read back at commit `9ec8c9859cc417867b6322cf462b297d81df25c8`; no runtime or backend claim follows from this document.
+## Incomplete identity lookup vs service unavailability — decision matrix 001
+
+**Status: recommendation proposed; not adopted. No Lean constructor/API shape is selected by this matrix.**
+
+| Observed condition | What the adapter knows | Safe semantic disposition | Must not claim |
+|---|---|---|---|
+| Lookup explicitly reports partial coverage (for example, a page/index/scope is known incomplete) | The requested identity search did not cover its declared scope completely | Preserve an explicit incomplete-lookup status/evidence; do not return `NotFound` | That no matching record exists |
+| Lookup fails before completeness can be assessed (for example, storage/connectivity/permission failure) | The operation could not establish a reliable result; completeness may be unknown | Preserve an unavailable/unknown result with reason and retryability only when evidenced | That the search was definitely incomplete in a known way, or that the identity is absent |
+| Lookup completes across the declared scope and finds no match | Absence within that declared scope is established | Candidate `NotFound(scopeEvidence)` | Global absence beyond the declared scope |
+| Lookup completes and finds one validated identity match, with no competing match in the complete declared scope | One matching record is established within that scope | Candidate `Found(record, provenance)` | Global uniqueness outside the declared scope |
+| Lookup observes multiple competing event IDs | Competing identity is positively established; candidate-list completeness depends on lookup evidence | Preserve `AmbiguousIdentity` and disclose whether observed candidates are exhaustive | Selecting a winner by list order or calling the result merely unavailable |
+| A page/cursor operation returns data but cannot establish whether required scope was fully traversed | Some data is observed, but completeness is unknown | Keep completeness explicitly `unknown`; do not promote empty/partial data to confirmed absence | Complete history or confirmed absence |
+
+### Options considered
+
+- **A — One broad `Unavailable` outcome with reason codes.** Smaller primary outcome family, but risks callers overlooking a known incomplete lookup unless the status is mandatory and exhaustively handled.
+- **B — Separate `Incomplete` and `Unavailable` outcomes.** Makes positively known incompleteness explicit, but must not label a failed operation “incomplete” when it never established that fact.
+- **C — Separate operation outcome from lookup-completeness metadata (`complete | incomplete | unknown`).** Represents the two axes independently and handles overlapping causes, but adds type/API complexity and may be excessive for the first milestone.
+
+### Recommendation for review
+
+Prefer the **semantic distinction**, not yet a constructor choice: distinguish *known incomplete coverage* from *unavailability before completeness can be established*. Retain an explicit `unknown` completeness state when the evidence does not decide between them. Whether this requires a dedicated `Incomplete` constructor or mandatory completeness metadata should be decided against caller obligations and IT-6 before Lean declarations change.
+
+**Safety rules:** `NotFound` requires complete declared lookup-scope evidence. An incomplete lookup cannot be `NotFound`. A storage/permission failure does not automatically prove known incompleteness; if completeness cannot be assessed, preserve unknown/unavailable. If competing candidates were actually observed, preserve ambiguity even if other parts of the lookup failed.
+
+### Six-Part Integrity Check — matrix 001
+
+1. **Count:** The existing six integration-test groups remain IT-1 through IT-6.
+2. **Role mapping:** IT-6 tests read outcome distinctions; IT-3 tests competing identities; IT-4 tests page/cursor completeness.
+3. **Completeness:** Matrix separates positive evidence of incompleteness from inability to assess completeness; overlap and candidate-list exhaustiveness remain explicit.
+4. **Status:** Semantic recommendation proposed, not adopted; no constructor or Lean declaration changed.
+5. **Recheck:** `NotFound` still requires complete scope; unavailable is not absence; observed ambiguity is not hidden.
+6. **Persistence/uncertainty:** This is a design proposal only. Backend behavior and test execution remain unverified.
