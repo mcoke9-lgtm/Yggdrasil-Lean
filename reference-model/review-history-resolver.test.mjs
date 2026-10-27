@@ -573,7 +573,7 @@ test("fresh Airtable pilot snapshot traverses the serialized graph gate read-onl
   assert.equal(verification.valid, true);
   assert.equal(certificate.findings.length, 0);
   assert.equal(certificate.vertices.length, 10);
-  assert.equal(certificate.edges.length, 8);
+  assert.equal(certificate.edges.length, 9);
 
   const result = analyzeVerifiedGraphInput(serialized, {
     sourceCompletenessAttested: true,
@@ -583,5 +583,5 @@ test("fresh Airtable pilot snapshot traverses the serialized graph gate read-onl
   assert.equal(result.sourceDigest, sourceDigest);
   assert.equal(result.analysis, "NO_CYCLE");
   assert.equal(result.graphInput.vertices.length, 10);
-  assert.equal(result.graphInput.edges.length, 8);
+  assert.equal(result.graphInput.edges.length, 9);
 });
