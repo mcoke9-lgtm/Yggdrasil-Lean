@@ -95,4 +95,23 @@ theorem repeated_id_complete_lookup_is_candidate_set :
       .completeCandidates (evidence .complete .completed [7, 7, 7]) := by
   simp [classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
 
+
+/-- Explicitly missing adapter attestation keeps an otherwise complete lookup unresolved. -/
+theorem gate_without_attestation_is_unresolved :
+    gateIdentityRead false true (evidence .complete .completed [7]) =
+      .unresolved (evidence .complete .completed [7]) := by
+  simp [gateIdentityRead, classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
+
+/-- Empty complete candidates become not-found candidates only with attestation. -/
+theorem gate_attested_empty_lookup_is_not_found_candidate :
+    gateIdentityRead true true (evidence .complete .completed []) =
+      .notFoundCandidate (evidence .complete .completed []) := by
+  simp [gateIdentityRead, classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
+
+/-- A single candidate is rejected when record-to-request identity validation fails. -/
+theorem gate_rejects_failed_record_validation :
+    gateIdentityRead true false (evidence .complete .completed [7]) =
+      .invalidRecord (evidence .complete .completed [7]) := by
+  simp [gateIdentityRead, classifyIdentityRead, evidence, hasAtLeastTwoDistinctIds]
+
 end YggdrasilLean
