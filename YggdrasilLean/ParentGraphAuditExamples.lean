@@ -13,6 +13,17 @@ namespace YggdrasilLean
 
 private def triangleEdges : List ParentEdge := [(1, 2), (2, 3), (3, 1)]
 
+/-- A parent target absent from the vertex set makes integrity indeterminate. -/
+example :
+    integrityFromParentTargets [1] [(1, 2)] = .indeterminate := by
+  decide
+
+/-- A dangling parent target cannot yield a no-cycle result through the integrity-aware classifier. -/
+example :
+    classifyParentGraph [(1, 2)]
+      (integrityFromParentTargets [1] [(1, 2)]) none = .indeterminate := by
+  decide
+
 /-- A concrete closed path whose every directed edge exists is classified as a cycle. -/
 example :
     classifyParentGraph triangleEdges .valid (some [1, 2, 3, 1]) =
