@@ -184,6 +184,12 @@ export function verifySerializedGraphInputArtifact(serialized) {
         !sortedVertices.includes(edge[0]) || !sortedVertices.includes(edge[1]))) {
     return { valid: false, code: "GRAPH_MAPPING_MISMATCH" };
   }
+  // Parent history is a single-parent relation: each child may have at most
+  // one parent edge. Reject ambiguous topology before downstream projection.
+  const edgeChildren = artifact.graphInput.edges.map(([child]) => child);
+  if (new Set(edgeChildren).size !== edgeChildren.length) {
+    return { valid: false, code: "MULTIPLE_PARENT_EDGES_FOR_VERTEX" };
+  }
 
   const canonicalGraph = JSON.stringify({
     vertices: bindings.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
