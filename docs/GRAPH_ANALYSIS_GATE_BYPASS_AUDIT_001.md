@@ -26,7 +26,7 @@
 
 The Airtable connector was queried read-only against base `appaUa8VbUJZmzmxe`, table `tblvy8J5UC6Y6SylE` (`Records`). The connector returned 10 records, reported `totalRecordCount=10`, and returned no `nextCursor`. No Airtable create/update/delete operations were called.
 
-The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in `reference-model/pilot-snapshot.mjs`. The integration-style test computes a SHA-256 digest over that canonical projection, builds and serializes a certificate, checks source-read identity and digest fields, verifies 10 vertices and 8 parent edges, and calls the gated consumer with an explicit completeness attestation. Expected result: accepted artifact and `NO_CYCLE`.
+The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in `reference-model/pilot-snapshot.mjs`. `buildSourceReadEvidenceManifest` computes a SHA-256 digest over a canonical projection sorted by record ID, records the read identity, returned count, reported total, pagination completion, scope, and algorithm label, and passes that manifest to the consumer gate. Tests confirm reordering does not change the digest and changing a parent reference does. The gated consumer accepts the snapshot with 10 vertices, 8 parent edges, and `NO_CYCLE`.
 
 **Digest scope limitation:** the test digest covers only the graph-relevant projection, not all Airtable fields or the entire source response. The source-read ID is a descriptive identifier, not an authenticated connector receipt. The completeness flag is an explicit test attestation based on the observed record count and absent pagination cursor; it is not cryptographic proof of exhaustiveness.
 
@@ -41,8 +41,8 @@ The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in
 
 ## Verification
 
-- Resolver tests, including the read-only pilot graph flow: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40491538019)
-- Lean build: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40491537963)
+- Resolver tests, including the source-read evidence manifest and read-only pilot graph flow: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493248134)
+- Lean build: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40493248339)
 
 Repeat this audit after architectural changes and before any production integration.
 
