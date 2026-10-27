@@ -137,3 +137,30 @@ test("does not mistake a long acyclic parent chain for a cycle", () => {
   }));
   assert.equal(hasParentCycle(records), false);
 });
+
+
+test("marks parent graph indeterminate when record identities are duplicated", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ]), "INDETERMINATE");
+});
+
+test("marks parent graph indeterminate for malformed identities or parent references", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  assert.equal(analyzeParentGraph([{ recordId: " A " }]), "INDETERMINATE");
+  assert.equal(analyzeParentGraph([{ recordId: "A", parentRecordId: 12 }]), "INDETERMINATE");
+});
+
+test("distinguishes a definite cycle from an indeterminate graph", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.mjs");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "B", parentRecordId: "A" },
+  ]), "CYCLE");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "MISSING" },
+  ]), "NO_CYCLE");
+});
