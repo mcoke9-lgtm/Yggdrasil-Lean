@@ -86,3 +86,10 @@ A read-only connector query was performed against base `appaUa8VbUJZmzmxe`, tabl
 A follow-up review found that the gated consumer converted numeric vertex IDs to strings for cycle analysis. That could preserve the cycle/no-cycle result while losing the original source record identity in the analysis projection. The gate now returns its verified source-vertex bindings, and the consumer reconstructs parent references through those bindings before running `analyzeParentGraph`. The Airtable-shaped test now asserts that `AF-PILOT-010` retains parent `AF-PILOT-009` in the analysis records.
 
 This change preserves application-level source IDs across the numeric graph representation; it does not authenticate the source response. CI for the identity-preservation commits is pending.
+
+
+## Trusted paginated connector wrapper
+
+`readAndAnalyzeAirtableTable({ listRecordsForTable, ...config })` now provides the runtime integration seam: it invokes a supplied trusted connector function for each page, passes schema field IDs, follows cursors, rejects repeated/invalid cursors and changing total counts, and forwards the aggregated connector-returned records into `analyzeAirtableTableResponse`. Regression tests cover a two-page read, cursor propagation, preservation of original source IDs, and changing totals.
+
+The connector callback is intentionally dependency-injected so the core reference model does not bind itself to one app SDK. The callback itself remains a trust boundary and must be a thin wrapper over the actual connector. The test uses a deterministic mock callback; it is not a live read initiated by repository CI. The earlier separate read-only Airtable observation establishes that the connector is available and provides the current pilot snapshot, but does not establish production wiring.
