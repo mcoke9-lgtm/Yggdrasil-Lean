@@ -45,3 +45,10 @@ The graph-relevant projection (`Record ID`, `Parent Record ID`) was refreshed in
 - Lean build: [CI run](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40491537963)
 
 Repeat this audit after architectural changes and before any production integration.
+
+
+## Follow-up: structured source-read evidence manifest (2026-10-27)
+
+The consumer gate now requires a structured `yggdrasil-source-read-evidence-v1` manifest rather than a bare `sourceCompletenessAttested` boolean. The manifest checks source-read identity and digest equality, returned-record count against the artifact binding count, reported total against returned count, pagination completion, a non-empty declared source scope, and the digest algorithm label.
+
+This is a stronger consistency contract and the tests exercise mismatched counts, incomplete pagination, blank scope, and digest mismatch. It is **not yet an independent proof of source completeness or authenticity**: a caller can still fabricate a self-consistent manifest unless a trusted source adapter creates and protects it. The checked-in snapshot test remains fixture-based; CI does not query Airtable live. Next step is to define a trusted adapter boundary and evidence provenance without mutating the pilot.
