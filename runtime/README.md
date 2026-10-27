@@ -27,6 +27,10 @@ Use `evaluate_work(WorkRequest(...))` for a side-effect-free recommendation when
 
 Use `audit_snapshot(records)` to inspect every record's parent, source-anchor, and revision relationships, rather than resolving a single target. It reports missing links, source-branch mismatches, duplicate IDs/sequences, malformed records, and parent cycles. Blank references are reported as informational `BLANK_UNCLASSIFIED` findings; they do not become explicit roots or N/A values. The report status fails on errors but may pass with unclassified blanks, so callers must inspect both `status` and `unclassified_count`. Coverage is separately labelled `unknown`, `declared_partial`, or `declared_complete`; the declaration is caller-supplied and is not independent proof of completeness. A structurally passing partial or unknown snapshot must not be treated as a complete-history verification.
 
+## Structured reports
+
+The package exports `resolution_report`, `snapshot_audit_report`, and `work_decision_report`. Each emits a versioned JSON-compatible dictionary. Work reports preserve recommendation outcome separately from execution and persistence; audit reports preserve structural status separately from declared snapshot coverage. Serialization is local only and does not save or transmit the report.
+
 ## Run offline regression tests
 
 From the repository root:
