@@ -32,6 +32,7 @@ structure KnownAppend where
 inductive AppendIdentityDecision where
   | fresh
   | alreadyCommitted (existingEventId : String)
+  | ambiguousHistory
   | conflict
   deriving DecidableEq, Repr
 
