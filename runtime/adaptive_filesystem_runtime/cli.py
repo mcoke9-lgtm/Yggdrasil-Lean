@@ -81,7 +81,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(work_decision_report(decision), sort_keys=True, indent=2))
         return 2 if decision.outcome == "INVALID_INPUT" else 0
     except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
-        print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, sort_keys=True), file=sys.stderr)
+        report = {"error": type(exc).__name__, "detail": str(exc)}
+        if isinstance(exc, ResolutionError):
+            report["code"] = exc.code
+            report["detail"] = exc.detail
+        print(json.dumps(report, sort_keys=True), file=sys.stderr)
         return 2
 
 
