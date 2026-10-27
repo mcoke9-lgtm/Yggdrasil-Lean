@@ -440,7 +440,7 @@ test("consumer gate rejects tampering and artifacts with findings before exposin
   const artifact = JSON.parse(serializeGraphInputCertificate(valid));
   artifact.graphInput.vertices = [99];
   const rejected = consumeVerifiedGraphInputArtifact(JSON.stringify(artifact), {
-    sourceReadEvidence: sourceReadEvidence(serialized),
+    sourceReadEvidence: sourceReadEvidence(JSON.stringify(artifact)),
   });
   assert.deepEqual(rejected, {
     accepted: false,
