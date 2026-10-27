@@ -13,6 +13,18 @@ namespace YggdrasilLean
 
 private def triangleEdges : List ParentEdge := [(1, 2), (2, 3), (3, 1)]
 
+/-- Matching vertices and edges yield valid graph-input integrity. -/
+example :
+    integrityOfParentGraphInput
+      ⟨[1, 2], [(1, 2)]⟩ = .valid := by
+  decide
+
+/-- A graph input cannot certify validity when its parent target is absent. -/
+example :
+    integrityOfParentGraphInput
+      ⟨[1], [(1, 2)]⟩ = .indeterminate := by
+  decide
+
 /-- A parent target absent from the vertex set makes integrity indeterminate. -/
 example :
     integrityFromParentTargets [1] [(1, 2)] = .indeterminate := by
