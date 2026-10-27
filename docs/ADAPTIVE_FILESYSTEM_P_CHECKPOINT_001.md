@@ -19,7 +19,9 @@ The work developed from review-history resolution and parent-graph auditing into
 - Added `reference-model/source-read-adapter.mjs` with `adaptCompleteSourceRead`: validates source read ID, explicit scope, records, reported total, and null next cursor before deriving the manifest and graph certificate.
 - Added tests for adapter success, count mismatch, incomplete pagination, malformed scope, inconsistent evidence counts, digest mismatch, order-invariant digest, and changed-parent digest sensitivity.
 - Added `analyzeCompleteSourceRead(read)` as an end-to-end reference entry point: validates the read response, constructs the manifest/certificate, and calls the gated consumer without requiring the caller to manually assemble the pieces.
-- Added end-to-end tests for a complete read and for rejecting a pagination cursor before analysis.
+- Added `analyzeAirtableTableResponse(response, config)` to map the real connector response shape using schema-confirmed field IDs and connector pagination/count metadata.
+- Performed a fresh read-only Airtable query on 2026-10-27: 10 returned records, reported total 10, no next cursor. The observed Record ID / Parent Record ID projection has 10 vertices and 8 parent edges; the recorded-value test expects `NO_CYCLE`.
+- Added tests for the Airtable-shaped response and for rejecting a pagination cursor before analysis.
 - Updated `docs/GRAPH_ANALYSIS_GATE_BYPASS_AUDIT_001.md` with the adapter entry point and its limitations.
 
 ## 3. What we've learned
@@ -42,9 +44,9 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 ## 5. Plan
 
-1. **Next:** run CI on the end-to-end adapter entry point and verify both resolver tests and Lean build.
-2. Define a real connector integration that calls `analyzeCompleteSourceRead` directly on the actual connector response, with source identity and scope established by trusted integration code.
-3. Add a recorded connector-response test that preserves provenance and does not reconstruct response metadata by hand.
+1. **Next:** verify resolver CI and Lean build for the Airtable response-shape adapter and docs updates.
+2. Reduce reconstruction at the integration boundary by passing the actual connector response directly into `analyzeAirtableTableResponse` in any runtime integration.
+3. If the connector exposes a stable read/run identifier or exportable response receipt, capture it; otherwise document that source-read identity is integration-assigned and not independently authenticated.
 4. Keep live connector integration separate from fixture-based CI claims. Do not mutate the Airtable pilot.
 5. Re-audit gate bypass paths after integration changes.
 6. Only then consider production wiring; do not equate the reference model with production enforcement.
