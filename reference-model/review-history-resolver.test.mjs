@@ -651,6 +651,49 @@ test("trusted Airtable reader rejects inconsistent totals across pages", async (
   });
 });
 
+test("trusted Airtable reader rejects a repeated pagination cursor", async () => {
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => ({
+      records: [],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: "same-cursor",
+    }),
+    sourceReadId: "repeated-cursor-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_CURSOR_INVALID_OR_REPEATED",
+  });
+});
+
+test("trusted Airtable reader rejects more records than the reported total", async () => {
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => ({
+      records: [
+        { cellValuesByFieldId: { "fldd49StaAWbIMfH3": "A" } },
+        { cellValuesByFieldId: { "fldd49StaAWbIMfH3": "B" } },
+      ],
+      metadata: { totalRecordCount: 1 },
+      nextCursor: null,
+    }),
+    sourceReadId: "count-overrun-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 2,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_RETURNED_COUNT_EXCEEDS_TOTAL",
+  });
+});
+
 test("Airtable response adapter rejects a paginated response before analysis", () => {
   const result = analyzeAirtableTableResponse({
     records: [{ cellValuesByFieldId: { "fldd49StaAWbIMfH3": "AF-PILOT-001" } }],
