@@ -89,6 +89,10 @@ class GitTransportRefAdapter:
                 f"git push outcome unresolved; remote ref could not be read "
                 f"({type(exc).__name__})"
             ) from exc
+        # A failed client response may follow a successful remote update.
+        # Reconcile the desired head before classifying a changed head as stale.
+        if observed == desired:
+            return
         if observed != expected:
             raise RefUpdateRejected(
                 f"lease rejected: expected {expected}, observed {observed}"
