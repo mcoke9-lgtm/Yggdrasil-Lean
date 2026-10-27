@@ -86,15 +86,31 @@ export function resolveRecordReferences(records, record) {
 export function auditDataset(records) {
   const idCounts = new Map();
   const sequenceCounts = new Map();
+  const invalidRecordIds = [];
+  const invalidBranchSequences = [];
   for (const record of records) {
-    if (typeof record.recordId === "string") {
-      idCounts.set(record.recordId, (idCounts.get(record.recordId) || 0) + 1);
+    const id = record.recordId;
+    if (typeof id !== "string" || id.length === 0 || id.trim() !== id) {
+      invalidRecordIds.push({ recordId: id ?? null, reason: "MALFORMED_RECORD_ID" });
+    } else {
+      idCounts.set(id, (idCounts.get(id) || 0) + 1);
     }
-    const key = JSON.stringify([record.branchId, record.sequence]);
-    sequenceCounts.set(key, (sequenceCounts.get(key) || 0) + 1);
+
+    const branch = record.branchId;
+    const sequence = record.sequence;
+    if (typeof branch !== "string" || branch.length === 0 || branch.trim() !== branch ||
+        !Number.isSafeInteger(sequence) || sequence < 1) {
+      invalidBranchSequences.push({ recordId: id ?? null, branchId: branch ?? null,
+        sequence: sequence ?? null, reason: "MALFORMED_BRANCH_SEQUENCE" });
+    } else {
+      const key = JSON.stringify([branch, sequence]);
+      sequenceCounts.set(key, (sequenceCounts.get(key) || 0) + 1);
+    }
   }
   return {
+    invalidRecordIds,
     duplicateRecordIds: [...idCounts].filter(([, count]) => count > 1).map(([id]) => id),
+    invalidBranchSequences,
     duplicateBranchSequences: [...sequenceCounts]
       .filter(([, count]) => count > 1).map(([key]) => JSON.parse(key)),
     parentCycle: hasParentCycle(records),
