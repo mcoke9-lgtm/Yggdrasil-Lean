@@ -119,3 +119,10 @@ The `recover-evaluate` CLI command evaluates the work request, decides recovery 
 ## Recovery decision freshness (AF-RECOVERY-005 draft)
 
 `check_recovery_decision_freshness` re-reads the local ledger and detects when a decision names an attempt that is no longer the latest. Tests cover a current decision, a decision made stale by an append through a second ledger instance, and a missing attempt after database separation. This is a point-in-time freshness check only: another append can occur immediately after the check. It is **not** an atomic authorization for external effects. A safe external executor would need a durable claim/lease protocol and target-enforced idempotency or reconciliation; neither is implemented here. No Airtable writes or schema changes are involved.
+
+
+## Recovery coordination lease (AF-RECOVERY-006 draft)
+
+`SQLiteAttemptLedger.claim_recovery_review` atomically checks the latest persisted attempt and acquires a short-lived, per-operation coordination lease in the same SQLite transaction. A competing worker cannot acquire the same unexpired lease; the exact same claim is reported as an idempotent replay. Expired leases can be reclaimed, and release requires matching claim and owner identifiers. Tests cover persistence after reopen, competing workers, expiry/reclaim, stale and missing attempts, exact-owner release, and a two-instance race.
+
+The lease coordinates cooperating workers using the same local database. It is **not** permission to repeat an external action, does not prove the prior effect's outcome, and does not make a remote side effect atomic with the SQLite transaction. Wall-clock lease expiry assumes reasonably consistent system time. A production design still needs authenticated worker identity, careful lease renewal/fencing, and target-enforced idempotency or reconciliation. This remains a local prototype; no Airtable schema or records were changed.
