@@ -119,7 +119,7 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - Follow-on review found two distinct comparison/canonicalization risks: snapshots from different Airtable base/table scopes could be compared as if they were a before/after pair; storage IDs were sorted with locale-sensitive `localeCompare`.
 - Added `SNAPSHOT_SCOPE_MISMATCH` when previous/current base or table IDs differ. Replaced locale-sensitive storage-ID sorting with deterministic code-unit ordering for snapshot rows and comparison changes.
 - Added regression tests for cross-scope rejection and upper/lowercase storage-ID ordering. Code/test commit: `2596e0652050289a5a390b73b6fd23ea0713e6df`.
-- **Verification pending:** the GitHub Actions run lookup has not yet returned runs for this exact commit. Do not mark this follow-on change CI-verified until the resolver/snapshot tests and Lean build report success. Earlier integrity-gate code commit `5eea39556a23f42bc902f346636bbe119686f31e` passed both workflows; that result does not cover this newer change.
+- **Verification:** both workflows passed on the exact code/test commit `2596e0652050289a5a390b73b6fd23ea0713e6df`: [resolver/snapshot tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686888899) and [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686888517). The workflow-list wrapper initially returned no runs; direct check-run and Actions-run reads confirmed both completed successfully.
 - No Airtable data was fetched or changed; no live snapshot was persisted; PR #3 remains draft and unmerged.
 
 ### Six-Part Integrity Check
@@ -127,6 +127,6 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 1. **Count:** exactly six checks.
 2. **Roles:** (a) base/table scope; (b) deterministic row ordering; (c) regression coverage; (d) exact-commit CI status; (e) source-data boundary; (f) persistence and next gate.
 3. **Completeness:** both cross-scope comparisons and locale-sensitive ordering have focused tests; the previous stale-hash/count tests remain in the same test file.
-4. **Status:** code and tests committed; CI pending; not adopted as production behavior.
-5. **Recheck:** reread the committed implementation and test file at the exact code/test commit; workflow result not yet available.
-6. **Persistence / uncertainty:** checkpoint committed on PR #3's existing branch; next action is confirm CI on `2596e0652050289a5a390b73b6fd23ea0713e6df`. No source-authenticity or live-capture claim is added.
+4. **Status:** code and tests committed; both CI workflows passed on the exact code/test commit; not adopted as production behavior.
+5. **Recheck:** confirmed the exact SHA in both completed workflow runs; resolver/snapshot tests and Lean build both passed.
+6. **Persistence / uncertainty:** checkpoint committed on PR #3's existing branch; CI is verified for `2596e0652050289a5a390b73b6fd23ea0713e6df`. No source-authenticity or live-capture claim is added.
