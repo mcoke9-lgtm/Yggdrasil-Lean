@@ -119,9 +119,11 @@ export async function readAndAnalyzeAirtableTable({
   recordIdFieldId,
   parentRecordIdFieldId,
   pageSize = 100,
+  maxPages = 10000,
 } = {}) {
   if (typeof listRecordsForTable !== "function" ||
       !Number.isSafeInteger(pageSize) || pageSize < 1 ||
+      !Number.isSafeInteger(maxPages) || maxPages < 1 ||
       typeof sourceReadId !== "string" || !sourceReadId.trim() ||
       typeof baseId !== "string" || !baseId.trim() ||
       typeof tableId !== "string" || !tableId.trim() ||
@@ -133,8 +135,13 @@ export async function readAndAnalyzeAirtableTable({
   const records = [];
   const seenCursors = new Set();
   let cursor;
+  let pageCount = 0;
   let reportedTotalRecordCount = null;
   do {
+    if (pageCount >= maxPages) {
+      return { accepted: false, code: "AIRTABLE_PAGE_LIMIT_EXCEEDED" };
+    }
+    pageCount += 1;
     const page = await listRecordsForTable({
       baseId,
       tableId,
