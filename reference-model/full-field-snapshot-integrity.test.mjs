@@ -83,3 +83,24 @@ test("comparison rejects internally inconsistent snapshot counts", () => {
     code: "SNAPSHOT_INTEGRITY_INVALID",
   });
 });
+
+
+test("comparison rejects snapshots from different Airtable scopes", () => {
+  const previous = build([record("rec00000000000001", { fldA: "same" })]).snapshot;
+  const current = build([record("rec00000000000001", { fldA: "same" })]).snapshot;
+  current.baseId = "app11111111111111";
+  assert.deepEqual(compareFullFieldSnapshots(previous, current), {
+    accepted: false,
+    code: "SNAPSHOT_SCOPE_MISMATCH",
+  });
+});
+
+test("snapshot rows use locale-independent storage-ID ordering", () => {
+  const upper = "rec0000000000000A";
+  const lower = "rec0000000000000a";
+  const snapshot = build([
+    record(lower, { fldA: "lower" }),
+    record(upper, { fldA: "upper" }),
+  ]).snapshot;
+  assert.deepEqual(snapshot.rows.map((row) => row.storageId), [upper, lower]);
+});
