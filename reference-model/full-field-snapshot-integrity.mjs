@@ -90,12 +90,64 @@ export function buildFullFieldSnapshot({
   };
 }
 
-/** Compare two accepted snapshots by immutable Airtable storage ID. */
+/**
+ * Check internal snapshot consistency before comparison. This detects accidental
+ * or partial tampering, but cannot authenticate a snapshot if an attacker can
+ * rewrite every value and recompute every hash; that requires a separately
+ * trusted snapshot hash or signed capture receipt.
+ */
+function validateSnapshot(snapshot) {
+  if (!snapshot || snapshot.schema !== "adaptive-filesystem-full-field-snapshot-v1" ||
+      typeof snapshot.baseId !== "string" || !snapshot.baseId.trim() ||
+      typeof snapshot.tableId !== "string" || !snapshot.tableId.trim() ||
+      typeof snapshot.capturedAt !== "string" || !snapshot.capturedAt.trim() ||
+      !Number.isSafeInteger(snapshot.reportedTotalRecordCount) ||
+      snapshot.reportedTotalRecordCount < 0 ||
+      !Number.isSafeInteger(snapshot.returnedRecordCount) ||
+      !Array.isArray(snapshot.rows) ||
+      snapshot.returnedRecordCount !== snapshot.rows.length ||
+      snapshot.reportedTotalRecordCount !== snapshot.returnedRecordCount ||
+      snapshot.paginationComplete !== true ||
+      !Array.isArray(snapshot.schemaFieldIds) ||
+      !snapshot.schemaFieldIds.every((id) => typeof id === "string" && id.length > 0) ||
+      new Set(snapshot.schemaFieldIds).size !== snapshot.schemaFieldIds.length) {
+    return false;
+  }
+  for (const row of snapshot.rows) {
+    if (!row || typeof row.storageId !== "string" ||
+        !/^rec[A-Za-z0-9]{14}$/.test(row.storageId) ||
+        typeof row.createdTime !== "string" || !row.createdTime ||
+        !row.fields || typeof row.fields !== "object" || Array.isArray(row.fields) ||
+        !row.schemaCoverage || typeof row.schemaCoverage !== "object" ||
+        Array.isArray(row.schemaCoverage) || typeof row.rowHash !== "string") {
+      return false;
+    }
+    const expectedCoverageIds = [...snapshot.schemaFieldIds].sort();
+    if (JSON.stringify(Object.keys(row.schemaCoverage).sort()) !== JSON.stringify(expectedCoverageIds) ||
+        Object.values(row.schemaCoverage).some((present) => typeof present !== "boolean")) {
+      return false;
+    }
+    for (const [fieldId, field] of Object.entries(row.fields)) {
+      if (!field || field.present !== true || typeof field.hash !== "string" ||
+          field.hash !== sha256(canonicalJson({ present: true, value: field.value })) ||
+          row.schemaCoverage[fieldId] !== true) {
+        return false;
+      }
+    }
+    for (const [fieldId, present] of Object.entries(row.schemaCoverage)) {
+      if (present !== Object.prototype.hasOwnProperty.call(row.fields, fieldId)) return false;
+    }
+    const { rowHash, ...rowPayload } = row;
+    if (rowHash !== sha256(canonicalJson(rowPayload))) return false;
+  }
+  const ids = snapshot.rows.map((row) => row.storageId);
+  return new Set(ids).size === ids.length;
+}
+
+/** Compare two internally consistent snapshots by immutable Airtable storage ID. */
 export function compareFullFieldSnapshots(previous, current) {
-  if (!previous || !current || previous.schema !== "adaptive-filesystem-full-field-snapshot-v1" ||
-      current.schema !== "adaptive-filesystem-full-field-snapshot-v1" ||
-      !Array.isArray(previous.rows) || !Array.isArray(current.rows)) {
-    return { accepted: false, code: "SNAPSHOT_COMPARISON_INPUT_MALFORMED" };
+  if (!validateSnapshot(previous) || !validateSnapshot(current)) {
+    return { accepted: false, code: "SNAPSHOT_INTEGRITY_INVALID" };
   }
   const duplicates = (rows) => {
     const seen = new Set(), repeated = new Set();
