@@ -41,6 +41,11 @@ test("rejects duplicate or malformed storage IDs", () => {
   assert.equal(build([record("bad-id", {})]).code, "SNAPSHOT_STORAGE_ID_MISSING_OR_MALFORMED");
 });
 
+test("rejects returned field IDs absent from the supplied schema", () => {
+  assert.equal(build([record("rec00000000000001", { fldUnknown: "unexpected" })]).code,
+    "SNAPSHOT_FIELD_NOT_IN_SCHEMA");
+});
+
 test("comparison identifies additions, missing rows, and field changes by storage ID", () => {
   const prev = build([
     record("rec00000000000001", { fldA: "old" }),
