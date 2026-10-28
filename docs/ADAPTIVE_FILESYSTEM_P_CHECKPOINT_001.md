@@ -130,3 +130,20 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** code and tests committed; both CI workflows passed on the exact code/test commit; not adopted as production behavior.
 5. **Recheck:** confirmed the exact SHA in both completed workflow runs; resolver/snapshot tests and Lean build both passed.
 6. **Persistence / uncertainty:** checkpoint committed on PR #3's existing branch; CI is verified for `2596e0652050289a5a390b73b6fd23ea0713e6df`. No source-authenticity or live-capture claim is added.
+
+
+## 12. Declared-schema consistency gate (2026-10-28)
+
+- A bounded review found a builder/comparator inconsistency: the builder accepted a returned field ID absent from the supplied schema, but the comparator's schema-coverage validation then rejected that same snapshot. The accepted output was therefore not guaranteed to be comparable to itself.
+- The builder now rejects malformed record shape before field coverage checks and returns `SNAPSHOT_FIELD_NOT_IN_SCHEMA` when a returned field key is absent from the declared schema. Added a focused regression test.
+- Exact code/test commit: `61f7809f1530e47cc1c394d8e0fbedce671b8879`. [Resolver/snapshot tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883788); [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883758).
+- This closes the demonstrated builder/comparator mismatch only. It does not authenticate schema provenance or a coordinated rewrite of values and hashes. No Airtable data was fetched or changed; no live snapshot was persisted; PR #3 remains draft and unmerged.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) builder/comparator contract; (b) record-shape validation; (c) schema-field validation; (d) regression test; (e) exact-commit CI; (f) persistence and remaining trust boundary.
+3. **Completeness:** unknown field IDs now have a distinct fail-closed outcome; existing sparse-vs-empty, stale-hash, scope-mismatch, deterministic-order, and duplicate-ID tests remain.
+4. **Status:** code and regression test committed; resolver/snapshot tests and Lean build CI-verified on the exact code/test commit; not live-integrated or adopted for production.
+5. **Recheck:** checked both completed workflow runs against the exact SHA `61f7809f1530e47cc1c394d8e0fbedce671b8879`.
+6. **Persistence / uncertainty:** this checkpoint and the integrity contract are being updated on the existing PR #3 branch; source authenticity, durable live capture, and revision-history integration remain unresolved.
