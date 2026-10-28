@@ -17,6 +17,24 @@ Keep full-field source preservation separate from graph projection. The graph ad
 ## Boundaries
 This module does not fetch Airtable, write an immutable file, or inspect revision history. The optional trusted-hash argument checks evidence consistency only; the caller must establish where the expected hashes came from and protect them independently. A caller must first fetch all pages from the trusted connector, then persist the accepted snapshot and manifest in an approved durable location. Do not embed credentials or live source data in the repository.
 
+## Trusted capture receipt — proposed contract, not implemented
+
+The comparator's optional digest check is only as trustworthy as the source of the expected digest. A future capture boundary should produce a receipt that binds the accepted snapshot to its capture conditions. Minimum proposed fields:
+
+- `receiptSchema` and version;
+- unique `receiptId` and capture timestamp;
+- `baseId`, `tableId`, snapshot schema version, and exact `snapshotHash`;
+- returned record count, reported total count, schema-field-set digest, and explicit pagination-complete evidence;
+- connector/API version and read-consistency statement, including whether the connector guarantees a point-in-time view;
+- parent/previous receipt reference when this capture extends a recorded history;
+- receipt authentication metadata, with algorithm/key identifier where signatures are used.
+
+**Trust requirement:** the receipt and snapshot must not rely solely on the same mutable, untrusted storage location. The expected digest must be anchored by an independently protected mechanism, such as a verified signature whose key is protected separately, or a durable store with an explicitly reviewed access-control and tamper-evidence model. A hash chain alone does not prevent an attacker from rewriting the entire chain unless a prior chain head is anchored independently.
+
+**Do not overclaim completeness:** a cursor being absent and a record count matching are necessary checks in this reference model, not proof that the connector returned every record or a consistent point-in-time view. The receipt must record the actual connector guarantees; if those guarantees are unavailable, mark completeness/consistency as unknown rather than certified.
+
+**Status:** proposed contract only. No receipt type, signing key, external anchor, database, or durable storage implementation is selected or implemented here. Backend choice remains governed by the existing durable review-history decision records; do not silently import a provisional backend decision from another branch into this one.
+
 ## Required next tests/integration gates
 1. **Verified:** the strengthened trusted-hash test passed on `6c376c98a00ee99cf8faa5cdfcdd41cfc4ec293d`: [resolver/snapshot tests](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40699108190); [Lean build](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40699108081). The preceding trusted-hash implementation passed both workflows on `4f627951be2850c0783b7a3251b0e759996388fd` (runs [40698544834](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40698544834) and [40698544913](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40698544913)). Schema-consistency tests passed on `61f7809f1530e47cc1c394d8e0fbedce671b8879` (runs [40697883788](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883788) and [40697883758](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883758)).
 2. Add a trusted connector-boundary wrapper that passes the unmodified complete response into this layer.
