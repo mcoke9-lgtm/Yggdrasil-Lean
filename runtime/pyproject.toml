@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptive-filesystem-runtime"
+version = "0.1.0"
+description = "Reference resolver for Adaptive Filesystem review history"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+af-runtime = "adaptive_filesystem_runtime.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["adaptive_filesystem_runtime*"]
