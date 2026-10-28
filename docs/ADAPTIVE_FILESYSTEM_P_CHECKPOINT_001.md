@@ -165,3 +165,19 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** implemented, regression-tested, and CI-verified; not live-integrated or production-adopted.
 5. **Recheck:** both CI jobs passed on exact code/test SHA `4f627951be2850c0783b7a3251b0e759996388fd`.
 6. **Persistence / uncertainty:** code/test changes and this checkpoint are committed on the existing PR #3 branch; independently protecting and sourcing the expected hash remains an external integration requirement.
+
+
+## 14. Trusted-hash threat-model regression verified (2026-10-28)
+
+- Strengthened the mismatch test to use a changed but fully self-consistent snapshot as the comparison input while presenting the original snapshot's digest as the trusted current digest. This tests the actual threat: internal field/row hashes may be recomputed for rewritten content, but a separately trusted digest should still reject it.
+- Exact code/test commit: `6c376c98a00ee99cf8faa5cdfcdd41cfc4ec293d`. [Resolver/snapshot tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40699108190); [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40699108081).
+- This verifies digest comparison behavior in the reference module. It does not create an independently trusted store or signed receipt; those remain caller/integration responsibilities. No Airtable records were read or changed, and no live snapshot was persisted.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) threat model; (b) self-consistent rewrite fixture; (c) trusted digest comparison; (d) regression assertion; (e) exact-commit CI; (f) persistence and external trust source.
+3. **Completeness:** checks a valid rewritten snapshot against a stale trusted digest, in addition to malformed and mismatching digest cases.
+4. **Status:** implemented, tested, and CI-verified; not live-integrated or production-adopted.
+5. **Recheck:** both CI jobs passed on exact SHA `6c376c98a00ee99cf8faa5cdfcdd41cfc4ec293d`.
+6. **Persistence / uncertainty:** test and checkpoint changes are committed on the existing PR #3 branch; independent storage/provenance for expected hashes remains unresolved.
