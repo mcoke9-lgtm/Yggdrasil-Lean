@@ -11,13 +11,13 @@ Keep full-field source preservation separate from graph projection. The graph ad
 - Canonicalization recursively sorts object keys, preserves array order, and hashes values using SHA-256.
 - Each returned field gets a field hash; each row hash binds storage ID, creation time, field hashes/values, and schema coverage.
 - Snapshots are sorted by immutable storage ID. Before comparing, the comparator revalidates manifest counts, scope fields, schema coverage, field hashes, and row hashes; malformed or internally inconsistent snapshots fail closed. Comparison reports added, missing, and changed rows/fields.
-- The builder rejects a non-null next cursor and count mismatch. It cannot independently prove that a connector response is authentic or complete.
+- The builder rejects a non-null next cursor, count mismatch, malformed record shape, and returned field IDs absent from the supplied schema (`SNAPSHOT_FIELD_NOT_IN_SCHEMA`). This prevents accepting a snapshot that the comparator would later reject for an internally inconsistent schema/field map. It cannot independently prove that a connector response is authentic or complete.
 
 ## Boundaries
 This module does not fetch Airtable, write an immutable file, or inspect revision history. A caller must first fetch all pages from the trusted connector, then persist the accepted snapshot and manifest in an approved durable location. Do not embed credentials or live source data in the repository.
 
 ## Required next tests/integration gates
-1. **Verified:** Node resolver and snapshot tests passed on code commit `5eea39556a23f42bc902f346636bbe119686f31e` (run [40686683033](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683033)); Lean build passed on the same commit (run [40686683034](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683034)).
+1. **Verified:** latest Node resolver/snapshot tests passed on `61f7809f1530e47cc1c394d8e0fbedce671b8879` (run [40697883788](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883788)); Lean build passed on the same commit (run [40697883758](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40697883758)). Earlier integrity-gate tests also passed on `5eea39556a23f42bc902f346636bbe119686f31e`.
 2. Add a trusted connector-boundary wrapper that passes the unmodified complete response into this layer.
 3. Persist a live full-field snapshot outside source code, including capture timestamp and connector/pagination receipt.
 4. Compare against prior raw evidence, preserving missing-vs-empty semantics.
