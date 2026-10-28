@@ -1037,3 +1037,30 @@ test("source evidence digest canonicalizes blank and absent parent references eq
   ], options);
   assert.equal(withBlank.sourceDigest, withAbsent.sourceDigest);
 });
+
+
+test("trusted Airtable reader bounds pages even when cursors never repeat", async () => {
+  let calls = 0;
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => {
+      calls += 1;
+      return {
+        records: [],
+        metadata: { totalRecordCount: 0 },
+        nextCursor: `page-${calls + 1}`,
+      };
+    },
+    sourceReadId: "page-limit-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+    maxPages: 2,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_PAGE_LIMIT_EXCEEDED",
+  });
+  assert.equal(calls, 2);
+});
