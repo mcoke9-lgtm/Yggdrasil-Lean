@@ -233,3 +233,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 
 - Correction to section 18: runs 40604072762 (Lean build) and 40604072931 (resolver tests) belong to parent code commit `b4c2ea43de7bde660d2e2007800b5f9dba8da969`, not documentation commit `98eba153159ba9cca8348dce783fda248920decf`.
 - Workflow lookup returned no runs for `98eba...`; exact-commit CI for that documentation commit is therefore **unverified**, not passed. The code-head CI remains verified. This correction supersedes any wording in section 18 implying the new documentation commit itself had passing CI.
+
+
+## 20. Reconcile pagination audit with the existing runtime contract (2026-10-27)
+
+- Found and reread `docs/AIRTABLE_RUNTIME_INTEGRATION_CONTRACT_001.md`. It already states that the repository contains a paginated adapter seam but no deployed runtime wrapper, credentials, or live CI integration; it also explicitly says the chat's Airtable connector is not callable from GitHub Actions or repository JavaScript.
+- This narrows the next step: do not search for an imagined production connector inside the repository or wire the chat connector into CI by assumption. The missing item is an actual host/runtime integration contract and implementation that can provide the real connector response, plus a documented consistency guarantee if snapshot-grade reads are required.
+- The available chat connector's documented `list_records_for_table` schema exposes records, total count, and cursor, but no snapshot/version token. The repository integration contract calls for a thin wrapper preserving those values; it does not promise snapshot consistency. Therefore a successful two-page read and stable total would demonstrate pagination behavior only, not a coherent source snapshot.
+- **Disposition:** no additional runtime probe, no credentials sought or copied, no Airtable data read or mutated, and no code change. Continue with offline contract/test work until a real runtime is deliberately supplied. Any production path requiring coherent snapshots remains blocked until a supported source-side snapshot/export mechanism or explicit weaker-consistency acceptance is documented.
+- Status: existing contract **found and reconciled**; absence of production wrapper/CI wiring **documented in the repository contract**; snapshot-grade consistency **not established**; implementation **not adopted**.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) existing contract discovery; (b) runtime boundary; (c) exposed pagination semantics; (d) consistency consequence; (e) safe disposition; (f) persistence and unresolved gate.
+3. **Completeness:** distinguishes offline adapter tests, live pagination, and snapshot-consistent reads as three different claims.
+4. **Status:** contract found; no runtime or snapshot feature implemented; production adoption remains blocked for snapshot-required use.
+5. **Recheck:** read the existing runtime contract, current adapter, and exposed connector action schema; no credentials or records accessed.
+6. **Persistence / uncertainty:** this reconciliation is committed on the existing branch. Whether a supported Airtable source-side snapshot/export mechanism is available to a future host runtime remains open; latest documentation-only commit CI is unverified.
