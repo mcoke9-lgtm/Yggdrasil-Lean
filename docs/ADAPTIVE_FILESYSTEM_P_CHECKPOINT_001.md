@@ -93,3 +93,22 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 - The earlier architecture-guard matcher regression is CI-verified. No Airtable pilot records were changed.
 - Next batch: verify CI for the single-parent invariant; if green, continue review of artifact metadata and source-evidence consistency, without claiming cryptographic authenticity from unkeyed digests.
 - Six-Part Integrity Check: (1) exact six-part rubric retained; (2) artifact structure, identity, topology, evidence, verification, persistence remain distinct; (3) multiple-parent ambiguity now explicitly rejected; (4) implemented, tests pending; (5) CI recheck required; (6) GitHub checkpoint persists implementation status and the unresolved source-authenticity boundary.
+
+
+## 10. Snapshot comparison integrity gate (2026-10-28)
+
+- Resumed from PR #3, `full-field-snapshot-integrity-001`, rather than assuming PR #1's branch was the active workstream. PR #3 remains open and draft.
+- Distinct trust-boundary finding: `compareFullFieldSnapshots` previously trusted the stored `rowHash` as the sole signal that a row was unchanged. A caller could alter field content while leaving stale hashes, and comparison would not independently validate the snapshot internals.
+- Added pre-comparison checks for manifest schema/scope metadata, reported and returned counts, pagination-complete flag, schema-field coverage, per-field hashes, row hashes, and row structure. Internally inconsistent snapshots fail closed with `SNAPSHOT_INTEGRITY_INVALID`; duplicate storage IDs retain their specific `SNAPSHOT_DUPLICATE_STORAGE_ID` outcome.
+- Added regressions for field tampering with stale hashes and inconsistent manifest counts. The first test run exposed a duplicate-ID error-precedence regression; corrected the gate ordering and reran CI rather than weakening the existing test.
+- Exact code/test commit `5eea39556a23f42bc902f346636bbe119686f31e`: [resolver/snapshot tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683033); [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683034). Follow-up documentation commit `130ffb38a82bc44b63b855d332766892e206f12d`.
+- **Limit:** hash revalidation detects partial/stale edits, not a coordinated rewrite of field values and all hashes. Authenticity still needs a separately trusted snapshot hash or signed capture receipt. No live snapshot was fetched or persisted; no Airtable records changed.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) identify the comparison trust boundary; (b) validate manifest and counts; (c) validate schema coverage and field hashes; (d) validate row hashes and preserve duplicate-ID failure precedence; (e) verify tests and Lean build; (f) record persistence and the authenticity limit.
+3. **Completeness:** stale-hash field edits and count tampering now have regressions; prior add/missing/change and duplicate-ID cases remain covered.
+4. **Status:** implementation and regression tests committed; CI-verified on the exact code/test commit; documentation updated; not live-integrated or adopted as a production capture mechanism.
+5. **Recheck:** inspected the changed module/tests and CI job outcomes; an initial failure was corrected and the final exact code/test commit passed both workflows.
+6. **Persistence / uncertainty:** checkpoint and contract changes are committed on PR #3's existing branch. External authenticity, durable snapshot persistence, source revision history, and live connector capture remain unresolved.
