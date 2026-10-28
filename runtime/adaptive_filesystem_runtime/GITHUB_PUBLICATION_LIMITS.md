@@ -54,7 +54,9 @@ A cleanup warning means the temporary ref needs manual inspection and deletion.
 - If only the GitHub REST ref endpoint is available, classify publication as
   best-effort and do not claim stale-writer exclusion.
 - After an ambiguous response, re-read the ref and classify the observed outcome;
-  never blindly retry an uncertain write.
+  if the desired head is already present, reconcile it as published; otherwise
+  distinguish a changed head from an unchanged or unreadable head and never
+  blindly retry an uncertain write.
 - Pure publication contract and fake-adapter tests remain contract tests only.
   Local bare-remote integration tests improve coverage but do not establish live
   GitHub integration behavior.
@@ -62,8 +64,10 @@ A cleanup warning means the temporary ref needs manual inspection and deletion.
 ## Status
 
 - Local Git compare-and-swap / lease primitive: verified in a disposable local test.
-- Git transport adapter + local bare-remote integration tests: implemented; runtime
-  CI passed on commit `d7a53e504137545af0c75ca65ea94b30502ce123`.
+- Git transport adapter + local bare-remote integration tests: implemented; the
+  regression suite also covers a failed push acknowledgement followed by read-back
+  of the desired head. Runtime tests and Lean build passed on commit
+  `2ff0c58666623778352dea7fa11f1d23e0cee40f`.
 - Lean build on that same commit: passed.
 - GitHub REST expected-head atomicity: unsupported by the documented endpoint shape.
 - Connector `expected_sha` behavior: unverified. A controlled stale-update attempt
