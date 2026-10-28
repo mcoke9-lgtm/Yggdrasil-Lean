@@ -251,3 +251,22 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** contract found; no runtime or snapshot feature implemented; production adoption remains blocked for snapshot-required use.
 5. **Recheck:** read the existing runtime contract, current adapter, and exposed connector action schema; no credentials or records accessed.
 6. **Persistence / uncertainty:** this reconciliation is committed on the existing branch. Whether a supported Airtable source-side snapshot/export mechanism is available to a future host runtime remains open; latest documentation-only commit CI is unverified.
+
+
+## 21. Bound non-terminating pagination traversal (2026-10-27)
+
+- A separate offline audit found that repeated-cursor detection alone does not bound traversal if a faulty connector returns an endless sequence of distinct cursors and empty pages. Stable reported totals and count-overrun checks would not stop that sequence.
+- Added `maxPages` to `readAndAnalyzeAirtableTable`, defaulting to 10,000, with positive safe-integer validation and fail-closed result `AIRTABLE_PAGE_LIMIT_EXCEEDED` before an additional connector call beyond the configured limit.
+- Added a regression test using unique cursors and empty pages; with `maxPages: 2`, the reader makes exactly two calls and rejects instead of looping.
+- Updated `docs/AIRTABLE_RUNTIME_INTEGRATION_CONTRACT_001.md` to include the maximum-page failure case and clarify that this bounds traversal only; it does not establish snapshot consistency.
+- Exact code/test commit `4309544bcda9dfb15576436fd2b5b7e764915626`: resolver tests passed (run 40608525292); Lean build passed (run 40608525335). The later documentation-only contract commit is `203b0c1c1002102f9275136f8707cd823a293a4b`; CI for that documentation commit has not yet been checked.
+- Status: safeguard **implemented, regression-tested, and CI-verified** on the exact code/test commit. Production runtime integration, connector authenticity, and coherent multi-page snapshots remain unresolved. No Airtable records changed; no new branch created; PR #1 remains unmerged.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) loop termination; (b) page-budget configuration; (c) regression behavior; (d) code/test/CI status; (e) documentation status; (f) persistence and remaining boundaries.
+3. **Completeness:** catches endless unique-cursor traversal without duplicating repeated-cursor tests; ordinary successful pagination paths remain covered by existing tests.
+4. **Status:** safeguard implemented and tested; exact code/test commit CI-verified; contract updated; no production deployment or snapshot guarantee adopted.
+5. **Recheck:** inspected the committed adapter and regression test; both required CI workflows passed on `4309544bcda9dfb15576436fd2b5b7e764915626`.
+6. **Persistence / uncertainty:** implementation, test, and docs are committed on the existing branch. The default limit may need runtime-specific tuning for very large datasets. Source authenticity, multi-page snapshot consistency, and deployed integration remain unresolved.
