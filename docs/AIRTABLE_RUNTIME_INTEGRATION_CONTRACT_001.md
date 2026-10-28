@@ -12,13 +12,14 @@ Invoke `readAndAnalyzeAirtableTable` from a runtime that has an authenticated Ai
 4. Return each page's connector-provided `records`, `metadata.totalRecordCount`, and `nextCursor` without reconstructing counts or silently dropping fields.
 5. Pass that wrapper to `readAndAnalyzeAirtableTable`; use a fresh, unique `sourceReadId` for each read attempt.
 6. Record outcome code, source scope, returned count, read timestamp, and a reference to the runtime's own execution log. Do not log secrets or unnecessary cell contents.
-7. Fail closed on malformed pages, changing totals, repeated/invalid cursors, missing IDs, count mismatch, or incomplete pagination.
+7. Fail closed on malformed pages, changing totals, repeated/invalid cursors, missing IDs, count mismatch, incomplete pagination, or the configured maximum page count (`AIRTABLE_PAGE_LIMIT_EXCEEDED`). The reference adapter defaults to 10,000 pages; the host may choose a different positive safe-integer limit for its expected workload.
 8. Keep reads read-only. No create/update/delete operations are part of this integration.
 
 ## Trust and evidence boundaries
 - The JavaScript adapter validates pagination and internal consistency; it cannot prove that a connector wrapper is honest or that Airtable's response is complete beyond the connector's own contract.
 - A `sourceReadId` is a correlation identifier unless the runtime supplies an independently verifiable receipt.
 - Fixture-based CI tests verify deterministic behavior, not live Airtable connectivity.
+- The maximum page count bounds accidental or faulty non-terminating cursor traversal; it does not establish snapshot consistency.
 - A live integration check must be separately labelled and must report the actual execution environment, time, scope, counts, and outcome.
 - Never place Airtable credentials in source, fixtures, documentation, workflow logs, or commits.
 
