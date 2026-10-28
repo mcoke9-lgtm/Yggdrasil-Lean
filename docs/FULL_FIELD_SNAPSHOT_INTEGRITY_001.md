@@ -17,7 +17,7 @@ Keep full-field source preservation separate from graph projection. The graph ad
 This module does not fetch Airtable, write an immutable file, or inspect revision history. A caller must first fetch all pages from the trusted connector, then persist the accepted snapshot and manifest in an approved durable location. Do not embed credentials or live source data in the repository.
 
 ## Required next tests/integration gates
-1. Run Node tests in CI and review the actual result.
+1. **Verified:** Node resolver and snapshot tests passed on code commit `5eea39556a23f42bc902f346636bbe119686f31e` (run [40686683033](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683033)); Lean build passed on the same commit (run [40686683034](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40686683034)).
 2. Add a trusted connector-boundary wrapper that passes the unmodified complete response into this layer.
 3. Persist a live full-field snapshot outside source code, including capture timestamp and connector/pagination receipt.
 4. Compare against prior raw evidence, preserving missing-vs-empty semantics.
