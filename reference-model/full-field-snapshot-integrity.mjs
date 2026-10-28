@@ -145,8 +145,8 @@ function validateSnapshot(snapshot) {
 
 /** Compare two internally consistent snapshots by immutable Airtable storage ID. */
 export function compareFullFieldSnapshots(previous, current) {
-  if (!validateSnapshot(previous) || !validateSnapshot(current)) {
-    return { accepted: false, code: "SNAPSHOT_INTEGRITY_INVALID" };
+  if (!previous || !current || !Array.isArray(previous.rows) || !Array.isArray(current.rows)) {
+    return { accepted: false, code: "SNAPSHOT_COMPARISON_INPUT_MALFORMED" };
   }
   const duplicates = (rows) => {
     const seen = new Set(), repeated = new Set();
@@ -160,6 +160,9 @@ export function compareFullFieldSnapshots(previous, current) {
   const duplicateCurrent = duplicates(current.rows);
   if (duplicatePrevious.length || duplicateCurrent.length) {
     return { accepted: false, code: "SNAPSHOT_DUPLICATE_STORAGE_ID", duplicatePrevious, duplicateCurrent };
+  }
+  if (!validateSnapshot(previous) || !validateSnapshot(current)) {
+    return { accepted: false, code: "SNAPSHOT_INTEGRITY_INVALID" };
   }
   const before = new Map(previous.rows.map((row) => [row.storageId, row]));
   const after = new Map(current.rows.map((row) => [row.storageId, row]));
