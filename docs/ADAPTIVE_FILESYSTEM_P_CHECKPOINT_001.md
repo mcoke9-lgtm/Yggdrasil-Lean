@@ -147,3 +147,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** code and regression test committed; resolver/snapshot tests and Lean build CI-verified on the exact code/test commit; not live-integrated or adopted for production.
 5. **Recheck:** checked both completed workflow runs against the exact SHA `61f7809f1530e47cc1c394d8e0fbedce671b8879`.
 6. **Persistence / uncertainty:** this checkpoint and the integrity contract are being updated on the existing PR #3 branch; source authenticity, durable live capture, and revision-history integration remain unresolved.
+
+
+## 13. Independently trusted snapshot-hash check (2026-10-28)
+
+- Bounded review question: the builder already returned a canonical SHA-256 snapshot hash, but comparison did not accept or check an independently retained expected hash. Internal field/row hash validation alone cannot detect a coordinated rewrite of snapshot contents and all internal hashes.
+- Added an optional third argument to `compareFullFieldSnapshots(previous, current, trustedSnapshotHashes)`. When supplied, it requires both 64-character lowercase SHA-256 values and recomputes each snapshot digest from canonical snapshot contents. Malformed evidence returns `SNAPSHOT_TRUST_EVIDENCE_MALFORMED`; mismatches return `SNAPSHOT_TRUST_HASH_MISMATCH`. When omitted, prior comparison behavior remains: internal consistency is checked, but external authenticity is not claimed.
+- Added tests for matching trusted digests, a mismatching expected digest, and malformed evidence.
+- Exact code/test commit: `4f627951be2850c0783b7a3251b0e759996388fd`. [Resolver/snapshot tests passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40698544834); [Lean build passed](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40698544913).
+- Critical trust boundary: a digest is independently trusted only if its expected value is stored or delivered separately through a trusted channel. Supplying a digest from the same untrusted source as the snapshot adds no authenticity. No signing key, immutable external store, live connector capture, or revision-history integration was added.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) identify the coordinated-rewrite threat; (b) optional trusted-hash API; (c) malformed-evidence rejection; (d) mismatch rejection; (e) exact-commit CI; (f) persistence and trust provenance.
+3. **Completeness:** tests cover matching expected digests, digest mismatch, and malformed evidence; prior internal consistency, schema, scope, and ordering tests remain.
+4. **Status:** implemented, regression-tested, and CI-verified; not live-integrated or production-adopted.
+5. **Recheck:** both CI jobs passed on exact code/test SHA `4f627951be2850c0783b7a3251b0e759996388fd`.
+6. **Persistence / uncertainty:** code/test changes and this checkpoint are committed on the existing PR #3 branch; independently protecting and sourcing the expected hash remains an external integration requirement.
