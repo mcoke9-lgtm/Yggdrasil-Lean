@@ -108,9 +108,11 @@ test("comparison verifies externally trusted snapshot hashes when supplied", () 
     currentSnapshotHash: currentResult.snapshotHash,
   };
   assert.equal(compareFullFieldSnapshots(previousResult.snapshot, currentResult.snapshot, trusted).accepted, true);
+  // The changed snapshot is internally self-consistent, but the separately trusted
+  // current digest is stale; internal hashes alone would not detect this rewrite.
   assert.deepEqual(compareFullFieldSnapshots(previousResult.snapshot, currentResult.snapshot, {
     ...trusted,
-    currentSnapshotHash: "0".repeat(64),
+    currentSnapshotHash: previousResult.snapshotHash,
   }), { accepted: false, code: "SNAPSHOT_TRUST_HASH_MISMATCH" });
 });
 
