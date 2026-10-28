@@ -100,6 +100,28 @@ test("comparison rejects snapshots from different Airtable scopes", () => {
   });
 });
 
+test("comparison verifies externally trusted snapshot hashes when supplied", () => {
+  const previousResult = build([record("rec00000000000001", { fldA: "before" })]);
+  const currentResult = build([record("rec00000000000001", { fldA: "after" })]);
+  const trusted = {
+    previousSnapshotHash: previousResult.snapshotHash,
+    currentSnapshotHash: currentResult.snapshotHash,
+  };
+  assert.equal(compareFullFieldSnapshots(previousResult.snapshot, currentResult.snapshot, trusted).accepted, true);
+  assert.deepEqual(compareFullFieldSnapshots(previousResult.snapshot, currentResult.snapshot, {
+    ...trusted,
+    currentSnapshotHash: "0".repeat(64),
+  }), { accepted: false, code: "SNAPSHOT_TRUST_HASH_MISMATCH" });
+});
+
+test("comparison rejects malformed trusted snapshot hash evidence", () => {
+  const snapshot = build([record("rec00000000000001", { fldA: "same" })]);
+  assert.deepEqual(compareFullFieldSnapshots(snapshot.snapshot, snapshot.snapshot, {
+    previousSnapshotHash: snapshot.snapshotHash,
+    currentSnapshotHash: "not-a-sha256",
+  }), { accepted: false, code: "SNAPSHOT_TRUST_EVIDENCE_MALFORMED" });
+});
+
 test("snapshot rows use locale-independent storage-ID ordering", () => {
   const upper = "rec0000000000000A";
   const lower = "rec0000000000000a";
