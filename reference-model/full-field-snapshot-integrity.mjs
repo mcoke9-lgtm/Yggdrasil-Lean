@@ -49,6 +49,17 @@ export function buildFullFieldSnapshot({
   if (new Set(ids).size !== ids.length) {
     return { accepted: false, code: "SNAPSHOT_DUPLICATE_STORAGE_ID" };
   }
+  const schemaIds = new Set(schemaFieldIds);
+  for (const record of records) {
+    const fields = record?.cellValuesByFieldId;
+    if (!fields || typeof fields !== "object" || Array.isArray(fields) ||
+        typeof record.createdTime !== "string" || !record.createdTime) {
+      return { accepted: false, code: "SNAPSHOT_RECORD_SHAPE_MALFORMED" };
+    }
+    if (Object.keys(fields).some((fieldId) => !schemaIds.has(fieldId))) {
+      return { accepted: false, code: "SNAPSHOT_FIELD_NOT_IN_SCHEMA" };
+    }
+  }
   const rows = records.map((record) => {
     if (!record.cellValuesByFieldId || typeof record.cellValuesByFieldId !== "object" ||
         Array.isArray(record.cellValuesByFieldId) ||
