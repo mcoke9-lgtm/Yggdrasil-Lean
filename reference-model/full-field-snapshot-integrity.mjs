@@ -154,8 +154,12 @@ function validateSnapshot(snapshot) {
   return true;
 }
 
-/** Compare two internally consistent snapshots by immutable Airtable storage ID. */
-export function compareFullFieldSnapshots(previous, current) {
+/**
+ * Compare internally consistent snapshots by immutable Airtable storage ID.
+ * Optional trustedSnapshotHashes must come from a separately trusted channel;
+ * hashes supplied alongside untrusted snapshots do not authenticate those snapshots.
+ */
+export function compareFullFieldSnapshots(previous, current, trustedSnapshotHashes = null) {
   if (!previous || !current || !Array.isArray(previous.rows) || !Array.isArray(current.rows)) {
     return { accepted: false, code: "SNAPSHOT_COMPARISON_INPUT_MALFORMED" };
   }
@@ -174,6 +178,18 @@ export function compareFullFieldSnapshots(previous, current) {
   }
   if (!validateSnapshot(previous) || !validateSnapshot(current)) {
     return { accepted: false, code: "SNAPSHOT_INTEGRITY_INVALID" };
+  }
+  if (trustedSnapshotHashes !== null) {
+    const { previousSnapshotHash, currentSnapshotHash } = trustedSnapshotHashes ?? {};
+    const isSha256 = (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+    if (!trustedSnapshotHashes || typeof trustedSnapshotHashes !== "object" ||
+        !isSha256(previousSnapshotHash) || !isSha256(currentSnapshotHash)) {
+      return { accepted: false, code: "SNAPSHOT_TRUST_EVIDENCE_MALFORMED" };
+    }
+    if (sha256(canonicalJson(previous)) !== previousSnapshotHash ||
+        sha256(canonicalJson(current)) !== currentSnapshotHash) {
+      return { accepted: false, code: "SNAPSHOT_TRUST_HASH_MISMATCH" };
+    }
   }
   if (previous.baseId !== current.baseId || previous.tableId !== current.tableId) {
     return { accepted: false, code: "SNAPSHOT_SCOPE_MISMATCH" };
