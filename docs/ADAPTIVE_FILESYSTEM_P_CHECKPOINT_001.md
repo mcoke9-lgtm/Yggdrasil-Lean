@@ -227,3 +227,9 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** schema inspected; limitation verified at the interface boundary; no mitigation implemented or adopted.
 5. **Recheck:** current adapter and the documented `list_records_for_table` schema were inspected; exact-head Lean and resolver workflows both passed.
 6. **Persistence / uncertainty:** this audit is recorded on the existing branch. Whether a separately supported Airtable API or export path can provide snapshot consistency remains unresolved; no live data was read or modified for this audit.
+
+
+## 19. CI attribution correction (2026-10-27)
+
+- Correction to section 18: runs 40604072762 (Lean build) and 40604072931 (resolver tests) belong to parent code commit `b4c2ea43de7bde660d2e2007800b5f9dba8da969`, not documentation commit `98eba153159ba9cca8348dce783fda248920decf`.
+- Workflow lookup returned no runs for `98eba...`; exact-commit CI for that documentation commit is therefore **unverified**, not passed. The code-head CI remains verified. This correction supersedes any wording in section 18 implying the new documentation commit itself had passing CI.
