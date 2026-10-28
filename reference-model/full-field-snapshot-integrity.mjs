@@ -73,7 +73,7 @@ export function buildFullFieldSnapshot({
   if (rows.some((row) => row === null)) {
     return { accepted: false, code: "SNAPSHOT_RECORD_SHAPE_MALFORMED" };
   }
-  rows.sort((a, b) => a.storageId.localeCompare(b.storageId));
+  rows.sort((a, b) => a.storageId < b.storageId ? -1 : a.storageId > b.storageId ? 1 : 0);
   const manifest = {
     schema: "adaptive-filesystem-full-field-snapshot-v1",
     baseId, tableId, capturedAt, reportedTotalRecordCount,
@@ -164,6 +164,9 @@ export function compareFullFieldSnapshots(previous, current) {
   if (!validateSnapshot(previous) || !validateSnapshot(current)) {
     return { accepted: false, code: "SNAPSHOT_INTEGRITY_INVALID" };
   }
+  if (previous.baseId !== current.baseId || previous.tableId !== current.tableId) {
+    return { accepted: false, code: "SNAPSHOT_SCOPE_MISMATCH" };
+  }
   const before = new Map(previous.rows.map((row) => [row.storageId, row]));
   const after = new Map(current.rows.map((row) => [row.storageId, row]));
   const added = [], missing = [], changed = [];
@@ -185,7 +188,7 @@ export function compareFullFieldSnapshots(previous, current) {
     });
   }
   for (const id of before.keys()) if (!after.has(id)) missing.push(id);
-  added.sort(); missing.sort(); changed.sort((a, b) => a.storageId.localeCompare(b.storageId));
+  added.sort(); missing.sort(); changed.sort((a, b) => a.storageId < b.storageId ? -1 : a.storageId > b.storageId ? 1 : 0);
   return {
     accepted: true, code: "SNAPSHOTS_COMPARED",
     previousCount: previous.rows.length, currentCount: current.rows.length,
