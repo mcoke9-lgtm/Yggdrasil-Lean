@@ -20,4 +20,4 @@ jobs:
         with:
           node-version: 22
       - name: Run pure reference resolver tests
-        run: node --test reference-model/review-history-resolver.test.mjs
+        run: node --test reference-model/review-history-resolver.test.mjs reference-model/full-field-snapshot-integrity.test.mjs
