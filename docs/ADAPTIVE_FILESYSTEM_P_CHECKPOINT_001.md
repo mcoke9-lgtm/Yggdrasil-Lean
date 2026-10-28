@@ -181,3 +181,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** implemented, tested, and CI-verified; not live-integrated or production-adopted.
 5. **Recheck:** both CI jobs passed on exact SHA `6c376c98a00ee99cf8faa5cdfcdd41cfc4ec293d`.
 6. **Persistence / uncertainty:** test and checkpoint changes are committed on the existing PR #3 branch; independent storage/provenance for expected hashes remains unresolved.
+
+
+## 15. Trusted capture receipt contract (2026-10-28)
+
+- Reviewed the provenance gap after trusted-hash comparison was implemented: a digest check only authenticates content against the expected digest; it does not establish where that digest came from or whether the capture was complete/point-in-time consistent.
+- Extended `docs/FULL_FIELD_SNAPSHOT_INTEGRITY_001.md` with a **proposed, not implemented** capture-receipt contract. It binds a snapshot hash to scope, capture time, schema/version, counts, schema-field-set digest, pagination evidence, connector/read-consistency guarantees, and lineage. It requires the receipt to be protected independently of mutable snapshot storage.
+- Explicitly documented that a hash chain alone cannot stop wholesale rewriting unless a prior chain head is independently anchored, and that absent cursor/count agreement do not prove source completeness or point-in-time consistency.
+- No receipt type, signing key, external anchor, storage backend, connector wrapper, or live snapshot was created. Existing backend decisions remain separate; no provisional decision from another branch was silently imported.
+- Contract edit commit: `521740d5525984648165c996f291e6a19dfb9ff0`. This checkpoint entry records design status only; no CI or runtime verification is claimed for the proposed receipt contract.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) receipt identity/version; (b) snapshot and scope binding; (c) capture/pagination evidence; (d) connector consistency statement; (e) independent trust anchor; (f) honest status and unresolved backend.
+3. **Completeness:** addresses provenance and completeness claims without pretending cursor/count checks prove them.
+4. **Status:** proposed contract documented; not implemented, tested, adopted, or live-integrated.
+5. **Recheck:** reviewed existing snapshot-integrity and durable review-history decision documents; they do not establish a deployed trusted receipt store.
+6. **Persistence / uncertainty:** proposal is committed in the active branch's integrity contract; key custody, anchor mechanism, backend, connector semantics, and real capture remain unresolved.
