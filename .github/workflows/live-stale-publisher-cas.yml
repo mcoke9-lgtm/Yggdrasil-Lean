@@ -44,11 +44,23 @@ jobs:
           push_attempted=0
           cleanup() {
             # A push may reach GitHub even if the client loses its acknowledgement.
-            # Attempt cleanup after any initial-push attempt, not only a confirmed success.
+            # Delete only if the temporary ref still points to one of this run's commits.
             if [[ "$push_attempted" == "1" ]]; then
-              git push origin --delete "$test_branch" >/dev/null 2>&1 || {
-                echo "::warning::Could not delete temporary ref refs/heads/$test_branch; inspect and remove it manually."
-              }
+              observed_cleanup_sha="$(git ls-remote --heads origin "refs/heads/$test_branch" 2>/dev/null | awk 'NR == 1 {print $1}')" || observed_cleanup_sha=""
+              case "$observed_cleanup_sha" in
+                "$initial_sha"|"$intervening_sha"|"$stale_sha")
+                  git push --force-with-lease="refs/heads/$test_branch:$observed_cleanup_sha" \
+                    origin ":refs/heads/$test_branch" >/dev/null 2>&1 || {
+                      echo "::warning::Could not safely delete temporary ref refs/heads/$test_branch; inspect and remove it manually."
+                    }
+                  ;;
+                "")
+                  # The initial push may never have created the ref, or it may already be gone.
+                  ;;
+                *)
+                  echo "::warning::Temporary ref refs/heads/$test_branch changed to an unexpected head ($observed_cleanup_sha); leaving it untouched."
+                  ;;
+              esac
             fi
             rm -f "$push_log"
           }
