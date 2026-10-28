@@ -62,3 +62,24 @@ test("comparison rejects duplicate IDs even in hand-constructed snapshots", () =
   const duplicated = { ...snap, rows: [...snap.rows, snap.rows[0]] };
   assert.equal(compareFullFieldSnapshots(duplicated, snap).code, "SNAPSHOT_DUPLICATE_STORAGE_ID");
 });
+
+
+test("comparison rejects field tampering when the stored field and row hashes are stale", () => {
+  const previous = build([record("rec00000000000001", { fldA: "original" })]).snapshot;
+  const current = build([record("rec00000000000001", { fldA: "changed" })]).snapshot;
+  current.rows[0].fields.fldA.value = "forged-with-stale-hashes";
+  assert.deepEqual(compareFullFieldSnapshots(previous, current), {
+    accepted: false,
+    code: "SNAPSHOT_INTEGRITY_INVALID",
+  });
+});
+
+test("comparison rejects internally inconsistent snapshot counts", () => {
+  const previous = build([record("rec00000000000001", { fldA: "same" })]).snapshot;
+  const current = build([record("rec00000000000001", { fldA: "same" })]).snapshot;
+  current.returnedRecordCount = 2;
+  assert.deepEqual(compareFullFieldSnapshots(previous, current), {
+    accepted: false,
+    code: "SNAPSHOT_INTEGRITY_INVALID",
+  });
+});
