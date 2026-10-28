@@ -209,3 +209,21 @@ The read-only Airtable pilot was not mutated. The most recent observed source re
 4. **Status:** snapshot gap confirmed; documentation committed; no snapshot enforcement implemented or adopted.
 5. **Recheck:** workflow records and current adapter implementation were reread; exact checkpoint commit has passing resolver and Lean workflows.
 6. **Persistence / uncertainty:** this record is committed on the active branch. The actual connector's snapshot semantics remain unknown; no production connector has been established.
+
+
+## 18. Exposed Airtable pagination contract audit (2026-10-27)
+
+- Inspected the currently available Airtable `list_records_for_table` action schema without reading or changing any user records. Its exposed response contains `records`, optional `metadata.totalRecordCount`, and optional `nextCursor`; its request accepts `pageSize` and `cursor`. The exposed response contract does not document a snapshot ID, revision token, or transaction-consistency guarantee.
+- This confirms the immediate integration boundary: the currently exposed action contract gives the adapter no documented connector-issued token to bind across pages. It does **not** prove that Airtable's underlying platform has no snapshot-related capabilities; only that this action's documented interface does not expose one.
+- **Disposition:** no runtime probe against a user's base, no Airtable mutation, and no speculative code change. Do not add a pretend snapshot token or treat `sourceReadId` as connector-issued evidence. Before production adoption, either obtain a documented and exposed consistency guarantee, use a supported snapshot/export mechanism, or explicitly approve and label best-effort multi-page consistency as insufficient for any workflow requiring a coherent snapshot.
+- Current-head CI recheck for `b4c2ea43de7bde660d2e2007800b5f9dba8da969`: Lean build passed (run 40604072762); review-history resolver tests passed (run 40604072931). The resolver workflow is now confirmed on the exact documentation commit as well.
+- Status: connector action schema **inspected**; missing exposed snapshot/version field **verified in the documented tool contract**; remediation **not implemented/adopted**. No Airtable records changed; no branch created; PR #1 remains unmerged.
+
+### Six-Part Integrity Check
+
+1. **Count:** exactly six checks.
+2. **Roles:** (a) inspected interface; (b) available pagination controls; (c) snapshot-token absence in exposed schema; (d) limits of that finding; (e) exact-head CI; (f) persistence and remaining platform-level uncertainty.
+3. **Completeness:** separates the action's exposed schema from claims about Airtable's underlying platform; does not mistake absent schema fields for proof that no platform capability exists.
+4. **Status:** schema inspected; limitation verified at the interface boundary; no mitigation implemented or adopted.
+5. **Recheck:** current adapter and the documented `list_records_for_table` schema were inspected; exact-head Lean and resolver workflows both passed.
+6. **Persistence / uncertainty:** this audit is recorded on the existing branch. Whether a separately supported Airtable API or export path can provide snapshot consistency remains unresolved; no live data was read or modified for this audit.
