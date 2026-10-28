@@ -784,3 +784,21 @@ These are subcases of IT-6, not a seventh group. For an observed ambiguity follo
 4. **Status:** Semantic recommendation recorded; candidate API remains unadopted and unimplemented.
 5. **Recheck:** Unknown completeness cannot become absence; known incomplete cannot become unique success; service failure is not equated with partial coverage; observed competing IDs remain visible.
 6. **Persistence/uncertainty:** Save/read-back required. No source change, compilation, backend test, or integration result is claimed.
+
+## Identity-read API reconciliation — implementation candidate 009
+
+**Status:** Proposed source/API shape on branch `review-history-identity-read-evidence-001`; not yet adopted as the project contract and not compiled or tested.
+
+The candidate Lean vocabulary adds `LookupCompleteness` (`complete | incomplete | unknown`), `LookupTermination` (`completed | stoppedEarly | failedAfterObservations`), `RecordProvenance`, and `IdentityLookupEvidence`. The revised `IdentityReadOutcome` has explicit `incomplete`, `unresolved`, and `ambiguousIdentity` cases. `unavailable` may retain optional observations so a failure does not erase what was already observed.
+
+**Disposition for ambiguity followed by failure:** ambiguity is the primary outcome whenever two or more distinct competing event IDs were observed. Its attached lookup evidence retains `failedAfterObservations` when continuation failed. Do not replace it with `unavailable` and lose the observed conflict. If no ambiguity was established, an unavailable result may carry optional lookup observations.
+
+Rules:
+- `found` and `notFound` require adapter-issued complete-scope evidence.
+- `incomplete` means partial coverage is positively known; `unresolved` means the lookup completed but coverage is unknown.
+- Candidate IDs are observed evidence, not an exhaustive set unless completeness is established at the trusted adapter boundary.
+- `CompleteEvidence` is only a marker type unless its construction is controlled by the adapter; neither Lean's type nor a caller-supplied Boolean proves backend completeness.
+- Provenance constructors remain candidates and must only be used when the adapter can substantiate them.
+- The existing event-ID canonical type remains open; this candidate abstracts over `EventId`.
+
+This design change does not add lookup-completeness fields to persisted events. Ordered-history traversal completeness and snapshot consistency remain separate concerns.
