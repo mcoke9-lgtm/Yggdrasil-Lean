@@ -10,7 +10,7 @@ Keep full-field source preservation separate from graph projection. The graph ad
 - Schema field IDs are provided separately. `schemaCoverage[fieldId]` records whether a field key was returned; a missing key is not treated as explicit null or empty.
 - Canonicalization recursively sorts object keys, preserves array order, and hashes values using SHA-256.
 - Each returned field gets a field hash; each row hash binds storage ID, creation time, field hashes/values, and schema coverage.
-- Snapshots are sorted by immutable storage ID. Comparison reports added, missing, and changed rows/fields.
+- Snapshots are sorted by immutable storage ID. Before comparing, the comparator revalidates manifest counts, scope fields, schema coverage, field hashes, and row hashes; malformed or internally inconsistent snapshots fail closed. Comparison reports added, missing, and changed rows/fields.
 - The builder rejects a non-null next cursor and count mismatch. It cannot independently prove that a connector response is authentic or complete.
 
 ## Boundaries
