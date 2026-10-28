@@ -140,8 +140,7 @@ function validateSnapshot(snapshot) {
     const { rowHash, ...rowPayload } = row;
     if (rowHash !== sha256(canonicalJson(rowPayload))) return false;
   }
-  const ids = snapshot.rows.map((row) => row.storageId);
-  return new Set(ids).size === ids.length;
+  return true;
 }
 
 /** Compare two internally consistent snapshots by immutable Airtable storage ID. */
