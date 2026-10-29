@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - af-recovery-roundtrip-harness-v0
+      - af-post-connection-report-contract-v0
   pull_request:
     branches:
       - main
@@ -17,4 +18,4 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run recovery harness tests
-        run: python tests/adaptive_filesystem/test_recovery_roundtrip.py -v
+        run: python -m unittest discover -s tests/adaptive_filesystem -v
