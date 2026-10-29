@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - af-recovery-roundtrip-harness-v0
+      - af-post-connection-report-wave-particle-v0
   pull_request:
     branches:
       - main
