@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - af-recovery-roundtrip-harness-v0
+      - af-wata-next-steps-post-connection-report-v1
   pull_request:
     branches:
       - main
