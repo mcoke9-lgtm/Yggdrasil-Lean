@@ -3,7 +3,7 @@ name: Adaptive Filesystem Recovery Harness
 on:
   push:
     branches:
-      - af-recovery-roundtrip-harness-v0
+      - af-recovery-roundtrip-harness-v0\n      - af-post-connection-report-component-v1
   pull_request:
     branches:
       - main
