@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - af-recovery-roundtrip-harness-v0
+      - af-post-connection-container-contract
   pull_request:
     branches:
       - main
