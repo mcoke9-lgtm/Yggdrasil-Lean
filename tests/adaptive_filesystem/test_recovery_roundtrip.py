@@ -7,7 +7,10 @@ Model mapping:
 - Initial wave: TERA=system under test, FIRA=fixture, WATA=runner, AIRA=assertions.
 - Particle: report generation is AIRA-of-TERA (leaf-like part(s) of the roots),
   not the initial-wave AIRA assertion role.
-- The report generates the second FIRA-associated wave that the reader reads.
+- The particle report generates the second FIRA-associated wave that the reader reads.
+- The sixth-component correction is a top-level peer container (`next_steps_intended`),
+  not merely another field. A post-connection report is generated evidence after connection;
+  it summarizes observed state and does not prove planned actions occurred.
 """
 from copy import deepcopy
 import unittest
@@ -110,6 +113,32 @@ def activate(report):
     return {"form": "wave", "association": "second_fira", "report": deepcopy(report)}
 
 
+def validate_peer_container_inventory(schema, required_peer_containers):
+    """Detect a missing top-level peer container independently of field validity."""
+    if not isinstance(schema, dict):
+        return {"status": "INVALID_SCHEMA", "missing": list(required_peer_containers)}
+    containers = schema.get("peer_containers")
+    if not isinstance(containers, dict):
+        return {"status": "INVALID_SCHEMA", "missing": list(required_peer_containers)}
+    missing = [name for name in required_peer_containers if name not in containers]
+    return {"status": "INVALID_SCHEMA" if missing else "VALID_SCHEMA", "missing": missing}
+
+
+def generate_post_connection_report(connection):
+    """Generate evidence after connection/reconciliation; never equate plan with execution."""
+    return {
+        "report_type": "post_connection",
+        "generated_after": "connection_reconciliation",
+        "source_container": deepcopy(connection.get("source_container")),
+        "destination_container": deepcopy(connection.get("destination_container")),
+        "connection_observed": deepcopy(connection.get("connection_observed")),
+        "intended_next_steps": deepcopy(connection.get("next_steps_intended", {})),
+        "differences": deepcopy(connection.get("differences", [])),
+        "blockers_or_unknowns": deepcopy(connection.get("blockers_or_unknowns", [])),
+        "verification_status": connection.get("verification_status", "UNKNOWN"),
+    }
+
+
 def unknown_source():
     return {"status": "UNKNOWN", "reasons": ["source_unavailable"]}
 
@@ -179,6 +208,49 @@ class RecoveryRoundTripTests(unittest.TestCase):
         result = unknown_source()
         self.assertEqual(result["status"], "UNKNOWN")
         self.assertNotEqual(result["status"], "PASS")
+
+    def test_09_missing_peer_container_fails_even_if_other_fields_are_valid(self):
+        schema = {"peer_containers": {
+            "TERA": {}, "FIRA": {}, "WATA": {}, "AIRA": {},
+            "connection_state": {},
+        }}
+        result = validate_peer_container_inventory(
+            schema, ["TERA", "FIRA", "WATA", "AIRA",
+                     "connection_state", "next_steps_intended"])
+        self.assertEqual(result["status"], "INVALID_SCHEMA")
+        self.assertEqual(result["missing"], ["next_steps_intended"])
+
+    def test_10_peer_container_must_be_an_object_with_own_structure(self):
+        schema = {"peer_containers": {
+            "TERA": {}, "FIRA": {}, "WATA": {}, "AIRA": {},
+            "connection_state": {}, "next_steps_intended": {
+                "intended_changes": [], "post_connection_report_required": True,
+                "evidence_refs": [], "status": "planned",
+            },
+        }}
+        result = validate_peer_container_inventory(
+            schema, ["TERA", "FIRA", "WATA", "AIRA",
+                     "connection_state", "next_steps_intended"])
+        self.assertEqual(result["status"], "VALID_SCHEMA")
+        self.assertIsInstance(schema["peer_containers"]["next_steps_intended"], dict)
+
+    def test_11_post_connection_report_is_generated_and_keeps_plan_distinct(self):
+        connection = {
+            "source_container": "TERA",
+            "destination_container": "FIRA",
+            "connection_observed": True,
+            "next_steps_intended": {"status": "planned", "items": ["review difference"]},
+            "differences": ["label mismatch"],
+            "blockers_or_unknowns": ["production runtime not inspected"],
+            "verification_status": "PARTIAL",
+        }
+        report = generate_post_connection_report(connection)
+        self.assertEqual(report["report_type"], "post_connection")
+        self.assertEqual(report["source_container"], "TERA")
+        self.assertEqual(report["destination_container"], "FIRA")
+        self.assertEqual(report["intended_next_steps"]["status"], "planned")
+        self.assertEqual(report["verification_status"], "PARTIAL")
+        self.assertIn("production runtime not inspected", report["blockers_or_unknowns"])
 
 
 if __name__ == "__main__":
