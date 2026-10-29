@@ -30,8 +30,12 @@ def wave_exists(records, relationships, changes_intended=None, next_steps_intend
                 "status": "NOT_GENERATED",
             },
             "language_feedback": {
-                "status": "pending",
-                "items": [],
+                "status": "needs_review",
+                "items": [
+                    "Confirm next_steps_intended is a peer container, not a scalar field.",
+                    "Keep intended work distinct from observed changes and report verification.",
+                    "Review the root/leaf wording for report provenance.",
+                ],
             },
         }),
     }
@@ -230,8 +234,9 @@ class RecoveryRoundTripTests(unittest.TestCase):
 
     def test_11_language_feedback_returns_to_language_branch(self):
         feedback = self.second_wave["report"]["language_feedback"]
-        self.assertEqual(feedback["status"], "pending")
-        self.assertEqual(feedback["items"], [])
+        self.assertEqual(feedback["status"], "needs_review")
+        self.assertEqual(len(feedback["items"]), 3)
+        self.assertTrue(any("peer container" in item for item in feedback["items"]))
 
 
 if __name__ == "__main__":
