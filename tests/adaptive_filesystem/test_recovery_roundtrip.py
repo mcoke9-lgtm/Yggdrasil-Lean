@@ -110,6 +110,74 @@ def activate(report):
     return {"form": "wave", "association": "second_fira", "report": deepcopy(report)}
 
 
+
+def progress_form(output_items):
+    """Particle/progress form: output status -> structural location."""
+    mapping = {
+        "failed": "lower_tera",
+        "verified": "upper_tera",
+        "unresolved": "fira",
+        "unknown": "aira",
+    }
+    return {
+        "form": "particle",
+        "role": "progress",
+        "assignments": [
+            {"item_id": item.get("item_id"), "status": item.get("status"),
+             "location": mapping.get(item.get("status"), "unknown_status")}
+            for item in output_items
+        ],
+    }
+
+
+def build_form(counting_by_descent):
+    """Wave/build form is counted by descent, not by progress-status mapping."""
+    return {
+        "form": "wave",
+        "role": "build",
+        "counting_by_descent": deepcopy(counting_by_descent),
+    }
+
+
+def second_wave_form(output_items):
+    """Activated second wave: status -> TERA/FIRA/AIRA location."""
+    mapping = {
+        "verified": "tera",
+        "failed": "lower_fira",
+        "unresolved": "upper_fira",
+        "unknown": "aira",
+    }
+    return {
+        "form": "wave",
+        "role": "activated",
+        "assignments": [
+            {"item_id": item.get("item_id"), "status": item.get("status"),
+             "location": mapping.get(item.get("status"), "unknown_status")}
+            for item in output_items
+        ],
+    }
+
+
+def post_connection_report(initial_wave, particle_form, activated_wave,
+                           assertion_result, build):
+    """Sixth component: report after connection; preserves the three distinct forms."""
+    return {
+        "component": "post_connection_report",
+        "status": "generated",
+        "connection": {
+            "initial_wave": deepcopy(initial_wave),
+            "particle_progress": deepcopy(particle_form),
+            "activated_wave": deepcopy(activated_wave),
+            "build_wave": deepcopy(build),
+        },
+        "assertions": deepcopy(assertion_result),
+        "distinctions_preserved": {
+            "build_wave_is_counting_by_descent": True,
+            "progress_particle_uses_status_mapping": True,
+            "activated_wave_uses_second_status_mapping": True,
+        },
+    }
+
 def unknown_source():
     return {"status": "UNKNOWN", "reasons": ["source_unavailable"]}
 
@@ -150,6 +218,53 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertEqual(self.second_wave["form"], "wave")
         self.assertEqual(self.second_wave["association"], "second_fira")
         self.assertEqual(self.second_wave["report"], self.report)
+
+
+    def test_04_progress_particle_status_mapping_is_exact(self):
+        items = [
+            {"item_id": "F", "status": "failed"},
+            {"item_id": "V", "status": "verified"},
+            {"item_id": "R", "status": "unresolved"},
+            {"item_id": "U", "status": "unknown"},
+        ]
+        self.assertEqual(
+            [x["location"] for x in progress_form(items)["assignments"]],
+            ["lower_tera", "upper_tera", "fira", "aira"],
+        )
+
+    def test_05_build_wave_counting_by_descent_is_separate(self):
+        build = build_form({"descent_count": 4, "lineage": ["root", "branch", "leaf"]})
+        self.assertEqual(build["form"], "wave")
+        self.assertEqual(build["role"], "build")
+        self.assertEqual(build["counting_by_descent"]["descent_count"], 4)
+
+    def test_06_activated_wave_status_mapping_is_exact(self):
+        items = [
+            {"item_id": "V", "status": "verified"},
+            {"item_id": "F", "status": "failed"},
+            {"item_id": "R", "status": "unresolved"},
+            {"item_id": "U", "status": "unknown"},
+        ]
+        self.assertEqual(
+            [x["location"] for x in second_wave_form(items)["assignments"]],
+            ["tera", "lower_fira", "upper_fira", "aira"],
+        )
+
+    def test_07_post_connection_report_is_sixth_component_and_keeps_forms_distinct(self):
+        items = [{"item_id": "V", "status": "verified"}]
+        particle = progress_form(items)
+        activated = second_wave_form(items)
+        build = build_form({"descent_count": 1})
+        report = post_connection_report(
+            self.source, particle, activated,
+            {"status": "PASS", "reasons": []}, build
+        )
+        self.assertEqual(report["component"], "post_connection_report")
+        self.assertEqual(report["status"], "generated")
+        self.assertEqual(report["connection"]["particle_progress"]["form"], "particle")
+        self.assertEqual(report["connection"]["build_wave"]["form"], "wave")
+        self.assertEqual(report["connection"]["activated_wave"]["role"], "activated")
+        self.assertTrue(all(report["distinctions_preserved"].values()))
 
     def test_04_provenance_loss_in_particle_report_remains_visible(self):
         damaged = collapse(self.source)
