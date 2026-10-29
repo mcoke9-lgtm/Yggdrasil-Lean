@@ -13,6 +13,18 @@ from copy import deepcopy
 import unittest
 
 
+# The five-position transition cycle is followed by a required sixth output.
+# Keep this list explicit so the schema cannot stop at activation silently.
+RECOVERY_COMPONENTS = (
+    "source_wave",
+    "collapse_intent",
+    "particle_state",
+    "activation_intent",
+    "reconstructed_wave",
+    "post_connection_report",
+)
+
+
 def wave_exists(records, relationships, changes_intended=None):
     return {
         "form": "wave",
@@ -110,6 +122,38 @@ def activate(report):
     return {"form": "wave", "association": "second_fira", "report": deepcopy(report)}
 
 
+def post_connection_report(second_wave):
+    """Generate the sixth component after the second FIRA-associated wave exists."""
+    if not isinstance(second_wave, dict) or second_wave.get("form") != "wave":
+        return {
+            "component": "post_connection_report",
+            "status": "BLOCKED",
+            "reason": "reconstructed_wave_unavailable",
+        }
+    if second_wave.get("association") != "second_fira" or "report" not in second_wave:
+        return {
+            "component": "post_connection_report",
+            "status": "BLOCKED",
+            "reason": "connection_evidence_incomplete",
+        }
+    particle_report = second_wave["report"]
+    return {
+        "component": "post_connection_report",
+        "status": "GENERATED",
+        "connection_status": "CONNECTED",
+        "connected_wave": "second_fira",
+        "particle_report_present": bool(particle_report),
+        "relationship_evidence": deepcopy(
+            particle_report.get("relationship_evidence", [])
+        ),
+        "changes_intended": deepcopy(particle_report.get("changes_intended", [])),
+        "limits": [
+            "synthetic contract output; not production-runtime integration",
+            "generated does not mean all relationships are resolved",
+        ],
+    }
+
+
 def unknown_source():
     return {"status": "UNKNOWN", "reasons": ["source_unavailable"]}
 
@@ -134,6 +178,7 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.particle = collapse(self.source)
         self.report = aira_of_tera_report(self.particle)
         self.second_wave = activate(self.report)
+        self.post_report = post_connection_report(self.second_wave)
 
     def test_01_initial_wave_assertions_are_separate_from_report_generation(self):
         reconstructed = deepcopy(self.source)
@@ -151,31 +196,47 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertEqual(self.second_wave["association"], "second_fira")
         self.assertEqual(self.second_wave["report"], self.report)
 
-    def test_04_provenance_loss_in_particle_report_remains_visible(self):
+    def test_04_sixth_component_is_explicit_and_post_connection(self):
+        self.assertEqual(len(RECOVERY_COMPONENTS), 6)
+        self.assertEqual(RECOVERY_COMPONENTS[5], "post_connection_report")
+        self.assertEqual(self.post_report["status"], "GENERATED")
+        self.assertEqual(self.post_report["connection_status"], "CONNECTED")
+        self.assertEqual(self.post_report["connected_wave"], "second_fira")
+        self.assertEqual(
+            self.post_report["relationship_evidence"],
+            self.report["relationship_evidence"],
+        )
+
+    def test_05_missing_connection_evidence_blocks_post_connection_report(self):
+        blocked = post_connection_report({"form": "wave", "association": "initial"})
+        self.assertEqual(blocked["status"], "BLOCKED")
+        self.assertEqual(blocked["reason"], "connection_evidence_incomplete")
+
+    def test_06_provenance_loss_in_particle_report_remains_visible(self):
         damaged = collapse(self.source)
         del damaged["tera_state"]["relationships"][0]["provenance"]
         report = aira_of_tera_report(damaged)
         self.assertIsNone(report["relationship_evidence"][0]["provenance"])
 
-    def test_05_unresolved_cannot_silently_become_confirmed(self):
+    def test_07_unresolved_cannot_silently_become_confirmed(self):
         changed = deepcopy(self.source)
         changed["relationships"][0]["status"] = "confirmed"
         result = assertions_aira(self.source, changed)
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(any(x.startswith("round_trip_difference:") for x in result["reasons"]))
 
-    def test_06_planned_change_remains_planned_not_applied(self):
+    def test_08_planned_change_remains_planned_not_applied(self):
         self.assertEqual(self.report["changes_intended"][0]["status"], "planned")
         self.assertEqual(self.report["tera_state"]["records"], self.source["records"])
 
-    def test_07_duplicate_relationship_is_detected_by_initial_wave_assertions(self):
+    def test_09_duplicate_relationship_is_detected_by_initial_wave_assertions(self):
         reconstructed = deepcopy(self.source)
         reconstructed["relationships"].append(deepcopy(reconstructed["relationships"][0]))
         result = assertions_aira(self.source, reconstructed)
         self.assertEqual(result["status"], "FAIL")
         self.assertIn("duplicate_relationship", result["reasons"])
 
-    def test_08_unavailable_source_is_unknown_not_pass(self):
+    def test_10_unavailable_source_is_unknown_not_pass(self):
         result = unknown_source()
         self.assertEqual(result["status"], "UNKNOWN")
         self.assertNotEqual(result["status"], "PASS")
