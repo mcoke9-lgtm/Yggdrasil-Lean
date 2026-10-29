@@ -14,12 +14,18 @@ import unittest
 
 
 def wave_exists(records, relationships, changes_intended=None):
+    """Initial wave; intentions are nested under WATA, not peer fields."""
     return {
         "form": "wave",
         "association": "initial",
         "records": deepcopy(records),
         "relationships": deepcopy(relationships),
-        "changes_intended": deepcopy(changes_intended or []),
+        "wata": {
+            "next_steps_intended": {
+                "changes_intended": deepcopy(changes_intended or []),
+                "implementation_plan": {"next_action": "review_after_connection"},
+            }
+        },
     }
 
 
@@ -30,7 +36,7 @@ def collapse(wave):
         "tera_state": {
             "records": deepcopy(wave["records"]),
             "relationships": deepcopy(wave["relationships"]),
-            "changes_intended": deepcopy(wave["changes_intended"]),
+            "wata": deepcopy(wave["wata"]),
         },
     }
 
@@ -71,17 +77,23 @@ def assertions_aira(source_wave, reconstructed_wave):
         return {"status": "UNKNOWN", "reasons": ["source_or_result_unavailable"]}
     if source_check["status"] != "VALID" or result_check["status"] != "VALID":
         return {"status": "FAIL", "reasons": source_check["reasons"] + result_check["reasons"]}
-    fields = ("records", "relationships", "changes_intended")
+    fields = ("records", "relationships", "wata")
     differences = [field for field in fields if source_wave.get(field) != reconstructed_wave.get(field)]
     return {"status": "FAIL" if differences else "PASS",
             "reasons": ["round_trip_difference:" + field for field in differences]}
 
 
-def aira_of_tera_report(particle):
-    """Particle-form report generation from TERA's root state and leaf-like parts."""
+def aira_of_tera_report(particle, connection_outcome="SUCCESS"):
+    """Generate the post-connection report from particle TERA state.
+
+    This synthetic contract requires a report for success, partial, blocked,
+    and failed connection outcomes; it does not require connection success.
+    """
     tera_state = particle.get("tera_state", {})
     records = tera_state.get("records", [])
     relationships = tera_state.get("relationships", [])
+    wata = tera_state.get("wata", {})
+    next_steps_intended = deepcopy(wata.get("next_steps_intended", {}))
     leaf_parts = [
         {"record_id": record.get("record_id"),
          "provenance": record.get("provenance"),
@@ -97,11 +109,13 @@ def aira_of_tera_report(particle):
     ]
     return {
         "generated_by": "AIRA-of-TERA",
-        "form": "particle_report",
+        "form": "post_connection_report",
+        "connection_outcome": connection_outcome,
         "tera_state": deepcopy(tera_state),
+        "next_steps_intended": next_steps_intended,
         "leaf_parts": leaf_parts,
         "relationship_evidence": relationship_evidence,
-        "changes_intended": deepcopy(tera_state.get("changes_intended", [])),
+        "changes_intended": deepcopy(next_steps_intended.get("changes_intended", [])),
     }
 
 
@@ -142,9 +156,11 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertEqual(self.report["generated_by"], "AIRA-of-TERA")
 
     def test_02_report_is_generated_from_particle_tera_state(self):
-        self.assertEqual(self.report["form"], "particle_report")
+        self.assertEqual(self.report["form"], "post_connection_report")
         self.assertEqual(self.report["tera_state"], self.particle["tera_state"])
         self.assertEqual(self.report["leaf_parts"][0]["record_id"], "B")
+        self.assertEqual(self.report["next_steps_intended"],
+                         self.source["wata"]["next_steps_intended"])
 
     def test_03_second_wave_is_fira_associated_and_derived_from_report(self):
         self.assertEqual(self.second_wave["form"], "wave")
@@ -179,6 +195,23 @@ class RecoveryRoundTripTests(unittest.TestCase):
         result = unknown_source()
         self.assertEqual(result["status"], "UNKNOWN")
         self.assertNotEqual(result["status"], "PASS")
+
+    def test_09_next_steps_intended_is_nested_under_wata(self):
+        self.assertIn("next_steps_intended", self.source["wata"])
+        self.assertNotIn("next_steps_intended", self.source)
+        self.assertEqual(self.source["wata"]["next_steps_intended"]["implementation_plan"]["next_action"],
+                         "review_after_connection")
+
+    def test_10_post_connection_report_is_generated_for_failed_attempt(self):
+        failed_report = aira_of_tera_report(self.particle, connection_outcome="FAILED")
+        self.assertEqual(failed_report["form"], "post_connection_report")
+        self.assertEqual(failed_report["connection_outcome"], "FAILED")
+        self.assertIn("next_steps_intended", failed_report)
+
+    def test_11_post_connection_report_preserves_wata_container_round_trip(self):
+        self.assertEqual(self.report["next_steps_intended"],
+                         self.second_wave["report"]["next_steps_intended"])
+        self.assertEqual(self.report["connection_outcome"], "SUCCESS")
 
 
 if __name__ == "__main__":
