@@ -19,3 +19,5 @@ jobs:
           python-version: "3.12"
       - name: Run recovery harness tests
         run: python tests/adaptive_filesystem/test_recovery_roundtrip.py -v
+      - name: Run post-connection schema correction tests
+        run: python tests/adaptive_filesystem/test_post_connection_schema_correction.py -v
