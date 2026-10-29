@@ -22,8 +22,15 @@ def wave_exists(records, relationships, changes_intended=None):
         "relationships": deepcopy(relationships),
         "wata": {
             "next_steps_intended": {
-                "changes_intended": deepcopy(changes_intended or []),
-                "implementation_plan": {"next_action": "review_after_connection"},
+                "technical": {
+                    "changes_intended": deepcopy(changes_intended or []),
+                    "implementation_plan": {"next_action": "review_after_connection"},
+                    "status": "PROPOSED",
+                },
+                "language": {
+                    "suggested_next_step": "Describe the connection outcome and any unresolved terms precisely.",
+                    "status": "PROPOSED",
+                },
             }
         },
     }
@@ -115,7 +122,10 @@ def aira_of_tera_report(particle, connection_outcome="SUCCESS"):
         "next_steps_intended": next_steps_intended,
         "leaf_parts": leaf_parts,
         "relationship_evidence": relationship_evidence,
-        "changes_intended": deepcopy(next_steps_intended.get("changes_intended", [])),
+        "next_steps_intended": deepcopy(next_steps_intended),
+        "technical_next_step": deepcopy(next_steps_intended.get("technical", {})),
+        "language_next_step": deepcopy(next_steps_intended.get("language", {})),
+        "changes_intended": deepcopy(next_steps_intended.get("technical", {}).get("changes_intended", [])),
     }
 
 
@@ -199,19 +209,33 @@ class RecoveryRoundTripTests(unittest.TestCase):
     def test_09_next_steps_intended_is_nested_under_wata(self):
         self.assertIn("next_steps_intended", self.source["wata"])
         self.assertNotIn("next_steps_intended", self.source)
-        self.assertEqual(self.source["wata"]["next_steps_intended"]["implementation_plan"]["next_action"],
+        intended = self.source["wata"]["next_steps_intended"]
+        self.assertEqual(intended["technical"]["implementation_plan"]["next_action"],
                          "review_after_connection")
+        self.assertIn("suggested_next_step", intended["language"])
+        self.assertNotEqual(intended["technical"], intended["language"])
 
     def test_10_post_connection_report_is_generated_for_failed_attempt(self):
         failed_report = aira_of_tera_report(self.particle, connection_outcome="FAILED")
         self.assertEqual(failed_report["form"], "post_connection_report")
         self.assertEqual(failed_report["connection_outcome"], "FAILED")
         self.assertIn("next_steps_intended", failed_report)
+        self.assertIn("technical_next_step", failed_report)
+        self.assertIn("language_next_step", failed_report)
 
     def test_11_post_connection_report_preserves_wata_container_round_trip(self):
         self.assertEqual(self.report["next_steps_intended"],
                          self.second_wave["report"]["next_steps_intended"])
         self.assertEqual(self.report["connection_outcome"], "SUCCESS")
+
+    def test_12_technical_and_language_next_steps_are_distinct_and_preserved(self):
+        self.assertEqual(self.report["technical_next_step"],
+                         self.source["wata"]["next_steps_intended"]["technical"])
+        self.assertEqual(self.report["language_next_step"],
+                         self.source["wata"]["next_steps_intended"]["language"])
+        self.assertNotEqual(self.report["technical_next_step"], self.report["language_next_step"])
+        self.assertIn("technical_next_step", self.second_wave["report"])
+        self.assertIn("language_next_step", self.second_wave["report"])
 
 
 if __name__ == "__main__":
