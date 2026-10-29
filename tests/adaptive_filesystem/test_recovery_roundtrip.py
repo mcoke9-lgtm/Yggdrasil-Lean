@@ -224,7 +224,14 @@ def diagnose_missing_sixth_component(schema_fields, required_outputs):
 
 
 
-    # Sixth component is a required output after the second FIRA-associated wave exists.
+
+class PostConnectionReportTests(unittest.TestCase):
+    def setUp(self):
+        self.source = fixture()
+        self.particle = collapse(self.source)
+        self.report = aira_of_tera_report(self.particle)
+        self.second_wave = activate(self.report)
+
     def test_09_post_connection_report_is_generated_as_sixth_component(self):
         assertion = assertions_aira(self.source, deepcopy(self.source))
         report = post_connection_report(self.source, self.particle, self.second_wave, assertion)
@@ -242,6 +249,7 @@ def diagnose_missing_sixth_component(schema_fields, required_outputs):
         self.assertIn("post_connection_report_not_declared_as_required_output", diagnostic["findings"])
         self.assertIn("no_post_connection_generation_invariant", diagnostic["findings"])
         self.assertIn("historical runtime cause remains unknown", diagnostic["cause_scope"])
+
 
 if __name__ == "__main__":
     unittest.main()
