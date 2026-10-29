@@ -110,6 +110,48 @@ def activate(report):
     return {"form": "wave", "association": "second_fira", "report": deepcopy(report)}
 
 
+# Six-part operational contract. Metadata such as changes_intended is cross-cutting,
+# not a replacement for the required post-connection report component.
+REQUIRED_COMPONENTS = [
+    {"name": "input", "role": "upper_wata"},
+    {"name": "validation", "role": "lower_wata"},
+    {"name": "transformation", "role": "tera_via_fira_of_tera"},
+    {"name": "output", "role": "fira"},
+    {"name": "connection", "role": "cross_component_relation"},
+    {"name": "post_connection_report", "role": "required_generated_evidence"},
+]
+
+
+def validate_component_inventory(components):
+    """Reject omitted or duplicated operational components; do not infer completeness."""
+    names = [item.get("name") for item in components if isinstance(item, dict)]
+    expected = [item["name"] for item in REQUIRED_COMPONENTS]
+    if len(names) != len(components):
+        return {"status": "INVALID", "missing": expected, "extra": []}
+    missing = [name for name in expected if name not in names]
+    extra = [name for name in names if name not in expected]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if missing or extra or duplicates:
+        return {"status": "INVALID", "missing": missing, "extra": extra, "duplicates": duplicates}
+    return {"status": "VALID", "missing": [], "extra": [], "duplicates": []}
+
+
+def generate_post_connection_report(connection):
+    """Always return a report artifact, including for blocked/failed connections."""
+    outcome = connection.get("outcome", "UNKNOWN")
+    return {
+        "form": "post_connection_report",
+        "connection_id": connection.get("connection_id"),
+        "attempted": bool(connection.get("attempted", True)),
+        "outcome": outcome if outcome in ("SUCCESS", "PARTIAL", "BLOCKED", "FAIL", "UNKNOWN") else "UNKNOWN",
+        "evidence": deepcopy(connection.get("evidence", [])),
+        "changes_intended": deepcopy(connection.get("changes_intended", [])),
+        "changes_applied": deepcopy(connection.get("changes_applied", [])),
+        "unknowns": deepcopy(connection.get("unknowns", [])),
+        "next_action": connection.get("next_action", "STOP_OR_REASSESS"),
+    }
+
+
 def unknown_source():
     return {"status": "UNKNOWN", "reasons": ["source_unavailable"]}
 
@@ -179,6 +221,34 @@ class RecoveryRoundTripTests(unittest.TestCase):
         result = unknown_source()
         self.assertEqual(result["status"], "UNKNOWN")
         self.assertNotEqual(result["status"], "PASS")
+
+    def test_09_component_inventory_requires_all_six_operational_parts(self):
+        self.assertEqual(validate_component_inventory(REQUIRED_COMPONENTS)["status"], "VALID")
+        five_parts = [item for item in REQUIRED_COMPONENTS if item["name"] != "post_connection_report"]
+        result = validate_component_inventory(five_parts)
+        self.assertEqual(result["status"], "INVALID")
+        self.assertIn("post_connection_report", result["missing"])
+
+    def test_10_post_connection_report_is_generated_for_success(self):
+        report = generate_post_connection_report({
+            "connection_id": "conn-001", "outcome": "SUCCESS",
+            "evidence": ["check-001"],
+            "changes_intended": [{"change_id": "C1", "status": "planned"}],
+            "changes_applied": [],
+        })
+        self.assertEqual(report["form"], "post_connection_report")
+        self.assertEqual(report["outcome"], "SUCCESS")
+        self.assertEqual(report["changes_intended"][0]["status"], "planned")
+        self.assertEqual(report["changes_applied"], [])
+
+    def test_11_post_connection_report_is_generated_for_blocked_attempt(self):
+        report = generate_post_connection_report({
+            "connection_id": "conn-002", "outcome": "BLOCKED",
+            "evidence": [], "unknowns": ["target_unavailable"],
+        })
+        self.assertEqual(report["form"], "post_connection_report")
+        self.assertEqual(report["outcome"], "BLOCKED")
+        self.assertIn("target_unavailable", report["unknowns"])
 
 
 if __name__ == "__main__":
