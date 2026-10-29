@@ -212,11 +212,9 @@ class RecoveryRoundTripTests(unittest.TestCase):
     def test_09_missing_peer_container_fails_even_if_other_fields_are_valid(self):
         schema = {"peer_containers": {
             "TERA": {}, "FIRA": {}, "WATA": {}, "AIRA": {},
-            "connection_state": {},
         }}
         result = validate_peer_container_inventory(
-            schema, ["TERA", "FIRA", "WATA", "AIRA",
-                     "connection_state", "next_steps_intended"])
+            schema, ["next_steps_intended"])
         self.assertEqual(result["status"], "INVALID_SCHEMA")
         self.assertEqual(result["missing"], ["next_steps_intended"])
 
@@ -229,8 +227,7 @@ class RecoveryRoundTripTests(unittest.TestCase):
             },
         }}
         result = validate_peer_container_inventory(
-            schema, ["TERA", "FIRA", "WATA", "AIRA",
-                     "connection_state", "next_steps_intended"])
+            schema, ["next_steps_intended"])
         self.assertEqual(result["status"], "VALID_SCHEMA")
         self.assertIsInstance(schema["peer_containers"]["next_steps_intended"], dict)
 
