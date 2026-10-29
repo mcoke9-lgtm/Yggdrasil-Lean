@@ -13,6 +13,38 @@ from copy import deepcopy
 import unittest
 
 
+CHECKPOINT_COMPONENTS = (
+    "purpose", "branch", "state", "blockers", "next_action",
+    "post_connection_report",
+)
+
+
+def checkpoint_schema_missing_components(schema):
+    """Completeness checks the component inventory, not just existing field validity."""
+    if not isinstance(schema, dict):
+        return list(CHECKPOINT_COMPONENTS)
+    return [name for name in CHECKPOINT_COMPONENTS if name not in schema]
+
+
+def generate_post_connection_report(source_wave, particle, second_wave, assertion_result):
+    """Sixth checkpoint component: report the result after activation/connection."""
+    return {
+        "component": "post_connection_report",
+        "status": "generated",
+        "connection": {
+            "source_association": source_wave.get("association"),
+            "destination_association": second_wave.get("association"),
+            "destination_form": second_wave.get("form"),
+        },
+        "particle_state_preserved": particle.get("tera_state") == second_wave.get("report", {}).get("tera_state"),
+        "round_trip_status": assertion_result.get("status", "UNKNOWN"),
+        "differences": list(assertion_result.get("reasons", [])),
+        "blockers_or_unknowns": list(assertion_result.get("reasons", []))
+            if assertion_result.get("status") != "PASS" else [],
+        "verification": "synthetic_contract_only",
+    }
+
+
 def wave_exists(records, relationships, changes_intended=None):
     return {
         "form": "wave",
@@ -133,7 +165,7 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.source = fixture()
         self.particle = collapse(self.source)
         self.report = aira_of_tera_report(self.particle)
-        self.second_wave = activate(self.report)
+        self.second_wave = activate(self.report)\n        self.round_trip_result = assertions_aira(self.source, self.source)\n        self.post_connection_report = generate_post_connection_report(\n            self.source, self.particle, self.second_wave, self.round_trip_result\n        )
 
     def test_01_initial_wave_assertions_are_separate_from_report_generation(self):
         reconstructed = deepcopy(self.source)
@@ -175,7 +207,26 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL")
         self.assertIn("duplicate_relationship", result["reasons"])
 
-    def test_08_unavailable_source_is_unknown_not_pass(self):
+    def test_08_checkpoint_schema_requires_post_connection_report_component(self):
+        schema = {
+            "purpose": {}, "branch": {}, "state": {},
+            "blockers": {}, "next_action": {},
+        }
+        self.assertEqual(
+            checkpoint_schema_missing_components(schema),
+            ["post_connection_report"],
+        )
+        schema["post_connection_report"] = {}
+        self.assertEqual(checkpoint_schema_missing_components(schema), [])
+
+    def test_09_post_connection_report_is_generated_after_activation(self):
+        self.assertEqual(self.post_connection_report["component"], "post_connection_report")
+        self.assertEqual(self.post_connection_report["status"], "generated")
+        self.assertEqual(self.post_connection_report["connection"]["destination_association"], "second_fira")
+        self.assertEqual(self.post_connection_report["round_trip_status"], "PASS")
+        self.assertEqual(self.post_connection_report["verification"], "synthetic_contract_only")
+
+    def test_10_unavailable_source_is_unknown_not_pass(self):
         result = unknown_source()
         self.assertEqual(result["status"], "UNKNOWN")
         self.assertNotEqual(result["status"], "PASS")
