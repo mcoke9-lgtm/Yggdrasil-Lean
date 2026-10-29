@@ -1,0 +1,20 @@
+name: Adaptive Filesystem Recovery Harness
+
+on:
+  push:
+    branches:
+      - af-recovery-roundtrip-harness-v0
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  recovery-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Run recovery harness tests
+        run: python tests/adaptive_filesystem/test_recovery_roundtrip.py -v
