@@ -181,5 +181,67 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertNotEqual(result["status"], "PASS")
 
 
+
+def post_connection_report(source_wave, particle, second_wave, assertion_result):
+    """Sixth workflow component: report the result after the connection is formed."""
+    report = second_wave.get("report", {}) if isinstance(second_wave, dict) else {}
+    connected = (
+        isinstance(second_wave, dict)
+        and second_wave.get("form") == "wave"
+        and second_wave.get("association") == "second_fira"
+        and report.get("generated_by") == "AIRA-of-TERA"
+        and report.get("tera_state") == particle.get("tera_state")
+    )
+    return {
+        "component": 6,
+        "name": "post_connection_report",
+        "status": "GENERATED" if connected else "INCOMPLETE",
+        "source_assessment": deepcopy(assertion_result),
+        "source_wave_association": source_wave.get("association"),
+        "particle_state_present": isinstance(particle.get("tera_state"), dict),
+        "second_wave_association": second_wave.get("association") if isinstance(second_wave, dict) else None,
+        "report_generator": report.get("generated_by"),
+        "changes_intended": deepcopy(report.get("changes_intended", [])),
+        "unresolved": [] if connected else ["post_connection_contract_not_satisfied"],
+        "scope_note": "Synthetic contract report; not a production runtime report.",
+    }
+
+
+def diagnose_missing_sixth_component(schema_fields, required_outputs):
+    """Explain whether schema fields alone require a post-connection report."""
+    missing = []
+    if "post_connection_report" not in required_outputs:
+        missing.append("post_connection_report_not_declared_as_required_output")
+    if "post_connection_report" not in schema_fields:
+        missing.append("schema_has_no_explicit_report_component")
+    if not any("post_connection" in str(item) for item in required_outputs):
+        missing.append("no_post_connection_generation_invariant")
+    return {
+        "status": "GAP_IDENTIFIED" if missing else "REQUIREMENT_PRESENT",
+        "findings": list(dict.fromkeys(missing)),
+        "cause_scope": "Design-level diagnosis from inspected schema contract; historical runtime cause remains unknown.",
+    }
+
+
+
+    # Sixth component is a required output after the second FIRA-associated wave exists.
+    def test_09_post_connection_report_is_generated_as_sixth_component(self):
+        assertion = assertions_aira(self.source, deepcopy(self.source))
+        report = post_connection_report(self.source, self.particle, self.second_wave, assertion)
+        self.assertEqual(report["component"], 6)
+        self.assertEqual(report["status"], "GENERATED")
+        self.assertEqual(report["report_generator"], "AIRA-of-TERA")
+        self.assertEqual(report["second_wave_association"], "second_fira")
+
+    def test_10_missing_sixth_component_is_diagnosed_as_schema_requirement_gap(self):
+        diagnostic = diagnose_missing_sixth_component(
+            schema_fields=["purpose", "branch", "state", "blockers", "next_action", "changes_intended"],
+            required_outputs=["particle_state", "second_wave"],
+        )
+        self.assertEqual(diagnostic["status"], "GAP_IDENTIFIED")
+        self.assertIn("post_connection_report_not_declared_as_required_output", diagnostic["findings"])
+        self.assertIn("no_post_connection_generation_invariant", diagnostic["findings"])
+        self.assertIn("historical runtime cause remains unknown", diagnostic["cause_scope"])
+
 if __name__ == "__main__":
     unittest.main()
