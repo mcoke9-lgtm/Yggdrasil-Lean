@@ -181,5 +181,119 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.assertNotEqual(result["status"], "PASS")
 
 
+
+# Post-connection schema contract added separately from the original eight tests.
+# This remains a synthetic contract; it is not a production runtime integration.
+CHECKPOINT_COMPONENTS = (
+    "purpose",
+    "branch",
+    "state",
+    "blockers",
+    "next_action",
+    "post_connection_report",
+)
+REPORT_STATUSES = {
+    "GENERATED_VERIFIED",
+    "GENERATED_UNVERIFIED",
+    "FAILED",
+    "NOT_GENERATED",
+    "UNKNOWN",
+}
+
+
+def checkpoint_schema():
+    """Required checkpoint fields; changes_intended is cross-cutting metadata."""
+    return {
+        "purpose": None,
+        "branch": None,
+        "state": None,
+        "blockers": [],
+        "next_action": None,
+        "post_connection_report": {
+            "status": "NOT_GENERATED",
+            "report": None,
+            "failure_evidence": None,
+        },
+        "changes_intended": [],
+    }
+
+
+def connection_completion_status(checkpoint):
+    """A connection is not complete until report status is explicitly verified."""
+    report = checkpoint.get("post_connection_report", {})
+    status = report.get("status", "UNKNOWN")
+    if status == "GENERATED_VERIFIED" and report.get("report") is not None:
+        return "COMPLETE"
+    if status not in REPORT_STATUSES:
+        return "INVALID"
+    return "INCOMPLETE"
+
+
+class PostConnectionReportContractTests(unittest.TestCase):
+    def test_09_checkpoint_has_exactly_six_required_components(self):
+        schema = checkpoint_schema()
+        self.assertEqual(tuple(k for k in schema if k != "changes_intended"),
+                         CHECKPOINT_COMPONENTS)
+        self.assertEqual(len(CHECKPOINT_COMPONENTS), 6)
+
+    def test_10_changes_intended_is_not_the_sixth_component(self):
+        schema = checkpoint_schema()
+        self.assertIn("changes_intended", schema)
+        self.assertNotIn("changes_intended", CHECKPOINT_COMPONENTS)
+        self.assertIn("post_connection_report", schema)
+
+    def test_11_connection_attempt_without_report_is_not_complete(self):
+        checkpoint = checkpoint_schema()
+        self.assertEqual(connection_completion_status(checkpoint), "INCOMPLETE")
+
+    def test_12_generated_but_unverified_report_is_not_complete(self):
+        checkpoint = checkpoint_schema()
+        checkpoint["post_connection_report"] = {
+            "status": "GENERATED_UNVERIFIED",
+            "report": {"observed_result": "connected"},
+            "failure_evidence": None,
+        }
+        self.assertEqual(connection_completion_status(checkpoint), "INCOMPLETE")
+
+    def test_13_verified_report_is_required_for_completion(self):
+        checkpoint = checkpoint_schema()
+        checkpoint["post_connection_report"] = {
+            "status": "GENERATED_VERIFIED",
+            "report": {
+                "report_id": "RPT-001",
+                "connection_id": "CONN-001",
+                "observed_result": "connected",
+                "evidence_references": ["fixture-001"],
+                "discrepancies": [],
+                "unresolved_items": [],
+                "intended_vs_actual": {"intended": [], "actual": []},
+                "verification_method": "synthetic_contract_assertion",
+            },
+            "failure_evidence": None,
+        }
+        self.assertEqual(connection_completion_status(checkpoint), "COMPLETE")
+
+    def test_14_failed_or_unknown_report_cannot_become_complete(self):
+        for status in ("FAILED", "NOT_GENERATED", "UNKNOWN"):
+            checkpoint = checkpoint_schema()
+            checkpoint["post_connection_report"]["status"] = status
+            self.assertEqual(connection_completion_status(checkpoint), "INCOMPLETE")
+
+    def test_15_invalid_report_status_is_rejected(self):
+        checkpoint = checkpoint_schema()
+        checkpoint["post_connection_report"]["status"] = "SUCCESS-ish"
+        self.assertEqual(connection_completion_status(checkpoint), "INVALID")
+
+    def test_16_container_and_workflow_roles_remain_distinct(self):
+        # Model contract: WATA carries containers/transformation; FIRA describes
+        # the workflow/connection through which those containers interact.
+        roles = {"container_and_transformation": "WATA",
+                 "workflow_and_connection": "FIRA"}
+        self.assertNotEqual(roles["container_and_transformation"],
+                            roles["workflow_and_connection"])
+        self.assertEqual(roles["container_and_transformation"], "WATA")
+        self.assertEqual(roles["workflow_and_connection"], "FIRA")
+
+
 if __name__ == "__main__":
     unittest.main()
