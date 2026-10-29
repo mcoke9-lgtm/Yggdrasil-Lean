@@ -165,7 +165,11 @@ class RecoveryRoundTripTests(unittest.TestCase):
         self.source = fixture()
         self.particle = collapse(self.source)
         self.report = aira_of_tera_report(self.particle)
-        self.second_wave = activate(self.report)\n        self.round_trip_result = assertions_aira(self.source, self.source)\n        self.post_connection_report = generate_post_connection_report(\n            self.source, self.particle, self.second_wave, self.round_trip_result\n        )
+        self.second_wave = activate(self.report)
+        self.round_trip_result = assertions_aira(self.source, self.source)
+        self.post_connection_report = generate_post_connection_report(
+            self.source, self.particle, self.second_wave, self.round_trip_result
+        )
 
     def test_01_initial_wave_assertions_are_separate_from_report_generation(self):
         reconstructed = deepcopy(self.source)
