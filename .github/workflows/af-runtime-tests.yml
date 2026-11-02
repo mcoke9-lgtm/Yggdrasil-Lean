@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - af-runtime-001-reference-resolver
+      - af-health-001-handoff-ledger
   pull_request:
     branches:
       - main
