@@ -6,13 +6,22 @@
 
 ## Request-to-ledger path
 
-1. The caller supplies a request containing an authorization ID, action fingerprint, actor, source branch and checkpoint, target branch, and scope.
-2. The injected verifier evaluates the request against its own authoritative policy and evidence sources.
-3. The gate accepts only a mapping with `status="VERIFIED"` and exact matching authorization ID and action fingerprint.
-4. Only then does it register that ID/fingerprint pair with the execution ledger.
-5. Missing fields, verifier exceptions, denial, malformed responses, identity/scope mismatch, duplicate IDs, and ledger failures all reject.
+1. The caller supplies an authorization ID, actor, source branch and checkpoint, target branch, and a non-empty list of scoped actions.
+2. The gate derives the action fingerprint locally from those action fields.
+3. The caller-supplied fingerprint must exactly match the derived value; otherwise the request is rejected before the verifier is called.
+4. The injected verifier evaluates the request against its own authoritative policy and evidence sources.
+5. The gate accepts only a mapping with `status="VERIFIED"` and exact matching authorization ID and derived fingerprint.
+6. Only then does it register that ID/fingerprint pair with the execution ledger.
+
+Missing or malformed fields, forged fingerprints, verifier exceptions, denial, malformed responses, identity/scope mismatch, duplicate IDs, and ledger failures all reject.
 
 The gate returns `REGISTERED`, not `EXECUTED`, `COMMITTED`, or `TRANSITIONED`. A later controller must separately check environment-action permission, reserve/consume the ledger authorization, perform an idempotent or reconcilable effect, and record evidence of the actual effect.
+
+## Fingerprint profile
+
+The current `af-action-v1` profile hashes a constrained JSON object containing actor, source branch, source checkpoint, target branch, and scope. Scope is a set of unique non-empty strings and is sorted before serialization. JSON keys are sorted, separators are fixed, UTF-8 is used, and SHA-256 produces the digest.
+
+This is a deliberately constrained local canonicalization profile, **not an implementation of RFC 8785/JCS**. It must be versioned and treated as an internal prototype contract. Cross-language interoperability requires a separately specified and tested canonicalization standard before production use.
 
 ## Trust boundary
 
@@ -20,7 +29,7 @@ The injected verifier is the trust root. The gate does not authenticate the veri
 
 ## Tests
 
-The nine VG tests cover exact matching registration, missing request fields, non-verified decisions, authorization-ID mismatch, action-fingerprint mismatch, verifier exceptions, malformed verifier responses, ledger registration failures, and the no-external-effect boundary.
+Eleven VG tests cover verifier-gate behavior and six AF tests cover deterministic fingerprinting, scope normalization, malformed scope rejection, required fields, and digest format.
 
 Run the full directory with:
 
@@ -30,4 +39,4 @@ python -m unittest discover -s tests/adaptive_filesystem -p 'test_*.py' -v
 
 ## Next gate
 
-Before this can be connected to real execution, select and review a real authority verifier, define the canonical authorization schema and action-fingerprint construction, add an independent environment-permission check, and integrate effect receipts/reconciliation. A verifier's `VERIFIED` string is not cryptographic proof by itself. No branch transition, shared write, or governance adoption is authorized by this prototype.
+Before this can be connected to real execution, select and review a real authority verifier, define the canonical authorization schema across platforms, add an independent environment-permission check, and integrate effect receipts/reconciliation. A verifier's `VERIFIED` string is not cryptographic proof by itself. No branch transition, shared write, or governance adoption is authorized by this prototype.
