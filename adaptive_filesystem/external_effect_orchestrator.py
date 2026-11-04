@@ -40,7 +40,7 @@ class ExternalEffectOrchestrator:
             "environment_action": environment_request["environment_action"],
         }
 
-    def _record_and_commit(self, idempotency_key, bindings, response):
+    def _record_and_commit(self, idempotency_key, bindings, response, effect_executed):
         if not isinstance(response, Mapping) or response.get("status") != "APPLIED":
             return {"status": "RECONCILIATION_REQUIRED", "reason": "remote_outcome_not_confirmed"}
         receipt_id = response.get("receipt_id")
@@ -65,20 +65,42 @@ class ExternalEffectOrchestrator:
             sort_keys=True,
             separators=(",", ":"),
         )
-        committed = self._execution_ledger.commit_once(
-            bindings["authorization_id"],
-            bindings["action_fingerprint"],
-            ledger_outcome,
-        )
+        try:
+            committed = self._execution_ledger.commit_once(
+                bindings["authorization_id"],
+                bindings["action_fingerprint"],
+                ledger_outcome,
+            )
+        except Exception:
+            return {"status": "RECONCILIATION_REQUIRED", "reason": "ledger_commit_unconfirmed"}
         return {
             "status": committed["status"],
             "ledger": committed,
             "receipt": receipt,
-            "effect_executed": True,
+            "effect_executed": effect_executed,
         }
 
     def execute(self, idempotency_key, transition_request, environment_request, payload):
         """Start one effect; any ambiguous remote result becomes reconciliation."""
+        existing = self._receipt_store.inspect(idempotency_key)
+        if existing is not None:
+            existing_bindings = {
+                "authorization_id": existing["authorization_id"],
+                "action_fingerprint": existing["action_fingerprint"],
+                "environment_id": existing["environment_id"],
+                "environment_action": existing["environment_action"],
+            }
+            if (
+                transition_request.get("authorization_id") != existing_bindings["authorization_id"]
+                or transition_request.get("action_fingerprint") != existing_bindings["action_fingerprint"]
+                or environment_request.get("environment_id") != existing_bindings["environment_id"]
+                or environment_request.get("environment_action") != existing_bindings["environment_action"]
+            ):
+                return {"status": "REJECT", "reason": "idempotency_key_conflict"}
+            if existing["status"] == "RECEIVED":
+                return self._commit_existing(idempotency_key, existing_bindings, existing)
+            return {"status": "RECONCILIATION_REQUIRED", "reason": "existing_intent_requires_lookup"}
+
         ready = self._readiness_gate.check(transition_request, environment_request)
         if not isinstance(ready, Mapping) or ready.get("status") != "READY":
             return {"status": "REJECT", "reason": "execution_not_ready"}
@@ -89,14 +111,6 @@ class ExternalEffectOrchestrator:
             or transition_request.get("action_fingerprint") != bindings["action_fingerprint"]
         ):
             return {"status": "REJECT", "reason": "transition_binding_mismatch"}
-
-        existing = self._receipt_store.inspect(idempotency_key)
-        if existing is not None:
-            if any(existing[field] != value for field, value in bindings.items()):
-                return {"status": "REJECT", "reason": "idempotency_key_conflict"}
-            if existing["status"] == "RECEIVED":
-                return self._commit_existing(idempotency_key, bindings, existing)
-            return {"status": "RECONCILIATION_REQUIRED", "reason": "existing_intent_requires_lookup"}
 
         intent = self._receipt_store.register_intent(
             idempotency_key=idempotency_key, **bindings
@@ -115,7 +129,7 @@ class ExternalEffectOrchestrator:
             self._receipt_store.mark_reconciliation_required(idempotency_key)
             return {"status": "RECONCILIATION_REQUIRED", "reason": "remote_call_outcome_unknown"}
 
-        return self._record_and_commit(idempotency_key, bindings, response)
+        return self._record_and_commit(idempotency_key, bindings, response, effect_executed=True)
 
     def _commit_existing(self, idempotency_key, bindings, existing):
         ledger_outcome = json.dumps(
@@ -127,11 +141,14 @@ class ExternalEffectOrchestrator:
             sort_keys=True,
             separators=(",", ":"),
         )
-        committed = self._execution_ledger.commit_once(
-            bindings["authorization_id"],
-            bindings["action_fingerprint"],
-            ledger_outcome,
-        )
+        try:
+            committed = self._execution_ledger.commit_once(
+                bindings["authorization_id"],
+                bindings["action_fingerprint"],
+                ledger_outcome,
+            )
+        except Exception:
+            return {"status": "RECONCILIATION_REQUIRED", "reason": "ledger_commit_unconfirmed"}
         return {
             "status": committed["status"],
             "ledger": committed,
@@ -176,4 +193,4 @@ class ExternalEffectOrchestrator:
             "status": "APPLIED",
             "receipt_id": response.get("receipt_id"),
             "outcome": response.get("outcome"),
-        })
+        }, effect_executed=False)
