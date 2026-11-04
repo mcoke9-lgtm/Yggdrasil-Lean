@@ -134,12 +134,22 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.executor.lookup_calls, 1)
 
     def test_OE03_remote_not_found_does_not_trigger_blind_retry(self):
-        self.executor.lose_ack = True
-        self.execute()
-        result = self.orchestrator.reconcile("effect-55")
+        class NoEffectExecutor(FakeExecutor):
+            def execute(self, idempotency_key, environment_id, environment_action, payload):
+                self.execute_calls += 1
+                raise TimeoutError("request timed out before remote effect")
+        executor = NoEffectExecutor()
+        orchestrator = ExternalEffectOrchestrator(
+            self.ready, self.receipts, executor, self.ledger
+        )
+        first = orchestrator.execute(
+            "effect-55", TRANSITION, ENVIRONMENT, {"operation": "update"}
+        )
+        self.assertEqual(first["status"], "RECONCILIATION_REQUIRED")
+        result = orchestrator.reconcile("effect-55")
         self.assertEqual(result["status"], "RECONCILIATION_REQUIRED")
-        self.assertEqual(self.executor.execute_calls, 1)
-        self.assertEqual(self.executor.lookup_calls, 1)
+        self.assertEqual(executor.execute_calls, 1)
+        self.assertEqual(executor.lookup_calls, 1)
 
     def test_OE04_receipt_persisted_but_ledger_commit_failed_can_resume(self):
         failing = FailingOnceLedger(self.ledger)
