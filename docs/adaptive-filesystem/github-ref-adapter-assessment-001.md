@@ -114,3 +114,31 @@ These are local helper and model-contract tests only. No GraphQL mutation was is
 - The branch-protection endpoint returned HTTP 403 (`Resource not accessible by integration`).
 - Organization-level ruleset coverage and any policy that would protect `refs/af-operations/*` are therefore **Unknown**.
 - An empty repository-level ruleset list is not evidence that marker refs are protected. No marker namespace should be used for a live operation until an authorized administrator verifies effective rules and deletion/update permissions.
+
+
+## Correction: operation markers must use protected tag refs
+
+A further review of GitHub's ruleset documentation exposed a design flaw in the initial marker namespace. Repository rulesets are documented as targeting **branches and tags**; they do not provide a documented protection target for an arbitrary custom ref namespace such as `refs/af-operations/*`. The earlier custom-ref proposal therefore did not establish the required protection and is superseded.
+
+The helper now places each operation marker under:
+
+`refs/tags/af-operations/<sha256(operation_id)>`
+
+This makes a tag ruleset a documented protection mechanism. The intended administrator configuration is a tag ruleset matching `af-operations/**` with **Restrict updates** and **Restrict deletions** enabled. Marker creation remains necessary for the atomic transaction; subsequent updates/deletions should be denied except to explicitly configured bypass actors. Bypass membership and effective enforcement must be reviewed and minimized.
+
+Official documentation:
+- GraphQL `updateRefs` atomicity and zero-OID precondition: https://docs.github.com/en/graphql/reference/git
+- Rulesets target branches/tags and tag rulesets can restrict updates/deletions: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets and https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets
+
+**Still unverified for this repository:** effective tag rulesets, organization-level policy, bypass actors, and whether the exact GraphQL `updateRefs` mutation is subject to the intended tag protection in this account/repository configuration. The prior REST branch-protection 403 does not answer these questions. The empty repository-level rulesets response does not prove no organization ruleset applies.
+
+### Revised gate
+
+Before any disposable integration mutation:
+1. An administrator must create or confirm an active tag ruleset matching `af-operations/**`.
+2. Verify restrict-updates and restrict-deletions are enabled and bypass actors are explicitly limited.
+3. Read back the effective rule for a representative marker tag/ref through an authorized view.
+4. Verify a second actor cannot update/delete a marker in a disposable repository (negative tests), while the designated executor can create a new marker.
+5. Confirm the two-entry GraphQL `updateRefs` transaction is rejected atomically when the marker create or branch CAS precondition fails.
+
+Until these are established, marker immutability is **Unknown**, the design remains **Proposed**, and no real mutation is authorized or attempted.
