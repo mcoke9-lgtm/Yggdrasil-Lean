@@ -142,3 +142,19 @@ Before any disposable integration mutation:
 5. Confirm the two-entry GraphQL `updateRefs` transaction is rejected atomically when the marker create or branch CAS precondition fails.
 
 Until these are established, marker immutability is **Unknown**, the design remains **Proposed**, and no real mutation is authorized or attempted.
+
+
+### Least-privilege tag ruleset configuration
+
+The routine executor needs to create a marker tag once, but should not be able to update or delete it afterward. The proposed ruleset is:
+
+- Target tag pattern: `af-operations/*`.
+- Enforcement: Active.
+- Restrict updates: enabled.
+- Restrict deletions: enabled.
+- Restrict creations: disabled, so the authorized executor can create a new marker without receiving a bypass exemption.
+- No routine bypass actors for update or deletion.
+
+GitHub documents creation, update, and deletion restrictions as separate rules. This configuration is a proposed least-privilege design, not a verified live ruleset. Effective behavior of GraphQL `updateRefs` against this tag ruleset must still be tested in a disposable repository, including negative update and deletion attempts after creation.
+
+Routine operation execution should have create-once and read/verify capabilities only. Any exceptional administrator override must be separately authorized and audited.
