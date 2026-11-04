@@ -43,16 +43,21 @@ class ExternalEffectOrchestrator:
     def _record_and_commit(self, idempotency_key, bindings, response, effect_executed):
         if not isinstance(response, Mapping) or response.get("status") != "APPLIED":
             return {"status": "RECONCILIATION_REQUIRED", "reason": "remote_outcome_not_confirmed"}
+        if any(response.get(field) != value for field, value in bindings.items()):
+            return {"status": "RECONCILIATION_REQUIRED", "reason": "remote_receipt_binding_mismatch"}
         receipt_id = response.get("receipt_id")
         if not isinstance(receipt_id, str) or not receipt_id.strip() or "outcome" not in response:
             return {"status": "RECONCILIATION_REQUIRED", "reason": "remote_receipt_malformed"}
 
-        receipt = self._receipt_store.record_receipt(
-            idempotency_key=idempotency_key,
-            external_receipt_id=receipt_id,
-            outcome=response["outcome"],
-            **bindings,
-        )
+        try:
+            receipt = self._receipt_store.record_receipt(
+                idempotency_key=idempotency_key,
+                external_receipt_id=receipt_id,
+                outcome=response["outcome"],
+                **bindings,
+            )
+        except Exception:
+            return {"status": "RECONCILIATION_REQUIRED", "reason": "receipt_persistence_unconfirmed"}
         if receipt.get("status") not in ("RECEIVED", "REPLAY"):
             return {"status": "RECONCILIATION_REQUIRED", "reason": "receipt_rejected"}
 
@@ -100,6 +105,9 @@ class ExternalEffectOrchestrator:
             if existing["status"] == "RECEIVED":
                 return self._commit_existing(idempotency_key, existing_bindings, existing)
             return {"status": "RECONCILIATION_REQUIRED", "reason": "existing_intent_requires_lookup"}
+
+        if not isinstance(transition_request, Mapping) or not isinstance(environment_request, Mapping):
+            return {"status": "REJECT", "reason": "request_invalid"}
 
         ready = self._readiness_gate.check(transition_request, environment_request)
         if not isinstance(ready, Mapping) or ready.get("status") != "READY":
@@ -193,4 +201,5 @@ class ExternalEffectOrchestrator:
             "status": "APPLIED",
             "receipt_id": response.get("receipt_id"),
             "outcome": response.get("outcome"),
+            **{field: response.get(field) for field in bindings},
         }, effect_executed=False)
