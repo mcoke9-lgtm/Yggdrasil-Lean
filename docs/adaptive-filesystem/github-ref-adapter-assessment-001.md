@@ -278,3 +278,15 @@ The repository metadata confirms administrative permission on the existing proje
 The available GitHub action surface was also rechecked. It supports read-only REST fetches and selected prebuilt GraphQL operations, but exposes no general GraphQL query or `updateRefs` mutation executor. Therefore neither the inventory query nor effective-ref query can be run through this connection, and the acceptance matrix cannot be truthfully marked tested.
 
 **Current blocker, now narrowed:** provide/designate a disposable test repository and a GraphQL-capable authenticated execution path. No repository was created, repurposed, or modified for testing.
+
+### Repository-creation and API-surface boundary (2026-11-04)
+
+A further capability check distinguishes three separate facts:
+
+1. GitHub documents POST /user/repos for creating a repository for the authenticated user. Fine-grained tokens need either Administration (write) or Repository creation (write); the endpoint's existence does not mean the current connection can invoke it.
+2. The connected mcp__GitHub__fetch action explicitly supports approved GitHub resources via GET only. It cannot invoke the repository-creation POST or GitHub GraphQL mutations.
+3. The available GitHub action inventory includes selected object-specific GraphQL operations, but no general GraphQL query/mutation executor and no repository-creation action.
+
+Therefore a disposable repository is technically possible through GitHub's documented API or UI if the account/token is permitted, but cannot be created through the current connected action surface. The updateRefs live acceptance matrix also cannot be executed through this connection.
+
+**Next required capability:** user-administered creation/designation of a private disposable repository plus a separately authorized GraphQL-capable client/token with the needed repository permissions. Do not request or expose the token in chat. No repository-creation request was sent and no test repository was created.
