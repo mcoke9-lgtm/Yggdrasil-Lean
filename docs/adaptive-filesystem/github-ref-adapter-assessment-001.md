@@ -167,3 +167,12 @@ The GitHub REST ruleset listing was repeated with `includes_parents=true`. It re
 The official GraphQL schema documents a read path for effective rules on a ref (`Ref.rules`) and a non-admin-visible `refUpdateRule`; it also documents repository rulesets with `includeParents`. These are potentially useful for an effective-policy read, but the connected GitHub action surface available in this workflow exposes REST GET fetches and selected prebuilt GraphQL operations, not an arbitrary GraphQL query executor. Therefore no GraphQL effective-rule query was executed, and no effective tag protection is verified.
 
 **Current conclusion:** no visible applicable ruleset is configured, and there are no marker tags. The proposed tag-protection model is not active. Do not execute the two-ref `updateRefs` operation in this repository until an administrator configures and verifies the intended protection in an explicitly designated test environment. A disposable repository and a supported GraphQL query/mutation path are still needed to test the exact behavior of `updateRefs` under tag rulesets.
+
+
+### Effective-rule API distinction (2026-11-04)
+
+The official REST "Get rules for a branch" endpoint returns active rules from repository and organization levels, but its path parameter is explicitly a branch name; the documented endpoint is `GET /repos/{owner}/{repo}/rules/branches/{branch}`. It is not a tag-effective-rules endpoint. The REST rules documentation does not document a parallel `/rules/tags/{tag}` route. Therefore it must not be used to claim effective tag protection.
+
+For a tag ref, the documented GraphQL route is `Ref.rules`, described as active Repository and Organization rulesets that apply to that ref. `Ref.refUpdateRule` is described as branch-protection rules viewable by non-admins and should not be treated as a substitute for tag ruleset evaluation. The schema documents `updateRefs` as atomic across the supplied ref updates, with `beforeOid` preconditions.
+
+The connected GitHub tool surface still has no arbitrary GraphQL query/mutation executor. The previous REST read of repository rulesets with `includes_parents=true` returned no rulesets; this is useful evidence that none were visible through that endpoint, but the exact effective tag-ref rule evaluation remains unqueried. Treat tag protection as **unverified / not configured in the inspected repository**, not as a tested enforcement guarantee.
