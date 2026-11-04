@@ -84,3 +84,44 @@ The twelve effect-receipt contract tests cover intent persistence/replay, idempo
 - Add an orchestrator that sequences readiness → durable intent → remote request → receipt or reconciliation, with explicit crash recovery.
 - Decide how the execution ledger's `commit_once` relates to the external receipt. Do not report a branch transition as committed merely because readiness or intent exists.
 - Test against the selected real service, including remote success with lost acknowledgement and remote failure before effect.
+
+
+## Crash-aware orchestrator
+
+`adaptive_filesystem/external_effect_orchestrator.py` now composes the existing readiness gate, receipt store, external executor interface, and execution ledger. It is an injected-interface prototype; it does not connect to a real GitHub or other remote executor.
+
+### Normal path
+
+1. Require `ExecutionReadinessGate` to return `READY`.
+2. Persist the idempotency key and exact authorization/action/environment binding as `INTENDED`.
+3. Call the external executor once, passing the same idempotency key.
+4. Require the executor's receipt to echo the exact authorization ID, action fingerprint, environment ID, and environment action.
+5. Persist the receipt and outcome digest.
+6. Only after receipt persistence, call the local ledger's `commit_once` with a durable reference to that receipt.
+
+### Crash and recovery path
+
+| Failure point | Durable local state | Recovery behavior |
+|---|---|---|
+| Before intent commit | No intent | No remote call should have been made |
+| After intent, before remote call | `INTENDED` | Lookup remote state; do not assume no effect |
+| Remote effect succeeds, acknowledgement lost | `RECONCILIATION_REQUIRED` | Lookup by same idempotency key; if found, verify binding, store receipt, commit ledger |
+| Remote outcome cannot be located | `RECONCILIATION_REQUIRED` | Remain unresolved; do not blindly re-execute |
+| Receipt stored, ledger commit fails or acknowledgement lost | `RECEIVED` | Reconcile locally from stored receipt and retry `commit_once`; do not call remote executor |
+| Ledger committed, response lost | `RECEIVED` plus committed ledger | Replay `commit_once` and retrieve original outcome |
+
+Recovery's `reconcile` method is lookup-only. It never calls the remote execute method. A `NOT_FOUND` lookup remains unresolved because remote lookup consistency and idempotency guarantees depend on the external service. A future integration may add controlled retry only after the selected service's contract proves that retrying the same idempotency key is safe.
+
+The orchestrator rejects a receipt whose echoed identity/action/environment bindings differ from the durable intent. It distinguishes `effect_executed=True` on the initial successful call from `False` when recovering a remote effect or replaying a stored receipt.
+
+### Orchestrator tests
+
+Nine `OE-01` through `OE-09` tests cover the normal path, remote success with lost acknowledgement, unresolved lookup without re-execution, receipt-persisted/ledger-failed recovery, receipt replay, readiness denial, unknown intent, idempotency-key binding conflict, and foreign receipt identity rejection. Tests use fake gates/executors and local SQLite databases; they do not verify a real remote service or receipt signature.
+
+### Remaining limitations
+
+- The external executor must provide durable idempotency-key semantics and an authoritative lookup API. This prototype cannot create those guarantees for a remote system.
+- Receipt identity fields are matched, but receipt signatures/issuer authenticity are not verified.
+- There is no real-service adapter, remote integration test, distributed consensus, or automatic recovery worker.
+- A locally committed ledger outcome is a record that a matching receipt was observed; it does not make a remote side effect and SQLite commit atomic.
+- Real branch mutation remains disabled pending authority, policy, remote API, recovery, and explicit governance gates.
