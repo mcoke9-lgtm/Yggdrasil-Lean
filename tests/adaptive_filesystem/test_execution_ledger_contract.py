@@ -161,7 +161,7 @@ os._exit(74)
             self.assertEqual(results["commit"]["reason"], "authorization_revoked")
             self.assertTrue(results["revoke"])
 
-    def test_EL07_same_authorization_cannot_be_reused_for_another_action(self):
+    def test_EL08_same_authorization_cannot_be_reused_for_another_action(self):
         self.ledger.commit_once(
             "auth-one", "advance:Roots->Trunk", "checkpoint-8"
         )
@@ -172,7 +172,7 @@ os._exit(74)
             "status": "REJECT", "reason": "action_fingerprint_mismatch"
         })
 
-    def test_EL08_unknown_authorization_fails_closed(self):
+    def test_EL09_unknown_authorization_fails_closed(self):
         result = self.ledger.commit_once(
             "auth-missing", "advance:Roots->Trunk", "checkpoint-8"
         )
