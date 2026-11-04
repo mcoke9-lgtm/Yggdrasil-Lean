@@ -56,11 +56,23 @@ class FakeExecutor:
             "status": "FOUND",
             "receipt_id": "remote-" + idempotency_key,
             "outcome": {"remote_result": payload},
+            "authorization_id": AUTH,
+            "action_fingerprint": FINGERPRINT,
+            "environment_id": environment_id,
+            "environment_action": environment_action,
         }
         self.remote[idempotency_key] = receipt
         if self.lose_ack:
             raise TimeoutError("remote succeeded but acknowledgement was lost")
-        return {"status": "APPLIED", "receipt_id": receipt["receipt_id"], "outcome": receipt["outcome"]}
+        return {
+            "status": "APPLIED",
+            "receipt_id": receipt["receipt_id"],
+            "outcome": receipt["outcome"],
+            "authorization_id": AUTH,
+            "action_fingerprint": FINGERPRINT,
+            "environment_id": environment_id,
+            "environment_action": environment_action,
+        }
 
     def lookup(self, idempotency_key, environment_id, environment_action):
         self.lookup_calls += 1
