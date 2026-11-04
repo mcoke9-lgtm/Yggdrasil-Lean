@@ -124,6 +124,43 @@ os._exit(74)
         self.assertFalse(self.ledger.revoke("auth-one"))
         self.assertEqual(self.ledger.inspect("auth-one")["status"], "committed")
 
+    def test_EL07_concurrent_revocation_and_commit_resolve_to_one_serialized_state(self):
+        barrier = threading.Barrier(2)
+        results = {}
+        errors = []
+
+        def commit():
+            try:
+                barrier.wait()
+                results["commit"] = self.ledger.commit_once(
+                    "auth-one", "advance:Roots->Trunk", "checkpoint-8"
+                )
+            except Exception as exc:
+                errors.append(exc)
+
+        def revoke():
+            try:
+                barrier.wait()
+                results["revoke"] = self.ledger.revoke("auth-one")
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=commit), threading.Thread(target=revoke)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(errors, [])
+        state = self.ledger.inspect("auth-one")
+        if state["status"] == "committed":
+            self.assertEqual(results["commit"]["status"], "COMMITTED")
+            self.assertFalse(results["revoke"])
+        else:
+            self.assertEqual(state["status"], "revoked")
+            self.assertEqual(results["commit"]["reason"], "authorization_revoked")
+            self.assertTrue(results["revoke"])
+
     def test_EL07_same_authorization_cannot_be_reused_for_another_action(self):
         self.ledger.commit_once(
             "auth-one", "advance:Roots->Trunk", "checkpoint-8"
@@ -143,7 +180,7 @@ os._exit(74)
             "status": "REJECT", "reason": "authorization_unknown"
         })
 
-    def test_EL09_inspection_is_read_only_and_unknown_is_none(self):
+    def test_EL10_inspection_is_read_only_and_unknown_is_none(self):
         before = self.ledger.inspect("auth-one")
         self.assertEqual(before["status"], "authorized")
         self.assertIsNone(self.ledger.inspect("auth-missing"))
