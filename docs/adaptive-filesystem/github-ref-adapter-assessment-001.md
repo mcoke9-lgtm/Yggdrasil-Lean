@@ -192,11 +192,16 @@ query TagRulesets($owner: String!, $name: String!) {
         name target enforcement
         source { __typename }
         conditions { refName { include exclude } }
-        rules(first: 100) { nodes { id type parameters { __typename } } }
+        rules(first: 100) {
+          nodes { id type parameters { __typename } }
+          pageInfo { hasNextPage endCursor }
+        }
         bypassActors(first: 100) {
           nodes { bypassMode actor { __typename } }
+          pageInfo { hasNextPage endCursor }
         }
       }
+      pageInfo { hasNextPage endCursor }
     }
   }
 }
@@ -211,17 +216,22 @@ query EffectiveTagRules($owner: String!, $name: String!, $qualifiedName: String!
       name prefix
       rules(first: 100) {
         nodes {
-          id
+          id type parameters { __typename }
           repositoryRuleset {
             name target enforcement
             source { __typename }
             conditions { refName { include exclude } }
-            rules(first: 100) { nodes { id type parameters { __typename } } }
+            rules(first: 100) {
+              nodes { id type parameters { __typename } }
+              pageInfo { hasNextPage endCursor }
+            }
             bypassActors(first: 100) {
               nodes { bypassMode actor { __typename } }
+              pageInfo { hasNextPage endCursor }
             }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
@@ -231,7 +241,29 @@ query EffectiveTagRules($owner: String!, $name: String!, $qualifiedName: String!
 Example CLI call for the inventory query (replace placeholders):
 
 ```sh
-gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){rulesets(first:100,includeParents:true,targets:[TAG]){nodes{name target enforcement source{__typename} conditions{refName{include exclude}} rules(first:100){nodes{id parameters{__typename}}} bypassActors(first:100){nodes{bypassMode actor{__typename}}}}}}}' -F owner='OWNER' -F name='REPOSITORY'
+gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){rulesets(first:100,includeParents:true,targets:[TAG]){nodes{name target enforcement source{__typename} conditions{refName{include exclude}} rules(first:100){nodes{id type parameters{__typename}} pageInfo{hasNextPage endCursor}} bypassActors(first:100){nodes{bypassMode actor{__typename}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}' -F owner='OWNER' -F name='REPOSITORY'
 ```
 
 The effective-ref query requires an existing matching tag; a null ref proves nothing about enforcement. Handle pagination if any connection reports additional pages. Neither read query proves that `updateRefs` obeys the ruleset: that requires a controlled mutation test in the disposable repository. These queries are documented, not executed here.
+
+
+### Disposable-repository acceptance matrix
+
+Run only after the test repository owner has explicitly designated the repository and approved the test window. Use a fresh, uniquely named test tag under the exact protected pattern.
+
+| Case | Attempt | Required observation |
+|---|---|---|
+| RQ-01 | Inventory query | Every applicable repository/parent TAG ruleset is returned; paginate all connections |
+| RQ-02 | Effective-ref query | Matching tag returns the expected active rules; paginate all connections |
+| POS-01 | Create a matching marker tag with the intended create-only executor | Creation succeeds; effective rules still report update/delete restrictions |
+| NEG-01 | Update the existing marker tag to a different commit | Rejected; original tag target remains unchanged |
+| NEG-02 | Delete the existing marker tag | Rejected; tag remains present |
+| NEG-03 | Attempt update/delete as the ordinary test actor | Rejected; no routine bypass |
+| CAS-01 | Submit atomic branch-CAS + marker-create with correct before OIDs | Both refs change, or neither does |
+| CAS-02 | Repeat the exact operation after success | The old branch OID and existing marker precondition prevent a second application |
+| CAS-03 | Change the branch independently before submission | Entire mutation rejected; no marker created and no force update |
+| CAS-04 | Cause one member of the two-ref mutation to violate its precondition | Neither ref changes |
+
+For every negative case, capture the GraphQL error, re-read both refs, and confirm no partial mutation. A rejected mutation alone is insufficient evidence of atomic non-change. For each positive case, capture the before/after OIDs and the returned marker target. Clean-up of test refs is a separate explicitly approved action; do not weaken protections or use an unapproved bypass to remove them.
+
+**Acceptance rule:** the adapter remains blocked until RQ-01/RQ-02, POS-01, NEG-01/02/03, and CAS-01 through CAS-04 have been executed and their read-backs independently verified. Any missing result is **Unknown**, not Pass.
