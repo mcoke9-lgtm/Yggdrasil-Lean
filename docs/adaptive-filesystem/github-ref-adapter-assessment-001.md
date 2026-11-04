@@ -267,3 +267,14 @@ Run only after the test repository owner has explicitly designated the repositor
 For every negative case, capture the GraphQL error, re-read both refs, and confirm no partial mutation. A rejected mutation alone is insufficient evidence of atomic non-change. For each positive case, capture the before/after OIDs and the returned marker target. Clean-up of test refs is a separate explicitly approved action; do not weaken protections or use an unapproved bypass to remove them.
 
 **Acceptance rule:** the adapter remains blocked until RQ-01/RQ-02, POS-01, NEG-01/02/03, and CAS-01 through CAS-04 have been executed and their read-backs independently verified. Any missing result is **Unknown**, not Pass.
+
+
+### Read-only test-repository discovery (2026-11-04)
+
+The connected GitHub account's repository inventory was checked by owner, collaborator, and organization-member affiliation. The owner inventory returned only `mcoke9-lgtm/Yggdrasil-Lean`; collaborator and organization-member inventories returned no repositories. No existing disposable repository is currently visible to this connection.
+
+The repository metadata confirms administrative permission on the existing project, but that is not a substitute for an explicit decision to create or repurpose a test repository. The existing project is not designated disposable, and its branch/ref history must remain untouched by enforcement experiments.
+
+The available GitHub action surface was also rechecked. It supports read-only REST fetches and selected prebuilt GraphQL operations, but exposes no general GraphQL query or `updateRefs` mutation executor. Therefore neither the inventory query nor effective-ref query can be run through this connection, and the acceptance matrix cannot be truthfully marked tested.
+
+**Current blocker, now narrowed:** provide/designate a disposable test repository and a GraphQL-capable authenticated execution path. No repository was created, repurposed, or modified for testing.
