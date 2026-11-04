@@ -39,7 +39,7 @@ python -m unittest discover -s tests/adaptive_filesystem -p 'test_*.py' -v
 
 ## Next gate
 
-Before this can be connected to real execution, select and review a real authority verifier, define the canonical authorization schema across platforms, add an independent environment-permission check, and integrate effect receipts/reconciliation. A verifier's `VERIFIED` string is not cryptographic proof by itself. No branch transition, shared write, or governance adoption is authorized by this prototype.
+Before this can be connected to real execution, select and review real authority and environment-permission providers, define the canonical authorization schema across platforms, and integrate effect receipts/reconciliation. A verifier's `VERIFIED` string is not cryptographic proof by itself. No branch transition, shared write, or governance adoption is authorized by this prototype.
 
 
 ## Independent environment permission gate
