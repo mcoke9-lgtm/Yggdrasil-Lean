@@ -54,3 +54,33 @@ A successful test run verifies the prototype's behavior in the CI environment. I
 6. Obtain explicit governance decisions before enabling real branch transitions or shared writes.
 
 Until those gates are met, this component is a verified single-database prototype, not an operational cross-platform authorization system.
+
+
+## External-effect receipt and reconciliation prototype
+
+The separate `adaptive_filesystem/effect_receipts.py` component introduces a durable protocol for the gap between readiness and a remote side effect:
+
+1. Persist an `INTENDED` record with a stable idempotency key and exact authorization/action/environment binding **before** calling the external executor.
+2. Send that same idempotency key to the external system. The external system must enforce idempotency or expose an authoritative lookup; this local SQLite store cannot enforce remote deduplication.
+3. Persist a returned receipt only when its authorization ID, action fingerprint, environment ID, and environment action match the intent. The receipt ID and canonical outcome digest are retained.
+4. If the caller cannot determine whether the remote action happened, mark `RECONCILIATION_REQUIRED`. Query the remote system by idempotency key and then record its authoritative receipt, or leave the item unresolved. Do not blindly retry a non-idempotent action.
+
+The store rejects reuse of an idempotency key with a different binding, unknown intents, mismatched receipts, and conflicting second receipts. Identical intent and receipt retries are idempotent. The receipt outcome is represented by a SHA-256 digest of deterministic JSON; the full outcome is not stored.
+
+### State meaning
+
+- `INTENDED`: local intent is durable; remote effect may not have been attempted yet.
+- `RECONCILIATION_REQUIRED`: remote outcome is uncertain. This is not success or failure.
+- `RECEIVED`: a matching receipt has been recorded. This is evidence returned by the configured external system, not independent proof that the external system is truthful.
+
+Absence of a local receipt does **not** prove that the remote effect did not happen. A recorded receipt does not make the remote effect atomic with the local ledger. This component does not itself call the external system, execute effects, validate receipt signatures, query remote state, or automatically retry.
+
+The twelve effect-receipt contract tests cover intent persistence/replay, idempotency-key binding conflicts, unknown/mismatched receipts, matching receipt persistence, duplicate/conflicting receipt behavior, uncertain outcomes, resolution, read-only inspection, and stable outcome digests.
+
+### Remaining integration gates
+
+- Select a real external system and determine whether it supports idempotency keys and authoritative operation lookup.
+- Define and verify receipt authenticity, issuer identity, timestamps, and retention.
+- Add an orchestrator that sequences readiness → durable intent → remote request → receipt or reconciliation, with explicit crash recovery.
+- Decide how the execution ledger's `commit_once` relates to the external receipt. Do not report a branch transition as committed merely because readiness or intent exists.
+- Test against the selected real service, including remote success with lost acknowledgement and remote failure before effect.
