@@ -179,6 +179,32 @@ class OrchestratorTests(unittest.TestCase):
         result = self.orchestrator.reconcile("missing")
         self.assertEqual(result, {"status": "REJECT", "reason": "intent_unknown"})
 
+
+    def test_OE09_remote_receipt_with_wrong_identity_is_not_accepted(self):
+        class WrongIdentityExecutor(FakeExecutor):
+            def execute(self, idempotency_key, environment_id, environment_action, payload):
+                self.execute_calls += 1
+                return {
+                    "status": "APPLIED",
+                    "receipt_id": "foreign-receipt",
+                    "outcome": {"result": "applied"},
+                    "authorization_id": "other-auth",
+                    "action_fingerprint": FINGERPRINT,
+                    "environment_id": environment_id,
+                    "environment_action": environment_action,
+                }
+
+        executor = WrongIdentityExecutor()
+        orchestrator = ExternalEffectOrchestrator(
+            self.ready, self.receipts, executor, self.ledger
+        )
+        result = orchestrator.execute(
+            "foreign", TRANSITION, ENVIRONMENT, {"operation": "update"}
+        )
+        self.assertEqual(result["reason"], "remote_receipt_binding_mismatch")
+        self.assertEqual(self.receipts.inspect("foreign")["status"], "INTENDED")
+        self.assertEqual(self.ledger.inspect(AUTH)["status"], "authorized")
+
     def test_OE08_binding_mismatch_cannot_reuse_existing_idempotency_key(self):
         self.execute()
         other_env = {**ENVIRONMENT, "environment_id": "other-repo"}
