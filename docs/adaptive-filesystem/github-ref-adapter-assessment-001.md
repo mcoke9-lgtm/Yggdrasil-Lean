@@ -176,3 +176,62 @@ The official REST "Get rules for a branch" endpoint returns active rules from re
 For a tag ref, the documented GraphQL route is `Ref.rules`, described as active Repository and Organization rulesets that apply to that ref. `Ref.refUpdateRule` is described as branch-protection rules viewable by non-admins and should not be treated as a substitute for tag ruleset evaluation. The schema documents `updateRefs` as atomic across the supplied ref updates, with `beforeOid` preconditions.
 
 The connected GitHub tool surface still has no arbitrary GraphQL query/mutation executor. The previous REST read of repository rulesets with `includes_parents=true` returned no rulesets; this is useful evidence that none were visible through that endpoint, but the exact effective tag-ref rule evaluation remains unqueried. Treat tag protection as **unverified / not configured in the inspected repository**, not as a tested enforcement guarantee.
+
+
+### Next read-only GraphQL checks
+
+A second REST inspection using `includes_parents=true&targets=tag` returned `[]`; the marker-tag ref listing also returned `[]`. No tag-target rulesets or marker tags are visible in this repository.
+
+For a future designated disposable repository, query the GraphQL ruleset inventory:
+
+```graphql
+query TagRulesets($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    rulesets(first: 100, includeParents: true, targets: [TAG]) {
+      nodes {
+        name target enforcement
+        source { __typename }
+        conditions { refName { include exclude } }
+        rules(first: 100) { nodes { id parameters { __typename } } }
+        bypassActors(first: 100) {
+          nodes { bypassMode actor { __typename } }
+        }
+      }
+    }
+  }
+}
+```
+
+Then, once an existing test tag matches the ruleset condition, query its effective rules:
+
+```graphql
+query EffectiveTagRules($owner: String!, $name: String!, $qualifiedName: String!) {
+  repository(owner: $owner, name: $name) {
+    ref(qualifiedName: $qualifiedName) {
+      name prefix
+      rules(first: 100) {
+        nodes {
+          id
+          repositoryRuleset {
+            name target enforcement
+            source { __typename }
+            conditions { refName { include exclude } }
+            rules(first: 100) { nodes { id parameters { __typename } } }
+            bypassActors(first: 100) {
+              nodes { bypassMode actor { __typename } }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Example CLI call for the inventory query (replace placeholders):
+
+```sh
+gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){rulesets(first:100,includeParents:true,targets:[TAG]){nodes{name target enforcement source{__typename} conditions{refName{include exclude}} rules(first:100){nodes{id parameters{__typename}}} bypassActors(first:100){nodes{bypassMode actor{__typename}}}}}}}' -F owner='OWNER' -F name='REPOSITORY'
+```
+
+The effective-ref query requires an existing matching tag; a null ref proves nothing about enforcement. Handle pagination if any connection reports additional pages. Neither read query proves that `updateRefs` obeys the ruleset: that requires a controlled mutation test in the disposable repository. These queries are documented, not executed here.
