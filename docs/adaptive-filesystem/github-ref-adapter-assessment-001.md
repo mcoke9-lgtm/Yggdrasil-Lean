@@ -192,7 +192,7 @@ query TagRulesets($owner: String!, $name: String!) {
         name target enforcement
         source { __typename }
         conditions { refName { include exclude } }
-        rules(first: 100) { nodes { id parameters { __typename } } }
+        rules(first: 100) { nodes { id type parameters { __typename } } }
         bypassActors(first: 100) {
           nodes { bypassMode actor { __typename } }
         }
@@ -216,7 +216,7 @@ query EffectiveTagRules($owner: String!, $name: String!, $qualifiedName: String!
             name target enforcement
             source { __typename }
             conditions { refName { include exclude } }
-            rules(first: 100) { nodes { id parameters { __typename } } }
+            rules(first: 100) { nodes { id type parameters { __typename } } }
             bypassActors(first: 100) {
               nodes { bypassMode actor { __typename } }
             }
