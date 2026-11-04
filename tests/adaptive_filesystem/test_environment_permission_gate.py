@@ -127,6 +127,52 @@ class EnvironmentPermissionGateTests(unittest.TestCase):
         result = readiness.check({}, env_request())
         self.assertEqual(result["reason"], "environment_permission_rejected")
 
+
+    def test_ER13_transition_gate_exception_fails_closed(self):
+        class BrokenTransition:
+            def authorize(self, request):
+                raise RuntimeError("transition verifier failed")
+
+        calls = []
+        readiness = ExecutionReadinessGate(
+            BrokenTransition(),
+            EnvironmentPermissionGate(
+                lambda value: calls.append(value) or permitted(value)
+            ),
+        )
+        result = readiness.check({}, env_request())
+        self.assertEqual(result["reason"], "transition_gate_error")
+        self.assertEqual(calls, [])
+
+    def test_ER14_malformed_transition_result_fails_closed(self):
+        class MalformedTransition:
+            def authorize(self, request):
+                return True
+
+        readiness = ExecutionReadinessGate(
+            MalformedTransition(), EnvironmentPermissionGate(permitted)
+        )
+        result = readiness.check({}, env_request())
+        self.assertEqual(result["reason"], "transition_authorization_rejected")
+
+    def test_ER15_malformed_environment_result_fails_closed(self):
+        class MalformedEnvironmentGate:
+            def check(self, request):
+                return True
+
+        readiness = ExecutionReadinessGate(FakeTransitionGate(), MalformedEnvironmentGate())
+        result = readiness.check({}, env_request())
+        self.assertEqual(result["reason"], "environment_permission_rejected")
+
+    def test_ER16_environment_gate_exception_fails_closed(self):
+        class BrokenEnvironmentGate:
+            def check(self, request):
+                raise RuntimeError("environment policy failed")
+
+        readiness = ExecutionReadinessGate(FakeTransitionGate(), BrokenEnvironmentGate())
+        result = readiness.check({}, env_request())
+        self.assertEqual(result["reason"], "environment_gate_error")
+
     def test_ER12_readiness_never_executes_effect(self):
         effects = []
         readiness = ExecutionReadinessGate(
