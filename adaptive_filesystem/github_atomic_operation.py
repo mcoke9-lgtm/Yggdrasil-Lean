@@ -25,7 +25,7 @@ def operation_marker_ref(operation_id):
     if not isinstance(operation_id, str) or not _OPERATION_ID.fullmatch(operation_id):
         raise ValueError("operation_id has invalid format")
     suffix = hashlib.sha256(operation_id.encode("utf-8")).hexdigest()
-    return f"refs/af-operations/{suffix}"
+    return f"refs/tags/af-operations/{suffix}"
 
 
 def canonical_marker_record(
