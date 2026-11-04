@@ -1,14 +1,11 @@
-"""Fail-closed boundary between an authority verifier and the execution ledger.
-
-The verifier is injected by the application and remains the trust root. This
-adapter validates that the verifier's decision is bound to the exact request;
-it does not authenticate the verifier, validate signatures, or execute effects.
-"""
+"""Fail-closed boundary between an authority verifier and the execution ledger."""
 from collections.abc import Mapping
+
+from adaptive_filesystem.action_fingerprint import action_fingerprint
 
 
 class VerifiedAuthorizationGate:
-    """Register only verifier-approved records bound to the requested action."""
+    """Register only verifier-approved records bound to a canonical action."""
 
     def __init__(self, verifier, ledger):
         if not callable(verifier):
@@ -21,28 +18,29 @@ class VerifiedAuthorizationGate:
     def authorize(self, request):
         """Verify and register an authorization for one exact action request.
 
-        Required request fields: authorization_id, action_fingerprint, actor,
-        source_branch, source_checkpoint, target_branch, and scope.
-
-        The verifier must return a mapping with status='VERIFIED' and matching
-        authorization_id/action_fingerprint. All other outcomes fail closed.
+        The caller's supplied fingerprint is checked against a locally derived
+        fingerprint. The verifier must return status='VERIFIED' and the exact
+        authorization ID and derived fingerprint. The verifier remains the
+        trust root; this gate does not authenticate it or execute effects.
         """
         if not isinstance(request, Mapping):
             return {"status": "REJECT", "reason": "request_invalid"}
-        required = (
-            "authorization_id",
-            "action_fingerprint",
-            "actor",
-            "source_branch",
-            "source_checkpoint",
-            "target_branch",
-            "scope",
-        )
-        if any(request.get(field) in (None, "", [], {}) for field in required):
+        authorization_id = request.get("authorization_id")
+        if not isinstance(authorization_id, str) or not authorization_id.strip():
             return {"status": "REJECT", "reason": "request_field_missing"}
 
         try:
-            decision = self._verifier(dict(request))
+            derived_fingerprint = action_fingerprint(dict(request))
+        except (TypeError, ValueError):
+            return {"status": "REJECT", "reason": "action_description_invalid"}
+
+        if request.get("action_fingerprint") != derived_fingerprint:
+            return {"status": "REJECT", "reason": "caller_fingerprint_mismatch"}
+
+        verified_request = dict(request)
+        verified_request["action_fingerprint"] = derived_fingerprint
+        try:
+            decision = self._verifier(verified_request)
         except Exception:
             return {"status": "REJECT", "reason": "verifier_error"}
 
@@ -50,21 +48,20 @@ class VerifiedAuthorizationGate:
             return {"status": "REJECT", "reason": "verifier_response_invalid"}
         if decision.get("status") != "VERIFIED":
             return {"status": "REJECT", "reason": "authority_not_verified"}
-        if decision.get("authorization_id") != request["authorization_id"]:
+        if decision.get("authorization_id") != authorization_id:
             return {"status": "REJECT", "reason": "authorization_id_mismatch"}
-        if decision.get("action_fingerprint") != request["action_fingerprint"]:
+        if decision.get("action_fingerprint") != derived_fingerprint:
             return {"status": "REJECT", "reason": "action_fingerprint_mismatch"}
 
         try:
             self._ledger.register_verified_authorization(
-                request["authorization_id"], request["action_fingerprint"]
+                authorization_id, derived_fingerprint
             )
         except Exception:
-            # Duplicate IDs and persistence failures are not permission to proceed.
             return {"status": "REJECT", "reason": "ledger_registration_failed"}
 
         return {
             "status": "REGISTERED",
-            "authorization_id": request["authorization_id"],
-            "action_fingerprint": request["action_fingerprint"],
+            "authorization_id": authorization_id,
+            "action_fingerprint": derived_fingerprint,
         }
