@@ -106,3 +106,11 @@ These are local helper and model-contract tests only. No GraphQL mutation was is
 ### Revised decision
 
 **Proposed design, not adopted:** GitHub's documented atomic multi-ref mutation gives a credible route to a durable operation marker. Proceed next with a disposable-repository integration design and a read-only verification of the repository ruleset/permissions that would protect `refs/af-operations/*`. Do not run the mutation until the user explicitly authorizes a named disposable target and the marker protection controls are verified.
+
+
+### Repository protection inspection (read-only, 2026-11-04)
+
+- Repository-level `GET /repos/{owner}/{repo}/rulesets` returned an empty list.
+- The branch-protection endpoint returned HTTP 403 (`Resource not accessible by integration`).
+- Organization-level ruleset coverage and any policy that would protect `refs/af-operations/*` are therefore **Unknown**.
+- An empty repository-level ruleset list is not evidence that marker refs are protected. No marker namespace should be used for a live operation until an authorized administrator verifies effective rules and deletion/update permissions.
