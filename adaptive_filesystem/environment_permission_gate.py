@@ -71,12 +71,18 @@ class ExecutionReadinessGate:
         self._environment_gate = environment_gate
 
     def check(self, transition_request, environment_request):
-        transition = self._transition_gate.authorize(transition_request)
-        if transition.get("status") != "REGISTERED":
+        try:
+            transition = self._transition_gate.authorize(transition_request)
+        except Exception:
+            return {"status": "REJECT", "reason": "transition_gate_error"}
+        if not isinstance(transition, Mapping) or transition.get("status") != "REGISTERED":
             return {"status": "REJECT", "reason": "transition_authorization_rejected"}
 
-        environment = self._environment_gate.check(environment_request)
-        if environment.get("status") != "PERMITTED":
+        try:
+            environment = self._environment_gate.check(environment_request)
+        except Exception:
+            return {"status": "REJECT", "reason": "environment_gate_error"}
+        if not isinstance(environment, Mapping) or environment.get("status") != "PERMITTED":
             return {"status": "REJECT", "reason": "environment_permission_rejected"}
 
         if (
