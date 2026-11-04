@@ -40,3 +40,18 @@ python -m unittest discover -s tests/adaptive_filesystem -p 'test_*.py' -v
 ## Next gate
 
 Before this can be connected to real execution, select and review a real authority verifier, define the canonical authorization schema across platforms, add an independent environment-permission check, and integrate effect receipts/reconciliation. A verifier's `VERIFIED` string is not cryptographic proof by itself. No branch transition, shared write, or governance adoption is authorized by this prototype.
+
+
+## Independent environment permission gate
+
+A separate `EnvironmentPermissionGate` now asks an independently injected provider whether a specific actor may perform a named action in a named environment. Its response must be `PERMITTED` and exactly match the authorization ID, action fingerprint, actor, environment ID, and environment action. Missing fields, denial, provider exceptions, malformed responses, and mismatches reject.
+
+`ExecutionReadinessGate` requires both:
+- transition authorization registered by `VerifiedAuthorizationGate`; and
+- independent environment permission returned by `EnvironmentPermissionGate`.
+
+It also requires the authorization ID and action fingerprint to match across both decisions. Its `READY` result explicitly reports `effect_executed=False`. It does not call the ledger's commit method or perform an external action. A registered transition authorization can remain unused if environment permission is denied; this is safe but requires a later expiry/revocation policy.
+
+The environment provider is another injected trust boundary, not an adopted policy implementation. These tests use fakes and do not prove real-world authority, environment identity, or effect execution.
+
+Twelve EP/ER tests cover exact permission, missing bindings, denial, provider errors, environment/action mismatches, malformed responses, both-gates-required, transition rejection, binding mismatch, and the no-effect boundary.
