@@ -21,6 +21,8 @@ class SQLiteExecutionLedger:
     def __init__(self, database_path):
         self.database_path = str(database_path)
         with self._connect() as db:
+            # Set journal mode once during initialization, not on every connection.
+            db.execute("PRAGMA journal_mode=WAL")
             db.execute("""
                 CREATE TABLE IF NOT EXISTS executions (
                     authorization_id TEXT PRIMARY KEY,
@@ -32,7 +34,6 @@ class SQLiteExecutionLedger:
 
     def _connect(self):
         db = sqlite3.connect(self.database_path, timeout=10, isolation_level=None)
-        db.execute("PRAGMA journal_mode=WAL")
         db.execute("PRAGMA synchronous=FULL")
         return db
 
@@ -55,7 +56,8 @@ class SQLiteExecutionLedger:
             db.execute("COMMIT")
             return cursor.rowcount == 1
         except Exception:
-            db.execute("ROLLBACK")
+            if db.in_transaction:
+                db.execute("ROLLBACK")
             raise
         finally:
             db.close()
@@ -119,15 +121,20 @@ class ExecutionLedgerContractTests(unittest.TestCase):
     def test_EL01_two_simultaneous_claims_cannot_both_commit(self):
         barrier = threading.Barrier(2)
         results = []
+        errors = []
         result_lock = threading.Lock()
 
         def contender(outcome):
-            barrier.wait()
-            result = self.ledger.commit_once(
-                "auth-one", "advance:Roots->Trunk", outcome
-            )
-            with result_lock:
-                results.append(result)
+            try:
+                barrier.wait()
+                result = self.ledger.commit_once(
+                    "auth-one", "advance:Roots->Trunk", outcome
+                )
+                with result_lock:
+                    results.append(result)
+            except Exception as exc:
+                with result_lock:
+                    errors.append(exc)
 
         threads = [
             threading.Thread(target=contender, args=("result-A",)),
@@ -138,6 +145,7 @@ class ExecutionLedgerContractTests(unittest.TestCase):
         for thread in threads:
             thread.join()
 
+        self.assertEqual(errors, [])
         committed = [r for r in results if r["status"] == "COMMITTED"]
         replayed = [r for r in results if r["status"] == "REPLAY"]
         self.assertEqual(len(committed), 1)
