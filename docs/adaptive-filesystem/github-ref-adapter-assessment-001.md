@@ -158,3 +158,12 @@ The routine executor needs to create a marker tag once, but should not be able t
 GitHub documents creation, update, and deletion restrictions as separate rules. This configuration is a proposed least-privilege design, not a verified live ruleset. Effective behavior of GraphQL `updateRefs` against this tag ruleset must still be tested in a disposable repository, including negative update and deletion attempts after creation.
 
 Routine operation execution should have create-once and read/verify capabilities only. Any exceptional administrator override must be separately authorized and audited.
+
+
+### Read-only repository inspection (2026-11-04)
+
+The GitHub REST ruleset listing was repeated with `includes_parents=true`. It returned an empty array. This is stronger than the earlier repository-only listing: the endpoint reported no repository rulesets and no inherited organization/enterprise rulesets visible to this connection for this repository at the time of inspection. The matching-ref query for `refs/tags/af-operations/` returned an empty array; no operation marker tags currently exist. The working branch head was confirmed as `5df2fcfeee6613793feb1dcc0eb684650f982225`.
+
+The official GraphQL schema documents a read path for effective rules on a ref (`Ref.rules`) and a non-admin-visible `refUpdateRule`; it also documents repository rulesets with `includeParents`. These are potentially useful for an effective-policy read, but the connected GitHub action surface available in this workflow exposes REST GET fetches and selected prebuilt GraphQL operations, not an arbitrary GraphQL query executor. Therefore no GraphQL effective-rule query was executed, and no effective tag protection is verified.
+
+**Current conclusion:** no visible applicable ruleset is configured, and there are no marker tags. The proposed tag-protection model is not active. Do not execute the two-ref `updateRefs` operation in this repository until an administrator configures and verifies the intended protection in an explicitly designated test environment. A disposable repository and a supported GraphQL query/mutation path are still needed to test the exact behavior of `updateRefs` under tag rulesets.
