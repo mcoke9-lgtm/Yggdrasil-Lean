@@ -26,7 +26,11 @@ def request(**overrides):
         "scope": ["advance:Roots->Trunk"],
     }
     value.update(overrides)
-    value["action_fingerprint"] = action_fingerprint(value)
+    if "action_fingerprint" not in overrides:
+        try:
+            value["action_fingerprint"] = action_fingerprint(value)
+        except ValueError:
+            value["action_fingerprint"] = None
     return value
 
 
