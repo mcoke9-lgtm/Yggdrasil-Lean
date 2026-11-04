@@ -33,7 +33,7 @@ class GitHubAtomicOperationTests(unittest.TestCase):
     def test_GA01_marker_ref_is_deterministic_and_namespaced(self):
         ref = operation_marker_ref("op-2026-001")
         self.assertEqual(ref, operation_marker_ref("op-2026-001"))
-        self.assertTrue(ref.startswith("refs/af-operations/"))
+        self.assertTrue(ref.startswith("refs/tags/af-operations/"))
         self.assertEqual(len(ref.rsplit("/", 1)[1]), 64)
 
     def test_GA02_marker_record_is_canonical_and_scope_order_independent(self):
@@ -65,7 +65,7 @@ class GitHubAtomicOperationTests(unittest.TestCase):
         self.assertFalse(branch_update["force"])
         self.assertEqual(marker_create["beforeOid"], ZERO_OID)
         self.assertEqual(marker_create["afterOid"], OID_C)
-        self.assertTrue(marker_create["name"].startswith("refs/af-operations/"))
+        self.assertTrue(marker_create["name"].startswith("refs/tags/af-operations/"))
 
     def test_GA05_marker_found_with_expected_oid_confirms_atomic_operation(self):
         self.assertEqual(
