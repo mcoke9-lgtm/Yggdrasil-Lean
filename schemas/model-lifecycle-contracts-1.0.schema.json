@@ -1577,10 +1577,11 @@
         },
         "cases": {
           "type": "array",
-          "minItems": 22,
+          "minItems": 23,
           "items": {
             "$ref": "#/$defs/capabilityEvaluationCase"
-          }
+          },
+          "maxItems": 23
         }
       },
       "additionalProperties": false
