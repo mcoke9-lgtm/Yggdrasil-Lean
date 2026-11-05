@@ -16,6 +16,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 import org.yggdrasil.scheduler.builder.BuilderEventJournal;
 import org.yggdrasil.scheduler.builder.BuilderLocalExchange;
+import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
