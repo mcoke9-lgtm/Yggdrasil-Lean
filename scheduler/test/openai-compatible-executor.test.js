@@ -224,6 +224,7 @@ test("rejects a task vault that changes the dedicated thread during one run", as
   const routes = makeRoutes();
   const prompt = "same run prompt";
   let threadNumber = 0;
+  let appends = 0;
   const h = makeHarness({
     routes,
     taskVault: {
@@ -242,13 +243,14 @@ test("rejects a task vault that changes the dedicated thread during one run", as
         };
       },
       async appendBuilderResult(_reference, record) {
+        appends++;
         return { durable: true, checkpointId: "checkpoint-" + record.role };
       }
     }
   });
   await h.executor("ODIN", h.context("ODIN"));
   await assert.rejects(() => h.executor("HODR", h.context("HODR")), /changed the dedicated thread ID/);
-  assert.equal(h.saved.length, 1);
+  assert.equal(appends, 1);
 });
 
 test("rejects history that does not belong to the current run-specific thread", async () => {
@@ -436,9 +438,24 @@ test("loads the host executor only from owner-protected config and operator modu
 });
 
 test("rejects a task vault that does not confirm durable result persistence", async () => {
+  const routes = makeRoutes();
+  const prompt = "test task";
   const h = makeHarness({
+    routes,
     taskVault: {
-      async getTask() { return { prompt: "test task" }; },
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [],
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
       async appendBuilderResult() { return { checkpointId: "not-durable" }; }
     }
   });
