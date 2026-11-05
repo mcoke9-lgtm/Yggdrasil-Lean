@@ -4,7 +4,11 @@ import { mkdtemp, writeFile, chmod, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BUILDER_ROLES } from "../src/run-ledger.js";
-import { createBuilderExecutor, createOpenAiCompatibleExecutor } from "../src/openai-compatible-executor.js";
+import {
+  createBuilderExecutor,
+  createOpenAiCompatibleExecutor,
+  createOvernightDisclosureFingerprint
+} from "../src/openai-compatible-executor.js";
 
 function makeRoutes() {
   return Object.fromEntries(BUILDER_ROLES.map((role, index) => [role, {
@@ -32,7 +36,17 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
   const vault = taskVault || {
     async getTask(reference) {
       assert.equal(reference, "vault:task-001");
-      return { prompt: "Investigate the next safe engineering step.", history: [{ speaker: "USER", body: "Continue carefully." }] };
+      const prompt = "Investigate the next safe engineering step.";
+      return {
+        prompt,
+        history: [{ speaker: "USER", body: "Continue carefully." }],
+        consent: {
+          status: "USER_APPROVED",
+          scope: "NINE_BUILDERS_OVERNIGHT",
+          approvedAt: "2026-11-05T20:00:00.000Z",
+          fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+        }
+      };
     },
     async appendBuilderResult(reference, record) {
       assert.equal(reference, "vault:task-001");
@@ -134,6 +148,51 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
   assert.match(prompts[8].messages[0].content, /separately invoked final reviewer/);
   const baldrContext = JSON.parse(prompts[8].messages[1].content);
   assert.equal(baldrContext.prior_builder_outcomes.length, 8);
+});
+
+test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
+  let calls = 0;
+  let secretReads = 0;
+  const h = makeHarness({
+    taskVault: {
+      async getTask() { return { prompt: "unapproved task", history: [] }; },
+      async appendBuilderResult() { throw new Error("must not persist"); }
+    },
+    readSecret: async () => { secretReads++; return "token"; },
+    fetchImpl: async () => { calls++; return new Response("{}"); }
+  });
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /no explicit user approval/);
+  assert.equal(secretReads, 0);
+  assert.equal(calls, 0);
+});
+
+test("blocks disclosure when the approved prompt or any route changes", async () => {
+  const approvedRoutes = makeRoutes();
+  const changedRoutes = makeRoutes();
+  changedRoutes.ODIN.model = "odin-model-after-approval";
+  const prompt = "approved task prompt";
+  let calls = 0;
+  const h = makeHarness({
+    routes: changedRoutes,
+    taskVault: {
+      async getTask() {
+        return {
+          prompt,
+          history: [],
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(approvedRoutes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { throw new Error("must not persist"); }
+    },
+    fetchImpl: async () => { calls++; return new Response("{}"); }
+  });
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /changed after user approval/);
+  assert.equal(calls, 0);
 });
 
 test("Baldr cannot run until all eight other Builder outcomes are present", async () => {
