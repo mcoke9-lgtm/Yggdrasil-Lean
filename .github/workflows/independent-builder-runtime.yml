@@ -67,14 +67,27 @@ jobs:
           gradle-version: '8.9'
       - name: Run unit tests and compile Android app
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify APK signature and print certificate digest
+      - name: Verify APK signature and compare installed Builder Host signer
+        id: signer_match
+        env:
+          EXPECTED_INSTALLED_CERT_SHA256: "91c42517e8e873b9fdc285631007c98f460b0c8b955b99240f552fdbdbec2b3a"
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/builder-signing.txt"
+          ACTUAL="$(sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/builder-signing.txt" | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$ACTUAL"
+          echo "Built APK signer SHA-256: $ACTUAL"
+          if [ "$ACTUAL" = "$EXPECTED_INSTALLED_CERT_SHA256" ]; then
+            echo "installed_signer_match=true" >> "$GITHUB_OUTPUT"
+            echo "Built APK signer matches the device-reported installed Builder Host signer."
+          else
+            echo "installed_signer_match=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Built APK signer does not match the device-reported installed Builder Host signer. APK will not be published."
+          fi
       - name: Upload persistently signed APK
-        if: steps.signing.outputs.persistent_signing_configured == 'true'
+        if: steps.signing.outputs.persistent_signing_configured == 'true' && steps.signer_match.outputs.installed_signer_match == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: yggdrasil-builder-runtime-debug-apk
