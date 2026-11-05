@@ -1,6 +1,7 @@
 package org.yggdrasil.scheduler.builder;
 
 import android.content.Context;
+import org.json.JSONObject;
 
 import org.junit.After;
 import org.junit.Test;
@@ -277,20 +278,21 @@ public class BuilderConversationCoordinatorTest {
     }
 
 
-    @Test public void improvementIncidentStopsRoundAndPersistsOpenRecord() {
+    @Test public void improvementIncidentStopsRoundAndPersistsOpenRecord() throws Exception {
         BuilderConversationStore journal = openStore();
-        String incident = "{\\"incident_summary\\":\\"A Builder overlooked an adopted alternative.\\","
-                + "\\"observed_behavior\\":\\"Recommended freeing a ChatGPT task slot.\\","
-                + "\\"expected_behavior\\":\\"Check the independent scheduler first.\\","
-                + "\\"evidence\\":\\"Project record identifies an independent scheduler.\\","
-                + "\\"unknowns\\":\\"Deployment and GitHub access are unverified.\\","
-                + "\\"suspected_causes\\":\\"Context delivery or reasoning failure.\\","
-                + "\\"proposed_next_step\\":\\"Peer-review the operational context path.\\","
-                + "\\"status\\":\\"OPEN_DIAGNOSIS\\"}";
+        JSONObject incident = new JSONObject();
+        incident.put("incident_summary", "A Builder overlooked an adopted alternative.");
+        incident.put("observed_behavior", "Recommended freeing a ChatGPT task slot.");
+        incident.put("expected_behavior", "Check the independent scheduler first.");
+        incident.put("evidence", "Project record identifies an independent scheduler.");
+        incident.put("unknowns", "Deployment and GitHub access are unverified.");
+        incident.put("suspected_causes", "Context delivery or reasoning failure.");
+        incident.put("proposed_next_step", "Peer-review the operational context path.");
+        incident.put("status", "OPEN_DIAGNOSIS");
         BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
                 journal,
                 (role, context, userTurn) -> new BuilderConversationCoordinator.Reply(
-                        incident, BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                        incident.toString(), BuilderConversationProtocol.EvidenceStatus.OBSERVED,
                         BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT,
                         BuilderConversationProtocol.Participant.USER, userTurn.turnId));
 
@@ -303,7 +305,7 @@ public class BuilderConversationCoordinatorTest {
         assertEquals(Collections.singletonList(BuilderRole.BALDR), result.notRunRoles);
         List<BuilderConversationProtocol.Turn> saved = journal.readThread("incident-round");
         assertEquals(2, saved.size());
-        assertEquals("OPEN_DIAGNOSIS", new org.json.JSONObject(saved.get(1).body).getString("status"));
+        assertEquals("OPEN_DIAGNOSIS", new JSONObject(saved.get(1).body).getString("status"));
         BuilderConversationProtocol.validateThread(saved);
     }
 
