@@ -25,6 +25,19 @@ public final class BuilderRecoveryActivation {
 
     private BuilderRecoveryActivation() { }
 
+    interface DirectorySync {
+        void sync(File directory) throws Exception;
+    }
+
+    private static final DirectorySync PLATFORM_DIRECTORY_SYNC = BuilderRecoveryActivation::syncDirectoryWithOs;
+    private static volatile DirectorySync directorySync = PLATFORM_DIRECTORY_SYNC;
+
+    // Package-private seam: Robolectric's host filesystem does not reliably support
+    // fsync on directory descriptors. Production always uses the platform implementation.
+    static synchronized void setDirectorySyncForTests(DirectorySync sync) {
+        directorySync = sync == null ? PLATFORM_DIRECTORY_SYNC : sync;
+    }
+
     public static final class ActivePair {
         public final String generationId;
         public final String previousGenerationId;
@@ -273,6 +286,10 @@ public final class BuilderRecoveryActivation {
     }
 
     private static void syncDirectory(File directory) throws Exception {
+        directorySync.sync(directory);
+    }
+
+    private static void syncDirectoryWithOs(File directory) throws Exception {
         java.io.FileDescriptor fd = Os.open(directory.getAbsolutePath(),
                 OsConstants.O_RDONLY, 0);
         try { Os.fsync(fd); } finally { Os.close(fd); }
