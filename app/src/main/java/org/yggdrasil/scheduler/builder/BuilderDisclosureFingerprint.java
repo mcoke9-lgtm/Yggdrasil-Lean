@@ -84,6 +84,8 @@ public final class BuilderDisclosureFingerprint {
         }
     }
 
+    public static String digest(String value) { return sha256(value); }
+
     private static String sha256(String value) {
         try {
             byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
