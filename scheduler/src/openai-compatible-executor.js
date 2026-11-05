@@ -502,9 +502,13 @@ export function createOpenAiCompatibleExecutor({
         responseSha256: responseHash,
         safeToResume: false
       });
+      const stopRequested = STOP_TYPES.has(reply.turn_type);
       return {
-        status: "succeeded",
-        summary: role + " completed; response checkpoint " + checkpointId
+        status: stopRequested ? "interrupted" : "succeeded",
+        turnType: reply.turn_type,
+        summary: stopRequested
+          ? role + " issued " + reply.turn_type + "; response checkpoint " + checkpointId
+          : role + " completed; response checkpoint " + checkpointId
       };
     } finally {
       clearTimeout(timeout);
