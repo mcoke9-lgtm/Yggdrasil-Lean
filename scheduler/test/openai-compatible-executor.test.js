@@ -87,7 +87,7 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(request.body.max_tokens, 2048);
   assert.deepEqual(request.body.response_format, { type: "json_object" });
   assert.match(request.body.messages[0].content, /Odin/);
-  assert.match(request.body.messages[0].content, /integration, reconciliation, and dependencies/);
+  assert.match(request.body.messages[0].content, /coordination, orchestration, and integration/);
   const userContext = JSON.parse(request.body.messages[1].content);
   assert.match(userContext.task_prompt, /next safe engineering step/);
   assert.equal(userContext.prior_turns_oldest_first.length, 1);
