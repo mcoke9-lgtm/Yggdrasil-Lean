@@ -30,10 +30,11 @@ class SubjectRegistryTests(unittest.TestCase):
         self.assertEqual(EXPECTED_BUILDERS, set(ids))
         self.assertEqual(9, len(set(ids)))
 
-    def test_every_subheading_has_valid_stewards(self):
+    def test_every_subheading_has_valid_stewards_and_recognition_terms(self):
         for item in self.subject["subheadings"]:
             self.assertTrue(item["primary_stewards"])
             self.assertTrue(set(item["primary_stewards"]).issubset(EXPECTED_BUILDERS))
+            self.assertTrue(item["recognition_terms"])
 
     def test_registry_rejects_unexpected_secret_material_fields(self):
         unsafe = copy.deepcopy(self.registry)
