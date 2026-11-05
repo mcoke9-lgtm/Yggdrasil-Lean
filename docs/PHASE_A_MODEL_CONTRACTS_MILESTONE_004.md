@@ -378,6 +378,15 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 `docs/PHASE_A_PROVIDER_INVENTORY_001.md` records a source-verified inventory of the provider-neutral interface, immutable provider registry, explicit per-role router, OpenAI-compatible HTTP adapter, and device-local encrypted credential settings. The source confirms that the current route is static per Builder role and that no elastic allocator or local inference engine is implemented. Actual device-saved provider/model metadata and endpoint availability remain unknown; no credential values were accessed.
 
+### Blind cross-model evaluation and reconciliation
+
+Two additional stages now prepare the user-requested model-to-model analysis:
+
+- `scripts/evaluate_phase_a_run.py` reads a completed candidate run and sends each output to one separately identified evaluator model. The evaluator prompt omits candidate model ID, revision, artifact ID, and size. It scores all six rubric dimensions, records hard-failure allegations and evidence quotes, and preserves raw evaluator output. Candidate/evaluator artifact IDs must differ and must match the source execution run; both remain explicitly operator-supplied/unverified.
+- Proposed evaluator families are Qwen3.5-2B and SmolLM3-3B. No exact evaluator artifacts have been selected. Each evaluator must run separately and must not see another evaluator's scores before submitting.
+- `scripts/reconcile_phase_a_evaluations.py` compares two full evaluator reports for the same candidate. Differences greater than one point on any dimension, or any disagreement about a hard failure, trigger a third review. A hard failure flagged by either evaluator is retained and never averaged away.
+- Reconciliation never accepts a model. It reports descriptive dimension means, keeps thresholds proposed/not adopted, and always requires human/deterministic review.
+
 ### Reproducible model evaluation runner
 
 `scripts/run_phase_a_model_evaluation.py` converts the nine contracts and 23 fixtures into **63 separate role-assigned executions**: two role-specific and five shared tasks for each Builder. It sends one Builder's responsibility contract at a time, including a deliberately conflicting prior-role message for the identity-separation test. The handoff fixture performs a second call under the receiving Builder's own role prompt, preserving the sender output verbatim.
