@@ -27,7 +27,7 @@ public final class BuilderOvernightRunStore {
             try {
                 state.put("run_id", runId);
                 state.put("thread_id", threadId);
-                state.put("task_prompt", taskPrompt);
+                state.put("task_prompt_sha256", BuilderDisclosureFingerprint.digest(taskPrompt));
                 state.put("status", "RUNNING");
                 state.put("started_at_epoch_millis", nowMillis);
                 state.put("deadline_epoch_millis", nowMillis + MAX_DURATION_MILLIS);
@@ -41,7 +41,8 @@ public final class BuilderOvernightRunStore {
             return state;
         }
         if (!threadId.equals(state.optString("thread_id"))
-                || !taskPrompt.equals(state.optString("task_prompt"))) {
+                || !BuilderDisclosureFingerprint.digest(taskPrompt).equals(
+                        state.optString("task_prompt_sha256"))) {
             throw new IllegalStateException("Run identity, thread, or approved task prompt changed");
         }
         if (state.optBoolean("cycle_in_progress", false)) {
