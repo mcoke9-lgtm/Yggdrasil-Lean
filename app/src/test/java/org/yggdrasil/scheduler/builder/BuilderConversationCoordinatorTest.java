@@ -139,6 +139,47 @@ public class BuilderConversationCoordinatorTest {
         BuilderConversationProtocol.validateThread(journal.readThread("peer-dialogue-thread"));
     }
 
+    @Test public void improvementReviewRestrictsVerifiedClaimsToUnaffectedBaldr() throws Exception {
+        BuilderConversationStore journal = openStore();
+        BuilderConversationProtocol.Turn origin = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "review-guard", "origin",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 100, "Original task.");
+        journal.append(origin);
+        JSONObject incidentBody = new JSONObject();
+        incidentBody.put("incident_summary", "Kvasir used a poor method.");
+        incidentBody.put("observed_behavior", "Recommended a default route without checking the project scheduler.");
+        incidentBody.put("expected_behavior", "Check the project-owned scheduler first.");
+        incidentBody.put("evidence", "The scheduler is recorded as an existing project capability.");
+        incidentBody.put("unknowns", "Deployment and GitHub access.");
+        incidentBody.put("suspected_causes", "Context or reasoning failure.");
+        incidentBody.put("proposed_next_step", "Independent review.");
+        incidentBody.put("status", "OPEN_REVIEW");
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "review-guard", "incident",
+                BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.USER, "origin",
+                BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT,
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED, 200, incidentBody.toString()));
+
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> new BuilderConversationCoordinator.Reply(
+                        role.getDisplayName() + " says verified.",
+                        BuilderConversationProtocol.EvidenceStatus.VERIFIED));
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "review-guard",
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident\nReview the correction.",
+                Arrays.asList(BuilderRole.KVASIR, BuilderRole.HUGINN, BuilderRole.BALDR));
+
+        assertEquals(Arrays.asList(BuilderRole.KVASIR, BuilderRole.HUGINN), result.failedRoles);
+        BuilderConversationProtocol.Turn baldr = result.appendedTurns.get(result.appendedTurns.size() - 1);
+        assertEquals(BuilderConversationProtocol.Participant.BALDR, baldr.speaker);
+        assertEquals(BuilderConversationProtocol.EvidenceStatus.VERIFIED, baldr.evidenceStatus);
+        BuilderConversationProtocol.validateThread(journal.readThread("review-guard"));
+    }
+
     @Test public void rejectsBuilderDecisionTurnsAtReplyConstruction() {
         assertThrows(IllegalArgumentException.class, () ->
                 new BuilderConversationCoordinator.Reply(
