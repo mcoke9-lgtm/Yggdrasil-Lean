@@ -220,7 +220,9 @@ public final class MainActivity extends Activity {
     }
 
     private String freshReportText() {
-        return buildInventoryReport().toString(2);
+        JSONObject report = buildInventoryReport();
+        try { return report.toString(2); }
+        catch (Exception e) { return report.toString(); }
     }
 
     private void copyReport() {
