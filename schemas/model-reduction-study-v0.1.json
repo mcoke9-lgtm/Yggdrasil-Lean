@@ -65,7 +65,7 @@
           "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
         }
       ],
-      "notes": "Research shortlist entry; publisher documents a six-specialist-teacher post-training distillation stage into one model, but exact artifact revision/digest, deployment-specific license review, and baseline test remain pending."
+      "notes": "Research shortlist entry; base repository revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned with displayed file sizes, but neither file SHA-256, deployment-specific license review, nor baseline test is registered."
     },
     {
       "model_family_ref": "qwen3_5_2b",
@@ -181,7 +181,8 @@
     "No candidate's deployment-specific license review is complete.",
     "The analytical/verifier Builder roles are role assignments, not independent model artifacts; a separate evaluator artifact or human/deterministic review path must be selected before any model is independently scored.",
     "No larger-model expansion blueprint has been registered; architecture, tokenizer, source weights, training data, recipe, toolchain, license, and compute dependencies remain to be identified.",
-    "Qwen3.5-2B and SmolLM3-3B are proposed evaluator families only; exact evaluator artifacts, independent runtime compatibility, and any license/provenance review must be completed before selection."
+    "Qwen3.5-2B and SmolLM3-3B are proposed evaluator families only; exact evaluator artifacts, independent runtime compatibility, and any license/provenance review must be completed before selection.",
+    "LFM3-1.7B base revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned, but the two weight-file SHA-256 digests and exact deployment license review remain pending."
   ],
   "decision": "not_decided",
   "evidence_refs": [],
