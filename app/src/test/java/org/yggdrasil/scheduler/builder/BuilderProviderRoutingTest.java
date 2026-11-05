@@ -10,9 +10,11 @@ import static org.junit.Assert.*;
 public class BuilderProviderRoutingTest {
     private static final class FakeProvider implements BuilderModelProvider {
         final String id;
+        Request lastRequest;
         FakeProvider(String id) { this.id = id; }
         @Override public String providerId() { return id; }
         @Override public Completion complete(Request request) {
+            lastRequest = request;
             assertNotNull(request.systemInstruction);
             assertNotNull(request.userMessage);
             return new Completion("{\"body\":\"A bounded finding.\","
@@ -62,6 +64,31 @@ public class BuilderProviderRoutingTest {
                 BuilderRole.HUGINN, Collections.singletonList(user), user);
         assertEquals("A bounded finding.", reply.body);
         assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, reply.type);
+    }
+
+
+    @Test public void laterBuilderReceivesAccumulatedPeerContext() throws Exception {
+        FakeProvider provider = new FakeProvider("local-model");
+        BuilderProviderRegistry registry = new BuilderProviderRegistry(
+                Collections.<BuilderModelProvider>singletonList(provider));
+        Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
+        routes.put(BuilderRole.KVASIR, "local-model");
+        BuilderModelResponder responder = new BuilderModelResponder(
+                new BuilderProviderRouter(registry, routes), 2048);
+        BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "peer-context", "turn-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 1L, "Research this.");
+        BuilderConversationProtocol.Turn peer = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "peer-context", "turn-2",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "turn-1",
+                BuilderConversationProtocol.TurnType.RESPONSE,
+                BuilderConversationProtocol.EvidenceStatus.PROPOSED, 2L, "Earlier peer finding.");
+        responder.respond(BuilderRole.KVASIR, Arrays.asList(user, peer), user);
+        assertTrue(provider.lastRequest.userMessage.contains("turn-2"));
+        assertTrue(provider.lastRequest.userMessage.contains("Earlier peer finding."));
     }
 
     @Test public void rejectsInvalidOutputTokenLimits() {
