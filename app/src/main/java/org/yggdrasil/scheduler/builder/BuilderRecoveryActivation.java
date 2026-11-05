@@ -272,7 +272,7 @@ public final class BuilderRecoveryActivation {
         if (temp.exists() && !temp.delete()) throw new IllegalStateException("Cannot clear stale manifest temp file");
         writeSynced(temp, value);
         // POSIX rename within one directory atomically replaces the old pointer.
-        Os.rename(temp.getAbsolutePath(), target.getAbsolutePath());
+        renameAtomically(temp, target);
         syncDirectory(target.getParentFile());
     }
 
