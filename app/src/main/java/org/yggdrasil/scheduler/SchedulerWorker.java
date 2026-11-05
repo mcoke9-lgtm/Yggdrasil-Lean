@@ -14,10 +14,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -27,6 +25,7 @@ public final class SchedulerWorker extends Worker {
     public SchedulerWorker(Context context, WorkerParameters params) { super(context, params); db = new SchedulerDb(context); }
     @Override public Result doWork() {
         boolean retry = false;
+        boolean forced = getInputData().getBoolean("force_check", false);
         for (SchedulerDb.Task task : db.tasks()) {
             if (!task.enabled) continue;
             try {
@@ -34,8 +33,8 @@ public final class SchedulerWorker extends Worker {
                 ZonedDateTime now = ZonedDateTime.now(zone);
                 String today = now.toLocalDate().toString();
                 String scheduledDays = "," + task.days + ",";
-                boolean forced = getInputData().getBoolean("force_check", false); if (!forced && (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate))) continue;
-                checkGithub(task, today);
+                if (!forced && (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate))) continue;
+                checkGithub(task, today, forced);
             } catch (Exception e) {
                 db.record(task.id, 0, "error", safe(e.getMessage()));
                 db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline, "Error: " + safe(e.getMessage()), task.lastCheckedAt);
@@ -44,7 +43,7 @@ public final class SchedulerWorker extends Worker {
         }
         return retry ? Result.retry() : Result.success();
     }
-    private void checkGithub(SchedulerDb.Task task, String today) throws Exception {
+    private void checkGithub(SchedulerDb.Task task, String today, boolean manual) throws Exception {
         String checkStartedAt = Instant.now().toString();
         String endpoint = "https://api.github.com/repos/" + task.repo + "/actions/runs?branch=" + java.net.URLEncoder.encode(task.branch, "UTF-8") + "&per_page=100";
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
@@ -73,8 +72,11 @@ public final class SchedulerWorker extends Worker {
                 if (task.baseline && task.lastCheckedAt != null && updatedAt.compareTo(task.lastCheckedAt) > 0) matches.add(run);
             }
         }
+        // A manual check refreshes the evidence cursor, but must not consume
+        // the scheduled run for today. Only scheduled checks advance lastDate.
+        String recordedScheduleDate = manual ? task.lastDate : today;
         if (!task.baseline) {
-            db.updateCheck(task, today, maxId, true, "Baseline established", checkStartedAt);
+            db.updateCheck(task, recordedScheduleDate, maxId, true, "Baseline established", checkStartedAt);
             db.record(task.id, maxId, "baseline", "Recorded existing workflow runs; no historic failures alerted");
             return;
         }
@@ -87,8 +89,8 @@ public final class SchedulerWorker extends Worker {
                 notifyFailure(task.name, detail);
             }
         }
-        db.updateCheck(task, today, maxId, true, matches.isEmpty() ? "Checked; no new runs" : "Checked; " + matches.size() + " new completed run(s)", checkStartedAt);
-        db.record(task.id, maxId, "checked", "Daily GitHub workflow check completed");
+        db.updateCheck(task, recordedScheduleDate, maxId, true, matches.isEmpty() ? "Checked; no new runs" : "Checked; " + matches.size() + " new completed run(s)", checkStartedAt);
+        db.record(task.id, maxId, "checked", "GitHub workflow check completed" + (manual ? " (manual)" : " (scheduled)"));
     }
     private void notifyFailure(String title, String detail) {
         Context context = getApplicationContext();
