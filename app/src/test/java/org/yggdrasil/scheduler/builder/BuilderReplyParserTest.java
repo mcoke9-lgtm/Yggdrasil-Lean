@@ -143,6 +143,52 @@ public class BuilderReplyParserTest {
         assertTrue(reply.body.contains("resume_condition"));
     }
 
+    @Test public void parsesStructuredCorrectionPlan() throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("correction_id", "corr-1");
+        body.put("incident_turn_id", "incident-1");
+        body.put("objective", "Correct the unsuitable method.");
+        body.put("acceptance_criteria", "The replacement method is checked.");
+        body.put("steps", "Inspect, implement, test, verify.");
+        body.put("owner", "Hodr");
+        body.put("rollback_condition", "Stop if the test fails.");
+        body.put("status", "PROPOSED");
+        JSONObject response = new JSONObject();
+        response.put("body", body.toString());
+        response.put("turn_type", "CORRECTION_PLAN");
+        response.put("recipient", "USER");
+        response.put("reply_to_turn_id", "incident-1");
+        response.put("evidence_status", "PROPOSED");
+        BuilderConversationCoordinator.Reply reply = BuilderReplyParser.parse(response.toString());
+        assertEquals(BuilderConversationProtocol.TurnType.CORRECTION_PLAN, reply.type);
+        assertEquals("incident-1", reply.replyToTurnId);
+    }
+
+    @Test public void parsesImplementedCorrectionUpdateAndRejectsBuilderAdoption() throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("correction_id", "corr-1");
+        body.put("incident_turn_id", "incident-1");
+        body.put("stage", "IMPLEMENTED");
+        body.put("evidence", "A source commit contains the correction implementation.");
+        body.put("artifact_reference", "commit:abc123");
+        body.put("acceptance_criteria_result", "The implementation matches the first acceptance criterion.");
+        body.put("unresolved", "Tests remain pending.");
+        JSONObject response = new JSONObject();
+        response.put("body", body.toString());
+        response.put("turn_type", "CORRECTION_UPDATE");
+        response.put("recipient", "USER");
+        response.put("reply_to_turn_id", "plan-1");
+        response.put("evidence_status", "IMPLEMENTED");
+        assertEquals(BuilderConversationProtocol.EvidenceStatus.IMPLEMENTED,
+                BuilderReplyParser.parse(response.toString()).evidenceStatus);
+
+        body.put("stage", "ADOPTED");
+        response.put("body", body.toString());
+        response.put("evidence_status", "ADOPTED");
+        assertThrows(IllegalArgumentException.class,
+                () -> BuilderReplyParser.parse(response.toString()));
+    }
+
     @Test public void rejectsUnstructuredInterruption() throws Exception {
         JSONObject response = new JSONObject();
         response.put("body", "Stop because something might be wrong.");
