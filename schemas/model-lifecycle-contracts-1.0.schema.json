@@ -2336,7 +2336,8 @@
         "failure_count",
         "evaluator_status",
         "executions",
-        "limitations"
+        "limitations",
+        "model_call_count"
       ],
       "properties": {
         "format_id": {
@@ -2428,7 +2429,8 @@
               "status",
               "latency_ms",
               "started_at",
-              "usage"
+              "usage",
+              "request_count"
             ],
             "properties": {
               "execution_id": {
@@ -2474,6 +2476,62 @@
                 "additionalProperties": {
                   "type": "number"
                 }
+              },
+              "request_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2
+              },
+              "follow_up": {
+                "type": "object",
+                "required": [
+                  "builder_id",
+                  "system_prompt",
+                  "user_prompt",
+                  "raw_output",
+                  "status",
+                  "latency_ms",
+                  "started_at",
+                  "usage"
+                ],
+                "properties": {
+                  "builder_id": {
+                    "$ref": "#/$defs/builderId"
+                  },
+                  "system_prompt": {
+                    "$ref": "#/$defs/nonEmpty"
+                  },
+                  "user_prompt": {
+                    "$ref": "#/$defs/nonEmpty"
+                  },
+                  "raw_output": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "success",
+                      "transport_error"
+                    ]
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "latency_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "started_at": {
+                    "$ref": "#/$defs/timestamp"
+                  },
+                  "usage": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
@@ -2484,6 +2542,10 @@
           "items": {
             "$ref": "#/$defs/nonEmpty"
           }
+        },
+        "model_call_count": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "additionalProperties": false
