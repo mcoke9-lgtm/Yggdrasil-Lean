@@ -80,7 +80,7 @@ public final class BuilderPromptFactory {
             JSONObject responseSchema = new JSONObject();
             responseSchema.put("body", "string: concise contribution");
             responseSchema.put("turn_type", "one of CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
-            responseSchema.put("recipient", "participant enum or null; required for directed turn types");
+            responseSchema.put("recipient", "one of USER, HUGINN, MUNINN, KVASIR, MARI, HODR, TYR, LOKI, ODIN, BALDR, or null; required for directed turn types");
             responseSchema.put("reply_to_turn_id", "earlier turn ID or null; required for CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
             responseSchema.put("evidence_status", "one of PROPOSED, OBSERVED, TESTED, VERIFIED, USER_CONFIRMED, DISPUTED, UNKNOWN");
             payload.put("response_schema", responseSchema);
