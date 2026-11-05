@@ -35,7 +35,6 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        if (state != null) pendingBytes = state.getByteArray("pending_keystore");
         buildUi();
         if (pendingBytes != null) copyButton.setEnabled(true);
     }
@@ -54,7 +53,7 @@ public final class MainActivity extends Activity {
         root.addView(title);
 
         TextView warning = new TextView(this);
-        warning.setText("OFFLINE KEY GENERATION\nThis utility has no Internet permission. Your private signing key is generated on this phone and is never uploaded. Save the .p12 file in a secure location and keep a separate recoverable backup. Never share the file or its Base64 value.");
+        warning.setText("OFFLINE KEY GENERATION\nThis utility has no Internet permission. Your private signing key is generated on this phone and is never uploaded. Save the .p12 file in a secure local location and keep a separate offline backup. Remember the password: this app does not store it. Never share the file or its Base64 value.");
         warning.setTextSize(15);
         warning.setPadding(0, dp(12), 0, dp(18));
         root.addView(warning);
@@ -120,7 +119,7 @@ public final class MainActivity extends Activity {
             pendingBytes = generated.keystoreBytes;
             password.setText("");
             confirmation.setText("");
-            status.setText("Key generated and reloaded successfully.\nCertificate SHA-256:\n"
+            status.setText("Key generated and reloaded successfully. Remember this password: enter the same value for GitHub secrets BUILDER_KEYSTORE_PASSWORD and BUILDER_KEY_PASSWORD.\nCertificate SHA-256:\n"
                     + generated.certificateSha256
                     + "\n\nChoose a secure local destination for the .p12 backup.");
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -152,7 +151,7 @@ public final class MainActivity extends Activity {
                 out.flush();
                 copyButton.setEnabled(true);
                 status.setText(status.getText() + "\nBackup exported. Keep this file private. "
-                        + "Next, copy its Base64 into GitHub's BUILDER_KEYSTORE_BASE64 secret.");
+                        + "Next, copy its Base64 into GitHub's BUILDER_KEYSTORE_BASE64 secret. Then enter the same password for both password secrets.");
             } catch (Exception failure) {
                 status.setText("Could not write the backup. The generated key remains in memory; choose another destination or try again.");
             }
