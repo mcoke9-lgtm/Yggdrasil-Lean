@@ -220,6 +220,37 @@ test("blocks provider disclosure when the task vault has no explicit user approv
   assert.equal(calls, 0);
 });
 
+test("rejects a task vault that changes the dedicated thread during one run", async () => {
+  const routes = makeRoutes();
+  const prompt = "same run prompt";
+  let threadNumber = 0;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        const threadId = "thread-" + (++threadNumber);
+        return {
+          prompt,
+          threadId,
+          history: [],
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult(_reference, record) {
+        return { durable: true, checkpointId: "checkpoint-" + record.role };
+      }
+    }
+  });
+  await h.executor("ODIN", h.context("ODIN"));
+  await assert.rejects(() => h.executor("HODR", h.context("HODR")), /changed the dedicated thread ID/);
+  assert.equal(h.saved.length, 1);
+});
+
 test("rejects history that does not belong to the current run-specific thread", async () => {
   const routes = makeRoutes();
   const prompt = "approved task prompt";
