@@ -111,3 +111,24 @@ Acceptance checks added:
 - Both staged databases are read back and compared with their source snapshots.
 - Live conversation and subject databases remain unchanged.
 - No activation, live-store replacement, device installation, or cross-device synchronization is performed by this milestone.
+
+
+## Paired recovery activation — version 1
+
+BuilderRecoveryActivation adds a single active-pair manifest. It does not rename, replace, edit, or delete either staged database. Each staged pair receives an immutable generation descriptor containing both database names, counts, and SHA-256 digests of the exact canonical record arrays. Before activation or rollback, both databases are reopened and their record counts and exact record-array digests are checked again.
+
+Activation writes and fsyncs a generation descriptor first. It then writes and fsyncs a new active manifest to a temporary file and atomically renames that one file over the prior manifest, followed by a directory fsync. The manifest names both databases through one generation ID, and retains the previous generation ID. This makes pair selection one pointer update rather than two database-file swaps. A crash before pointer replacement leaves the old pair active; a crash after replacement leaves the new pair selected, subject to filesystem durability guarantees.
+
+Rollback validates the previous generation and atomically swaps the active and previous generation IDs in the same manifest. Neither generation is deleted, so rollback does not depend on reconstructing old data. A later activation replaces the previous-generation slot; long-term retention and garbage collection are intentionally not implemented.
+
+Generation descriptors are written before the active pointer. If a process stops after writing a descriptor but before switching the pointer, the descriptor and staged files remain harmless and inactive. Retrying activation with the same stage identity accepts an identical descriptor; conflicting descriptor content is rejected. Stale temporary files are non-authoritative and may be removed before retry.
+
+The manifest and descriptor checksums detect accidental corruption, not malicious tampering or source authenticity. This implementation assumes the current single-process app coordinator; synchronized methods do not provide cross-process locking. It is not yet connected to app startup or the live conversation UI. Device-level crash/power-loss behavior, directory-fsync support, and recovery after interrupted filesystem operations still require testing on the Galaxy S21+ with explicit approval before installation or device changes.
+
+Acceptance checks added:
+- Both database contents are checked against exact staged record digests before activation and rollback.
+- One manifest atomically selects both database names through one generation ID.
+- Previous generation is retained and can be reselected by rollback.
+- Damaged manifests and missing/corrupt descriptors fail closed; the active pair is not guessed.
+- A staged database altered after staging is rejected even if row counts remain unchanged.
+- Activation and rollback do not delete or rewrite either generation's database files.
