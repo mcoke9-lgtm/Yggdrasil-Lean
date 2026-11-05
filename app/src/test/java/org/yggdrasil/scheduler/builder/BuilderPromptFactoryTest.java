@@ -140,19 +140,22 @@ public class BuilderPromptFactoryTest {
 
 
     @Test public void explicitImprovementReviewReachesEverySelectedRoleAndPreventsSelfCertification() {
+        BuilderConversationProtocol.Turn origin = turn("u0",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");
         BuilderConversationProtocol.Turn incident = turn("incident-1",
                 BuilderConversationProtocol.Participant.KVASIR,
                 BuilderConversationProtocol.Participant.USER, "u0",
                 BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, 200,
-                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\',"
-                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\',"
-                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\',"
+                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\","
+                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\","
+                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\","
                         + "\"proposed_next_step\":\"peer review\",\"status\":\"OPEN_REVIEW\"}");
         BuilderConversationProtocol.Turn request = turn("review-1",
                 BuilderConversationProtocol.Participant.USER, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
                 "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
-        BuilderConversationProtocol.Turn origin = turn("u0",\n                BuilderConversationProtocol.Participant.USER, null, null,\n                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");\n        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(origin, incident, request);
+        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(origin, incident, request);
         for (BuilderRole role : BuilderRole.values()) {
             BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, context, request);
             assertTrue(prompt.userMessage.contains("\"operating_mode\": \"BUILDER_IMPROVEMENT_REVIEW\""));
