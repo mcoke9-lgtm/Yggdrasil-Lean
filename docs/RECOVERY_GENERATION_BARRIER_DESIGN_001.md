@@ -1,6 +1,6 @@
 # Recovery Generation Barrier Design — 001
 
-Status: primitive implemented; focused Robolectric tests authored and CI validation pending; not integrated into generation-sensitive entry points; not wired to startup.
+Status: primitive and callback-scoped overlay facade implemented; focused Robolectric tests passed in CI; debug-only two-process instrumentation test authored and instrumentation APK compilation pending; not integrated into generation-sensitive entry points; not wired to startup.
 
 ## Purpose
 
@@ -90,7 +90,7 @@ Robolectric tests may validate ordering and fault injection but do not prove cro
 
 Added `BuilderRecoveryGenerationBarrier` as an isolated primitive. It uses a static process-wide `ReentrantLock`, a permanent app-private lock file, and an exclusive `FileChannel.lock()`. Same-thread nested calls reuse the existing OS lock to avoid overlapping-lock exceptions. Interrupted acquisition restores the interrupt flag and fails closed. Operation exceptions do not skip lock release. The lock file is never deleted or replaced by this class.
 
-The focused Robolectric suite has been authored to cover lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. CI is pending; these tests are not yet claimed as passed and cannot prove cross-process semantics. The primitive now has one isolated typed access facade: `BuilderRecoveryOverlayAccess.withActive(...)`. It acquires the barrier before resolving the active pointer, opens and verifies the matching overlay, exposes only callback-scoped typed operations, then invalidates the session and closes the SQLite helper before releasing the lock. Retained sessions reject later and cross-thread use. `BuilderRecoveryOverlayStore` is now package-private to reduce public API escape paths.
+The focused Robolectric suite covers lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. These tests passed in CI run [42096632745](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42096632745). The callback-scoped overlay-access tests passed in CI run [42097440359](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42097440359). Neither unit-test suite proves cross-process semantics. The primitive now has one isolated typed access facade: `BuilderRecoveryOverlayAccess.withActive(...)`. It acquires the barrier before resolving the active pointer, opens and verifies the matching overlay, exposes only callback-scoped typed operations, then invalidates the session and closes the SQLite helper before releasing the lock. Retained sessions reject later and cross-thread use. `BuilderRecoveryOverlayStore` is now package-private to reduce public API escape paths.
 
 This is not yet a complete enforcement boundary: package-local code can still call the store directly, and activation/rollback, startup selection, the canonical runtime journal, and the subject recorder are not yet routed through the barrier. Do not wire this facade into live writers until those paths are migrated as one coordinated change. Robolectric tests for the facade are authored; CI status is pending.
 
@@ -100,7 +100,7 @@ Added `BuilderRecoveryOverlayAccess` and focused tests. The facade resolves the 
 
 ## Real-device cross-process test
 
-Added a debug-only service in `app/src/debug` running under `:recovery_lock_probe` and an Android instrumentation test in `app/src/androidTest`. The test acquires the barrier in the instrumentation/target process, asks the separate service process to acquire the same lock, verifies that the second process remains blocked, releases the first, and verifies that the second then acquires and releases it. CI compiles the instrumentation APK; the test is not executed by the hosted unit-test runner. It must be run on a physical Android device (Galaxy S21 is the first planned host) or a suitable emulator before accepting cross-process runtime behavior. The debug probe is excluded from release source sets.
+Added a debug-only service in `app/src/debug` running under `:recovery_lock_probe` and an Android instrumentation test in `app/src/androidTest`. The test acquires the barrier in the instrumentation/target process, asks the separate service process to acquire the same lock, verifies that the second process remains blocked, releases the first, and verifies that the second then acquires and releases it. CI is configured to compile the instrumentation APK; the latest build including that step is pending. The test is not executed by the hosted unit-test runner. It must be run on a physical Android device (Galaxy S21 is the first planned host) or a suitable emulator before accepting cross-process runtime behavior. The debug probe is excluded from release source sets.
 
 ## Explicit non-actions
 
