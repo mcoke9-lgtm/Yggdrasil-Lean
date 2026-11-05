@@ -41,6 +41,12 @@ public final class BuilderReplyParser {
             if (object.has("reply_to_turn_id") && !object.isNull("reply_to_turn_id")) {
                 replyTo = requiredString(object, "reply_to_turn_id");
             }
+            boolean stopEvent = type == BuilderConversationProtocol.TurnType.INTERRUPTION
+                    || type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT;
+            if (stopEvent && recipient != BuilderConversationProtocol.Participant.USER)
+                throw new IllegalArgumentException(type + " must be addressed to USER");
+            if (stopEvent && replyTo == null)
+                throw new IllegalArgumentException(type + " must reference the triggering turn");
             if (type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
                 validateIncidentBody(body);
             } else if (type == BuilderConversationProtocol.TurnType.INTERRUPTION) {
