@@ -49,6 +49,10 @@ public final class BuilderRecoveryStartupSelector {
     public static Selection resolve(Context context) {
         if (context == null) throw new IllegalArgumentException("context is required");
         Context app = context.getApplicationContext();
+        return BuilderRecoveryGenerationBarrier.withLock(app, () -> resolveLocked(app));
+    }
+
+    private static Selection resolveLocked(Context app) {
         File manifest = new File(app.getFilesDir(), "builder-recovery-active.json");
         if (!manifest.exists()) {
             return new Selection(Source.CANONICAL,
