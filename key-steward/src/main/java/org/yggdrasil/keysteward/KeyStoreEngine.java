@@ -30,6 +30,13 @@ final class KeyStoreEngine {
     private static final Provider PROVIDER = new BouncyCastleProvider();
     private static final int RSA_BITS = 3072;
     private static final long VALIDITY_DAYS = 10000L;
+    static final int MAX_EXPORT_BYTES = 36 * 1024;
+
+    static void validateExportSize(int byteCount) {
+        if (byteCount < 0 || byteCount > MAX_EXPORT_BYTES) {
+            throw new IllegalArgumentException("Keystore is too large for a GitHub secret");
+        }
+    }
 
     static final class Verification {
         final String fingerprint;
