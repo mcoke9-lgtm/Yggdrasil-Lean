@@ -314,6 +314,7 @@ export function createOpenAiCompatibleExecutor({
     if (route.secretRef != null && (typeof token !== "string" || !token.trim())) {
       throw new Error("Operator credential source returned no token for " + role);
     }
+    if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
     const controller = new AbortController();
     const abortFromRun = () => controller.abort(context.signal?.reason || new Error("Builder run cancelled"));
