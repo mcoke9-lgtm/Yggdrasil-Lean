@@ -19,11 +19,11 @@ public final class BuilderConversationProtocol {
 
     public enum TurnType {
         CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF,
-        ACKNOWLEDGEMENT, RECONCILIATION, INTERRUPTION, IMPROVEMENT_INCIDENT, DECISION
+        ACKNOWLEDGEMENT, RECONCILIATION, INTERRUPTION, IMPROVEMENT_INCIDENT, CORRECTION_PLAN, CORRECTION_UPDATE, DECISION
     }
 
     public enum EvidenceStatus {
-        PROPOSED, OBSERVED, TESTED, VERIFIED, USER_CONFIRMED, DISPUTED, UNKNOWN
+        PROPOSED, OBSERVED, IMPLEMENTED, TESTED, VERIFIED, ADOPTED, USER_CONFIRMED, DISPUTED, UNKNOWN
     }
 
     private BuilderConversationProtocol() {}
@@ -99,6 +99,8 @@ public final class BuilderConversationProtocol {
                     throw new IllegalArgumentException("Replies must reference an earlier turn");
                 if (turn.type != TurnType.HANDOFF && turn.type != TurnType.INTERRUPTION
                         && turn.type != TurnType.IMPROVEMENT_INCIDENT
+                        && turn.type != TurnType.CORRECTION_PLAN
+                        && turn.type != TurnType.CORRECTION_UPDATE
                         && turn.recipient != null && turn.recipient != referenced.speaker)
                     throw new IllegalArgumentException("Recipient must match the referenced speaker");
                 boolean answersDirectedTurn = turn.type == TurnType.RESPONSE
@@ -122,20 +124,33 @@ public final class BuilderConversationProtocol {
                 || turn.type == TurnType.HANDOFF
                 || turn.type == TurnType.ACKNOWLEDGEMENT
                 || turn.type == TurnType.INTERRUPTION
-                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
+                || turn.type == TurnType.IMPROVEMENT_INCIDENT
+                || turn.type == TurnType.CORRECTION_PLAN
+                || (turn.type == TurnType.CORRECTION_UPDATE
+                    && turn.speaker != Participant.USER);
         boolean needsReply = turn.type == TurnType.CHALLENGE
                 || turn.type == TurnType.RESPONSE
                 || turn.type == TurnType.HANDOFF
                 || turn.type == TurnType.ACKNOWLEDGEMENT
                 || turn.type == TurnType.RECONCILIATION
                 || turn.type == TurnType.INTERRUPTION
-                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
+                || turn.type == TurnType.IMPROVEMENT_INCIDENT
+                || turn.type == TurnType.CORRECTION_PLAN
+                || turn.type == TurnType.CORRECTION_UPDATE;
 
         if (needsRecipient && turn.recipient == null)
             throw new IllegalArgumentException(turn.type + " requires a recipient");
-        if ((turn.type == TurnType.INTERRUPTION || turn.type == TurnType.IMPROVEMENT_INCIDENT)
+        if ((turn.type == TurnType.INTERRUPTION || turn.type == TurnType.IMPROVEMENT_INCIDENT
+                || turn.type == TurnType.CORRECTION_PLAN
+                || (turn.type == TurnType.CORRECTION_UPDATE && turn.speaker != Participant.USER))
                 && turn.recipient != Participant.USER)
             throw new IllegalArgumentException(turn.type + " must be addressed to USER");
+        if (turn.type == TurnType.CORRECTION_UPDATE && turn.speaker == Participant.USER
+                && turn.recipient != null)
+            throw new IllegalArgumentException("User correction adoption must not have a recipient");
+        if (turn.type == TurnType.CORRECTION_UPDATE && turn.speaker != Participant.USER
+                && turn.evidenceStatus == EvidenceStatus.ADOPTED)
+            throw new IllegalArgumentException("Only USER may record ADOPTED");
         if (turn.recipient == turn.speaker)
             throw new IllegalArgumentException("A participant cannot address a turn to itself");
         if (needsReply && turn.replyToTurnId == null)
