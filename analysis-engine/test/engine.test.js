@@ -104,3 +104,60 @@ test("aggregate overflow is rejected rather than emitting Infinity", () => {
     { material: "Huge B", quantity_kg: 1e308, reusable_kg: 0 }
   ]), /Aggregate overflow/);
 });
+
+
+test("evidence classifications and source references are retained without authentication claims", () => {
+  const report = analyze([
+    { material: "Wood", quantity_kg: 10, reusable_kg: 8, evidence_type: "directly_measured", source_reference: "scale-log-17" },
+    { material: "Steel", quantity_kg: 5, reusable_kg: 4, evidence_type: "reported_by_source", source_reference: "operator-interview-2" },
+    { material: "Plastic", quantity_kg: 3, reusable_kg: 1 }
+  ]);
+  assert.equal(report.evidence.classification_counts.directly_measured, 1);
+  assert.equal(report.evidence.classification_counts.reported_by_source, 1);
+  assert.equal(report.evidence.classification_counts.unknown, 1);
+  assert.equal(report.evidence.references.length, 2);
+  assert.match(report.evidence.note, /does not authenticate/);
+});
+
+test("complete measurement bounds produce conservative intervals, not confidence intervals", () => {
+  const report = analyze([
+    { material: "Wood", quantity_kg: 10, reusable_kg: 8, quantity_min_kg: 9, quantity_max_kg: 11, reusable_min_kg: 7, reusable_max_kg: 9 },
+    { material: "Steel", quantity_kg: 20, reusable_kg: 10, quantity_min_kg: 18, quantity_max_kg: 22, reusable_min_kg: 8, reusable_max_kg: 12 }
+  ]);
+  assert.equal(report.uncertainty.status, "complete_record_bounds");
+  assert.deepEqual(report.uncertainty.inspected_kg, { min: 27, max: 33 });
+  assert.deepEqual(report.uncertainty.reusable_kg, { min: 15, max: 21 });
+  assert.ok(Math.abs(report.uncertainty.recovery_fraction.min - 15 / 33) < 1e-12);
+  assert.ok(Math.abs(report.uncertainty.recovery_fraction.max - 21 / 27) < 1e-12);
+  assert.match(report.uncertainty.interpretation, /not a probability interval or confidence interval/);
+});
+
+test("missing bounds prevent a misleading complete aggregate interval", () => {
+  const report = analyze([
+    { material: "Wood", quantity_kg: 10, reusable_kg: 8, quantity_min_kg: 9, quantity_max_kg: 11, reusable_min_kg: 7, reusable_max_kg: 9 },
+    { material: "Steel", quantity_kg: 20, reusable_kg: 10 }
+  ]);
+  assert.equal(report.uncertainty.status, "incomplete_record_bounds");
+  assert.equal(report.uncertainty.inspected_kg, null);
+  assert.equal(report.uncertainty.records_with_bounds, 1);
+});
+
+test("invalid, incomplete or reversed measurement bounds reject the record", () => {
+  const report = analyze([
+    { material: "Good", quantity_kg: 10, reusable_kg: 8, quantity_min_kg: 9, quantity_max_kg: 11, reusable_min_kg: 7, reusable_max_kg: 9 },
+    { material: "Half", quantity_kg: 10, reusable_kg: 8, quantity_min_kg: 9 },
+    { material: "Reversed", quantity_kg: 10, reusable_kg: 8, quantity_min_kg: 12, quantity_max_kg: 11 }
+  ]);
+  assert.equal(report.quality.accepted_records, 1);
+  assert.equal(report.quality.rejected_records, 2);
+  assert.equal(report.quality.findings.length, 2);
+});
+
+test("unsupported evidence types are rejected rather than silently relabeled", () => {
+  const report = analyze([
+    { material: "Unknown", quantity_kg: 10, reusable_kg: 5, evidence_type: "verified_by_ai" }
+  ]);
+  assert.equal(report.quality.accepted_records, 0);
+  assert.equal(report.quality.rejected_records, 1);
+  assert.match(report.quality.findings[0], /evidence_type must be one of/);
+});
