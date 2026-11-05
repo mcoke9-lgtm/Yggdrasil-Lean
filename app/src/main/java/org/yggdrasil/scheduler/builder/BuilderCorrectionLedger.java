@@ -174,6 +174,52 @@ public final class BuilderCorrectionLedger {
         return adopted;
     }
 
+    /** Validates a user adoption against the existing journal, called inside the store append transaction. */
+    public static void validateUserAdoption(
+            BuilderConversationProtocol.Turn adoption,
+            List<BuilderConversationProtocol.Turn> context) {
+        if (adoption.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
+                || adoption.speaker != BuilderConversationProtocol.Participant.USER
+                || adoption.evidenceStatus != BuilderConversationProtocol.EvidenceStatus.ADOPTED
+                || adoption.recipient != null)
+            throw new IllegalArgumentException("Only a user-authored ADOPTED correction update is valid");
+        JSONObject body = object(adoption.body, "User adoption");
+        for (String field : UPDATE_FIELDS) required(body, field);
+        String correctionId = required(body, "correction_id");
+        String incidentId = required(body, "incident_turn_id");
+        if (!"ADOPTED".equals(required(body, "stage")))
+            throw new IllegalArgumentException("User adoption stage must be ADOPTED");
+        if (!required(body, "artifact_reference").startsWith("user-adoption:"))
+            throw new IllegalArgumentException("User adoption requires its explicit user-action reference");
+        BuilderConversationProtocol.Turn plan = findPlan(context, correctionId);
+        if (plan == null) throw new IllegalArgumentException("Adoption references no correction plan");
+        JSONObject planBody = object(plan.body, "Correction plan");
+        if (!incidentId.equals(required(planBody, "incident_turn_id")))
+            throw new IllegalArgumentException("Adoption incident does not match its correction plan");
+        BuilderConversationProtocol.Turn latest = plan;
+        String latestStage = "PROPOSED";
+        for (BuilderConversationProtocol.Turn prior : context) {
+            if (prior.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) continue;
+            JSONObject priorBody = object(prior.body, "Correction update");
+            if (correctionId.equals(required(priorBody, "correction_id"))) {
+                latest = prior;
+                latestStage = required(priorBody, "stage");
+            }
+        }
+        if (!"VERIFIED".equals(latestStage)
+                || latest.speaker != BuilderConversationProtocol.Participant.BALDR
+                || !latest.turnId.equals(adoption.replyToTurnId))
+            throw new IllegalArgumentException("Adoption must reply to the latest independent VERIFIED milestone");
+        List<BuilderConversationProtocol.Turn> beforeVerification = new ArrayList<>();
+        for (BuilderConversationProtocol.Turn prior : context) {
+            if (prior.turnId.equals(latest.turnId)) break;
+            beforeVerification.add(prior);
+        }
+        validateUpdate(latest, beforeVerification);
+        if (!incidentId.equals(required(object(latest.body, "Verified correction update"), "incident_turn_id")))
+            throw new IllegalArgumentException("Adoption incident does not match the verified milestone");
+    }
+
     /** Returns the most recent correction ID that is verified and not yet adopted. */
     public static String latestAdoptableCorrection(List<BuilderConversationProtocol.Turn> context) {
         String candidate = null;
