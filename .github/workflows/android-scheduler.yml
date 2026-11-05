@@ -2,14 +2,14 @@ name: Android Scheduler Host
 
 on:
   push:
-    branches: [android-scheduler-host-prototype-001]
+    branches: [android-scheduler-host-prototype-001, chatgpt-yggdrasil-bridge-001]
     paths:
       - 'app/**'
       - '*.gradle'
       - 'gradle.properties'
       - '.github/workflows/android-scheduler.yml'
   pull_request:
-    branches: [main]
+    branches: [main, recovery-drill-interface-001]
     paths:
       - 'app/**'
       - '*.gradle'
