@@ -210,6 +210,17 @@ def main() -> int:
     if any(artifact.get("validation_state") != "unverified" or artifact.get("license_status") != "unknown" for artifact in artifact_by_id.values()):
         print("FAIL publisher-reported model digests must remain unverified locally and license status unknown until reviewed")
         failures += 1
+    for family in inventory.get("candidates", []):
+        for variant in family.get("artifact_variants", []):
+            artifact_id = variant.get("artifact_id")
+            if variant.get("sha256_status") == "publisher_reported":
+                artifact = artifact_by_id.get(artifact_id)
+                if not artifact or artifact.get("model_family_id") != family.get("model_family_id"):
+                    print(f"FAIL artifact variant has no matching registered artifact: {artifact_id}")
+                    failures += 1
+                elif artifact.get("digest", {}).get("value") != variant.get("sha256") or artifact.get("size_bytes") != variant.get("size_bytes"):
+                    print(f"FAIL artifact variant digest/size differs from artifact inventory: {artifact_id}")
+                    failures += 1
     if set(artifact_by_id) != {ref for candidate in study.get("source_candidates", []) for ref in candidate.get("artifact_refs", [])}:
         print("FAIL artifact inventory and study source candidate references must match")
         failures += 1
