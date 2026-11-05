@@ -51,10 +51,11 @@ public final class SchedulerWorker extends Worker {
                                         : BuilderActionPreflight.Authorization.DENIED,
                                 "runtime-check:enabled-persisted-monitor+WorkManager-CONNECTED-constraint+INTERNET-permission");
                 BuilderActionPreflight.Execution<Void> execution =
-                        BuilderActionPreflight.execute(observation, Instant.now(), () -> {
-                            checkGithub(task, today, forced);
-                            return null;
-                        });
+                        org.yggdrasil.scheduler.builder.BuilderActionBoundaries.checkGithubMonitor(
+                                observation, Instant.now(), () -> {
+                                    checkGithub(task, today, forced);
+                                    return null;
+                                });
                 if (!execution.executed) {
                     String detail = "Action preflight " + execution.decision + ": " + execution.reason;
                     db.record(task.id, 0,
