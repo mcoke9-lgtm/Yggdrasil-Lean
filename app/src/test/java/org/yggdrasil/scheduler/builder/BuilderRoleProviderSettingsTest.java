@@ -48,6 +48,18 @@ public class BuilderRoleProviderSettingsTest {
         assertEquals(2, router.routes().size());
     }
 
+    @Test public void selectedRolesCannotReuseTheSameModelId() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        save(settings, BuilderRole.HUGINN, "provider-a", "8101", "shared-model");
+        save(settings, BuilderRole.KVASIR, "provider-b", "8102", "SHARED-MODEL");
+        try {
+            settings.requireConfigured(Arrays.asList(BuilderRole.HUGINN, BuilderRole.KVASIR));
+            fail("Expected duplicate model identity rejection");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("share model ID"));
+        }
+    }
+
     @Test public void baldrMustHaveASeparateEndpointModelPair() throws Exception {
         BuilderRoleProviderSettings settings = settings();
         save(settings, BuilderRole.HUGINN, "main", "8101", "model-a");
