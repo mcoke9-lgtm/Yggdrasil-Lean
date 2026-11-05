@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { registerGithubWatch } from "../src/github-watch.js";
 import { JsonFileStore, MemoryStore } from "../src/store.js";
 import { Scheduler } from "../src/scheduler.js";
+import { createDashboardServer } from "../src/dashboard-server.js";
+import { acquireProcessLock } from "../src/process-lock.js";
 
 const clock = () => new Date("2026-11-04T12:00:00.000Z");
 
@@ -201,4 +203,82 @@ test("marks in-flight runs interrupted after restart without replay", async () =
   const runs = await scheduler.listRuns();
   assert.equal(runs[0].status, "interrupted");
   assert.match(runs[0].error, /automatic replay is disabled/);
+});
+
+test("dashboard exposes local task management and rejects hostile hosts", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  const dashboard = createDashboardServer({ scheduler, port: 0 });
+  const address = await dashboard.listen();
+  const base = `http://127.0.0.1:${address.port}`;
+  try {
+    const page = await fetch(base + "/");
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get("content-security-policy"), /default-src 'self'/);
+    const created = await fetch(base + "/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "dashboard-watch",
+        name: "Dashboard watch",
+        repository: "owner/repo",
+        branch: "main",
+        workflowNames: ["Build"],
+        timeZone: "America/New_York",
+        frequency: "daily",
+        hour: 9,
+        minute: 0
+      })
+    });
+    assert.equal(created.status, 201);
+    const task = await created.json();
+    assert.equal(task.handlerType, "github.workflow-check");
+    const paused = await fetch(base + "/api/tasks/dashboard-watch", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: false })
+    });
+    assert.equal((await paused.json()).enabled, false);
+    const hostile = await fetch(base + "/api/tasks", { headers: { Host: "attacker.example" } });
+    assert.equal(hostile.status, 403);
+    const deleted = await fetch(base + "/api/tasks/dashboard-watch", { method: "DELETE" });
+    assert.equal((await deleted.json()).deleted, true);
+  } finally {
+    await dashboard.close();
+  }
+});
+
+test("dashboard refuses non-loopback network binding", () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  assert.throws(() => createDashboardServer({ scheduler, host: "0.0.0.0" }), /loopback/);
+});
+
+test("dashboard token protects management endpoints", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  const dashboard = createDashboardServer({ scheduler, port: 0, token: "test-secret" });
+  const address = await dashboard.listen();
+  const base = `http://127.0.0.1:${address.port}`;
+  try {
+    const denied = await fetch(base + "/api/tasks");
+    assert.equal(denied.status, 401);
+    const allowed = await fetch(base + "/api/tasks", {
+      headers: { Authorization: "Bearer test-secret" }
+    });
+    assert.equal(allowed.status, 200);
+  } finally {
+    await dashboard.close();
+  }
+});
+
+test("process lock prevents a second scheduler instance and releases cleanly", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-lock-"));
+  const lockPath = join(directory, "scheduler.lock");
+  try {
+    const release = await acquireProcessLock(lockPath);
+    await assert.rejects(() => acquireProcessLock(lockPath), /already appears to be running/);
+    await release();
+    const releaseAgain = await acquireProcessLock(lockPath);
+    await releaseAgain();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
