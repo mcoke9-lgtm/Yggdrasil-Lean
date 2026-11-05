@@ -43,6 +43,16 @@ public class KeyStoreEngineTest {
     }
 
     @Test
+    public void alteredKeystoreIsRejected() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        KeyStoreEngine.create(output, PASSWORD);
+        byte[] altered = output.toByteArray();
+        altered[altered.length / 2] ^= 0x01;
+        assertThrows(Exception.class, () -> KeyStoreEngine.verify(
+                new ByteArrayInputStream(altered), PASSWORD));
+    }
+
+    @Test
     public void shortPasswordIsRejectedBeforeKeyGeneration() {
         assertThrows(IllegalArgumentException.class, () -> KeyStoreEngine.create(
                 new ByteArrayOutputStream(), "short".toCharArray()));
