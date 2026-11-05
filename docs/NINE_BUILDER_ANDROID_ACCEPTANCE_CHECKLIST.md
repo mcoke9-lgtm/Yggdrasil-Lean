@@ -47,3 +47,13 @@ A passing Gradle unit-test job does not establish that the APK installs, Android
 ## JVM test environment
 - Unit tests use the standalone JSON-java implementation for JVM execution rather than Android's unmocked framework stubs.
 - Credential-destination matching is tested as a pure configuration rule; Android Keystore encryption/decryption remains a device/runtime acceptance check.
+
+## CI validation checkpoint — 2026-11-05
+- Validation run: [Builder Conversation Journal #42030534184](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42030534184).
+- Tested source commit: `8a8785c506de3bba5676c2960000fe5bddd0d256`.
+- Result: 79 unit tests passed; 0 failures, 0 errors, 0 skipped.
+- The passing suite includes a nine-role mock HTTP-adapter conversation: nine role-specific requests, accumulated thread context, parsed responses, and ten persisted turns (one user turn plus nine Builder turns).
+- Android debug APK assembly and artifact upload succeeded.
+- The validated application/test source changes were adopted into `independent-builder-runtime-foundation-001` at `6d39bdd3b4bc29fdf67f96cdea6072912e0d0a2d`; the six validated source/test/documentation file blobs match the validation branch.
+- Not yet verified: installation on a physical device, Android Keystore runtime behavior, actual loopback HTTP server exchange, and any hosted provider request.
+- No live model endpoint or API credential was configured or used.
