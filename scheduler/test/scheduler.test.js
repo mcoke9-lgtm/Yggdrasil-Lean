@@ -1,8 +1,10 @@
 import test from "node:test";
+import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { registerGithubWatch } from "../src/github-watch.js";
 import { JsonFileStore, MemoryStore } from "../src/store.js";
 import { Scheduler } from "../src/scheduler.js";
@@ -318,3 +320,68 @@ test("dashboard task changes are not lost while a scheduled handler is running",
   await execution;
   assert.ok((await scheduler.listTasks()).some(task => task.id === "added-during-run"));
 });
+
+test("service runner starts dashboard, acquires lock and shuts down cleanly", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-runner-"));
+  const stateFile = join(directory, "state.json");
+  const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const child = spawn(process.execPath, ["src/runner.js"], {
+    cwd: schedulerDirectory,
+    env: {
+      ...process.env,
+      SCHEDULER_STATE_FILE: stateFile,
+      SCHEDULER_DASHBOARD_PORT: "0",
+      SCHEDULER_POLL_MS: "1000"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let output = "";
+  let errorOutput = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", chunk => { output += chunk; });
+  child.stderr.on("data", chunk => { errorOutput += chunk; });
+  try {
+    const startup = await new Promise((resolveStartup, rejectStartup) => {
+      const timeout = setTimeout(() => rejectStartup(new Error("Scheduler runner did not start in time")), 8000);
+      const inspect = () => {
+        const line = output.split("\n").find(value => {
+          try { return JSON.parse(value).event === "scheduler_started"; }
+          catch { return false; }
+        });
+        if (!line) return;
+        clearTimeout(timeout);
+        resolveStartup(JSON.parse(line));
+      };
+      child.stdout.on("data", inspect);
+      child.once("error", error => { clearTimeout(timeout); rejectStartup(error); });
+      child.once("exit", code => {
+        if (!lineExists(output)) {
+          clearTimeout(timeout);
+          rejectStartup(new Error(`Scheduler exited before startup (${code}): ${errorOutput}`));
+        }
+      });
+      inspect();
+    });
+    assert.match(startup.dashboard, /^http:\/\/127\.0\.0\.1:\d+$/);
+    const health = await fetch(startup.dashboard + "/api/health");
+    assert.equal(health.status, 200);
+    child.kill("SIGTERM");
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      const timeout = setTimeout(() => rejectExit(new Error("Scheduler runner did not shut down")), 8000);
+      child.once("exit", code => { clearTimeout(timeout); resolveExit(code); });
+    });
+    assert.equal(exitCode, 0);
+    await assert.rejects(() => readFile(stateFile + ".lock", "utf8"), { code: "ENOENT" });
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+function lineExists(output) {
+  return output.split("\n").some(value => {
+    try { return JSON.parse(value).event === "scheduler_started"; }
+    catch { return false; }
+  });
+}
