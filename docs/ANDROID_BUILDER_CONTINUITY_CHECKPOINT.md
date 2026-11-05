@@ -32,8 +32,12 @@
   https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42003024625
 - Uploaded artifact `13403960642` (`yggdrasil-builder-runtime-debug-apk`, 2,374,793 bytes; not expired at verification).
 - User confirmed successful installation on the physical Samsung Galaxy S21.
-- User then confirmed the first on-device note command was sent and the journal verification reported success. This is user-reported physical-device verification of basic note capture and journal integrity check.
-- Not yet physically verified: export, import/restore, cancellation, tampered-file rejection, reboot/process-death recovery, offline operation, or independent agent execution.
+- User confirmed the first on-device note command was sent and the journal verification reported success. This is user-reported physical-device verification of basic note capture and journal integrity check.
+- User confirmed the exported snapshot file was visible in the phone's Downloads folder.
+- User completed the app's import/validation action. The user observed a single action button and reasonably noted that validation and import appear combined in the current interface; this UX ambiguity is recorded rather than assuming a distinct two-stage confirmation.
+- After the import action, the app's Journal Integrity control reported that the chain was verified.
+- User then completely closed and reopened the app; Journal Integrity again reported that the chain was verified. This is user-reported physical-device verification of post-import integrity and application-restart persistence.
+- Not yet physically verified: reboot recovery, cancellation behavior, tampered-file rejection without loss of existing records, offline operation, or independent agent execution.
 
 ## Scope boundaries
 
@@ -43,12 +47,11 @@ The journal hash chain is tamper-evident, not cryptographic authentication again
 
 ## Next gates
 
-1. Physically test snapshot export to a user-selected file.
-2. Test import/restore with a known-good snapshot, then verify the restored journal.
-3. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
-4. Test process restart and device reboot continuity.
-5. Only after these foundations, benchmark local inference, thermal/battery/memory limits and offline voice.
+1. Test device-reboot continuity while preserving the current journal.
+2. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
+3. Clarify whether import preview and final replacement are separate UI actions; user observed one action button.
+4. Only after these foundations, benchmark local inference, thermal/battery/memory limits and offline voice.
 
 ## Integrity check
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export/restore and resilience tests remain pending.
+One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery and tampered-file rejection remain pending.
