@@ -41,6 +41,8 @@ public final class BuilderReplyParser {
             if (object.has("reply_to_turn_id") && !object.isNull("reply_to_turn_id")) {
                 replyTo = requiredString(object, "reply_to_turn_id");
             }
+            if (evidence == BuilderConversationProtocol.EvidenceStatus.ADOPTED)
+                throw new IllegalArgumentException("Builders cannot emit ADOPTED evidence status");
             boolean stopEvent = type == BuilderConversationProtocol.TurnType.INTERRUPTION
                     || type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT;
             boolean correctionEvent = type == BuilderConversationProtocol.TurnType.CORRECTION_PLAN
