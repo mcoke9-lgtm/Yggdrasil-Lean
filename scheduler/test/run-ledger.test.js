@@ -148,7 +148,6 @@ test("does not consume the eight-hour budget while a scheduled run is queued", a
 });
 
 import { registerBuilderRunHandler, BUILDER_RUN_HANDLER_TYPE } from "../src/builder-run-handler.js";
-import { BuilderRunLedger, BUILDER_ROLES } from "../src/run-ledger.js";
 
 test("scheduler invokes all nine Builders through the injected executor and Baldr reviews last", async () => {
   const store = new MemoryStore();
