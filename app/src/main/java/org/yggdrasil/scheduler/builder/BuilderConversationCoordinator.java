@@ -1,9 +1,12 @@
 package org.yggdrasil.scheduler.builder;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,6 +15,7 @@ import java.util.UUID;
  * This is orchestration, not proof of independent agents or a model-provider integration.
  */
 public final class BuilderConversationCoordinator {
+    private static final int MAX_TURNS_PER_BUILDER_PER_SUBMISSION = 2;
     public interface Responder {
         Reply respond(BuilderRole role,
                       List<BuilderConversationProtocol.Turn> threadContext,
@@ -59,16 +63,20 @@ public final class BuilderConversationCoordinator {
         public final String userTurnId;
         public final List<BuilderConversationProtocol.Turn> appendedTurns;
         public final List<BuilderRole> failedRoles;
+        public final List<BuilderRole> unroutedRecipients;
 
         private Result(String threadId, String userTurnId,
                        List<BuilderConversationProtocol.Turn> appendedTurns,
-                       List<BuilderRole> failedRoles) {
+                       List<BuilderRole> failedRoles,
+                       List<BuilderRole> unroutedRecipients) {
             this.threadId = threadId;
             this.userTurnId = userTurnId;
             this.appendedTurns = Collections.unmodifiableList(
                     new ArrayList<>(appendedTurns));
             this.failedRoles = Collections.unmodifiableList(
                     new ArrayList<>(failedRoles));
+            this.unroutedRecipients = Collections.unmodifiableList(
+                    new ArrayList<>(unroutedRecipients));
         }
     }
 
@@ -116,7 +124,23 @@ public final class BuilderConversationCoordinator {
         List<BuilderRole> failed = new ArrayList<>();
         appended.add(userTurn);
 
+        ArrayDeque<BuilderRole> queue = new ArrayDeque<>();
+        Set<BuilderRole> selected = new HashSet<>(selectedRoles);
+        Set<BuilderRole> queued = new HashSet<>();
+        Map<BuilderRole, Integer> turnCounts = new HashMap<>();
+        List<BuilderRole> unrouted = new ArrayList<>();
         for (BuilderRole role : selectedRoles) {
+            queue.addLast(role);
+            queued.add(role);
+        }
+
+        while (!queue.isEmpty()) {
+            BuilderRole role = queue.removeFirst();
+            queued.remove(role);
+            int roleTurnCount = turnCounts.containsKey(role) ? turnCounts.get(role) : 0;
+            if (roleTurnCount >= MAX_TURNS_PER_BUILDER_PER_SUBMISSION) continue;
+            turnCounts.put(role, roleTurnCount + 1);
+
             try {
                 List<BuilderConversationProtocol.Turn> context = store.readThread(normalizedThreadId);
                 Reply reply = responder.respond(role, context, userTurn);
@@ -143,11 +167,31 @@ public final class BuilderConversationCoordinator {
                         reply.body);
                 store.append(response);
                 appended.add(response);
+
+                BuilderRole nextRole = builderRoleFor(recipient);
+                if (nextRole != null) {
+                    int nextCount = turnCounts.containsKey(nextRole) ? turnCounts.get(nextRole) : 0;
+                    if (!selected.contains(nextRole) || nextCount >= MAX_TURNS_PER_BUILDER_PER_SUBMISSION) {
+                        if (!unrouted.contains(nextRole)) unrouted.add(nextRole);
+                    } else if (queued.add(nextRole)) {
+                        queue.addLast(nextRole);
+                    }
+                }
             } catch (Exception failure) {
                 failed.add(role);
             }
         }
-        return new Result(normalizedThreadId, userTurnId, appended, failed);
+        return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted);
+    }
+
+    private static BuilderRole builderRoleFor(BuilderConversationProtocol.Participant participant) {
+        if (participant == null || participant == BuilderConversationProtocol.Participant.USER)
+            return null;
+        try {
+            return BuilderRole.valueOf(participant.name());
+        } catch (IllegalArgumentException notBuilder) {
+            return null;
+        }
     }
 
     private static void validateRoles(List<BuilderRole> roles) {
