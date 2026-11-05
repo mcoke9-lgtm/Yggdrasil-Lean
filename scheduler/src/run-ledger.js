@@ -45,7 +45,7 @@ export class BuilderRunLedger {
     return result;
   }
 
-  async createRun({ runId = this.idFactory(), scheduledFor, startedAt = this.clock(), durationMs = MAX_BUILDER_RUN_DURATION_MS } = {}) {
+  async createRun({ runId = this.idFactory(), scheduledFor, durationMs = MAX_BUILDER_RUN_DURATION_MS } = {}) {
     return this.withLock(async () => {
       if (typeof runId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(runId)) {
         throw new TypeError("runId must be a stable, safe identifier");
@@ -53,16 +53,15 @@ export class BuilderRunLedger {
       if (!Number.isSafeInteger(durationMs) || durationMs < 1000 || durationMs > MAX_BUILDER_RUN_DURATION_MS) {
         throw new RangeError("durationMs must be between 1 second and the eight-hour maximum");
       }
-      const started = iso(startedAt, "startedAt");
-      const scheduled = iso(scheduledFor ?? started, "scheduledFor");
-      const deadline = new Date(new Date(started).getTime() + durationMs).toISOString();
+      const created = this.clock().toISOString();
+      const scheduled = iso(scheduledFor ?? created, "scheduledFor");
       const state = await this.store.load();
       state.builderRuns ??= [];
       if (state.builderRuns.some(run => run.runId === runId)) throw new Error("Builder run already exists: " + runId);
       const run = {
-        schemaVersion: 1, runId, scheduledFor: scheduled, startedAt: started,
-        deadlineAt: deadline, durationMs, status: "queued", createdAt: this.clock().toISOString(),
-        updatedAt: this.clock().toISOString(), interruptedAt: null, interruptionReason: null,
+        schemaVersion: 1, runId, scheduledFor: scheduled, startedAt: null,
+        deadlineAt: null, durationMs, status: "queued", createdAt: created,
+        updatedAt: created, interruptedAt: null, interruptionReason: null,
         builders: BUILDER_ROLES.map(role => ({
           role, status: "pending", attempt: 0, startedAt: null, finishedAt: null,
           checkpoint: null, error: null
@@ -92,7 +91,13 @@ export class BuilderRunLedger {
   async startRun(runId) {
     return this.mutate(runId, run => {
       if (run.status !== "queued" && run.status !== "interrupted") throw new Error("Only queued or interrupted runs can start");
-      if (this.clock().getTime() >= new Date(run.deadlineAt).getTime()) throw new Error("Run deadline has expired");
+      const now = this.clock();
+      if (run.status === "queued") {
+        run.startedAt = now.toISOString();
+        run.deadlineAt = new Date(now.getTime() + run.durationMs).toISOString();
+      } else if (!run.deadlineAt || now.getTime() >= new Date(run.deadlineAt).getTime()) {
+        throw new Error("Run deadline has expired");
+      }
       run.status = "running";
       run.interruptedAt = null;
       run.interruptionReason = null;
@@ -185,7 +190,7 @@ export class BuilderRunLedger {
   async markDeadlineExpired(runId) {
     return this.mutate(runId, run => {
       if (run.status !== "running") throw new Error("Only a running work window can expire");
-      if (this.clock().getTime() < new Date(run.deadlineAt).getTime()) throw new Error("Run deadline has not been reached");
+      if (!run.deadlineAt || this.clock().getTime() < new Date(run.deadlineAt).getTime()) throw new Error("Run deadline has not been reached");
       const now = this.clock().toISOString();
       run.status = "expired";
       run.finishedAt = now;
@@ -215,7 +220,7 @@ export class BuilderRunLedger {
 
   assertRunning(run) {
     if (run.status !== "running") throw new Error("Builder run is not running");
-    if (this.clock().getTime() >= new Date(run.deadlineAt).getTime()) {
+    if (!run.deadlineAt || this.clock().getTime() >= new Date(run.deadlineAt).getTime()) {
       throw new Error("Run deadline has expired; stop work and mark the deadline");
     }
   }
