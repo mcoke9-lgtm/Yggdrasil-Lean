@@ -32,8 +32,7 @@ public final class SchedulerWorker extends Worker {
                 ZoneId zone = ZoneId.of(task.zone);
                 ZonedDateTime now = ZonedDateTime.now(zone);
                 String today = now.toLocalDate().toString();
-                String scheduledDays = "," + task.days + ",";
-                if (!forced && (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate))) continue;
+                if (!SchedulePolicy.shouldRun(task.days, task.hour, task.minute, task.lastDate, now, forced)) continue;
                 checkGithub(task, today, forced);
             } catch (Exception e) {
                 db.record(task.id, 0, "error", (forced ? "[manual] " : "[scheduled] ") + "Check failed: " + safe(e.getMessage()));
