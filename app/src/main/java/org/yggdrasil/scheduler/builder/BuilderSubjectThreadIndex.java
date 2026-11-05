@@ -60,7 +60,7 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
 
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + TABLE + " ("
-                + "event_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, subject_id TEXT NOT NULL, "
+                + "_id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, thread_id TEXT NOT NULL, subject_id TEXT NOT NULL, "
                 + "event_type TEXT NOT NULL, subheading_id TEXT, participant TEXT, "
                 + "timestamp_epoch_millis INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX subject_thread_order ON " + TABLE + "(thread_id, timestamp_epoch_millis)");
@@ -92,7 +92,7 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
         String id = required(threadId, "threadId");
         List<Event> events = new ArrayList<>();
         try (Cursor c = getReadableDatabase().query(TABLE, null, "thread_id = ?",
-                new String[]{id}, null, null, "timestamp_epoch_millis ASC, event_id ASC")) {
+                new String[]{id}, null, null, "_id ASC")) {
             while (c.moveToNext()) {
                 String subheading = c.isNull(4) ? null : c.getString(4);
                 String participant = c.isNull(5) ? null : c.getString(5);
@@ -111,16 +111,16 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
             root.put("format", "yggdrasil-subject-thread-index");
             root.put("format_version", 1);
             try (Cursor c = getReadableDatabase().query(TABLE, null, null, null, null, null,
-                    "thread_id ASC, timestamp_epoch_millis ASC, event_id ASC")) {
+                    "_id ASC")) {
                 while (c.moveToNext()) {
                     JSONObject item = new JSONObject();
-                    item.put("event_id", c.getString(0));
-                    item.put("thread_id", c.getString(1));
-                    item.put("subject_id", c.getString(2));
-                    item.put("event_type", c.getString(3));
-                    item.put("subheading_id", c.isNull(4) ? JSONObject.NULL : c.getString(4));
-                    item.put("participant", c.isNull(5) ? JSONObject.NULL : c.getString(5));
-                    item.put("timestamp_epoch_millis", c.getLong(6));
+                    item.put("event_id", c.getString(1));
+                    item.put("thread_id", c.getString(2));
+                    item.put("subject_id", c.getString(3));
+                    item.put("event_type", c.getString(4));
+                    item.put("subheading_id", c.isNull(5) ? JSONObject.NULL : c.getString(5));
+                    item.put("participant", c.isNull(6) ? JSONObject.NULL : c.getString(6));
+                    item.put("timestamp_epoch_millis", c.getLong(7));
                     events.put(item);
                 }
             }
