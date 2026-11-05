@@ -87,3 +87,13 @@ Committed support:
 - **Current status:** CI was observed in progress at the last check; build/test result not yet known. No new APK is ready or installed. No physical-device inventory has yet been read by the new code.
 - **Next gate:** wait for CI. If it passes, inspect the generated APK and signer certificate. Do not ask the user to uninstall or replace the currently installed Builder Host until stable signing is verified and a fresh backup/migration plan is ready.
 - **Interoperability still pending:** portable cross-host capability envelope and authenticated sync between phone, free cloud and NUC. This change is local self-reporting only.
+
+
+### CI result update — 2026-11-05
+
+- Android workflow run `42051226557` completed with conclusion `success`.
+- `:app:testDebugUnitTest` and `:app:assembleDebug` completed successfully; the APK signature-verification command also passed.
+- The persistent-signing configuration step intentionally continued without a distributable build because the four `BUILDER_*` signing secrets were not configured. The artifact-upload step was therefore skipped; GitHub reports zero artifacts for this run.
+- Consequently, this run verifies compilation, unit tests, and that the locally generated debug APK has a valid Android signature. It does **not** verify the established persistent signing identity, nor provide an APK for installation or upgrade.
+- The source implementation is included in the tested workflow commit `60184a4087576ff356151981c3b3e18d3bcd88cd`. The branch subsequently advanced to `9f6da91dc5aefd3d5b21af3a9f9c977d6988a1ea` with checkpoint documentation only; no Android source changed after the tested commit.
+- Do not install a newly generated debug-signed package over the existing Builder Host. First establish the existing installed package's signer identity and recover/verify the matching persistent signing key through repository secret configuration. Never place keystore passwords or private key material in chat, source control, or logs.
