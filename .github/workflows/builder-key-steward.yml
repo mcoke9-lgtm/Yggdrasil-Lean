@@ -50,8 +50,11 @@ jobs:
           fi
       - name: Create disposable PKCS12 key for CI signing test
         run: |
-          gradle --no-daemon :key-steward:createDisposableTestKeystore
-          echo "BUILDER_KEYSTORE_PATH=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
+          keytool -genkeypair -noprompt -alias builder-upload-key -keyalg RSA -keysize 3072 \
+            -sigalg SHA256withRSA -validity 10000 -dname "CN=Disposable Builder CI Test" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/disposable-test-key.p12" \
+            -storepass disposable-test-password -keypass disposable-test-password
+          echo "BUILDER_KEYSTORE_PATH=$RUNNER_TEMP/disposable-test-key.p12" >> "$GITHUB_ENV"
           echo "BUILDER_KEYSTORE_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_ALIAS=builder-upload-key" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
@@ -62,7 +65,15 @@ jobs:
           APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose "$APK"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apk-signer.txt"
+          KEY_DIGEST="$(keytool -list -v -keystore "$BUILDER_KEYSTORE_PATH" -storetype PKCS12 \
+            -storepass "$BUILDER_KEYSTORE_PASSWORD" | sed -n 's/.*SHA256: //p' | head -n 1 \
+            | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          APK_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/apk-signer.txt" \
+            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$KEY_DIGEST"
+          test "$KEY_DIGEST" = "$APK_DIGEST"
+          echo "Disposable PKCS12 certificate fingerprint matches the APK signer."
       - uses: actions/upload-artifact@v4
         with:
           name: builder-key-steward-debug-apk
