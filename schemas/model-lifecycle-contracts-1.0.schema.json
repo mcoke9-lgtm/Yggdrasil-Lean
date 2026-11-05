@@ -2005,7 +2005,10 @@
             "minimum_independent_reviewers",
             "model_self_evaluation_is_sufficient",
             "third_review_on_disagreement",
-            "raw_evidence_retention"
+            "raw_evidence_retention",
+            "candidate_must_not_self_evaluate",
+            "evaluator_artifacts_must_be_distinct_from_candidate",
+            "human_or_deterministic_verification_required"
           ],
           "properties": {
             "evaluator_builder_ids": {
@@ -2035,6 +2038,15 @@
               "const": true
             },
             "raw_evidence_retention": {
+              "const": true
+            },
+            "candidate_must_not_self_evaluate": {
+              "const": true
+            },
+            "evaluator_artifacts_must_be_distinct_from_candidate": {
+              "const": true
+            },
+            "human_or_deterministic_verification_required": {
               "const": true
             }
           },
