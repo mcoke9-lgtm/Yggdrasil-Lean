@@ -1,0 +1,149 @@
+{
+  "format_id": "org.yggdrasil.nine-builders.subject-registry",
+  "schema_version": "1.0.0",
+  "registry_status": "proposed",
+  "subjects": [
+    {
+      "subject_id": "subject.cryptography",
+      "heading": "Cryptography",
+      "summary": "Methods and systems for confidentiality, integrity, authentication, signatures, trust, key lifecycle, and cryptographic recovery.",
+      "scope": {
+        "includes": [
+          "Cryptographic foundations, algorithms, and standards",
+          "Encryption, decryption, hashing, and integrity checks",
+          "Digital signatures, certificates, identity, and authentication",
+          "Key generation, custody, storage, rotation, backup, and recovery",
+          "Application signing, package identity, and cryptographic continuity",
+          "Threat models, implementation review, and independent verification"
+        ],
+        "excludes": [
+          "Authorization to access or change a device, account, key, or repository",
+          "Execution of installation, migration, signing, or key-rotation actions without required user approval",
+          "Claims that a public certificate or signed artifact reveals or reconstructs its private key"
+        ]
+      },
+      "lifecycle_status": "proposed",
+      "stewardship": [
+        { "builder_id": "HUGINN", "responsibility": "Cryptographic architecture, system boundaries, trust relationships, and security objectives." },
+        { "builder_id": "MUNINN", "responsibility": "Key identity and lifecycle history, provenance, continuity, backup, and recovery records." },
+        { "builder_id": "KVASIR", "responsibility": "Cryptographic foundations, algorithms, standards, source research, and evidence synthesis." },
+        { "builder_id": "MARI", "responsibility": "Clear explanations, user dialogue, coordination, and communication between technical roles." },
+        { "builder_id": "HODR", "responsibility": "Implementation, application signing, secure-storage integration, and reproducible tests." },
+        { "builder_id": "TYR", "responsibility": "Security requirements, key custody, permissions, threat boundaries, and integrity constraints." },
+        { "builder_id": "LOKI", "responsibility": "Adversarial review, failure cases, alternatives, weaknesses, and recovery options." },
+        { "builder_id": "ODIN", "responsibility": "Cross-component integration, dependency analysis, and reconciliation that preserves source disagreements." },
+        { "builder_id": "BALDR", "responsibility": "Independent verification of claims, certificates, signatures, implementation, and acceptance criteria." }
+      ],
+      "subheadings": [
+        {
+          "subheading_id": "CRYPTO-01",
+          "heading": "Foundations, algorithms, and standards",
+          "description": "Mathematical foundations, algorithm families, protocol standards, security properties, and current research.",
+          "primary_stewards": ["KVASIR"]
+        },
+        {
+          "subheading_id": "CRYPTO-02",
+          "heading": "Cryptographic architecture and trust boundaries",
+          "description": "System design, trust assumptions, component boundaries, threat surfaces, and cryptographic dependencies.",
+          "primary_stewards": ["HUGINN", "TYR"]
+        },
+        {
+          "subheading_id": "CRYPTO-03",
+          "heading": "Encryption and decryption",
+          "description": "Confidentiality mechanisms, key agreement, encryption modes, protocol use, and safe implementation constraints.",
+          "primary_stewards": ["KVASIR", "HODR"]
+        },
+        {
+          "subheading_id": "CRYPTO-04",
+          "heading": "Hashing and integrity",
+          "description": "Cryptographic hashes, message authentication, checksums, integrity manifests, and verification boundaries.",
+          "primary_stewards": ["TYR", "KVASIR"]
+        },
+        {
+          "subheading_id": "CRYPTO-05",
+          "heading": "Digital signatures and certificates",
+          "description": "Signing and verification, certificate identity, trust chains, algorithms, and signature evidence.",
+          "primary_stewards": ["HODR", "TYR", "BALDR"]
+        },
+        {
+          "subheading_id": "CRYPTO-06",
+          "heading": "Key generation, custody, and rotation",
+          "description": "Key creation, entropy, custody, access controls, rotation, revocation, and lifecycle accountability.",
+          "primary_stewards": ["TYR", "MUNINN"]
+        },
+        {
+          "subheading_id": "CRYPTO-07",
+          "heading": "Identity, trust, and authentication",
+          "description": "Identity binding, authentication protocols, trust establishment, certificate validation, and impersonation resistance.",
+          "primary_stewards": ["HUGINN", "TYR", "KVASIR"]
+        },
+        {
+          "subheading_id": "CRYPTO-08",
+          "heading": "Android application signing and package continuity",
+          "description": "APK signing identities, signing certificates, package update compatibility, build provenance, and migration safety.",
+          "primary_stewards": ["HODR", "MUNINN", "TYR"]
+        },
+        {
+          "subheading_id": "CRYPTO-09",
+          "heading": "Secure storage, backup, and recovery",
+          "description": "Keystore-backed storage, protected backups, recovery plans, key-loss boundaries, and reversible migration design.",
+          "primary_stewards": ["MUNINN", "HODR", "LOKI"]
+        },
+        {
+          "subheading_id": "CRYPTO-10",
+          "heading": "Threat models and adversarial review",
+          "description": "Attack surfaces, abuse cases, compromise scenarios, implementation weaknesses, and alternative defenses.",
+          "primary_stewards": ["LOKI", "TYR"]
+        },
+        {
+          "subheading_id": "CRYPTO-11",
+          "heading": "Integration and reconciliation",
+          "description": "Dependencies across applications, devices, services, build systems, identity records, and recovery workflows.",
+          "primary_stewards": ["ODIN"]
+        },
+        {
+          "subheading_id": "CRYPTO-12",
+          "heading": "Independent verification",
+          "description": "Independent signature checks, certificate fingerprints, reproducibility, test evidence, and acceptance review.",
+          "primary_stewards": ["BALDR"]
+        },
+        {
+          "subheading_id": "CRYPTO-13",
+          "heading": "Explanation and coordination",
+          "description": "User-facing explanations, question routing, terminology, communication, and explicit handoffs.",
+          "primary_stewards": ["MARI"]
+        }
+      ],
+      "conversation_entry": {
+        "recognition_terms": [
+          "cryptography",
+          "cryptographic",
+          "encryption",
+          "decryption",
+          "hash",
+          "checksum",
+          "digital signature",
+          "certificate",
+          "signing key",
+          "keystore",
+          "key custody",
+          "key recovery",
+          "APK signing",
+          "package signing"
+        ],
+        "assembly_policy": "matched_subheading_stewards",
+        "user_is_first_class_participant": true,
+        "any_builder_may_join": true,
+        "baldr_verification_gate": true
+      },
+      "governance": {
+        "primary_stewardship_is_nonexclusive": true,
+        "user_is_final_authority": true,
+        "disagreement_is_preserved": true,
+        "no_self_certification": true
+      },
+      "conversation_protocol_ref": "docs/NINE_BUILDER_CONVERSATION_PROTOCOL.md#protocol-version-2",
+      "thread_refs": []
+    }
+  ]
+}
