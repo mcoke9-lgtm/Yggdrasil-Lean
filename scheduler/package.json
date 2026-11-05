@@ -6,7 +6,8 @@
   "description": "Dependency-free persistent scheduler core with bounded registered handlers",
   "scripts": {
     "test": "node --test",
-    "start": "node src/runner.js"
+    "start": "node src/runner.js",
+    "scheduler": "node src/cli.js"
   },
   "engines": {
     "node": ">=20"
