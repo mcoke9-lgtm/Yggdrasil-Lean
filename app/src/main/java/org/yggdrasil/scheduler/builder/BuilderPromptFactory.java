@@ -1,6 +1,9 @@
 package org.yggdrasil.scheduler.builder;
 
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Produces provider-neutral, role-specific model input.
@@ -50,24 +53,33 @@ public final class BuilderPromptFactory {
                 .append("proposal, uncertainty, and work actually completed.\n")
                 .append("Do not execute actions or imply that a recorded decision grants permission.");
 
-        StringBuilder message = new StringBuilder();
-        message.append("Conversation thread: ").append(triggeringTurn.threadId).append("\n")
-                .append("Current turn: ").append(triggeringTurn.turnId).append("\n")
-                .append("Historical conversation (oldest first):\n");
-        for (BuilderConversationProtocol.Turn turn : context) {
-            message.append("\n[turn_id=").append(turn.turnId)
-                    .append("; speaker=").append(turn.speaker)
-                    .append("; recipient=").append(turn.recipient == null ? "none" : turn.recipient)
-                    .append("; type=").append(turn.type)
-                    .append("; evidence=").append(turn.evidenceStatus)
-                    .append("; reply_to=").append(turn.replyToTurnId == null ? "none" : turn.replyToTurnId)
-                    .append("]\n")
-                    .append(turn.body)
-                    .append("\n[/turn]\n");
+        String message;
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("thread_id", triggeringTurn.threadId);
+            payload.put("current_turn_id", triggeringTurn.turnId);
+            JSONArray turns = new JSONArray();
+            for (BuilderConversationProtocol.Turn turn : context) {
+                JSONObject item = new JSONObject();
+                item.put("turn_id", turn.turnId);
+                item.put("speaker", turn.speaker.name());
+                item.put("recipient", turn.recipient == null ? JSONObject.NULL : turn.recipient.name());
+                item.put("type", turn.type.name());
+                item.put("evidence_status", turn.evidenceStatus.name());
+                item.put("reply_to_turn_id", turn.replyToTurnId == null
+                        ? JSONObject.NULL : turn.replyToTurnId);
+                item.put("body", turn.body);
+                turns.put(item);
+            }
+            payload.put("turns_oldest_first", turns);
+            payload.put("task", "Contribute from the " + role.getDisplayName()
+                    + " perspective. If another participant should respond, identify them and explain why. "
+                    + "Do not invent a recipient or claim agreement.");
+            message = payload.toString(2);
+        } catch (JSONException impossibleForValidatedValues) {
+            throw new IllegalStateException("Could not serialize conversation prompt",
+                    impossibleForValidatedValues);
         }
-        message.append("\nYour task: contribute from the ").append(role.getDisplayName())
-                .append(" perspective. If another participant should respond, identify them ")
-                .append("and explain why. Do not invent a recipient or claim agreement.");
-        return new Prompt(system.toString(), message.toString());
+        return new Prompt(system.toString(), message);
     }
 }
