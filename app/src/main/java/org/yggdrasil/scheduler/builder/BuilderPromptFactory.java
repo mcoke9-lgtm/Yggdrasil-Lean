@@ -50,6 +50,25 @@ public final class BuilderPromptFactory {
             throw new IllegalArgumentException("Triggering turn must be the latest turn in this context");
 
         boolean navigatingDifficultSpaces = triggeringTurn.body.startsWith("NAVIGATING_DIFFICULT_SPACES_MODE\n");
+        String reviewMarker = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=";
+        int reviewMarkerIndex = triggeringTurn.body.indexOf(reviewMarker);
+        String reviewIncidentId = null;
+        BuilderConversationProtocol.Turn reviewIncident = null;
+        if (reviewMarkerIndex >= 0) {
+            int valueStart = reviewMarkerIndex + reviewMarker.length();
+            int valueEnd = triggeringTurn.body.indexOf('\n', valueStart);
+            if (valueEnd < 0) valueEnd = triggeringTurn.body.length();
+            reviewIncidentId = triggeringTurn.body.substring(valueStart, valueEnd).trim();
+            for (BuilderConversationProtocol.Turn prior : context) {
+                if (prior.turnId.equals(reviewIncidentId)
+                        && prior.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                    reviewIncident = prior;
+                    break;
+                }
+            }
+            if (reviewIncident == null)
+                throw new IllegalArgumentException("Improvement review must reference a recorded incident in this thread");
+        }
 
         StringBuilder system = new StringBuilder();
         system.append("You are the ").append(role.getDisplayName())
@@ -73,6 +92,14 @@ public final class BuilderPromptFactory {
                 .append("When a failure or near miss warrants a durable improvement record, use turn_type IMPROVEMENT_INCIDENT, recipient USER, and reply_to_turn_id referencing the triggering turn. The body must be a JSON object with non-empty string keys incident_summary, observed_behavior, expected_behavior, evidence, unknowns, suspected_causes, proposed_next_step, and status. Status must be OPEN_DIAGNOSIS or OPEN_REVIEW. This event also halts remaining Builder calls in this round. Never claim a correction is implemented, tested, verified, or adopted without evidence.\n");
         if (role == BuilderRole.KVASIR) {
             system.append("You steward operational-constraint interpretation: consult the shared capability inventory, distinguish provider limits from project-owned alternatives, state evidence freshness, and interrupt unsuitable recommendations. The independent scheduler is a first-class project alternative to ChatGPT scheduled tasks. Its current deployment and GitHub access are UNKNOWN until freshly verified. Do not recommend freeing a ChatGPT task slot as the default route; verify the independent scheduler or state the exact capability gap.\\n");
+        }
+        if (reviewIncident != null) {
+            BuilderRole affected = BuilderRole.valueOf(reviewIncident.speaker.name());
+            system.append("IMPROVEMENT REVIEW MODE was explicitly initiated by the user. Review only the recorded incident ")
+                    .append(reviewIncident.turnId).append(". The affected Builder is ").append(affected.getDisplayName()).append(".\n")
+                    .append("The affected Builder may explain its observations and reasoning, but MUST NOT evaluate, approve, or certify its own correction. Other roles must assess independently.\n")
+                    .append("Role review duties: Huginn checks scope and acceptance criteria; Muninn checks history and provenance; Kvasir checks source evidence and uncertainty; Mari checks interfaces and cooperation; Höðr checks implementation and tests; Týr checks authority and security; Loki develops alternatives and recovery paths; Odin reconciles dependencies and unresolved differences; Baldr independently checks the proposed correction against evidence and requirements.\n")
+                    .append("If Baldr is not selected, explicitly mark independent verification MISSING. Never imply that a prompt response alone is a test or verification. Do not treat agreement as adoption. Record findings, disagreement, missing reviewers, and the next evidence-bearing step. Any reviewer may issue INTERRUPTION if the review method is unsuitable.\n");
         }
         if (navigatingDifficultSpaces) {
             system.append(NavigatingDifficultSpaces.operatingInstructions()).append("\n");
@@ -102,6 +129,12 @@ public final class BuilderPromptFactory {
                     new JSONObject(operationalLimitsJson == null ? "{}" : operationalLimitsJson));
             if (navigatingDifficultSpaces)
                 payload.put("operating_mode", "NAVIGATING_DIFFICULT_SPACES");
+            if (reviewIncident != null) {
+                payload.put("operating_mode", "BUILDER_IMPROVEMENT_REVIEW");
+                payload.put("review_incident_turn_id", reviewIncident.turnId);
+                payload.put("affected_builder", reviewIncident.speaker.name());
+            }
+            if (reviewIncident != null) payload.put("review_task", "Review incident " + reviewIncident.turnId + " independently; the affected Builder may explain but cannot certify its own correction.");
             payload.put("task", "Contribute from the " + role.getDisplayName()
                     + " perspective. You may contribute, ask a named peer a question, challenge a specific earlier turn, "
                     + "answer a directed turn, hand off a bounded task, acknowledge a handoff, or reconcile cited turns. "
