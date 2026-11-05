@@ -36,8 +36,14 @@ public final class MainActivity extends Activity {
     private EditText builderNote;
     private String pendingContinuityExport;
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state); db = new SchedulerDb(this); scheduleWorker(); buildUi(); refresh();
+        super.onCreate(state);
+        if (state != null) pendingContinuityExport = state.getString("pending_continuity_export");
+        db = new SchedulerDb(this); scheduleWorker(); buildUi(); refresh();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
+    }
+    @Override protected void onSaveInstanceState(Bundle outState) {
+        outState.putString("pending_continuity_export", pendingContinuityExport);
+        super.onSaveInstanceState(outState);
     }
     @Override protected void onResume() { super.onResume(); if (db != null && taskList != null) refresh(); }
     private void scheduleWorker() {
@@ -59,6 +65,8 @@ public final class MainActivity extends Activity {
         builderNote.setMinLines(2);
         builderNote.setMaxLines(4);
         builderNote.setGravity(android.view.Gravity.TOP);
+        builderNote.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        builderNote.setContentDescription("Instruction for the local Builder console");
         root.addView(builderNote);
         root.addView(button("Send instruction", this::sendBuilderNote));
         builderStatus = text("Builder journal ready", 13);
