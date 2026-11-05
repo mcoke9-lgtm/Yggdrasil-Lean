@@ -59,4 +59,16 @@ public class BuilderOvernightRunStoreTest {
   assertEquals("CANCELLED",s.read("r4").optString("status"));
  }
 
+ @Test public void expiredRecoveryDoesNotRewriteCancelledRun() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  long t=1800000000000L;
+  s.beginOrRecover("r5","t5","task",t);
+  s.setStatus("r5","CANCELLED","user stopped",t+1000);
+  org.json.JSONObject state=s.beginOrRecover("r5","t5","task",
+    t+BuilderOvernightRunStore.MAX_DURATION_MILLIS+1000);
+  assertEquals("CANCELLED",state.optString("status"));
+ }
+
 }
