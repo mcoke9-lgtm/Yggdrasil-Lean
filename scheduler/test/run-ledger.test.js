@@ -1,0 +1,119 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { MemoryStore } from "../src/store.js";
+import {
+  BuilderRunLedger, BUILDER_ROLES, MAX_BUILDER_RUN_DURATION_MS
+} from "../src/run-ledger.js";
+
+function clockAt(value) {
+  let current = new Date(value);
+  return {
+    clock: () => new Date(current),
+    advance: ms => { current = new Date(current.getTime() + ms); }
+  };
+}
+
+test("creates a bounded run with all nine distinct Builder identities", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const ledger = new BuilderRunLedger({
+    store: new MemoryStore(), clock: time.clock, idFactory: () => "overnight-001"
+  });
+  const run = await ledger.createRun({ scheduledFor: "2026-11-05T20:00:00Z" });
+  assert.deepEqual(run.builders.map(item => item.role), BUILDER_ROLES);
+  assert.equal(new Date(run.deadlineAt).getTime() - new Date(run.startedAt).getTime(),
+    MAX_BUILDER_RUN_DURATION_MS);
+  assert.equal(run.status, "queued");
+});
+
+test("rejects work windows longer than eight hours", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore() });
+  await assert.rejects(
+    () => ledger.createRun({ durationMs: MAX_BUILDER_RUN_DURATION_MS + 1 }),
+    /eight-hour maximum/
+  );
+});
+
+test("persists Builder checkpoints and requires explicit safe resume after interruption", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock: time.clock });
+  const run = await ledger.createRun({ runId: "resume-check", durationMs: 60 * 60 * 1000 });
+  await ledger.startRun(run.runId);
+  await ledger.startBuilder(run.runId, "HODR");
+  await ledger.checkpointBuilder(run.runId, "HODR", {
+    checkpointId: "hodr-step-1", data: { sourceCommit: "abc123", completed: 2 },
+    safeToResume: false
+  });
+  await ledger.interruptRun(run.runId, "host process stopped");
+  const recovered = await ledger.getRun(run.runId);
+  assert.equal(recovered.builders.find(item => item.role === "HODR").status, "interrupted");
+  await ledger.startRun(run.runId);
+  await assert.rejects(() => ledger.startBuilder(run.runId, "HODR"), /no explicitly safe resume checkpoint/);
+});
+
+test("allows resumption only from a checkpoint explicitly marked safe", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const ledger = new BuilderRunLedger({ store: new MemoryStore(), clock: time.clock });
+  const run = await ledger.createRun({ runId: "safe-resume", durationMs: 60 * 60 * 1000 });
+  await ledger.startRun(run.runId);
+  await ledger.startBuilder(run.runId, "MUNINN");
+  await ledger.checkpointBuilder(run.runId, "MUNINN", {
+    checkpointId: "muninn-safe", data: { artifactHash: "sha256:example" },
+    safeToResume: true
+  });
+  await ledger.interruptRun(run.runId, "simulated process interruption");
+  await ledger.startRun(run.runId);
+  const resumed = await ledger.startBuilder(run.runId, "MUNINN");
+  assert.equal(resumed.builders.find(item => item.role === "MUNINN").attempt, 2);
+});
+
+test("requires all other Builders to finish or be skipped before Baldr review", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore() });
+  const run = await ledger.createRun({ runId: "baldr-gate" });
+  await ledger.startRun(run.runId);
+  await assert.rejects(() => ledger.startBuilder(run.runId, "BALDR"), /must wait/);
+  for (const role of BUILDER_ROLES.filter(role => role !== "BALDR")) {
+    await ledger.startBuilder(run.runId, role);
+    await ledger.finishBuilder(run.runId, role, "succeeded");
+  }
+  const reviewed = await ledger.startBuilder(run.runId, "BALDR");
+  assert.equal(reviewed.builders.find(item => item.role === "BALDR").status, "running");
+});
+
+test("requires explicit terminal outcomes before a run can complete", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore() });
+  const run = await ledger.createRun({ runId: "complete-gate" });
+  await ledger.startRun(run.runId);
+  await assert.rejects(() => ledger.completeRun(run.runId), /pending, running, or interrupted/);
+  for (const role of BUILDER_ROLES) {
+    await ledger.startBuilder(run.runId, role);
+    await ledger.finishBuilder(run.runId, role, role === "BALDR" ? "failed" : "succeeded",
+      role === "BALDR" ? "review found unresolved issue" : null);
+  }
+  const completed = await ledger.completeRun(run.runId);
+  assert.equal(completed.status, "completed_with_failures");
+});
+
+test("marks deadline expiry without replaying unfinished work", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const ledger = new BuilderRunLedger({ store: new MemoryStore(), clock: time.clock });
+  const run = await ledger.createRun({ runId: "expiry", durationMs: 1000 });
+  await ledger.startRun(run.runId);
+  await ledger.startBuilder(run.runId, "ODIN");
+  time.advance(1000);
+  await assert.rejects(() => ledger.startBuilder(run.runId, "HODR"), /deadline has expired/);
+  const expired = await ledger.markDeadlineExpired(run.runId);
+  assert.equal(expired.status, "expired");
+  assert.equal(expired.builders.find(item => item.role === "ODIN").status, "interrupted");
+  assert.equal(expired.builders.find(item => item.role === "HODR").status, "interrupted");
+});
+
+test("rejects oversized checkpoint metadata", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore() });
+  const run = await ledger.createRun({ runId: "checkpoint-size" });
+  await ledger.startRun(run.runId);
+  await ledger.startBuilder(run.runId, "HUGINN");
+  await assert.rejects(() => ledger.checkpointBuilder(run.runId, "HUGINN", {
+    checkpointId: "too-large", data: { payload: "x".repeat(17000) }
+  }), /16 KiB/);
+});
