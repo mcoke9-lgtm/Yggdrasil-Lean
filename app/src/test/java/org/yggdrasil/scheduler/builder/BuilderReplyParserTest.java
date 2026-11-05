@@ -33,6 +33,17 @@ public class BuilderReplyParserTest {
         assertEquals("question-1", reply.replyToTurnId);
     }
 
+    @Test public void rejectsAdoptedEvidenceFromAnyModelReply() throws Exception {
+        JSONObject response = new JSONObject();
+        response.put("body", "The correction is adopted.");
+        response.put("turn_type", "CONTRIBUTION");
+        response.put("recipient", "USER");
+        response.put("reply_to_turn_id", null);
+        response.put("evidence_status", "ADOPTED");
+        assertThrows(IllegalArgumentException.class,
+                () -> BuilderReplyParser.parse(response.toString()));
+    }
+
     @Test public void rejectsDecisionEvenWhenJsonIsOtherwiseValid() {
         String json = "{"
                 + "\"body\":\"Approved.\","
