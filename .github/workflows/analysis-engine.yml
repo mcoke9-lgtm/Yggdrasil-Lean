@@ -34,3 +34,8 @@ jobs:
         run: |
           node src/cli.js samples/materials.csv /tmp/materials-report.json
           node --input-type=module -e "import fs from 'node:fs'; const r=JSON.parse(fs.readFileSync('/tmp/materials-report.json','utf8')); if (r.results.total_inspected_kg !== 230 || r.results.total_reusable_kg !== 162 || !r.verification.passed) process.exit(1);"
+      - name: Run evidence and uncertainty sample
+        working-directory: analysis-engine
+        run: |
+          node src/cli.js samples/materials_with_evidence.csv /tmp/evidence-report.json
+          node --input-type=module -e "import fs from 'node:fs'; const r=JSON.parse(fs.readFileSync('/tmp/evidence-report.json','utf8')); if (r.uncertainty.status !== 'complete_record_bounds' || r.uncertainty.inspected_kg.min !== 221 || r.uncertainty.inspected_kg.max !== 239 || r.uncertainty.reusable_kg.min !== 153 || r.uncertainty.reusable_kg.max !== 171) process.exit(1);"
