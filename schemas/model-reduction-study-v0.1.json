@@ -65,7 +65,7 @@
           "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
         }
       ],
-      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+      "notes": "Research shortlist entry; publisher documents a six-specialist-teacher post-training distillation stage into one model, but exact artifact revision/digest, deployment-specific license review, and baseline test remain pending."
     },
     {
       "model_family_ref": "qwen3_5_2b",
