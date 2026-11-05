@@ -149,6 +149,18 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
                 + "subheading_id TEXT, participant TEXT, timestamp_epoch_millis INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX overlay_subject_thread_order ON "
                 + EVENTS + "(thread_id, _id)");
+        db.execSQL("CREATE TRIGGER overlay_turns_no_update BEFORE UPDATE ON " + TURNS
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay turns are append-only'); END");
+        db.execSQL("CREATE TRIGGER overlay_turns_no_delete BEFORE DELETE ON " + TURNS
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay turns are append-only'); END");
+        db.execSQL("CREATE TRIGGER overlay_events_no_update BEFORE UPDATE ON " + EVENTS
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay events are append-only'); END");
+        db.execSQL("CREATE TRIGGER overlay_events_no_delete BEFORE DELETE ON " + EVENTS
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay events are append-only'); END");
+        db.execSQL("CREATE TRIGGER overlay_metadata_no_update BEFORE UPDATE ON " + META
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay identity is immutable'); END");
+        db.execSQL("CREATE TRIGGER overlay_metadata_no_delete BEFORE DELETE ON " + META
+                + " BEGIN SELECT RAISE(ABORT, 'recovery overlay identity is immutable'); END");
         ContentValues meta = new ContentValues();
         meta.put("singleton", 1);
         meta.put("format", FORMAT);
@@ -370,8 +382,9 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     private void verifyMetadata(SQLiteDatabase db) {
-        try (Cursor c = db.query(META, null, "singleton = 1", null, null, null, null)) {
+        try (Cursor c = db.query(META, null, null, null, null, null, null)) {
             if (!c.moveToFirst()
+                    || c.getInt(c.getColumnIndexOrThrow("singleton")) != 1
                     || !FORMAT.equals(c.getString(c.getColumnIndexOrThrow("format")))
                     || DATABASE_VERSION != c.getInt(c.getColumnIndexOrThrow("schema_version"))
                     || !generationId.equals(c.getString(c.getColumnIndexOrThrow("generation_id")))
