@@ -1,0 +1,77 @@
+name: Yggdrasil Registry Dashboard
+
+on:
+  push:
+    branches: [yggdrasil-registry-dashboard-001]
+    paths:
+      - 'registry-dashboard/**'
+      - 'app-registry/registry.json'
+      - 'settings.gradle'
+      - '.github/workflows/registry-dashboard.yml'
+  pull_request:
+    paths:
+      - 'registry-dashboard/**'
+      - 'app-registry/registry.json'
+      - 'settings.gradle'
+      - '.github/workflows/registry-dashboard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate registry package identities and privacy scope
+        run: |
+          python3 - <<'PY'
+          import json, re, pathlib
+          registry=json.loads(pathlib.Path('app-registry/registry.json').read_text())
+          ids=registry['device_inventory_scope']
+          assert len(ids)==len(set(ids)), 'Duplicate package IDs in canonical registry'
+          manifest=pathlib.Path('registry-dashboard/src/main/AndroidManifest.xml').read_text()
+          declared=re.findall(r'<package android:name="([^"]+)"', manifest)
+          assert len(declared)==len(set(declared)), 'Duplicate package visibility declarations'
+          assert set(declared)==set(ids), f'Visibility scope mismatch: {declared} vs {ids}'
+          assert 'android.permission.' not in manifest, 'Dashboard must not request permissions'
+          source=pathlib.Path('registry-dashboard/src/main/java/org/yggdrasil/appregistry/MainActivity.java').read_text()
+          for package_id in ids:
+              if package_id not in source:
+                  raise SystemExit('Dashboard seed missing registered package: '+package_id)
+          PY
+      - name: Build dashboard
+        run: gradle --no-daemon :registry-dashboard:assembleDebug
+      - name: Verify built APK identity, permissions, and signature
+        run: |
+          APK=registry-dashboard/build/outputs/apk/debug/registry-dashboard-debug.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='org.yggdrasil.appregistry'"
+          if "$AAPT" dump permissions "$APK" | grep -q 'uses-permission'; then
+            echo 'Unexpected APK permission declaration' >&2
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose "$APK"
+      - name: Upload dashboard APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-registry-dashboard-apk
+          path: registry-dashboard/build/outputs/apk/debug/registry-dashboard-debug.apk
+          if-no-files-found: error
+          retention-days: 14

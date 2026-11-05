@@ -1,5 +1,5 @@
 {
-  "registry_schema_version": "0.1.0",
+  "registry_schema_version": "0.2.0",
   "registry_id": "yggdrasil-app-registry",
   "purpose": "Canonical inventory of Yggdrasil applications, components, builds, installations, signing identity, and verification evidence.",
   "principles": [
@@ -20,7 +20,10 @@
     "Record package ID, version, source commit, artifact SHA-256, and signer SHA-256 independently.",
     "A build-time signing fingerprint does not establish the signer of an installed package.",
     "Unknown values remain null or explicitly unknown; do not fill them by inference.",
-    "Record evidence source and observation time for every status change."
+    "Record evidence source and observation time for every status change.",
+    "Package IDs must be unique across active application records; a collision blocks installation pending review.",
+    "Before installation, compare package ID, version code, artifact SHA-256, and signing certificate; never uninstall or replace automatically.",
+    "Device inventory is limited to device_inventory_scope; unknown or unverified package IDs are excluded until primary build metadata is checked."
   ],
   "devices": [
     {
@@ -100,7 +103,7 @@
       "app_id": "yggdrasil-scheduler",
       "display_name": "Yggdrasil Scheduler",
       "purpose": "Independent scheduling and build monitoring prototype.",
-      "package_id": null,
+      "package_id": "org.yggdrasil.scheduler",
       "repository": "mcoke9-lgtm/Yggdrasil-Lean",
       "source_path": "app/",
       "source_branch": "android-scheduler-host-prototype-001",
@@ -113,7 +116,9 @@
         "status": "built_artifact_evidence",
         "artifact_name": "yggdrasil-scheduler-debug-apk",
         "source_commit": "a0dd9b7b46fbf11f14d8c687f4a8185bbbdc5200",
-        "artifact_sha256": null
+        "artifact_sha256": null,
+        "version_name": "0.1.0",
+        "version_code": 1
       },
       "signing": {
         "installed_signer_sha256": null,
@@ -121,7 +126,7 @@
         "status": "unknown"
       },
       "permissions": null,
-      "evidence_notes": "Package ID, complete artifact digest, and installed state must be recovered from primary build metadata or device observation. Do not assume it is the third installed app."
+      "evidence_notes": "Package ID, version name, and version code verified from app/build.gradle on android-scheduler-host-prototype-001. This is distinct from the later Builder Host app identity on the foundation branch. Installation remains unverified."
     },
     {
       "app_id": "installed-signer-diagnostic",
@@ -153,6 +158,32 @@
       },
       "permissions": [],
       "evidence_notes": "Corrected build passed all 8 workflow steps, including package identity, exact query scope, offline permission checks, and artifact upload. APK archive contents and APK SHA-256 independently inspected. Not installed."
+    },
+    {
+      "app_id": "registry-dashboard",
+      "display_name": "Yggdrasil App Registry",
+      "purpose": "Local read-only inventory and installed package/signer inspection for explicitly registered applications.",
+      "package_id": "org.yggdrasil.appregistry",
+      "repository": "mcoke9-lgtm/Yggdrasil-Lean",
+      "source_path": "registry-dashboard/",
+      "source_branch": "yggdrasil-registry-dashboard-001",
+      "installation": {
+        "status": "unverified",
+        "device_id": "galaxy-s21-plus-primary",
+        "evidence": "Source branch created; no APK installation or device observation."
+      },
+      "build": {
+        "status": "source_committed_not_built",
+        "version_name": "0.1.0",
+        "version_code": 1
+      },
+      "signing": {
+        "installed_signer_sha256": null,
+        "artifact_signer_sha256": null,
+        "status": "unknown"
+      },
+      "permissions": [],
+      "evidence_notes": "Dashboard queries only the explicit device_inventory_scope. No network or Android permissions. It does not install, update, uninstall, or export app data."
     }
   ],
   "relationships": [
@@ -176,7 +207,27 @@
     "created_on": "2026-11-05",
     "created_from": "conversation context and repository source inspection",
     "last_device_inventory": null,
-    "notes": "Initial seed only. All app installation states require device-side confirmation before being upgraded to device_verified_installed.",
+    "notes": "Registry expanded with explicit package visibility scope, install-gate rules, Scheduler package identity verified from its prototype build configuration, and an unresolved user-reported diagnostic installation conflict. No device inventory has yet been collected.",
     "last_updated_on": "2026-11-05"
-  }
+  },
+  "device_inventory_scope": [
+    "org.yggdrasil.builderhost",
+    "org.yggdrasil.keysteward",
+    "org.yggdrasil.scheduler",
+    "org.yggdrasil.signingdiagnostic"
+  ],
+  "installation_events": [
+    {
+      "event_id": "install-conflict-2026-11-05-diagnostic",
+      "app_id": "installed-signer-diagnostic",
+      "device_id": "galaxy-s21-plus-primary",
+      "event": "user_reported_installation_conflict",
+      "status": "unresolved",
+      "evidence": "User reports Android installer displayed a conflict with an existing package while attempting to install the diagnostic APK.",
+      "existing_package_identity": null,
+      "existing_signer_sha256": null,
+      "resolution": "Do not uninstall or replace anything. Inspect registered package IDs and signer identities first.",
+      "observed_at": "2026-11-05T11:04:00-05:00"
+    }
+  ]
 }
