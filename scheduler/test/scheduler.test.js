@@ -140,9 +140,11 @@ test("GitHub watch baselines existing runs and reports only new failures", async
       payload: { repository: "owner/repo", branch: "prototype", workflowNames: ["Analysis Engine"] },
       schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
     });
-    await second.runDue();
+    const secondResult = await second.runDue();
     assert.equal(output.filter(item => item.event === "github_build_failure").length, 1);
     assert.equal(output.find(item => item.event === "github_build_failure").runId, 11);
+    assert.equal(secondResult.runs[0].status, "failed");
+    assert.match(secondResult.runs[0].error, /Analysis Engine #11/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
