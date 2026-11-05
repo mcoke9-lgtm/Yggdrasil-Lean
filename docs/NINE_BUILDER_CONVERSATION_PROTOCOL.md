@@ -1,6 +1,6 @@
 # Nine Builder Conversation Protocol
 
-**Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, single-process coordinator with an injectable responder, role-specific structured prompt factory, strict typed-response parser, and bounded Builder-to-Builder routing; a concrete model adapter, in-app conversation history UI, and independent Builder workers remain pending.
+**Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, single-process coordinator, role-specific prompt factory, strict parser, bounded peer routing, provider adapter, and Android provider-settings UI with encrypted credential storage; live model invocation, in-app conversation history UI, and independent Builder workers remain pending.
 **Protocol version:** 2 (reads legacy version 1 Builder-only turns)
 **Authority:** The user remains director and final authority for consequential commitments.
 
@@ -109,11 +109,13 @@ The model integration is split into four replaceable parts:
 - `BuilderProviderRegistry` holds only explicitly installed adapters.
 - `BuilderProviderRouter` maps each Builder role to an explicitly selected provider. There is no silent fallback: a missing route fails visibly rather than sending conversation data to an unintended service.
 - `BuilderModelResponder` connects the coordinator to the role-specific prompt factory, selected provider, and strict reply parser.
-- `OpenAiCompatibleModelProvider` supports hosted HTTPS endpoints and local loopback endpoints using the common Chat Completions format. `UrlConnectionModelTransport` bounds response size, uses timeouts, and disables redirects.
+- `OpenAiCompatibleModelProvider` supports hosted HTTPS endpoints and local `http://localhost` endpoints using the common Chat Completions format. `UrlConnectionModelTransport` bounds response size, uses timeouts, and disables redirects.
+- `SecureBuilderProviderSettings` stores provider metadata in app-private preferences and encrypts API tokens with AES-GCM using a non-exportable Android Keystore key. `buildProvider()` constructs an adapter without initiating a request.
+- The Android console exposes provider setup and removal. The token field is masked; leaving it blank preserves an existing credential. The UI explicitly states that saving settings does not test or contact the endpoint.
 
 Provider requests carry the system instruction, structured conversation payload, and a bounded output-token limit. Provider completions return raw response text, which must pass the same typed parser before the coordinator can persist a turn. Provider identity and model ID are adapter metadata; credentials, endpoint configuration, and transport are deliberately not part of conversation turns or the journal.
 
-The compatible HTTP adapter is implemented but deliberately unconfigured: no endpoint, credential store, or API key has been added, and no network request has been made. HTTPS is required except for loopback HTTP for a local model. URLs containing user information or query parameters are rejected. Redirects are disabled, responses are size-limited, timeouts are explicit, and HTTP error messages do not echo provider response bodies. The adapter requests JSON-mode output and the strict parser validates every response. Secure Android credential storage, provider setup UI, cancellation, privacy disclosure, and device acceptance tests remain required before enabling a real connection.
+The compatible HTTP adapter and Android settings screen are implemented but deliberately unconfigured: no endpoint or API key has been entered, and no network request has been made. HTTPS is required for hosted services; cleartext is permitted only for `localhost` in Android's network security configuration. URLs containing user information or query parameters are rejected. Redirects are disabled, responses are size-limited, timeouts are explicit, and HTTP error messages do not echo provider response bodies. API tokens are encrypted with AES-GCM under an Android Keystore key and are excluded from the conversation journal. The UI can save and remove provider settings; it does not yet expose a send-to-model action. Cancellation, explicit data-sharing disclosure at first use, and on-device acceptance tests remain required before live invocation.
 
 ## First conversation acceptance exercise
 
@@ -149,6 +151,6 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 52 unit tests plus the compatible hosted/local HTTP adapter are committed in this branch; CI execution of these tests is pending. Secure credential storage, provider setup UI, conversation history UI, and independent workers remain pending.
+- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 55 unit tests plus the compatible hosted/local HTTP adapter, Android Keystore-backed credential storage, localhost-only cleartext network policy, and provider setup UI are committed in this branch; CI execution of these tests is pending. Live model invocation, conversation history UI, and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
