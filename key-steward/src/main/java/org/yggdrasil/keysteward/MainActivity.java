@@ -19,6 +19,7 @@ public final class MainActivity extends Activity {
     private static final int OPEN_FILE = 42;
 
     private EditText passwordField;
+    private EditText confirmField;
     private TextView status;
     private boolean creating;
 
@@ -50,6 +51,12 @@ public final class MainActivity extends Activity {
         passwordField.setHint("Keystore password (12+ characters)");
         passwordField.setInputType(129);
         root.addView(passwordField, matchWrap());
+
+        confirmField = new EditText(this);
+        confirmField.setSingleLine(true);
+        confirmField.setHint("Confirm password for new keystore");
+        confirmField.setInputType(129);
+        root.addView(confirmField, matchWrap());
 
         Button create = new Button(this);
         create.setText("Create encrypted PKCS#12 keystore");
@@ -89,6 +96,11 @@ public final class MainActivity extends Activity {
 
     private void beginCreate() {
         if (!hasValidPassword()) return;
+        if (!passwordField.getText().toString().equals(
+                confirmField.getText().toString())) {
+            status.setText("The password entries do not match.");
+            return;
+        }
         creating = true;
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -139,6 +151,7 @@ public final class MainActivity extends Activity {
         } finally {
             java.util.Arrays.fill(password, '\u0000');
             passwordField.setText("");
+            confirmField.setText("");
         }
     }
 
