@@ -70,8 +70,9 @@ public final class BridgeActivity extends Activity {
                 org.json.JSONObject committed=BuilderBridgeEnvelope.create("INBOUND","external_android_share_unverified",
                     "yggdrasil_nine_builder_conversation",threadId,turnId,content,"explicit_user_approval",
                     "committed",pendingId,committedAt);
-                audit.append("bridge-inbound-committed:"+committed.getString("event_id"),
-                    "CHATGPT_BRIDGE_INBOUND_COMMITTED","USER",committedAt,committed.toString());
+                if (!audit.append("bridge-inbound-committed:"+committed.getString("event_id"),
+                    "CHATGPT_BRIDGE_INBOUND_COMMITTED","USER",committedAt,committed.toString()))
+                    throw new IllegalStateException("Bridge completion audit event was not appended");
                 runOnUiThread(()->new AlertDialog.Builder(this).setTitle("Message added")
                     .setMessage("The shared text was added to the active Nine Builder thread. A local provenance record includes its SHA-256 digest and consent state; the sender identity remains unverified.")
                     .setPositiveButton("Open Nine Builder conversation",(d,w)->{
