@@ -83,3 +83,10 @@ The disposable CI signing gate is complete. This does not authorize production-k
 - This permits the disposable-CI-signed debug APK to be installed alongside an existing production installation instead of attempting an in-place update with a different signing certificate.
 - The CI/debug package is a separate test installation. It does not update, migrate, replace, or validate the signing identity of the production installation. Keep the production app and its data untouched during this rehearsal.
 - Verify the artifact's final package ID and signing certificate in CI before asking the user to install it. Do not claim the side-by-side installation is validated until the user confirms it on-device.
+
+
+## Distinguishing the CI installation
+
+- The debug/CI APK overrides the launcher label to **Builder Key Steward CI** through `key-steward/src/debug/AndroidManifest.xml`.
+- The production manifest label remains **Builder Key Steward**. The CI package ID remains `org.yggdrasil.keysteward.ci`; the production package ID remains `org.yggdrasil.keysteward`.
+- This visible label is intended to make the disposable test installation identifiable on-device without changing or replacing the production app.
