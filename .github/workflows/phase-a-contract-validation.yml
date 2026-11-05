@@ -8,6 +8,7 @@ on:
       - "schemas/model-lifecycle-contracts-1.0.schema.json"
       - "schemas/nine-builder-capability-contracts-v0.1.json"
       - "schemas/capability-evaluation-rubric-v0.1.json"
+      - "schemas/model-reduction-study-v0.1.json"
       - "tests/model-capabilities/**"
       - "scripts/validate_phase_a_contracts.py"
       - ".github/workflows/phase-a-contract-validation.yml"
