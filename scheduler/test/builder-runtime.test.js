@@ -79,11 +79,16 @@ test("rejects a host module without the required executor factory", async () => 
 test("rejects a shared scheduler and Builder ledger file", async () => {
   const scheduler = new Scheduler({ store: new MemoryStore() });
   const samePath = "/tmp/yggdrasil-test/shared.json";
+  let moduleLoaded = false;
   await assert.rejects(() => registerOptionalBuilderRuntime({
     scheduler,
     schedulerStateFile: samePath,
     builderStateFilePath: samePath,
     executorModulePath: "/tmp/host-executor.mjs",
-    loadModule: async () => ({ createBuilderExecutor: async () => async () => ({ status: "succeeded" }) })
+    loadModule: async () => {
+      moduleLoaded = true;
+      return { createBuilderExecutor: async () => async () => ({ status: "succeeded" }) };
+    }
   }), /separate state file/);
+  assert.equal(moduleLoaded, false, "Invalid storage configuration must fail before loading host code");
 });
