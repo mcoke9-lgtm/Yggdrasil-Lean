@@ -46,7 +46,7 @@ Each event carries a unique event ID, thread ID, subject ID, event type, optiona
 
 The index can export a metadata-only JSON snapshot with a SHA-256 content checksum. This checksum detects accidental content changes; it is not encryption, authentication, or proof of origin. The snapshot intentionally does not duplicate conversation turns or include provider credentials.
 
-The index uses a separate database file, so this milestone does not alter or migrate the existing conversation journal database. The conversation screen now records a uniquely matched subject, its matched subheadings, and the selected Builders as one atomic metadata batch before submitting the conversation round. If this non-authoritative sidecar write fails, the conversation is allowed to proceed and the UI reports that continuity metadata was unavailable. This does not create a cross-database transaction with the canonical journal. Import/restore, cross-device synchronization, and end-to-end export packaging remain future work.
+The index uses a separate database file, so this milestone does not alter or migrate the existing conversation journal database. The conversation screen now records a uniquely matched subject, its matched subheadings, and the selected Builders as one atomic metadata batch before submitting the conversation round. If this non-authoritative sidecar write fails, the conversation is allowed to proceed and the UI reports that continuity metadata was unavailable. This does not create a cross-database transaction with the canonical journal. A versioned recovery envelope now packages the canonical conversation snapshot and metadata snapshot separately, with nested and outer SHA-256 checksums. Validation remains read-only. `BuilderRecoveryStager` can restore a validated package into two newly named, isolated SQLite databases, read both back, and compare their contents with the source snapshots. It refuses to overwrite an existing staging pair and removes files created by a failed staging attempt. The staged pair is not activated, and neither live database is replaced or modified. Cross-device synchronization remains future work.
 
 ## Evidence and decision handling
 
@@ -94,3 +94,20 @@ The next recovery milestone adds `BuilderRecoveryPackage`, which packages two in
 The package has its own SHA-256 checksum in addition to each nested snapshot's checksum. Validation checks format versions, all three checksums, declared counts, unique thread/event identities, conversation turn shape and ordering, and subject event shape/Builder participant identities. It reports subject metadata whose thread ID is absent from the canonical conversation snapshot as an orphan rather than silently dropping it; this can happen when routing metadata is recorded but a subsequent conversation submission fails.
 
 **Important boundary:** this milestone builds and validates the package only. Validation is read-only and does not restore or merge data into either live database. SHA-256 detects accidental changes; it does not encrypt the backup, authenticate its source, or protect against a party able to replace both data and checksums. A safe restore writer still needs staged target databases, explicit activation, duplicate/conflict handling, and failure recovery before it can be enabled.
+
+
+## Isolated recovery staging — version 1
+
+`BuilderRecoveryStager` is a staging-only restore path. It validates the complete recovery envelope before opening any database, requires a restricted staging identifier, and refuses to reuse either database filename if it already exists. It writes the canonical turns and subject events into separate new SQLite files, then reads the staged records back and compares them with the source snapshots.
+
+If staging fails, only the two files created for that attempt are deleted. Existing live stores are not opened as write targets, replaced, renamed, or deleted. The result reports both staged database names and record counts. It does **not** activate the pair or make either staged database authoritative.
+
+A future activation protocol must coordinate the two files as a pair, handle interruption between activation steps, retain the prior active pair for rollback, and define duplicate/conflict behavior. Individual SQLite transactions do not provide an atomic transaction across these two separate database files. Until that protocol and its fault-injection tests exist, staged recovery is not live recovery.
+
+Acceptance checks added:
+- Invalid envelopes are rejected before staging files are created.
+- Staging identifiers cannot contain path traversal characters.
+- Existing staging files are never overwritten.
+- Both staged databases are read back and compared with their source snapshots.
+- Live conversation and subject databases remain unchanged.
+- No activation, live-store replacement, device installation, or cross-device synchronization is performed by this milestone.
