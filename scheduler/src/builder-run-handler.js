@@ -43,11 +43,12 @@ export function registerBuilderRunHandler(
     deadlineTimer.unref?.();
 
     const outcomes = [];
+    let activeRole = null;
     const interrupt = async () => {
       if (clock().getTime() >= new Date(run.deadlineAt).getTime()) {
         await ledger.markDeadlineExpired(runId);
       } else {
-        await ledger.interruptRun(runId, "scheduler cancellation or host interruption");
+        await ledger.interruptRun(runId, "scheduler cancellation or host interruption", activeRole);
       }
       throw new Error("Nine Builders run interrupted; unfinished work was not replayed");
     };
@@ -56,6 +57,7 @@ export function registerBuilderRunHandler(
       for (const role of BUILDER_ROLES) {
         if (controller.signal.aborted) await interrupt();
 
+        activeRole = role;
         await ledger.startBuilder(runId, role);
         try {
           const result = await executor(role, {
@@ -71,10 +73,12 @@ export function registerBuilderRunHandler(
             throw new Error("Baldr review cannot be skipped");
           }
           await ledger.finishBuilder(runId, role, status, result?.error ?? null);
+          activeRole = null;
           outcomes.push({ role, status, summary: result?.summary ?? null });
         } catch (error) {
           if (controller.signal.aborted) await interrupt();
           await ledger.finishBuilder(runId, role, "failed", error?.message || error);
+          activeRole = null;
           outcomes.push({ role, status: "failed", summary: String(error?.message || error).slice(0, 1000) });
         }
       }
