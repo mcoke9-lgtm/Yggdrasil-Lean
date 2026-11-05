@@ -83,7 +83,7 @@ The BuilderConversationProtocol validator checks:
 - unique turn IDs and one thread identity;
 - strictly increasing timestamps in supplied thread order;
 - replies and handoffs reference earlier turns;
-- a directed reply names the Builder who authored the referenced turn.
+- responses, challenges, and acknowledgements name the Builder who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
 
 The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, persist a conversation, call a model, or execute work.
 

@@ -91,7 +91,7 @@ public final class BuilderConversationProtocol {
                 Turn referenced = priorTurns.get(turn.replyToTurnId);
                 if (referenced == null)
                     throw new IllegalArgumentException("Replies must reference an earlier turn");
-                if (turn.recipient != null && turn.recipient != referenced.speaker)
+                if (turn.type != TurnType.HANDOFF && turn.recipient != null && turn.recipient != referenced.speaker)
                     throw new IllegalArgumentException("Recipient must match the referenced speaker");
             }
             priorTurns.put(turn.turnId, turn);
