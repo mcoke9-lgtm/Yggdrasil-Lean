@@ -31,6 +31,28 @@ For a remote HTTPS endpoint, the operator must explicitly add `--allow-remote`. 
 - The client does not collect memory, CPU, power, or thermal telemetry. Those measurements require a host-side monitor.
 - Failed requests are retained as failures; successful outputs are not discarded if another call fails.
 
+## Blind cross-model evaluation
+
+After a complete candidate run, each independent evaluator is run separately:
+
+~~~bash
+python scripts/evaluate_phase_a_run.py \
+  --execution-report evaluation-runs/candidate-run.json \
+  --candidate-model-id CANDIDATE_MODEL_ID \
+  --candidate-artifact-id CANDIDATE_ARTIFACT_ID \
+  --evaluator-model EVALUATOR_MODEL_ID \
+  --evaluator-revision EVALUATOR_REVISION \
+  --evaluator-artifact-id EVALUATOR_ARTIFACT_ID \
+  --output evaluation-runs/evaluator-one.json
+~~~
+
+The evaluator must be a different model ID and artifact ID from the candidate. The report's candidate model and artifact IDs must match the supplied values. The evaluator prompt is blinded to candidate model ID, revision, artifact ID, and size; it receives only the Builder identity, task contract, rubric, and raw candidate outputs (including both sides of handoffs). The report preserves six separate scores, hard-failure allegations, short evidence quotes, limitations, and raw evaluator output.
+
+Run each evaluator separately, using a distinct evaluator artifact. Do not share the first evaluator's scores with the second before both reports are submitted. These reports do not average scores or decide acceptance. Human and deterministic review remain required, especially for every hard-failure allegation and material evaluator disagreement.
+
+All artifact IDs and model revisions are marked operator-supplied/unverified. The script checks that the IDs differ and match the candidate run, but it cannot attest what weights an endpoint actually loaded.
+
+
 ## CI behavior
 
 The Phase A GitHub Actions workflow runs the schema validator and unit tests using a mocked endpoint. It does not connect to a real model. The test suite verifies 63-case role mapping, nine two-stage handoffs, role-conflict injection, endpoint restrictions, redirect rejection, OpenAI-compatible response parsing, and credential non-disclosure.
