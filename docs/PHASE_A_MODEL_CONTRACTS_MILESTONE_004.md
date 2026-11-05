@@ -299,6 +299,7 @@ The following source files were fetched from the active development branch and i
 | Role routing | `BuilderProviderRouter` maps each Builder role explicitly to a configured provider ID; no implicit fallback | All nine roles can be routed, but the current abstraction does not itself allocate variable-sized models or measure capability |
 | Model responder | `BuilderModelResponder` builds a role-specific prompt, sends accumulated thread context through the selected provider, and parses the returned response | Conversation execution is present; model lifecycle, model-to-model evaluation, and reconstruction are not |
 | Role definitions | `BuilderRole` defines all nine stable identities and short responsibility descriptions | Role identities are implemented; the full measurable capability contracts are specified above but not yet encoded or evaluated |
+| Device-local provider settings | `SecureBuilderProviderSettings` stores provider ID, endpoint, and model ID in private SharedPreferences; encrypts bearer tokens with AES-GCM using a non-exportable Android Keystore key; `buildProvider()` creates the adapter without making a network request | Configuration is device-local, not a portable model registry; no provider ID/model ID values were inspected from the user's device; token values are not collected |
 
 Source files:
 - `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderModelProvider.java`
