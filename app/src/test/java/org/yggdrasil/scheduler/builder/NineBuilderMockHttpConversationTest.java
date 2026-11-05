@@ -123,7 +123,9 @@ public class NineBuilderMockHttpConversationTest {
                 BuilderConversationProtocol.Turn actual = saved.get(i + 1);
                 assertEquals(expected.name(), actual.speaker.name());
                 assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, actual.type);
-                assertEquals("Mock HTTP exchange " + (i + 1) + ".", actual.body);
+                assertTrue(actual.body.contains("Mock HTTP exchange " + (i + 1) + "."));
+                assertTrue(actual.body.startsWith("[MODEL_PROVENANCE role=" + expected.name()
+                        + " provider=mock-local reported_model=mock-chat]"));
             }
         } finally {
             store.close();
