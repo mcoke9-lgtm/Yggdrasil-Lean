@@ -28,6 +28,7 @@ import org.yggdrasil.scheduler.builder.BuilderConversationProtocol;
 import org.yggdrasil.scheduler.builder.BuilderConversationJournal;
 import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
+import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
@@ -173,6 +174,7 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(text("Nine distinct AI roles sharing one recorded thread. They are coordinated by this app, not nine independent AI workers.", 14));
         runtimeStatus = text("Builder-native host: waiting for connection", 13);
         root.addView(runtimeStatus);
+        root.addView(text("Shared operational limits are included in every Builder prompt. Snapshot evidence is timestamped, not live telemetry.", 12));
 
         SecureBuilderProviderSettings.Configuration config =
                 new SecureBuilderProviderSettings(this).readConfiguration();
@@ -448,7 +450,12 @@ public final class BuilderConversationActivity extends Activity {
                 Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
                 for (BuilderRole role : BuilderRole.values()) routes.put(role, provider.providerId());
                 BuilderProviderRouter router = new BuilderProviderRouter(registry, routes);
-                BuilderModelResponder responder = new BuilderModelResponder(router, 2048);
+                // Load once per submission so every selected Builder receives the same
+                // timestamped limits snapshot; never imply that this is live telemetry.
+                String operationalLimitsJson = BuilderOperationalLimits
+                        .load(getApplicationContext()).toPromptJson();
+                BuilderModelResponder responder = new BuilderModelResponder(
+                        router, 2048, operationalLimitsJson);
                 store = new BuilderRuntimeJournalClient(getApplicationContext());
                 BuilderConversationCoordinator coordinator =
                         new BuilderConversationCoordinator(store, responder);
