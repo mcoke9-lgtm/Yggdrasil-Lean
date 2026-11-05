@@ -80,10 +80,10 @@ public final class BuilderConversationCoordinator {
         }
     }
 
-    private final BuilderConversationStore store;
+    private final BuilderConversationJournal store;
     private final Responder responder;
 
-    public BuilderConversationCoordinator(BuilderConversationStore store, Responder responder) {
+    public BuilderConversationCoordinator(BuilderConversationJournal store, Responder responder) {
         if (store == null) throw new IllegalArgumentException("conversation store is required");
         if (responder == null) throw new IllegalArgumentException("Builder responder is required");
         this.store = store;
