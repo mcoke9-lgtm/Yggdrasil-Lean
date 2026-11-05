@@ -12,3 +12,5 @@ The combined export recalculates `content_sha256` over the complete version-2 do
 The user still chooses the destination through Android's document picker. No automatic network transfer, backup upload, app installation, deletion, or device-wide scan is introduced. Existing format-version-1 exports remain distinguishable and are not silently rewritten.
 
 Automated tests cover complete provenance, genuinely empty provenance, unavailable provenance, checksum tampering, and unsupported format/status rejection.
+
+The Android journal test workflow is configured to run for this stacked follow-up branch as well as the underlying runtime foundation branch.
