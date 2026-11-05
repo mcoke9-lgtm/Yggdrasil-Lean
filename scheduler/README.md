@@ -32,6 +32,8 @@ Configuration:
 - `SCHEDULER_DASHBOARD_HOST`: must remain `127.0.0.1`, `::1`, or `localhost`.
 - `SCHEDULER_DASHBOARD_TOKEN`: optional bearer token protecting management APIs.
 - `GITHUB_TOKEN` or `GH_TOKEN`: optional GitHub token with Actions read access.
+- `BUILDER_EXECUTOR_MODULE`: optional absolute or working-directory-relative path to an operator-installed Node module exporting `createBuilderExecutor()`. The module must return an async role executor. It is not loaded from task data.
+- `BUILDER_RUN_STATE_FILE`: optional path for the separate Nine Builders run ledger; defaults to `<SCHEDULER_STATE_FILE>.builder-runs.json`.
 
 If a dashboard token is configured, open the dashboard first and enter the token
 in its access field. The page and static assets are served without the token so
@@ -71,6 +73,7 @@ npm run scheduler -- list
 npm run scheduler -- add-daily-heartbeat morning-check "Morning check" America/New_York 9 0
 npm run scheduler -- add-weekly-heartbeat monday-check "Monday check" America/New_York 9 0 1
 npm run scheduler -- add-github-watch build-watch "Watch build failures" mcoke9-lgtm/Yggdrasil-Lean analysis-engine-prototype-001 America/New_York 9 0 "Analysis Engine" "Lean build and analysis engine checks"
+npm run scheduler -- add-nine-builders-run overnight-research "Nine Builders overnight research" America/New_York 22 0 vault:task-001
 npm run scheduler -- pause morning-check
 npm run scheduler -- resume morning-check
 npm run scheduler -- runs morning-check
@@ -95,7 +98,8 @@ designed for one local process and one host, not distributed workers.
 ## Safety boundaries
 
 - Only explicitly registered handler functions can execute.
-- Task data cannot select arbitrary shell commands or dynamically load code.
+- Task data cannot select arbitrary shell commands or dynamically load code. The optional Builder executor module is loaded only from the operator-controlled `BUILDER_EXECUTOR_MODULE` environment setting at host startup.
+- Nine Builders task payloads contain only an opaque `taskReference`; the host executor is responsible for resolving it from its own secure task store. Do not place prompts, provider credentials, or tokens in scheduler task payloads.
 - The dashboard binds only to loopback and checks Host and Origin headers.
 - API request bodies are size-limited; responses include restrictive browser
   security headers.
@@ -120,17 +124,20 @@ roles have completed or been explicitly skipped, and a Baldr review outcome
 cannot be silently skipped.
 
 The ledger stores checkpoint metadata (maximum 16 KiB per checkpoint), not model
-prompts, credentials, or full conversation payloads. It uses the scheduler's
-existing store interface and writes a `builderRuns` collection alongside task
-and scheduler-run records.
+prompts, credentials, or full conversation payloads. It uses the scheduler store
+interface but is persisted in a separate `*.builder-runs.json` file by default,
+so ledger writes cannot overwrite concurrent task and scheduler-run updates.
 
 **Important limitation:** this is a tested state/ledger foundation, not yet a
 scheduled Builder executor. It does not invoke model routes, start or supervise
 a persistent host, send heartbeats, cancel provider requests, or prove that an
 interrupted external operation is safe to replay. A checkpoint is resumable only
 when the worker explicitly records `safeToResume: true`; otherwise recovery
-must stop for reconciliation. The current scheduler runner does not yet register
-a `nine-builders.run` handler.
+must stop for reconciliation. The runner now registers this handler only when
+`BUILDER_EXECUTOR_MODULE` points to an operator-supplied module exporting
+`createBuilderExecutor()`. With no module configured, the runner logs
+`nine_builders_executor_unconfigured`; a due Nine Builders task then fails
+visibly with “No handler registered” rather than pretending work occurred.
 
 ### Scheduler-to-Builder handler adapter
 
@@ -146,11 +153,12 @@ invent provider routes, credentials, consent, or model identity. It passes a
 cooperative cancellation signal to each role executor, enforces the recorded
 eight-hour deadline, and records abandoned active runs as interrupted on recovery.
 Executors must honor the signal; a provider adapter that ignores cancellation
-cannot be forcibly stopped by this in-process contract. The current foreground
-scheduler runner does not register this handler because no unattended model-
-execution host has yet been configured. Automated tests use a deterministic
-fake executor; that verifies orchestration and ledger behavior, not live model
-behavior or an overnight host.
+cannot be forcibly stopped by this in-process contract. The repository does not ship a production provider executor. The host module is an
+explicit integration boundary; it must resolve the opaque task reference, enforce
+provider-specific consent and disclosure, and implement role-specific prompts,
+provenance, bounded output, and cancellation. Automated tests use a deterministic
+fake executor; that verifies runner registration, orchestration, and ledger
+behavior, not live model behavior or an overnight host.
 
 ## Tests
 
