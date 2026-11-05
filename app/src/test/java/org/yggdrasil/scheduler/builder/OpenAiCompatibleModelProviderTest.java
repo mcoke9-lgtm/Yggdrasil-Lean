@@ -66,7 +66,7 @@ public class OpenAiCompatibleModelProviderTest {
     @Test public void allowsLocalLoopbackWithoutCredential() throws Exception {
         FakeTransport transport = new FakeTransport();
         OpenAiCompatibleModelProvider provider = new OpenAiCompatibleModelProvider(
-                "local", "http://127.0.0.1:8080/v1/chat/completions", "local-model",
+                "local", "http://localhost:8080/v1/chat/completions", "local-model",
                 () -> null, transport, 3000, 3000);
         provider.complete(new BuilderModelProvider.Request("system", "message", 128));
         assertFalse(transport.headers.containsKey("Authorization"));
