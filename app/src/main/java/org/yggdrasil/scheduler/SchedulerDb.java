@@ -36,12 +36,21 @@ public final class SchedulerDb extends SQLiteOpenHelper {
     public synchronized void updateCheck(Task t, String localDate, long lastRunId, boolean baseline, String status, String checkedAt) {
         ContentValues v = new ContentValues(); v.put("last_local_date", localDate); v.put("last_seen_run_id", lastRunId); v.put("baseline", baseline ? 1 : 0); v.put("last_status", status); v.put("updated_at", java.time.Instant.now().toString()); v.put("last_checked_at", checkedAt); getWritableDatabase().update("tasks", v, "id=?", new String[]{t.id});
     }
-    public synchronized List<String> recentRuns(int limit) {
-        List<String> out = new ArrayList<>();
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT task_id,status,detail,created_at FROM runs ORDER BY id DESC LIMIT ?", new String[]{String.valueOf(limit)})) {
-            while (c.moveToNext()) out.add(c.getString(0) + " · " + c.getString(1) + " · " + c.getString(2) + " · " + c.getString(3));
+    public synchronized List<Activity> recentRuns(int limit) {
+        List<Activity> out = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT COALESCE(tasks.name,runs.task_id),runs.status,runs.detail,runs.created_at " +
+                "FROM runs LEFT JOIN tasks ON tasks.id=runs.task_id ORDER BY runs.id DESC LIMIT ?",
+                new String[]{String.valueOf(limit)})) {
+            while (c.moveToNext()) out.add(new Activity(c.getString(0), c.getString(1), c.getString(2), c.getString(3)));
         }
         return out;
+    }
+    public static final class Activity {
+        public final String taskName, status, detail, createdAt;
+        Activity(String taskName, String status, String detail, String createdAt) {
+            this.taskName=taskName; this.status=status; this.detail=detail; this.createdAt=createdAt;
+        }
     }
     public static final class Task {
         public final String id,name,repo,branch,workflow,zone,lastDate,lastStatus,lastCheckedAt,days; public final int hour,minute; public final boolean enabled,baseline; public final long lastRunId;
