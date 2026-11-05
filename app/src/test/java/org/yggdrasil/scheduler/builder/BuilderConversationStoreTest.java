@@ -173,6 +173,6 @@ public class BuilderConversationStoreTest {
         assertEquals(64, snapshot.getString("content_sha256").length());
         org.json.JSONObject firstThread = snapshot.getJSONArray("threads").getJSONObject(0);
         assertTrue(firstThread.getJSONArray("turns").length() > 0);
-        assertEquals("thread-recovery-test", firstThread.getString("thread_id"));
+        assertEquals("thread-b", firstThread.getString("thread_id"));
     }
 }
