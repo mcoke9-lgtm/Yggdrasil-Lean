@@ -46,4 +46,15 @@ public class SecureBuilderProviderSettingsTest {
             fail(unexpected.toString());
         }
     }
+
+    @Test public void savesLocalConfigurationWithoutCredentialOrNetworkCall() throws Exception {
+        SecureBuilderProviderSettings settings = settings();
+        settings.save("local-main", "http://localhost:8080/v1/chat/completions", "local-model", "");
+        SecureBuilderProviderSettings.Configuration config = settings.readConfiguration();
+        assertNotNull(config);
+        assertEquals("local-main", config.providerId);
+        assertEquals("local-model", config.model);
+        assertFalse(config.hasCredential);
+        assertNotNull(settings.buildProvider());
+    }
 }
