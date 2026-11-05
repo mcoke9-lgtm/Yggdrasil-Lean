@@ -69,9 +69,7 @@ public class BuilderRuntimeServiceTest {
         replyThread.quitSafely();
     }
     @Test public void runtimeOwnsAppendOnlyConversationJournal() throws Exception {
-        RuntimeEnvironment.getApplication().deleteDatabase(BuilderConversationStore.class
-                .getDeclaredField("DEFAULT_DATABASE_NAME") == null ? "builder-conversations.db"
-                : "builder-conversations.db");
+        RuntimeEnvironment.getApplication().deleteDatabase("builder-conversations.db");
         ServiceController<BuilderRuntimeService> controller =
                 Robolectric.buildService(BuilderRuntimeService.class).create();
         Messenger host = new Messenger(controller.get().onBind(
