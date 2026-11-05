@@ -85,5 +85,14 @@ public final class BuilderOvernightScheduler {
         return true;
     }
 
+    public static org.json.JSONObject latestState(Context context) {
+        if (context == null) throw new IllegalArgumentException("Context is required");
+        Context app = context.getApplicationContext();
+        String runId = app.getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
+                .getString("last_scheduled_run_id", null);
+        if (runId == null) return null;
+        return new BuilderOvernightRunStore(app).read(runId);
+    }
+
     static String workName(String runId) { return "nine-builders-overnight-" + runId; }
 }
