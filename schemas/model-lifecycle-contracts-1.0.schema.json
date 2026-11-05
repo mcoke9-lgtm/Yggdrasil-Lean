@@ -1865,7 +1865,8 @@
         "known_losses",
         "known_unknowns",
         "decision",
-        "expansion_blueprint"
+        "expansion_blueprint",
+        "selection_policy"
       ],
       "properties": {
         "format_id": {
@@ -2288,6 +2289,46 @@
             },
             "student_weights_alone_sufficient": {
               "const": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "selection_policy": {
+          "type": "object",
+          "required": [
+            "smallest_resource_footprint_among_passing_candidates",
+            "parameter_count_alone_is_sufficient",
+            "single_model_preferred_when_all_mandatory_gates_pass",
+            "model_combination_allowed",
+            "role_identity_and_memory_are_external_to_weights",
+            "dynamic_model_assignment_by_task_allowed",
+            "degraded_tier_must_name_lost_capabilities",
+            "no_acceptance_when_mandatory_gates_fail"
+          ],
+          "properties": {
+            "smallest_resource_footprint_among_passing_candidates": {
+              "const": true
+            },
+            "parameter_count_alone_is_sufficient": {
+              "const": false
+            },
+            "single_model_preferred_when_all_mandatory_gates_pass": {
+              "const": true
+            },
+            "model_combination_allowed": {
+              "const": true
+            },
+            "role_identity_and_memory_are_external_to_weights": {
+              "const": true
+            },
+            "dynamic_model_assignment_by_task_allowed": {
+              "const": true
+            },
+            "degraded_tier_must_name_lost_capabilities": {
+              "const": true
+            },
+            "no_acceptance_when_mandatory_gates_fail": {
+              "const": true
             }
           },
           "additionalProperties": false
