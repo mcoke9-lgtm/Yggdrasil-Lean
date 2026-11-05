@@ -139,6 +139,38 @@ public class BuilderPromptFactoryTest {
     }
 
 
+    @Test public void explicitImprovementReviewReachesEverySelectedRoleAndPreventsSelfCertification() {
+        BuilderConversationProtocol.Turn incident = turn("incident-1",
+                BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.USER, "u0",
+                BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, 200,
+                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\',"
+                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\',"
+                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\',"
+                        + "\"proposed_next_step\":\"peer review\",\"status\":\"OPEN_REVIEW\"}");
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
+        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(incident, request);
+        for (BuilderRole role : BuilderRole.values()) {
+            BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, context, request);
+            assertTrue(prompt.userMessage.contains("\"operating_mode\": \"BUILDER_IMPROVEMENT_REVIEW\""));
+            assertTrue(prompt.userMessage.contains("\"review_incident_turn_id\": \"incident-1\""));
+            assertTrue(prompt.systemInstruction.contains("Baldr independently checks"));
+            assertTrue(prompt.systemInstruction.contains("MUST NOT evaluate, approve, or certify its own correction"));
+            assertTrue(prompt.systemInstruction.contains("independent verification MISSING"));
+        }
+    }
+
+    @Test public void reviewModeRejectsUnknownOrNonIncidentReference() {
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=missing\nReview.");
+        assertThrows(IllegalArgumentException.class, () -> BuilderPromptFactory.forTurn(
+                BuilderRole.BALDR, Collections.singletonList(request), request));
+    }
     @Test public void kvasirPromptNamesIndependentSchedulerAsFirstClassAlternative() {
         BuilderConversationProtocol.Turn user = turn("u1",
                 BuilderConversationProtocol.Participant.USER, null, null,
