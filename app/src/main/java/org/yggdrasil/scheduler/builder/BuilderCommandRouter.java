@@ -21,6 +21,10 @@ public final class BuilderCommandRouter {
             return new Command(Action.UNSUPPORTED, "", "Please enter an instruction.");
         String value = instruction.trim();
         String lower = value.toLowerCase(java.util.Locale.ROOT);
+        String[] politePrefixes = {"please ", "could you ", "can you "};
+        for (String polite : politePrefixes) {
+            if (lower.startsWith(polite)) { value = value.substring(polite.length()).trim(); lower = value.toLowerCase(java.util.Locale.ROOT); break; }
+        }
         String[] notePrefixes = {"remember that ", "remember ", "record note ", "save note ", "tell muninn "};
         for (String prefix : notePrefixes) {
             if (lower.startsWith(prefix)) {
