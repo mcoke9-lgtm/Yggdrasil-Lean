@@ -118,6 +118,26 @@ def main() -> int:
             print(f"FAIL role-specific fixture {fixture.get('case_id')} has an unknown Builder")
             failures += 1
 
+    expected_contract_refs = {f"contract.{builder.lower()}.v0_1" for builder in EXPECTED_BUILDERS}
+    if set(study.get("builder_identity_refs", [])) != EXPECTED_BUILDERS:
+        print("FAIL model reduction study must cover all nine Builder identities")
+        failures += 1
+    if set(study.get("capability_contract_refs", [])) != expected_contract_refs:
+        print("FAIL model reduction study must reference all nine Builder capability contracts")
+        failures += 1
+    if study.get("evaluation_suite_ref") != "tests/model-capabilities/phase-a-suite-v0.1.json":
+        print("FAIL model reduction study must reference the current capability suite")
+        failures += 1
+    if study.get("evaluation_rubric_ref") != "schemas/capability-evaluation-rubric-v0.1.json":
+        print("FAIL model reduction study must reference the current evaluation rubric")
+        failures += 1
+    evaluation_design = study.get("evaluation_design", {})
+    if set(evaluation_design.get("evaluator_builder_ids", [])) & set(evaluation_design.get("independent_verifier_builder_ids", [])):
+        print("FAIL analytical evaluator and independent verifier roles must be distinct")
+        failures += 1
+    if evaluation_design.get("model_self_evaluation_is_sufficient") is not False:
+        print("FAIL candidate model must not be its own sole evaluator")
+        failures += 1
     if study.get("status") != "planned" or study.get("source_candidates") != [] or study.get("decision") != "not_decided":
         print("FAIL model reduction study must remain planned with no unverified candidates or decision")
         failures += 1
