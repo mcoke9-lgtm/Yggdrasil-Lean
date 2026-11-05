@@ -9,6 +9,14 @@ on:
       - 'build.gradle'
       - 'gradle.properties'
       - '.github/workflows/builder-key-steward.yml'
+  pull_request:
+    branches: [independent-builder-runtime-foundation-001]
+    paths:
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/builder-key-steward.yml'
   workflow_dispatch:
 
 permissions:
