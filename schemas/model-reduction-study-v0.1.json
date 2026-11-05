@@ -81,7 +81,7 @@
           "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
         }
       ],
-      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+      "notes": "Research shortlist entry; repository revision 15852e8c16360a2fea060d615a32b45270f8a8fc is pinned, but the selected weight-file digest, complete artifact lock, and baseline test are not registered."
     },
     {
       "model_family_ref": "smollm3_3b",
