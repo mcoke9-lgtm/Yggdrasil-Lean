@@ -38,15 +38,24 @@ public class NineBuilderMockHttpConversationTest {
             requestBodies.add(body);
             requestHeaders.add(headers);
             int number = requestBodies.size();
-            String builderJson = "{\\"body\\":\\"Mock HTTP exchange " + number
-                    + ".\\",\\"turn_type\\":\\"RESPONSE\\","
-                    + "\\"recipient\\":\\"USER\\",\\"reply_to_turn_id\\":null,"
-                    + "\\"evidence_status\\":\\"PROPOSED\\"}";
-            String response = "{\\"model\\":\\"mock-chat\\",\\"choices\\":[{"
-                    + "\\"message\\":{\\"content\\":\\""
-                    + builderJson.replace("\\", "\\\\").replace("\\\"", "\\\\\"")
-                    + "\\"}}]}";
-            return new OpenAiCompatibleModelProvider.HttpResult(200, response);
+
+            JSONObject builderReply = new JSONObject();
+            builderReply.put("body", "Mock HTTP exchange " + number + ".");
+            builderReply.put("turn_type", "RESPONSE");
+            builderReply.put("recipient", "USER");
+            builderReply.put("reply_to_turn_id", JSONObject.NULL);
+            builderReply.put("evidence_status", "PROPOSED");
+
+            JSONObject message = new JSONObject();
+            message.put("content", builderReply.toString());
+            JSONObject choice = new JSONObject();
+            choice.put("message", message);
+            JSONArray choices = new JSONArray();
+            choices.put(choice);
+            JSONObject response = new JSONObject();
+            response.put("model", "mock-chat");
+            response.put("choices", choices);
+            return new OpenAiCompatibleModelProvider.HttpResult(200, response.toString());
         }
     }
 
@@ -100,12 +109,12 @@ public class NineBuilderMockHttpConversationTest {
                 assertFalse("Mock endpoint must not receive an Authorization header",
                         transport.requestHeaders.get(i).containsKey("Authorization"));
 
-                JSONObject userPayload = new JSONObject(messages.getJSONObject(1).getString("content"));
+                String userMessage = messages.getJSONObject(1).getString("content");
+                JSONObject userPayload = new JSONObject(userMessage);
                 JSONArray context = userPayload.getJSONArray("turns_oldest_first");
                 assertEquals("Each Builder must see all earlier persisted turns", i + 1, context.length());
                 if (i > 0) {
-                    assertTrue(messages.getJSONObject(1).getString("content")
-                            .contains("Mock HTTP exchange " + i + "."));
+                    assertTrue(userMessage.contains("Mock HTTP exchange " + i + "."));
                 }
             }
 
