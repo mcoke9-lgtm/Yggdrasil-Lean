@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
         root.addView(button("Refresh status", this::refresh));
-        root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
+        root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setInputData(new androidx.work.Data.Builder().putBoolean("force_check", true).build()).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
     }
     private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
@@ -60,7 +60,7 @@ public final class MainActivity extends Activity {
         String[] dayNames={"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
         CheckBox[] dayChecks=new CheckBox[7];
         for(int i=0;i<7;i++){ dayChecks[i]=new CheckBox(this); dayChecks[i].setText(dayNames[i]); dayChecks[i].setChecked(true); form.addView(dayChecks[i]); }
-        new AlertDialog.Builder(this).setTitle("New daily GitHub monitor").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Save",(dialog,which)->{
+        new AlertDialog.Builder(this).setTitle("New GitHub monitor").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Save",(dialog,which)->{
             try {
                 String r=repo.getText().toString().trim(), b=branch.getText().toString().trim(), w=workflow.getText().toString().trim(), n=name.getText().toString().trim();
                 if (!r.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+") || b.isEmpty() || w.isEmpty() || n.isEmpty()) throw new IllegalArgumentException("Fill every field and use owner/name repository format");
