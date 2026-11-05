@@ -36,6 +36,10 @@ def schema_errors(validator, instance, label):
     for error in errors:
         location = "/".join(map(str, error.absolute_path)) or "<root>"
         print(f"FAIL {label} at {location}: {error.message}")
+        if error.validator == "oneOf":
+            for nested in error.context:
+                nested_location = "/".join(map(str, nested.absolute_path)) or "<root>"
+                print(f"  DETAIL {label} at {nested_location}: {nested.message}")
     return len(errors)
 
 
