@@ -373,7 +373,7 @@ The repository now contains `scripts/validate_phase_a_contracts.py` and `.github
 - all five shared fixtures mapped to every Builder;
 - explicit proposed/not-adopted thresholds, a planned study with five untested research candidates and no selected model, and not-yet-executed fixture status.
 
-The validator and artifact cross-reference checks passed in GitHub Actions run `42044925848`; the latest candidate-runner artifact-registry enforcement and matching-revision tests are awaiting their own run.
+The validator and artifact cross-reference checks passed in run `42044925848`; candidate-runner artifact-registry enforcement and matching-revision tests passed in run `42045134221` at commit `f715a7b7cff58175ff114256c95e8c868711e2de`. A later displayed-size metadata correction is undergoing a repeat validation run.
 
 ### Provider inventory
 
