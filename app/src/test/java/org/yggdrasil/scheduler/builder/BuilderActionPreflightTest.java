@@ -121,4 +121,74 @@ public class BuilderActionPreflightTest {
                         BuilderActionPreflight.Authorization.GRANTED,
                         null, null, null, NOW.plusSeconds(1)), NOW));
     }
+
+    @Test public void periodicPollInstallBoundarySuppressesBlockedAction() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.installPeriodicPoll(observation(
+                        BuilderActionPreflight.CapabilityState.BLOCKED,
+                        BuilderActionPreflight.Authorization.NOT_REQUIRED,
+                        null, null, null, NOW), NOW, () -> {
+                    calls.incrementAndGet();
+                    return null;
+                });
+        assertEquals(BuilderActionPreflight.Decision.BLOCKED, result.decision);
+        assertFalse(result.executed);
+        assertEquals(0, calls.get());
+    }
+
+    @Test public void monitorOfferBoundaryRejectsStaleReadiness() throws Exception {
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.offerMonitorRegistration(observation(
+                        BuilderActionPreflight.CapabilityState.AVAILABLE,
+                        BuilderActionPreflight.Authorization.NOT_REQUIRED,
+                        null, null, null, NOW.minusSeconds(121)), NOW);
+        assertEquals(BuilderActionPreflight.Decision.RECHECK_REQUIRED, result.decision);
+        assertFalse(result.executed);
+    }
+
+    @Test public void monitorSaveBoundaryDoesNotPersistWhenAuthorizationDenied() throws Exception {
+        AtomicInteger writes = new AtomicInteger();
+        BuilderActionPreflight.Execution<String> result =
+                BuilderActionBoundaries.registerMonitor(observation(
+                        BuilderActionPreflight.CapabilityState.AVAILABLE,
+                        BuilderActionPreflight.Authorization.DENIED,
+                        null, null, null, NOW), NOW, () -> {
+                    writes.incrementAndGet();
+                    return "saved";
+                });
+        assertEquals(BuilderActionPreflight.Decision.BLOCKED, result.decision);
+        assertFalse(result.executed);
+        assertEquals(0, writes.get());
+    }
+
+    @Test public void githubMonitorBoundaryDoesNotSendRequestWhenCapabilityUnknown() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.checkGithubMonitor(observation(
+                        BuilderActionPreflight.CapabilityState.UNKNOWN,
+                        BuilderActionPreflight.Authorization.GRANTED,
+                        null, null, null, NOW), NOW, () -> {
+                    requests.incrementAndGet();
+                    return null;
+                });
+        assertEquals(BuilderActionPreflight.Decision.RECHECK_REQUIRED, result.decision);
+        assertFalse(result.executed);
+        assertEquals(0, requests.get());
+    }
+
+    @Test public void githubMonitorBoundaryRunsRequestOnceWhenFreshAndAuthorized() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.checkGithubMonitor(observation(
+                        BuilderActionPreflight.CapabilityState.AVAILABLE,
+                        BuilderActionPreflight.Authorization.GRANTED,
+                        null, null, null, NOW), NOW, () -> {
+                    requests.incrementAndGet();
+                    return null;
+                });
+        assertEquals(BuilderActionPreflight.Decision.PROCEED, result.decision);
+        assertTrue(result.executed);
+        assertEquals(1, requests.get());
+    }
 }
