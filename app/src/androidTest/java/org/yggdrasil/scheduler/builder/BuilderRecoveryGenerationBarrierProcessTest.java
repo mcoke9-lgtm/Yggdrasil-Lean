@@ -10,7 +10,11 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
-import android.test.InstrumentationTestCase;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,9 +26,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Runs against a debug APK on a real Android device/emulator.
  * Proves that a second Android process waits on the same app-private OS file lock.
  */
-public final class BuilderRecoveryGenerationBarrierProcessTest extends InstrumentationTestCase {
-    public void testSecondAndroidProcessWaitsUntilFirstReleasesFileLock() throws Exception {
-        Context context = getInstrumentation().getTargetContext();
+@RunWith(AndroidJUnit4.class)
+public final class BuilderRecoveryGenerationBarrierProcessTest {
+    @Test public void secondAndroidProcessWaitsUntilFirstReleasesFileLock() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         HandlerThread callbackThread = new HandlerThread("recovery-lock-test-callback");
         callbackThread.start();
         CountDownLatch connected = new CountDownLatch(1);
