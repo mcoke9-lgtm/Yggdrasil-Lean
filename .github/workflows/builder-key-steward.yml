@@ -50,11 +50,8 @@ jobs:
           fi
       - name: Create disposable PKCS12 key for CI signing test
         run: |
-          keytool -genkeypair -noprompt -alias builder-upload-key -keyalg RSA -keysize 3072 \
-            -sigalg SHA256withRSA -validity 10000 -dname "CN=Disposable Builder CI Test" \
-            -storetype PKCS12 -keystore "$RUNNER_TEMP/disposable-test-key.p12" \
-            -storepass disposable-test-password -keypass disposable-test-password
-          echo "BUILDER_KEYSTORE_PATH=$RUNNER_TEMP/disposable-test-key.p12" >> "$GITHUB_ENV"
+          gradle --no-daemon :key-steward:createDisposableTestKeystore
+          echo "BUILDER_KEYSTORE_PATH=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
           echo "BUILDER_KEYSTORE_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_ALIAS=builder-upload-key" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
