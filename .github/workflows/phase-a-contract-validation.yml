@@ -16,6 +16,7 @@ on:
       - "schemas/model-family-candidate-inventory-v0.1.json"
       - "tests/model-capabilities/**"
       - "scripts/validate_phase_a_contracts.py"
+      - "scripts/prepare_phase_a_candidate.py"
       - ".github/workflows/phase-a-contract-validation.yml"
   pull_request:
     branches:
@@ -23,8 +24,13 @@ on:
     paths:
       - "schemas/model-lifecycle-contracts-1.0.schema.json"
       - "schemas/nine-builder-capability-contracts-v0.1.json"
+      - "schemas/capability-evaluation-rubric-v0.1.json"
+      - "schemas/model-reduction-study-v0.1.json"
+      - "schemas/model-family-candidate-inventory-v0.1.json"
+      - "schemas/model-artifact-inventory-v0.1.json"
       - "tests/model-capabilities/**"
       - "scripts/validate_phase_a_contracts.py"
+      - "scripts/prepare_phase_a_candidate.py"
       - ".github/workflows/phase-a-contract-validation.yml"
   workflow_dispatch:
 
