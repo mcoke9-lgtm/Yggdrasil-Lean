@@ -769,6 +769,13 @@ public final class BuilderConversationActivity extends Activity {
     }
 
     private void scheduleOvernightRun() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 9402);
+            status.setText("Allow notifications, then press Schedule eight-hour Nine Builders run again. The ongoing notification includes the Stop control.");
+            return;
+        }
         if (busy) {
             status.setText("Wait for the current conversation round to finish before scheduling overnight work.");
             return;
