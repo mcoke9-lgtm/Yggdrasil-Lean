@@ -125,6 +125,10 @@ Generation descriptors are written before the active pointer. If a process stops
 
 The manifest and descriptor checksums detect accidental corruption, not malicious tampering or source authenticity. This implementation assumes the current single-process app coordinator; synchronized methods do not provide cross-process locking. It is not yet connected to app startup or the live conversation UI. Device-level crash/power-loss behavior, directory-fsync support, and recovery after interrupted filesystem operations still require testing on the Galaxy S21+ with explicit approval before installation or device changes.
 
+Directory-sync interruption tests now exercise three boundaries. If descriptor directory sync fails after the descriptor rename, no active pointer is created; retry can reuse the identical descriptor. If active-manifest directory sync fails after pointer rename, the operation reports an error even though the new pointer may already be visible; callers must reread and validate the active pair before retrying. Rollback has the same post-rename ambiguity and requires the same readback. A retry of activation for an already-active generation is idempotent.
+
+A successful atomic rename is the visibility boundary; a subsequent directory-fsync failure means durability is uncertain, not that the rename was undone. Robolectric tests inject directory-sync failures through a test-only seam. They do not establish Android device filesystem durability or power-loss behavior. Production retains the platform directory-fsync implementation.
+
 Acceptance checks added:
 - Both database contents are checked against exact staged record digests before activation and rollback.
 - One manifest atomically selects both database names through one generation ID.
