@@ -89,23 +89,30 @@ Each capability requirement must define:
 
 A capability is not accepted merely because a model says it can do the task. A task without a measurable test remains **unvalidated**, not silently promoted to required-and-passed.
 
-### Initial nine-role register
+### Established nine-role register
 
-This is an identity inventory, not an invented assignment of responsibilities. Existing project role descriptions must be reconciled into versioned contracts before any MFM is accepted.
+The following specializations were adopted in the earlier Nine Builders design and are carried forward as the initial responsibility map. They are specializations, not exclusive abilities: every Builder should be able to understand, design, construct, test, repair, and maintain when required. Specialization concentrates responsibility and strengthens cross-checking; it does not make the other Builders incapable.
 
-| Builder identity | Contract state |
-|---|---|
-| Huginn | Identity known; capability contract to be reconciled |
-| Muninn | Identity known; capability contract to be reconciled |
-| Kvasir | Identity known; capability contract to be reconciled |
-| Mari | Identity known; capability contract to be reconciled |
-| Höðr | Identity known; capability contract to be reconciled |
-| Týr | Identity known; capability contract to be reconciled |
-| Loki | Identity known; capability contract to be reconciled |
-| Odin | Identity known; capability contract to be reconciled |
-| Baldr | Identity known; capability contract to be reconciled |
+| Builder identity | Primary responsibility | Distinctive work products / evidence |
+|---|---|---|
+| **Huginn** | Architecture and direction | Component boundaries, dependencies, requirements, work breakdown, release structure |
+| **Muninn** | Memory and continuity | Immutable versions, history, provenance, checkpoints, restoration and recovery records |
+| **Kvasir** | Research, discovery, and transformation | Source extraction, evidence status, structured knowledge, parsing and format conversion |
+| **Mari** | Communication and interfaces | Input/output contracts, message formats, error semantics, module and host communication |
+| **Höðr** | Construction and implementation | Prototypes, implementation, generators, tests, performance measurements, deliverables |
+| **Týr** | Integrity, permissions, and provenance | Validation, checksums, discrepancy detection, overwrite prevention, authority and permission checks |
+| **Loki** | Alternatives, challenge, and adaptation | Alternative designs, experiments, repairs, degraded modes, recovery paths, constructive challenge |
+| **Odin** | Integration and reconciliation | Contract reconciliation, dependency resolution, incompatibility handling, coherent release candidates |
+| **Baldr** | Independent verification | Independent requirements checks, test conclusions, evidence-based verification and release recommendations |
 
-No Builder is assigned a guessed function in this milestone. The next contract-reconciliation pass must retrieve the established Nine Builder responsibility definitions from project records and map them without merging distinct roles.
+The contracts must preserve these distinctions:
+- Muninn preserves history; Odin reconciles current components. Reconciliation must not erase history or disagreement.
+- Týr defines and checks integrity/authority boundaries; Baldr independently verifies whether requirements and claims are actually satisfied. Neither may certify its own work as independent verification.
+- Loki challenges and develops alternatives; Odin integrates and reconciles without forcing false agreement.
+- Huginn defines architecture and direction; Mari defines communication/interface behavior between parts.
+- Höðr builds and tests deliverables; Kvasir discovers, extracts, and transforms source knowledge into usable structures.
+
+The responsibility map is **adopted as the initial role definition**, but it is not yet a measurable capability contract. Phase A must now translate each work product into observable tasks, input/output schemas, test cases, quality thresholds, failure conditions, and resource budgets. Do not claim any model has passed those tests merely because the responsibility has been assigned.
 
 ## 4. Contract C — Model and artifact registry
 
@@ -284,14 +291,14 @@ The later lifecycle manager must enforce these invariants:
 | Deliverable | Required evidence | State |
 |---|---|---|
 | Identity/assignment contract | Stable IDs, separate identity and model-instance records, assignment audit rules | Specified |
-| Capability contract | Versioned measurable requirements and acceptance suite | Specified; nine role mappings pending |
+| Capability contract | Versioned measurable requirements and acceptance suite | Specified; measurable tests and thresholds pending |
 | Model/artifact registry | Family, artifact, and instance records with provenance | Specified; live inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | Specified |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | Specified |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Specified |
 | Provider/model inventory | Verified adapter/configuration/access table | Pending inspection |
 
-Phase A is complete only after the nine role contracts have been reconciled from existing project records, the actual provider/adapter inventory has been inspected, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
+Phase A is complete only after the nine adopted responsibility maps have been translated into measurable capability contracts, the actual provider/adapter inventory has been inspected, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
 
 ## 11. Integrity checkpoint
 
