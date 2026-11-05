@@ -55,3 +55,43 @@ test("rejects unsupported schedule kinds", async () => {
     schedule: { kind: "calendar" }
   }), /Only interval schedules/);
 });
+
+test("supports daily wall-clock schedules in an IANA timezone", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  const task = await scheduler.addTask({
+    id: "daily-local",
+    name: "Daily local task",
+    handlerType: "test.check",
+    schedule: { kind: "calendar", frequency: "daily", hour: 9, minute: 0, timeZone: "America/New_York", startAt: "2026-11-04T12:00:00Z" }
+  });
+  assert.equal(task.nextRunAt, "2026-11-04T14:00:00.000Z");
+});
+
+test("skips nonexistent spring-forward wall times", async () => {
+  const { nextCalendarOccurrence } = await import("../src/calendar.js");
+  const schedule = { kind: "calendar", frequency: "daily", hour: 2, minute: 30, timeZone: "America/New_York" };
+  assert.equal(
+    nextCalendarOccurrence(schedule, "2026-03-08T05:00:00.000Z"),
+    "2026-03-09T06:30:00.000Z"
+  );
+});
+
+test("does not run a repeated fall-back wall time twice on one local date", async () => {
+  const { nextCalendarOccurrence } = await import("../src/calendar.js");
+  const schedule = { kind: "calendar", frequency: "daily", hour: 1, minute: 30, timeZone: "America/New_York" };
+  assert.equal(
+    nextCalendarOccurrence(schedule, "2026-11-01T05:30:00.000Z"),
+    "2026-11-02T06:30:00.000Z"
+  );
+});
+
+test("supports weekly schedules on selected local weekdays", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  const task = await scheduler.addTask({
+    id: "weekly-monday",
+    name: "Monday task",
+    handlerType: "test.check",
+    schedule: { kind: "calendar", frequency: "weekly", daysOfWeek: [1], hour: 9, minute: 0, timeZone: "America/New_York", startAt: "2026-11-04T12:00:00Z" }
+  });
+  assert.equal(task.nextRunAt, "2026-11-09T14:00:00.000Z");
+});
