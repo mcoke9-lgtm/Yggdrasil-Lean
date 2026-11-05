@@ -36,10 +36,7 @@ public class BuilderRecoveryOverlayAccessTest {
         JSONObject pack = BuilderRecoveryPackage.create(conversations, subjects);
         staged = BuilderRecoveryStager.stage(context, pack, GENERATION);
         BuilderRecoveryActivation.activate(context, staged);
-        BuilderRecoveryOverlayStore overlay = BuilderRecoveryOverlayStore.create(context,
-                staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
-                staged.conversationDataSha256, staged.subjectDataSha256);
-        overlay.close();
+        // Activation creates and validates the generation-bound overlay before pointer publication.
     }
 
     @After public void tearDown() {
