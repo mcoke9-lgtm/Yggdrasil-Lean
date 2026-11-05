@@ -51,7 +51,8 @@ public final class BuilderOvernightRunStore {
             write(runId, state);
             return state;
         }
-        if (nowMillis >= state.optLong("deadline_epoch_millis")) {
+        if ("RUNNING".equals(state.optString("status"))
+                && nowMillis >= state.optLong("deadline_epoch_millis")) {
             state = status(state, "EXPIRED", nowMillis, "Eight-hour execution window elapsed.");
             write(runId, state);
         }
