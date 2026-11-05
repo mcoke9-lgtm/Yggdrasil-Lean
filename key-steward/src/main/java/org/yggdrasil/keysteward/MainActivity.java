@@ -2,6 +2,14 @@ package org.yggdrasil.keysteward;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.ClipDescription;
+import android.content.Context;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Base64;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.ViewGroup;
@@ -11,17 +19,22 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.text.DateFormat;
 
 public final class MainActivity extends Activity {
     private static final int CREATE_FILE = 41;
     private static final int OPEN_FILE = 42;
+    private static final int EXPORT_BASE64 = 43;
+    private static final int MAX_GITHUB_SECRET_CHARS = 48 * 1024;
 
     private EditText passwordField;
     private EditText confirmField;
     private TextView status;
     private boolean creating;
+    private boolean exporting;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     public void onCreate(Bundle state) {
@@ -68,6 +81,19 @@ public final class MainActivity extends Activity {
         verify.setOnClickListener(view -> beginVerify());
         root.addView(verify, matchWrap());
 
+        Button export = new Button(this);
+        export.setText("Copy verified Base64 for GitHub secret");
+        export.setOnClickListener(view -> beginBase64Export());
+        root.addView(export, matchWrap());
+
+        TextView warning = new TextView(this);
+        warning.setText("Sensitive action: this copies the encrypted keystore to your clipboard. "
+                + "Only paste it into the BUILDER_KEYSTORE_BASE64 GitHub Actions secret. "
+                + "The clipboard is cleared after 60 seconds if it has not been replaced.");
+        warning.setTextSize(13);
+        warning.setPadding(0, 12, 0, 0);
+        root.addView(warning, matchWrap());
+
         status = new TextView(this);
         status.setText("No key has been created. Test with a disposable key first.");
         status.setTextSize(14);
@@ -112,10 +138,23 @@ public final class MainActivity extends Activity {
     private void beginVerify() {
         if (!hasValidPassword()) return;
         creating = false;
+        exporting = false;
+        openKeystorePicker(OPEN_FILE);
+    }
+
+    private void beginBase64Export() {
+        if (!hasValidPassword()) return;
+        creating = false;
+        exporting = true;
+        status.setText("Select the encrypted PKCS#12 file. Its password and key will be verified before copying.");
+        openKeystorePicker(EXPORT_BASE64);
+    }
+
+    private void openKeystorePicker(int requestCode) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
-        startActivityForResult(intent, OPEN_FILE);
+        startActivityForResult(intent, requestCode);
     }
 
     @Override
@@ -140,11 +179,15 @@ public final class MainActivity extends Activity {
                 }
                 status.setText(formatResult("Keystore created, reopened, and verified.",
                         reopened));
-            } else if (requestCode == OPEN_FILE && !creating) {
+            } else if ((requestCode == OPEN_FILE || requestCode == EXPORT_BASE64) && !creating) {
                 try (InputStream input = getContentResolver().openInputStream(uri)) {
                     result = KeyStoreEngine.verify(input, password);
                 }
-                status.setText(formatResult("Keystore verified.", result));
+                if (requestCode == EXPORT_BASE64 && exporting) {
+                    copyVerifiedKeystore(uri, password, result);
+                } else {
+                    status.setText(formatResult("Keystore verified.", result));
+                }
             }
         } catch (Exception error) {
             status.setText("Operation failed safely: " + safeMessage(error));
@@ -153,6 +196,51 @@ public final class MainActivity extends Activity {
             passwordField.setText("");
             confirmField.setText("");
         }
+    }
+
+    private void copyVerifiedKeystore(Uri uri, char[] password,
+                                      KeyStoreEngine.Verification verification) throws Exception {
+        byte[] bytes;
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IllegalStateException("Unable to open selected file");
+            byte[] buffer = new byte[4096];
+            int count;
+            int total = 0;
+            while ((count = input.read(buffer)) != -1) {
+                total += count;
+                if (total > 36 * 1024) {
+                    throw new IllegalArgumentException("Keystore is too large for a GitHub secret");
+                }
+                output.write(buffer, 0, count);
+            }
+            bytes = output.toByteArray();
+        }
+        String encoded = Base64.encodeToString(bytes, Base64.NO_WRAP);
+        java.util.Arrays.fill(bytes, (byte) 0);
+        if (encoded.length() > MAX_GITHUB_SECRET_CHARS) {
+            throw new IllegalArgumentException("Base64 value exceeds GitHub's 48 KB secret limit");
+        }
+
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
+        if (Build.VERSION.SDK_INT >= 33) {
+            clip.getDescription().getExtras().putBoolean(
+                    ClipDescription.EXTRA_IS_SENSITIVE, true);
+        }
+        clipboard.setPrimaryClip(clip);
+        final String label = "BUILDER_KEYSTORE_BASE64";
+        handler.postDelayed(() -> {
+            if (clipboard.hasPrimaryClip()
+                    && clipboard.getPrimaryClipDescription() != null
+                    && label.contentEquals(clipboard.getPrimaryClipDescription().getLabel())) {
+                clipboard.clearPrimaryClip();
+            }
+        }, 60_000L);
+        status.setText("Verified keystore copied to clipboard. Fingerprint: "
+                + verification.fingerprint
+                + "\nPaste only into GitHub Actions secret BUILDER_KEYSTORE_BASE64. "
+                + "Clipboard clears in 60 seconds unless replaced.");
     }
 
     private String formatResult(String heading, KeyStoreEngine.Verification result) {
