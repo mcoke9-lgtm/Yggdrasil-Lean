@@ -232,6 +232,7 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(messageInput);
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
+        root.addView(button("Review latest improvement incident", this::requestImprovementReview));
         status = text("No model request has been sent from this screen.", 13);
         root.addView(status);
     }
@@ -428,6 +429,46 @@ public final class BuilderConversationActivity extends Activity {
                             .putString(KEY_DISCLOSURE, disclosureKey).apply();
                     performSend(preparedMessage, selected);
                 }).show();
+    }
+
+    /** Starts a review only after the user explicitly presses the review control. */
+    private void requestImprovementReview() {
+        if (busy) return;
+        status.setText("Finding the latest recorded improvement incident…");
+        final String threadId = activeThreadId;
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
+                BuilderConversationProtocol.Turn incident = null;
+                for (int i = turns.size() - 1; i >= 0; i--) {
+                    if (turns.get(i).type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                        incident = turns.get(i);
+                        break;
+                    }
+                }
+                final BuilderConversationProtocol.Turn found = incident;
+                if (!destroyed) runOnUiThread(() -> {
+                    if (found == null) {
+                        status.setText("No improvement incident is recorded in this thread. No review was sent.");
+                        return;
+                    }
+                    messageInput.setText("BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id="
+                            + found.turnId + "\nReview this incident independently. The affected Builder may explain, "
+                            + "but must not certify its own correction. Check evidence, alternatives, constraints, "
+                            + "implementation, recovery, provenance, and acceptance criteria. If Baldr is not selected, "
+                            + "state that independent verification is missing.");
+                    status.setText("Review prepared for incident " + found.turnId
+                            + ". Review begins only when you send and approve the provider disclosure.");
+                    requestSend();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Could not locate an improvement incident: " + failure.getMessage()));
+            } finally {
+                journal.close();
+            }
+        });
     }
 
     private void performSend(String message, List<BuilderRole> selectedRoles) {
