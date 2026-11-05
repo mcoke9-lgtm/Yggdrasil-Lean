@@ -96,4 +96,23 @@ public class BuilderRoleProviderSettingsTest {
         save(settings, BuilderRole.BALDR, "verification", "8102", "model-b");
         assertFalse(settings.hasDistinctBaldrRoute());
     }
+
+    @Test public void baldrRejectsEquivalentEndpointWithCosmeticUrlDifferences() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        settings.save(BuilderRole.HUGINN, "implementation",
+                "http://LOCALHOST:8101/v1/chat/completions/", "model-a", "");
+        settings.save(BuilderRole.BALDR, "verification",
+                "http://localhost:8101/v1/chat/completions", "model-b", "");
+        assertFalse(settings.hasDistinctBaldrRoute());
+    }
+
+    @Test public void baldrMustDifferFromEveryConfiguredRoleNotOnlySelectedRoles() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        save(settings, BuilderRole.HUGINN, "implementation", "8101", "model-a");
+        save(settings, BuilderRole.LOKI, "other", "8102", "model-b");
+        save(settings, BuilderRole.BALDR, "verification", "8103", "model-c");
+        assertTrue(settings.hasDistinctBaldrRoute());
+        save(settings, BuilderRole.BALDR, "verification", "8102", "model-c");
+        assertFalse(settings.hasDistinctBaldrRoute());
+    }
 }
