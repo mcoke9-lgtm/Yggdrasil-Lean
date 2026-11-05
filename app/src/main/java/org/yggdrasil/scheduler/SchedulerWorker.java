@@ -37,13 +37,14 @@ public final class SchedulerWorker extends Worker {
                 checkGithub(task, today);
             } catch (Exception e) {
                 db.record(task.id, 0, "error", safe(e.getMessage()));
-                db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline, "Error: " + safe(e.getMessage()));
+                db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline, "Error: " + safe(e.getMessage()), task.lastCheckedAt);
                 retry = true;
             }
         }
         return retry ? Result.retry() : Result.success();
     }
     private void checkGithub(SchedulerDb.Task task, String today) throws Exception {
+        String checkStartedAt = Instant.now().toString();
         String endpoint = "https://api.github.com/repos/" + task.repo + "/actions/runs?branch=" + java.net.URLEncoder.encode(task.branch, "UTF-8") + "&per_page=100";
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
         connection.setConnectTimeout(10000); connection.setReadTimeout(15000); connection.setRequestProperty("Accept", "application/vnd.github+json"); connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28"); connection.setRequestProperty("User-Agent", "Yggdrasil-Android-Scheduler/0.1");
@@ -71,7 +72,7 @@ public final class SchedulerWorker extends Worker {
             }
         }
         if (!task.baseline) {
-            db.updateCheck(task, today, maxId, true, "Baseline established");
+            db.updateCheck(task, today, maxId, true, "Baseline established", checkStartedAt);
             db.record(task.id, maxId, "baseline", "Recorded existing workflow runs; no historic failures alerted");
             return;
         }
@@ -84,7 +85,7 @@ public final class SchedulerWorker extends Worker {
                 notifyFailure(task.name, detail);
             }
         }
-        db.updateCheck(task, today, maxId, true, matches.isEmpty() ? "Checked; no new runs" : "Checked; " + matches.size() + " new completed run(s)");
+        db.updateCheck(task, today, maxId, true, matches.isEmpty() ? "Checked; no new runs" : "Checked; " + matches.size() + " new completed run(s)", checkStartedAt);
         db.record(task.id, maxId, "checked", "Daily GitHub workflow check completed");
     }
     private void notifyFailure(String title, String detail) {
