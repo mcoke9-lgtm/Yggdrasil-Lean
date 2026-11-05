@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Bundle;
+import android.os.Build;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -80,8 +81,13 @@ public final class MainActivity extends Activity {
 
     private String inspect(String id) {
         try {
-            PackageInfo info = getPackageManager().getPackageInfo(id,
-                PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES));
+            PackageInfo info;
+            if (Build.VERSION.SDK_INT >= 33) {
+                info = getPackageManager().getPackageInfo(id,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES));
+            } else {
+                info = getPackageManager().getPackageInfo(id, PackageManager.GET_SIGNING_CERTIFICATES);
+            }
             StringBuilder s = new StringBuilder("INSTALLED — device observed");
             s.append("\nVersion: ").append(info.versionName == null ? "unknown" : info.versionName);
             s.append("\nVersion code: ").append(info.getLongVersionCode());
