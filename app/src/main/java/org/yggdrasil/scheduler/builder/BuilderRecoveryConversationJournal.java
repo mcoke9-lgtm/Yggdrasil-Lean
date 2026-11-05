@@ -5,10 +5,8 @@ import java.util.List;
 
 /**
  * Generation-aware canonical conversation journal.
- *
- * Before a recovery generation is activated, operations use the existing canonical
- * database. Once one is active, every operation is routed to its matching immutable
- * baseline plus append-only overlay while holding the cross-process generation barrier.
+ * Before activation it uses the existing canonical database; after activation it
+ * routes every operation to the matching immutable baseline plus append-only overlay.
  */
 public final class BuilderRecoveryConversationJournal implements BuilderConversationJournal {
     private final Context app;
@@ -27,16 +25,14 @@ public final class BuilderRecoveryConversationJournal implements BuilderConversa
     }
 
     @Override public List<String> listThreadIds() {
-        return withJournal(BuilderRecoveryOverlayAccess.Session::listThreadIds);
+        return withJournal(JournalView::listThreadIds);
     }
 
     @Override public org.json.JSONObject exportSnapshot() {
-        return withJournal(BuilderRecoveryOverlayAccess.Session::exportConversationSnapshot);
+        return withJournal(JournalView::exportSnapshot);
     }
 
-    @Override public void close() {
-        // Each operation owns and closes its short-lived database helper.
-    }
+    @Override public void close() { }
 
     private <T> T withJournal(JournalOperation<T> operation) {
         return BuilderRecoveryGenerationBarrier.withLock(app, () -> {
@@ -44,16 +40,40 @@ public final class BuilderRecoveryConversationJournal implements BuilderConversa
             if (active == null) {
                 BuilderConversationStore legacy = new BuilderConversationStore(app);
                 try {
-                    return operation.run(legacy);
+                    return operation.run(new StoreView(legacy));
                 } finally {
                     legacy.close();
                 }
             }
-            return BuilderRecoveryOverlayAccess.withActive(app, operation::run);
+            return BuilderRecoveryOverlayAccess.withActive(app,
+                    session -> operation.run(new SessionView(session)));
         });
     }
 
-    private interface JournalOperation<T> {
-        T run(BuilderRecoveryOverlayAccess.Session session);
+    private interface JournalOperation<T> { T run(JournalView journal); }
+
+    private interface JournalView {
+        void append(BuilderConversationProtocol.Turn turn);
+        List<BuilderConversationProtocol.Turn> readThread(String threadId);
+        List<String> listThreadIds();
+        org.json.JSONObject exportSnapshot();
+    }
+
+    private static final class StoreView implements JournalView {
+        private final BuilderConversationStore store;
+        StoreView(BuilderConversationStore store) { this.store = store; }
+        @Override public void append(BuilderConversationProtocol.Turn turn) { store.append(turn); }
+        @Override public List<BuilderConversationProtocol.Turn> readThread(String id) { return store.readThread(id); }
+        @Override public List<String> listThreadIds() { return store.listThreadIds(); }
+        @Override public org.json.JSONObject exportSnapshot() { return store.exportSnapshot(); }
+    }
+
+    private static final class SessionView implements JournalView {
+        private final BuilderRecoveryOverlayAccess.Session session;
+        SessionView(BuilderRecoveryOverlayAccess.Session session) { this.session = session; }
+        @Override public void append(BuilderConversationProtocol.Turn turn) { session.append(turn); }
+        @Override public List<BuilderConversationProtocol.Turn> readThread(String id) { return session.readThread(id); }
+        @Override public List<String> listThreadIds() { return session.listThreadIds(); }
+        @Override public org.json.JSONObject exportSnapshot() { return session.exportConversationSnapshot(); }
     }
 }
