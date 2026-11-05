@@ -28,6 +28,7 @@ Use this checklist as a starting point. Tailor it to the platform, threat model,
 - [ ] Decide which roles need separate installable identities.
 - [ ] If all three are installable, assign and verify three pairwise-distinct Android application IDs.
 - [ ] Give each installable variant a unique, recognizable launcher label.
+- [ ] Record the exact expected package IDs and labels for Production, CI, and Development before building.
 - [ ] Audit merged manifests for duplicate provider authorities, custom permissions, exported component identities, deep links/app links, and other globally registered identifiers.
 - [ ] Check shared/external storage paths, notification channels, scheduled-work identifiers, databases, backup/restore behavior, and any other cross-variant state.
 - [ ] Define signing compatibility for each variant; never use CI/development signing credentials as production credentials.
