@@ -83,8 +83,7 @@ public final class BuilderCorrectionLedger {
         BuilderConversationProtocol.Turn latest = plan;
         String latestStage = "PROPOSED";
         for (BuilderConversationProtocol.Turn prior : context) {
-            if (prior.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
-                    || prior.speaker == BuilderConversationProtocol.Participant.USER) continue;
+            if (prior.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) continue;
             JSONObject priorBody = object(prior.body, "Prior correction update");
             if (correctionId.equals(required(priorBody, "correction_id"))) {
                 latest = prior;
@@ -125,8 +124,7 @@ public final class BuilderCorrectionLedger {
         BuilderConversationProtocol.Turn latest = plan;
         String latestStage = "PROPOSED";
         for (BuilderConversationProtocol.Turn prior : context) {
-            if (prior.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
-                    || prior.speaker == BuilderConversationProtocol.Participant.USER) continue;
+            if (prior.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) continue;
             JSONObject body = object(prior.body, "Correction update");
             if (correctionId.trim().equals(required(body, "correction_id"))) {
                 latest = prior;
@@ -162,13 +160,27 @@ public final class BuilderCorrectionLedger {
     /** Returns the most recent correction ID that is verified and not yet adopted. */
     public static String latestAdoptableCorrection(List<BuilderConversationProtocol.Turn> context) {
         String candidate = null;
+        long candidateTime = 0L;
         for (BuilderConversationProtocol.Turn turn : context) {
-            if (turn.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) continue;
+            if (turn.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
+                    || turn.evidenceStatus != BuilderConversationProtocol.EvidenceStatus.VERIFIED) continue;
             JSONObject body = object(turn.body, "Correction update");
             String id = required(body, "correction_id");
-            String stage = required(body, "stage");
-            if ("VERIFIED".equals(stage)) candidate = id;
-            if ("ADOPTED".equals(stage)) candidate = null;
+            boolean adopted = false;
+            for (BuilderConversationProtocol.Turn later : context) {
+                if (later.timestampEpochMillis <= turn.timestampEpochMillis
+                        || later.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) continue;
+                JSONObject laterBody = object(later.body, "Correction update");
+                if (id.equals(required(laterBody, "correction_id"))
+                        && "ADOPTED".equals(required(laterBody, "stage"))) {
+                    adopted = true;
+                    break;
+                }
+            }
+            if (!adopted && turn.timestampEpochMillis > candidateTime) {
+                candidate = id;
+                candidateTime = turn.timestampEpochMillis;
+            }
         }
         return candidate;
     }
