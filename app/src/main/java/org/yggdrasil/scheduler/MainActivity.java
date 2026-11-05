@@ -301,9 +301,9 @@ public final class MainActivity extends Activity {
                         String secret = token.getText().toString();
                         // Never carry a saved bearer token to a different provider or endpoint.
                         // A blank field preserves credentials only for the same destination.
-                        boolean sameCredentialDestination = current != null
-                                && current.providerId.equals(selectedProviderId)
-                                && current.endpoint.equals(selectedEndpoint);
+                        boolean sameCredentialDestination =
+                                SecureBuilderProviderSettings.canReuseCredential(
+                                        current, selectedProviderId, selectedEndpoint);
                         if (secret.trim().isEmpty() && current != null && current.hasCredential
                                 && sameCredentialDestination) {
                             secret = settings.readToken();
