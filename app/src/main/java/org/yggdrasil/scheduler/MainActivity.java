@@ -52,15 +52,15 @@ public final class MainActivity extends Activity {
         root.addView(text("Yggdrasil Scheduler", 26));
         root.addView(text("Local-first Android host · background checks are periodic, not exact-time guarantees", 14));
         status = text("Persistent task store ready", 14); root.addView(status);
-        root.addView(text("Builder continuity · local demonstration", 20));
-        root.addView(text("Send a note from Mari to Muninn. This records a local handoff; it is not yet a conversational AI.", 13));
+        root.addView(text("Builder Console · first local commands", 20));
+        root.addView(text("Try: “remember that …” or “check memory”. This is a small local command router, not yet a general AI conversation.", 13));
         builderNote = new EditText(this);
-        builderNote.setHint("Write a continuity note for Muninn");
+        builderNote.setHint("Enter an instruction for the Builders");
         builderNote.setMinLines(2);
         builderNote.setMaxLines(4);
         builderNote.setGravity(android.view.Gravity.TOP);
         root.addView(builderNote);
-        root.addView(button("Send note to Muninn", this::sendBuilderNote));
+        root.addView(button("Send instruction", this::sendBuilderNote));
         builderStatus = text("Builder journal ready", 13);
         root.addView(builderStatus);
         root.addView(button("Check Builder journal integrity", this::refreshBuilderStatus));
@@ -73,18 +73,27 @@ public final class MainActivity extends Activity {
         root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setInputData(new androidx.work.Data.Builder().putBoolean("force_check", true).build()).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
     }
     private void sendBuilderNote() {
-        String note = builderNote.getText().toString().trim();
-        if (note.isEmpty()) {
-            Toast.makeText(this, "Write a note first", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            BuilderLocalExchange.Result result = new BuilderLocalExchange(this).recordContinuityHandoff(note);
-            builderNote.setText("");
-            builderStatus.setText("Handoff recorded · " + (result.journalIntegrityVerified ? "journal verified" : "integrity check failed")
-                    + " · event count " + new BuilderEventJournal(this).eventCount());
-        } catch (Exception e) {
-            builderStatus.setText("Handoff failed: " + e.getMessage());
+        String instruction = builderNote.getText().toString().trim();
+        org.yggdrasil.scheduler.builder.BuilderCommandRouter.Command command =
+                new org.yggdrasil.scheduler.builder.BuilderCommandRouter().route(instruction);
+        switch (command.action) {
+            case RECORD_CONTINUITY_NOTE:
+                try {
+                    BuilderLocalExchange.Result result = new BuilderLocalExchange(this).recordContinuityHandoff(command.argument);
+                    builderNote.setText("");
+                    builderStatus.setText("Mari → Muninn · note recorded · "
+                            + (result.journalIntegrityVerified ? "journal verified" : "integrity check failed")
+                            + " · events " + new BuilderEventJournal(this).eventCount());
+                } catch (Exception e) {
+                    builderStatus.setText("Handoff failed: " + e.getMessage());
+                }
+                break;
+            case CHECK_JOURNAL:
+                refreshBuilderStatus();
+                break;
+            default:
+                builderStatus.setText(command.explanation);
+                break;
         }
     }
     private void refreshBuilderStatus() {
