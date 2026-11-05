@@ -53,6 +53,7 @@ public class BuilderRecoveryStartupSelectorTest {
     private void clearRecoveryFiles() {
         context.deleteDatabase("builder-recovery-" + GENERATION + "-conversations.db");
         context.deleteDatabase("builder-recovery-" + GENERATION + "-subjects.db");
+        context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(GENERATION));
         File files = context.getFilesDir();
         new File(files, "builder-recovery-active.json").delete();
         new File(files, "builder-recovery-active.json.tmp").delete();
