@@ -1,6 +1,6 @@
 # Phase A — Elastic Model Contracts and Inventory (Milestone 004)
 
-**Status:** Contract specification drafted and committed; implementation and live model inventory remain pending.
+**Status:** Six contracts specified; nine Builder capability drafts and machine-readable schemas committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
 **Branch:** `independent-builder-runtime-foundation-001`
 **Architecture parent:** Recursive Model Morphogenesis — Milestone 003
 **Authority:** The user remains director and final authority.
