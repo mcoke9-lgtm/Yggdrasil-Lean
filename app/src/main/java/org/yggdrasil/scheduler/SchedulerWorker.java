@@ -33,7 +33,8 @@ public final class SchedulerWorker extends Worker {
                 ZoneId zone = ZoneId.of(task.zone);
                 ZonedDateTime now = ZonedDateTime.now(zone);
                 String today = now.toLocalDate().toString();
-                if (now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate)) continue;
+                String scheduledDays = "," + task.days + ",";
+                if (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate)) continue;
                 checkGithub(task, today);
             } catch (Exception e) {
                 db.record(task.id, 0, "error", safe(e.getMessage()));
