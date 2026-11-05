@@ -110,6 +110,8 @@ def build_evaluation_prompt(execution: dict, contract: dict, fixture: dict, rubr
         f"Capability ID: {execution['capability_id']}\n"
         f"Task fixture ID: {execution['case_id']}\n"
         f"Builder purpose: {contract['purpose']}\n"
+        f"Capability task: {capability['task']}\n"
+        f"Capability test method: {capability['test_method']}\n"
         "Responsibility boundaries:\n"
         + "\n".join(f"- {item}" for item in contract.get("responsibility_boundaries", []))
         + "\n\nTask input:\n"
@@ -173,6 +175,9 @@ def parse_evaluator_output(raw: str) -> dict:
         raise ValueError("Evaluator response was not strict JSON.") from None
     if not isinstance(parsed, dict):
         raise ValueError("Evaluator response must be one JSON object.")
+    expected_keys = {"scores", "hard_failure_detected", "hard_failure_ids", "evidence_quotes", "limitations", "rationale"}
+    if set(parsed) != expected_keys:
+        raise ValueError("Evaluator response must contain exactly the six registered fields.")
     scores = parsed.get("scores")
     if not isinstance(scores, dict) or set(scores) != set(DIMENSION_IDS):
         raise ValueError("Evaluator must score exactly the six registered dimensions.")
@@ -250,6 +255,10 @@ def run(args) -> dict:
     report = load_json(args.execution_report)
     if report.get("candidate_artifact_id") != args.candidate_artifact_id:
         raise ValueError("Candidate artifact ID must match the source execution report.")
+    if report.get("candidate_artifact_id_status") != "operator_supplied_unverified":
+        raise ValueError("Candidate artifact identity must remain explicitly unverified until independently checked.")
+    if report.get("candidate_revision_status") != "operator_supplied_unverified":
+        raise ValueError("Candidate revision must remain explicitly unverified until independently checked.")
     if report.get("candidate_model_id") != args.candidate_model_id:
         raise ValueError("Candidate model ID must match the source execution report.")
     bundle = load_json(BUNDLE_PATH)
