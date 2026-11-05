@@ -26,18 +26,18 @@ The gate fails closed:
 
 ## Android scheduler integration
 
-The Android app's existing project-owned scheduler uses WorkManager and `SchedulerWorker`. The gate is connected at these boundaries:
+The Android app's existing project-owned scheduler uses WorkManager and `SchedulerWorker`. `BuilderActionBoundaries` provides named adapters that are called by the production code and directly exercised by JVM tests:
 
-1. Startup registration of the periodic WorkManager poll is preflighted.
-2. The “Add GitHub Actions monitor” dialog is not offered unless the local scheduler preflight passes.
-3. Saving a monitor repeats the preflight and encloses the actual local database insert inside `execute`; the user pressing Save supplies the authorization for that registration.
-4. Each enabled monitor's GitHub check is enclosed inside `execute` after validating its persisted configuration. The worker is constrained to a connected network and the app declares INTERNET permission. A GitHub request outcome, not the local preflight, establishes whether GitHub actually responded.
+1. Startup registration of the periodic WorkManager poll passes through `installPeriodicPoll`. The app remains not-ready while the WorkManager enqueue Operation is pending. `schedulerReady` becomes true only in the asynchronous completion listener after the Operation succeeds; failure or interruption leaves it false. The listener does not block the UI thread.
+2. The “Add GitHub Actions monitor” dialog is not offered unless `offerMonitorRegistration` passes against a fresh local readiness observation.
+3. Saving a monitor passes through `registerMonitor`; the actual local database insert is inside the guarded action, and the user pressing Save supplies the authorization for that registration.
+4. Each enabled monitor's GitHub request passes through `checkGithubMonitor` after validating its persisted configuration. The worker is constrained to a connected network and the app declares INTERNET permission. A GitHub request outcome, not the local preflight, establishes whether GitHub actually responded.
 
-A blocked/recheck result at monitor execution is recorded in the scheduler activity history and the GitHub request is not attempted.
+A blocked/recheck result at monitor execution is recorded in scheduler activity history and the GitHub request is not attempted. The named adapters are narrow, testable seams around these production action boundaries; they do not constitute a full Android UI/WorkManager instrumentation test.
 
 ## Explicit limitations
 
-- The local readiness observation proves only local app/WorkManager wiring, declared network permission, and the persisted enabled-monitor state. It does **not** prove GitHub reachability, valid repository access, continuous background execution, or notification delivery.
+- The local readiness observation proves only that local app prerequisites are present and, after the asynchronous enqueue callback succeeds, that WorkManager accepted the periodic-work registration. It does **not** prove continuous background execution, GitHub reachability, valid repository access, or notification delivery. The generic gate supports capacity arithmetic, but production Android observations currently provide no live maximum/current/remaining capacity values; no live capacity measurement or executor-selection logic is implemented.
 - GitHub reachability is established only by a real request result. A failure remains a failure; the gate does not retry by switching to ChatGPT scheduled tasks.
 - This code governs actions initiated by this Android application. It cannot intercept ChatGPT's separate host-level `SuggestAutomation` UI or task-creation service. No supported integration point for that host action boundary is present in this repository.
 - The historical ChatGPT task-capacity observation remains a separate, provider-specific record. This implementation neither consumes nor frees ChatGPT task slots.
@@ -45,4 +45,4 @@ A blocked/recheck result at monitor execution is recorded in the scheduler activ
 
 ## Verification
 
-`BuilderActionPreflightTest` covers fresh availability, blocked state, full capacity, stale evidence, unknown capability, unknown/denied authorization, inconsistent capacity, future timestamps, and the key no-invocation guarantee for blocked or stale results. CI and on-device behavior must still be checked against the resulting commit before calling this implementation tested or verified.
+`BuilderActionPreflightTest` covers the pure policy plus the named production adapters for periodic-poll installation, monitor-offer gating, monitor database registration, and GitHub monitor requests. Negative tests assert that blocked, stale, denied, or unknown evidence prevents the wrapped side effect; a positive GitHub-boundary test asserts one invocation after fresh authorization. These are JVM adapter tests, not Android instrumentation or on-device tests. Exact-head CI and on-device behavior must still be checked against the resulting commit before calling this implementation verified.
