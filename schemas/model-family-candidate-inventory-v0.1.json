@@ -189,7 +189,7 @@
           "immutable_revision": "cd0c74c",
           "filename": "LFM3-1.7B-BF16.gguf",
           "format": "GGUF BF16",
-          "displayed_size": "3.47 GB",
+          "displayed_size": "3.46 GB",
           "size_is_approximate": true,
           "artifact_id": "artifact.lfm3_1_7b.bf16_gguf",
           "size_bytes": 3466626336,
