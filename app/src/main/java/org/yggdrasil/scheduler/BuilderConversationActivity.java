@@ -252,6 +252,9 @@ public final class BuilderConversationActivity extends Activity {
             status.setText("No model provider is configured. No message was sent.");
             return;
         }
+        if (difficultSpacesMode != null && difficultSpacesMode.isChecked()) {
+            message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
+        }
         String disclosureKey = config.endpoint + "\n" + config.model;
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
