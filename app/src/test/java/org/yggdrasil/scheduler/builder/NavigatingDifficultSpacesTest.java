@@ -36,6 +36,9 @@ public class NavigatingDifficultSpacesTest {
         assertTrue(guidance.contains("RESPECT_REFUSAL"));
         assertTrue(guidance.contains("Never evade access controls"));
         assertTrue(guidance.contains("smallest useful human intervention"));
+        assertTrue(guidance.contains("HANDOFF addressed to USER"));
+        assertTrue(guidance.contains("one necessary action at a time"));
+        assertTrue(guidance.contains("Never ask the user to paste secrets into chat"));
     }
 
     @Test public void rejectsMissingBarrierDescription() {
