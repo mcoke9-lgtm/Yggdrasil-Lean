@@ -243,6 +243,7 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
   const began = new Promise(resolve => { started = resolve; });
   registerBuilderRunHandler(scheduler, {
     ledger,
+    clock,
     executor: async (role, context) => {
       if (role === "ODIN") {
         started();
