@@ -168,3 +168,12 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 59 unit tests plus the compatible hosted/local HTTP adapter, Android Keystore-backed credential storage, localhost-only cleartext network policy, provider setup UI, and consent-gated conversation/history screen are committed in this branch; CI execution and on-device acceptance testing remain pending. Independent Builder workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
+
+
+## User-triggered peer-correction review
+
+A review is initiated only when the user selects the Review latest improvement incident control in the conversation screen. The control locates the latest IMPROVEMENT_INCIDENT in the active thread, creates a new user-authored review request linked by the incident turn ID, and then uses the ordinary provider disclosure and Send authorization path. The incident and review request remain append-only history; no prior record is edited.
+
+Each selected Builder receives the same review-mode marker and incident context. Role duties are separated: Huginn checks scope and acceptance criteria; Muninn checks history/provenance; Kvasir checks evidence; Mari checks interfaces; Höðr checks implementation/tests; Týr checks authority/security; Loki develops alternatives/recovery; Odin reconciles dependencies; Baldr independently checks the correction against evidence and requirements. The Builder named as the incident author may explain but is explicitly prohibited from certifying its own correction. If Baldr is not selected, the prompt requires the review to report independent verification as missing. Review responses remain model-generated claims until evidence-bearing tests or checks are actually performed; agreement does not equal adoption.
+
+The review is still prompt-guided and runs through the existing single-process coordinator. It is not an independent multi-agent adjudication service, and this feature does not automatically change incident status or adopt a correction.
