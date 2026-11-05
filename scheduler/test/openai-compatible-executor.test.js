@@ -109,6 +109,8 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.match(request.body.messages[0].content, /coordination, orchestration, and integration/);
   const userContext = JSON.parse(request.body.messages[1].content);
   assert.match(userContext.task_prompt, /next safe engineering step/);
+  assert.equal(userContext.operational_limits_snapshot.register_status, "UNAVAILABLE");
+  assert.equal(userContext.operational_limits_snapshot.live_telemetry, false);
   assert.equal(userContext.prior_turns_oldest_first.length, 1);
   assert.equal(h.saved.length, 1);
   assert.equal(h.saved[0].idempotencyKey, "builder:test-run:ODIN");
@@ -152,6 +154,54 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
   assert.match(prompts[8].messages[0].content, /separately invoked final reviewer/);
   const baldrContext = JSON.parse(prompts[8].messages[1].content);
   assert.equal(baldrContext.prior_builder_outcomes.length, 8);
+});
+
+test("passes through a schema-valid operational limits snapshot", async () => {
+  const routes = makeRoutes();
+  const prompt = "task with an evaluated limits register";
+  const snapshot = {
+    schema: "yggdrasil.operational-capacity-register",
+    schema_version: "1.0.0",
+    register_status: "LOADED",
+    constraints: [],
+    runtime_evaluation: {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    }
+  };
+  let userContext;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [],
+          operationalLimitsSnapshot: snapshot,
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "limits-checkpoint" }; }
+    },
+    fetchImpl: async (_url, options) => {
+      userContext = JSON.parse(JSON.parse(options.body).messages[1].content);
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("ODIN", h.context("ODIN"));
+  assert.equal(userContext.operational_limits_snapshot.register_status, "LOADED");
+  assert.equal(userContext.operational_limits_snapshot.runtime_evaluation.live_telemetry, false);
 });
 
 test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
