@@ -151,6 +151,15 @@ public final class BuilderConversationProtocol {
         if (turn.type == TurnType.CORRECTION_UPDATE && turn.speaker != Participant.USER
                 && turn.evidenceStatus == EvidenceStatus.ADOPTED)
             throw new IllegalArgumentException("Only USER may record ADOPTED");
+        if (turn.evidenceStatus == EvidenceStatus.ADOPTED
+                && (turn.type != TurnType.CORRECTION_UPDATE || turn.speaker != Participant.USER))
+            throw new IllegalArgumentException("ADOPTED is reserved for user correction updates");
+        if (turn.type == TurnType.CORRECTION_UPDATE && turn.speaker == Participant.USER
+                && turn.evidenceStatus != EvidenceStatus.ADOPTED)
+            throw new IllegalArgumentException("User correction updates must be ADOPTED records");
+        if (turn.type == TurnType.CORRECTION_PLAN
+                && turn.evidenceStatus != EvidenceStatus.PROPOSED)
+            throw new IllegalArgumentException("Correction plans must begin as PROPOSED");
         if (turn.recipient == turn.speaker)
             throw new IllegalArgumentException("A participant cannot address a turn to itself");
         if (needsReply && turn.replyToTurnId == null)
