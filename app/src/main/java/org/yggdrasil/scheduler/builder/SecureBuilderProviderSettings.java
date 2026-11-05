@@ -152,7 +152,7 @@ public final class SecureBuilderProviderSettings {
                 || uri.getQuery() != null || uri.getPath() == null || uri.getPath().isEmpty())
             throw new IllegalArgumentException("Enter an absolute endpoint URL without credentials, query, or fragment");
         if (!"https".equalsIgnoreCase(scheme) && !isLoopbackHost(host, scheme))
-            throw new IllegalArgumentException("Use HTTPS, or HTTP only for localhost / loopback");
+            throw new IllegalArgumentException("Use HTTPS, or HTTP only for localhost");
         return uri.toString();
     }
 
@@ -162,8 +162,7 @@ public final class SecureBuilderProviderSettings {
     }
 
     private static boolean isLoopbackHost(String host, String scheme) {
-        return "http".equalsIgnoreCase(scheme) && ("localhost".equalsIgnoreCase(host)
-                || "127.0.0.1".equals(host) || "::1".equals(host) || "[::1]".equals(host));
+        return "http".equalsIgnoreCase(scheme) && "localhost".equalsIgnoreCase(host);
     }
 
     private static String requireText(String value, String label) {
