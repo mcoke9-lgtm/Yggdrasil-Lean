@@ -57,7 +57,9 @@ public final class SchedulerWorker extends Worker {
                         });
                 if (!execution.executed) {
                     String detail = "Action preflight " + execution.decision + ": " + execution.reason;
-                    db.record(task.id, 0, "blocked", detail);
+                    db.record(task.id, 0,
+                            execution.decision == BuilderActionPreflight.Decision.BLOCKED
+                                    ? "blocked" : "recheck_required", detail);
                     db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline,
                             detail, task.lastCheckedAt);
                     continue;
