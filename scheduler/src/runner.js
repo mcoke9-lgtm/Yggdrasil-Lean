@@ -48,6 +48,8 @@ async function tick() {
       event: "scheduler_tick_error",
       error: String(error?.message || error)
     }) + "\n");
+  } finally {
+    tickActive = false;
   }
 }
 
