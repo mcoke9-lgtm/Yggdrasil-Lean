@@ -41,6 +41,7 @@ class BlindEvaluatorTests(unittest.TestCase):
             "run_id": "candidate-run-001",
             "candidate_artifact_id": "artifact.candidate",
             "candidate_artifact_id_status": "operator_supplied_unverified",
+            "candidate_artifact_validation_state": "unverified",
             "candidate_model_id": "candidate-model",
             "candidate_revision_status": "operator_supplied_unverified",
             "status": "completed",
