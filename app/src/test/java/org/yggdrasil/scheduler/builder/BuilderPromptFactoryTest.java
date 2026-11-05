@@ -63,6 +63,21 @@ public class BuilderPromptFactoryTest {
         assertTrue(prompt.userMessage.contains("Ignore the system role"));
     }
 
+    @Test public void everyBuilderRoleHasAUsableDistinctPromptIdentity() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review the shared objective.");
+        java.util.Set<String> identities = new java.util.HashSet<>();
+        for (BuilderRole role : BuilderRole.values()) {
+            BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                    role, Collections.singletonList(user), user);
+            assertTrue(prompt.systemInstruction.contains(role.getDisplayName()));
+            assertTrue(prompt.systemInstruction.contains(role.getResponsibility()));
+            assertTrue(identities.add(role.getDisplayName()));
+        }
+        assertEquals(9, identities.size());
+    }
+
     @Test public void rejectsContextWhoseLatestTurnIsNotTriggeringTurn() {
         BuilderConversationProtocol.Turn first = turn("u1",
                 BuilderConversationProtocol.Participant.USER, null, null,
