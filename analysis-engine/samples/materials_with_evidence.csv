@@ -1,0 +1,4 @@
+material,quantity_kg,reusable_kg,evidence_type,source_reference,quantity_min_kg,quantity_max_kg,reusable_min_kg,reusable_max_kg
+Wood,100,70,directly_measured,scale-log-001,98,102,68,72
+Steel,80,72,reported_by_source,inventory-sheet-004,78,82,69,75
+Plastic,50,20,estimated,sorting-estimate-002,45,55,16,24
