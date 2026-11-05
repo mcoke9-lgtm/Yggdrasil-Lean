@@ -30,6 +30,11 @@ class CandidatePreflightTests(unittest.TestCase):
             self.assertFalse(report["downloaded"])
             self.assertIsNone(report["local_sha256"])
 
+    def test_preflight_blocks_download_destination_inside_repository(self):
+        artifact = candidate.load_artifact()
+        with self.assertRaisesRegex(ValueError, "outside the repository"):
+            candidate.preflight(ROOT / "model-weights", artifact)
+
     def test_checksum_reads_exact_local_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = pathlib.Path(temporary) / "weight.bin"
