@@ -59,7 +59,14 @@
             "A component graph, requirement crosswalk, assumptions, and unresolved questions."
           ],
           "test_method": "Compare every stated requirement against a component or explicitly unresolved item; validate graph references.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.hug-arch-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -82,7 +89,14 @@
             "Ordered work packages, dependencies, acceptance gates, and rollback points."
           ],
           "test_method": "Check dependency ordering and confirm every work package traces to a requirement.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.hug-plan-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -105,7 +119,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -128,7 +149,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -151,7 +179,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -174,7 +209,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -245,7 +287,14 @@
             "Chronological event index, artifact digests, source references, and known gaps."
           ],
           "test_method": "Compare checkpoint entries against source journal and digest manifest.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.mun-hist-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -268,7 +317,14 @@
             "Restore plan, target state, integrity report, and preserved source reference."
           ],
           "test_method": "Restore into an isolated target and compare expected state and source immutability.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.mun-rest-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -291,7 +347,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -314,7 +377,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -337,7 +407,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -360,7 +437,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -431,7 +515,14 @@
             "Claim ledger with source references and observed/inferred/unknown status."
           ],
           "test_method": "Independent reviewer traces each claim to its source passage.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.kva-claim-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -454,7 +545,14 @@
             "Structured output plus validation and loss report."
           ],
           "test_method": "Run schema validation and compare required source distinctions against output.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.kva-trans-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -477,7 +575,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -500,7 +605,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -523,7 +635,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -546,7 +665,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -617,7 +743,14 @@
             "Versioned input/output schema, field semantics, and compatibility notes."
           ],
           "test_method": "Validate representative messages against both interfaces.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.mar-api-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -640,7 +773,14 @@
             "Error taxonomy, retry/timeout rules, handoff behavior, and status semantics."
           ],
           "test_method": "Inject each response condition and compare the recorded outcome.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.mar-err-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -663,7 +803,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -686,7 +833,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -709,7 +863,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -732,7 +893,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -803,7 +971,14 @@
             "Source artifact, build instructions, requirement links, and known limitations."
           ],
           "test_method": "Build in a clean environment and run acceptance tests.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.hod-impl-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -826,7 +1001,14 @@
             "Test suite, test data, execution report, and defect list."
           ],
           "test_method": "Run tests and verify they detect seeded representative failures.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.hod-test-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -849,7 +1031,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -872,7 +1061,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -895,7 +1091,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -918,7 +1121,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -989,7 +1199,14 @@
             "Digest/signature results, provenance links, and mismatch report."
           ],
           "test_method": "Recompute digests and validate signature/provenance references.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.tyr-integ-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1012,7 +1229,14 @@
             "Permission decision, policy reference, and smallest required approval request."
           ],
           "test_method": "Test permitted, prohibited, and approval-required cases.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.tyr-auth-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1035,7 +1259,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1058,7 +1289,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1081,7 +1319,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1104,7 +1349,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1175,7 +1427,14 @@
             "Alternatives matrix with assumptions, dependencies, costs, and risks."
           ],
           "test_method": "Reviewer confirms alternatives differ meaningfully and trade-offs are traceable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.lok-alt-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1198,7 +1457,14 @@
             "Fallback plan, preserved capabilities, lost capabilities, and restoration trigger."
           ],
           "test_method": "Simulate the dependency failure and test the fallback path.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.lok-rec-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1221,7 +1487,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1244,7 +1517,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1267,7 +1547,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1290,7 +1577,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1361,7 +1655,14 @@
             "Dependency graph, conflict register, change set, and integrated candidate."
           ],
           "test_method": "Run interface and dependency checks against all supplied contracts.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.odi-int-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1384,7 +1685,14 @@
             "Release manifest, dependency closure, test evidence, rollback plan, and open-risk list."
           ],
           "test_method": "Independent review checks that no required evidence or dependency is omitted.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.odi-rel-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1407,7 +1715,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1430,7 +1745,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1453,7 +1775,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1476,7 +1805,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1547,7 +1883,14 @@
             "Evidence-to-requirement matrix with pass, fail, blocked, and untested states."
           ],
           "test_method": "Repeat or independently inspect the relevant tests and source artifacts.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.bal-ver-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1570,7 +1913,14 @@
             "Claim audit, unsupported-claim list, correction request, and release recommendation."
           ],
           "test_method": "Cross-check claims against raw test results, source artifacts, and provenance.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.bal-claim-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1593,7 +1943,14 @@
             "Evidence-labelled response with explicit unknowns."
           ],
           "test_method": "Use a held-out mixed-evidence set and verify each label against source material.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-evid-01",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1616,7 +1973,14 @@
             "Missing-input list, focused question, or explicit assumption record."
           ],
           "test_method": "Remove one required input from test cases and check whether the Builder detects it.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-ask-02",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1639,7 +2003,14 @@
             "Handoff record with sender, recipient, status, dependencies, and evidence references."
           ],
           "test_method": "Receiving Builder must resume the task without inventing missing state.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-hand-03",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
@@ -1662,7 +2033,14 @@
             "Failure record, recovery proposal, rollback point, and approval requirement if any."
           ],
           "test_method": "Inject a representative failure and verify source state remains recoverable.",
-          "test_case_refs": [],
+          "test_case_refs": [
+            {
+              "ref": "case.shr-rec-04",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
           "minimum_quality": {
             "metric": "task_pass_rate",
             "threshold": 0.9
