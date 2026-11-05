@@ -15,6 +15,7 @@ SUITE_PATH = ROOT / "tests/model-capabilities/phase-a-suite-v0.1.json"
 RUBRIC_PATH = ROOT / "schemas/capability-evaluation-rubric-v0.1.json"
 STUDY_PATH = ROOT / "schemas/model-reduction-study-v0.1.json"
 INVENTORY_PATH = ROOT / "schemas/model-family-candidate-inventory-v0.1.json"
+ARTIFACT_INVENTORY_PATH = ROOT / "schemas/model-artifact-inventory-v0.1.json"
 
 EXPECTED_BUILDERS = {
     "HUGINN", "MUNINN", "KVASIR", "MARI", "HODR",
@@ -50,6 +51,7 @@ def main() -> int:
     rubric = load(RUBRIC_PATH)
     study = load(STUDY_PATH)
     inventory = load(INVENTORY_PATH)
+    artifact_inventory = load(ARTIFACT_INVENTORY_PATH)
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)
@@ -60,6 +62,7 @@ def main() -> int:
     failures += schema_errors(validator, rubric, "evaluation rubric")
     failures += schema_errors(validator, study, "model reduction study")
     failures += schema_errors(validator, inventory, "model family inventory")
+    failures += schema_errors(validator, artifact_inventory, "model artifact inventory")
 
     contracts = bundle.get("contracts", [])
     cases = suite.get("cases", [])
@@ -194,6 +197,22 @@ def main() -> int:
     if not set(evaluation_design.get("proposed_evaluator_model_family_refs", [])).issubset(inventory_ids):
         print("FAIL proposed evaluator families must resolve to the model-family inventory")
         failures += 1
+    artifact_by_id = {artifact.get("artifact_id"): artifact for artifact in artifact_inventory.get("artifacts", [])}
+    if len(artifact_by_id) != 4:
+        print("FAIL exactly four publisher-pinned model weight artifacts are expected in the current inventory")
+        failures += 1
+    for candidate in study.get("source_candidates", []):
+        for artifact_ref in candidate.get("artifact_refs", []):
+            artifact = artifact_by_id.get(artifact_ref)
+            if not artifact or artifact.get("model_family_id") != candidate.get("model_family_ref"):
+                print(f"FAIL unresolved or mismatched model artifact reference: {artifact_ref}")
+                failures += 1
+    if any(artifact.get("validation_state") != "unverified" or artifact.get("license_status") != "unknown" for artifact in artifact_by_id.values()):
+        print("FAIL publisher-reported model digests must remain unverified locally and license status unknown until reviewed")
+        failures += 1
+    if set(artifact_by_id) != {ref for candidate in study.get("source_candidates", []) for ref in candidate.get("artifact_refs", [])}:
+        print("FAIL artifact inventory and study source candidate references must match")
+        failures += 1
     if any(candidate.get("baseline_evaluation_status") != "not_evaluated" or candidate.get("artifact_refs") for candidate in study.get("source_candidates", [])):
         print("FAIL research candidates must not imply registered artifacts or completed baseline evaluation")
         failures += 1
@@ -216,8 +235,8 @@ def main() -> int:
         return 1
 
     print("PASS: Draft 2020-12 schema is valid.")
-    print("PASS: Capability bundle, evaluation suite, rubric, model reduction study, and model-family inventory satisfy the JSON Schema.")
-    print("PASS: Five model families are research candidates only; no artifacts or baseline results are claimed.")
+    print("PASS: Capability bundle, evaluation suite, rubric, model reduction study, model-family inventory, and model-artifact inventory satisfy the JSON Schema.")
+    print("PASS: Five model families are research candidates; four publisher-pinned weight artifacts have source-reported digests but remain locally unverified.")
     print("PASS: Six evaluation dimensions have normalized weights.")
     print("PASS: Nine unique Builder contracts; seven capability tests each.")
     print("PASS: 23 unique fixtures (18 role-specific, five shared).")
