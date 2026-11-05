@@ -1,0 +1,73 @@
+{
+  "schema": "yggdrasil.operational-capacity-register",
+  "schema_version": "1.0.0",
+  "purpose": "Give the Nine Builders a shared, evidence-backed view of current operating constraints and remaining capacity so they adapt plans and outputs before attempting blocked work.",
+  "principles": ["accountability", "transparency", "honesty"],
+  "state_vocabulary": {
+    "available": "Current evidence shows the capability can be used.",
+    "constrained": "Capability exists but a known limit reduces or conditions its use.",
+    "blocked": "A current authoritative response says the action cannot proceed.",
+    "unknown": "No sufficiently current evidence establishes the state.",
+    "stale": "A prior observation exists but is too old or context-dependent to rely on without rechecking."
+  },
+  "rules": [
+    "Check relevant limits before offering or attempting an action, not after repeated failure.",
+    "Distinguish account-plan limits, current usage limits, tool/provider limits, device limits, project policy gates, and temporary outages.",
+    "Record exact maximum capacity, current usage, remaining capacity, scope, source, and observation time when available.",
+    "Do not generalize a context-specific error into a permanent account-wide limit.",
+    "Recheck dynamic limits when the user asks to retry, when usage may have changed, or before relying on stale observations.",
+    "When blocked, stop retry loops; explain the specific constraint once, suppress repeated unavailable offers, and propose a feasible alternative.",
+    "Adapt output to available capacity: prioritize, batch, shorten, defer, use a manual handoff, or split work only when that genuinely avoids the constraint.",
+    "Never imply a workaround removes a provider or account limit.",
+    "Never change plan, spend money, delete tasks, remove data, or alter user settings to free capacity without explicit authorization.",
+    "When the constraint is unknown, say so and make one targeted check or ask one necessary question rather than inventing a limit.",
+    "Keep proposed, observed, verified, user-reported, and unknown states distinct.",
+    "This register is a coordination aid, not live telemetry; connected tools or fresh observations must update current values."
+  ],
+  "builder_responsibilities": {
+    "Huginn": "Hunt for current limit evidence and source references.",
+    "Muninn": "Maintain continuity and compare current state with prior observations.",
+    "Kvasir": "Interpret what a limit means and distinguish similar constraint types.",
+    "Mari": "Translate constraints into clear user-facing language and usable alternatives.",
+    "Hodr": "Challenge unsupported assumptions and identify blind spots.",
+    "Tyr": "Enforce safety, authorization, and no-destructive-workaround gates.",
+    "Loki": "Find legitimate alternatives without disguising or bypassing limits.",
+    "Odin": "Coordinate the overall operating picture and priority decisions.",
+    "Baldr": "Verify the record, timestamp, and claims before reporting."
+  },
+  "constraints": [
+    {
+      "constraint_id": "chatgpt-scheduled-task-capacity-2026-11-05",
+      "capability": "Create scheduled tasks / automations",
+      "scope": "Current ChatGPT account capacity as reported by the task-creation service in this conversation",
+      "state": "blocked",
+      "maximum_capacity": 3,
+      "current_usage": 3,
+      "remaining_capacity": 0,
+      "unit": "active scheduled-task slots",
+      "evidence_source": "Automations create response: plan limit 3, current count 3; creation of 'Review app artifacts weekly' failed due to capacity.",
+      "observed_at": "2026-11-05",
+      "recheck_trigger": "After user frees a task slot, when task state changes, or when user explicitly asks to retry.",
+      "safe_alternative": "Do not retry creation or offer another scheduled task. User can review existing scheduled tasks and free a slot; meanwhile provide a one-time review manually when requested.",
+      "confidence": "verified_service_response",
+      "unknowns": [
+        "Which three scheduled tasks occupy the slots",
+        "Whether the account limit or usage has since changed"
+      ],
+      "actions_not_authorized": ["Delete or pause an existing task", "Change plan or billing"]
+    }
+  ],
+  "output_adaptation": {
+    "when_blocked": "State the specific blocked capability and observed capacity; do not repeat the same offer or retry loop.",
+    "when_constrained": "Deliver the highest-value feasible subset and state what was deferred.",
+    "when_unknown": "Avoid false certainty; make a targeted check if available or ask one concise question.",
+    "when_stale": "Refresh the evidence before acting if the constraint materially affects the requested action.",
+    "alternatives": "Offer only alternatives that are genuinely feasible under the known constraints."
+  },
+  "audit": {
+    "created_on": "2026-11-05",
+    "last_updated_on": "2026-11-05",
+    "status": "copied_from_shared_operational_limits_register",
+    "note": "Snapshot copied into the Android runtime. It does not query live ChatGPT account capacity."
+  }
+}
