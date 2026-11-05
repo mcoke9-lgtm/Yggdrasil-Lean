@@ -276,4 +276,35 @@ public class BuilderConversationCoordinatorTest {
         BuilderConversationProtocol.validateThread(saved);
     }
 
+
+    @Test public void improvementIncidentStopsRoundAndPersistsOpenRecord() {
+        BuilderConversationStore journal = openStore();
+        String incident = "{\\"incident_summary\\":\\"A Builder overlooked an adopted alternative.\\","
+                + "\\"observed_behavior\\":\\"Recommended freeing a ChatGPT task slot.\\","
+                + "\\"expected_behavior\\":\\"Check the independent scheduler first.\\","
+                + "\\"evidence\\":\\"Project record identifies an independent scheduler.\\","
+                + "\\"unknowns\\":\\"Deployment and GitHub access are unverified.\\","
+                + "\\"suspected_causes\\":\\"Context delivery or reasoning failure.\\","
+                + "\\"proposed_next_step\\":\\"Peer-review the operational context path.\\","
+                + "\\"status\\":\\"OPEN_DIAGNOSIS\\"}";
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> new BuilderConversationCoordinator.Reply(
+                        incident, BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                        BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT,
+                        BuilderConversationProtocol.Participant.USER, userTurn.turnId));
+
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "incident-round", "Review the scheduler recommendation.",
+                Arrays.asList(BuilderRole.KVASIR, BuilderRole.BALDR));
+
+        assertTrue(result.interrupted);
+        assertEquals(BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, result.interruptionType);
+        assertEquals(Collections.singletonList(BuilderRole.BALDR), result.notRunRoles);
+        List<BuilderConversationProtocol.Turn> saved = journal.readThread("incident-round");
+        assertEquals(2, saved.size());
+        assertEquals("OPEN_DIAGNOSIS", new org.json.JSONObject(saved.get(1).body).getString("status"));
+        BuilderConversationProtocol.validateThread(saved);
+    }
+
 }
