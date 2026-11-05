@@ -77,6 +77,26 @@ public class BuilderProviderRoutingTest {
     }
 
 
+    @Test public void provenanceSanitizesCarriageReturnAndLineFeedWithoutChangingOtherLetters() throws Exception {
+        FakeProvider provider = new FakeProvider("ven\\ndor");
+        provider.reportedModel = "infer\\rence";
+        BuilderProviderRegistry registry = new BuilderProviderRegistry(
+                Collections.<BuilderModelProvider>singletonList(provider));
+        Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
+        routes.put(BuilderRole.HUGINN, "ven\\ndor");
+        BuilderModelResponder responder = new BuilderModelResponder(
+                new BuilderProviderRouter(registry, routes), 2048);
+        BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "provenance-sanitize", "turn-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 1L, "Review this.");
+        BuilderConversationCoordinator.Reply reply = responder.respond(
+                BuilderRole.HUGINN, Collections.singletonList(user), user);
+        assertTrue(reply.body.startsWith(
+                "[MODEL_PROVENANCE role=HUGINN provider=ven_dor reported_model=infer_ence]"));
+    }
+
     @Test public void laterBuilderReceivesAccumulatedPeerContext() throws Exception {
         FakeProvider provider = new FakeProvider("local-model");
         BuilderProviderRegistry registry = new BuilderProviderRegistry(
