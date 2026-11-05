@@ -528,7 +528,8 @@ public final class BuilderConversationActivity extends Activity {
         }
 
         String notice = "Your message and the saved conversation history for this thread, together "
-                + "with each selected Builder's role instructions, will be sent to these configured routes:\n\n"
+                + "with each selected Builder's role instructions and the shared timestamped operational-limits snapshot, "
+                + "will be sent to these configured routes:\n\n"
                 + routeNotice
                 + "Each listed provider may process or retain submitted content under its own terms. "
                 + "Do not include passwords, API keys, or information you do not want sent to these providers. "
