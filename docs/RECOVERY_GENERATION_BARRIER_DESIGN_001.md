@@ -1,6 +1,6 @@
 # Recovery Generation Barrier Design — 001
 
-Status: proposed design; not implemented; not wired to startup.
+Status: primitive implemented and Robolectric-tested; not integrated into generation-sensitive entry points; not wired to startup.
 
 ## Purpose
 
@@ -85,6 +85,12 @@ All code paths must use this ordering. No code may acquire the process lock whil
 10. Existing baseline record-array digests remain unchanged through all overlay writes and exports.
 
 Robolectric tests may validate ordering and fault injection but do not prove cross-process file-lock behavior. At least one Android instrumentation test using two real processes is required before any startup wiring.
+
+## Implementation checkpoint
+
+Added `BuilderRecoveryGenerationBarrier` as an isolated primitive. It uses a static process-wide `ReentrantLock`, a permanent app-private lock file, and an exclusive `FileChannel.lock()`. Same-thread nested calls reuse the existing OS lock to avoid overlapping-lock exceptions. Interrupted acquisition restores the interrupt flag and fails closed. Operation exceptions do not skip lock release. The lock file is never deleted or replaced by this class.
+
+The focused Robolectric suite covers lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. These tests do not prove cross-process semantics. The primitive has no production callers yet; the activation methods and overlay operations remain unguarded until all entry points can be migrated together.
 
 ## Explicit non-actions
 
