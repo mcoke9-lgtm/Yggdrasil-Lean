@@ -71,6 +71,7 @@ public final class MainActivity extends Activity {
         for (String packageName : TARGETS) {
             TextView card = new TextView(this);
             card.setTextSize(14);
+            card.setTextIsSelectable(true);
             card.setPadding(0, dp(12), 0, dp(16));
             card.setText(inspect(packageName));
             results.addView(card);
