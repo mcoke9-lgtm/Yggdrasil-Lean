@@ -116,3 +116,11 @@ The user is experiencing repeated “context window full” notices and has to s
 - Run is in progress. Both `android-build` and `key-steward-build` are executing their Gradle test/build steps.
 - Offline manifest/source boundary check completed successfully.
 - No Key Steward artifact is available yet. No installation or key generation has occurred.
+
+
+### Builder Key Steward CI and APK artifact — 2026-11-05
+
+- Key Steward CI run `42054633700` completed successfully on source commit `f285fb984049a7fd88c3939da07c7012390255dd`. Both Android Builder Host tests/build and Key Steward tests/build passed; offline-boundary checks passed.
+- Standalone Key Steward APK artifact `13429485693` was downloaded and extracted. APK SHA-256: `7cafe494514f89a13e89c8d79b65a4ab3b6753ac9aca8eb840e1c9618a15a813`. It is a separate app (`org.yggdrasil.keysteward`), not an update to Builder Host or Scheduler.
+- Persistent signing secrets remain unconfigured, so Builder Host APK upload was skipped. No signing key was generated, no secrets configured, and no phone changes/install occurred.
+- Next gate: user installs only the separate Key Steward app and tests on the Galaxy S21+ Android 15. Verify generation, export, reload, wrong-password rejection and certificate fingerprint before using it for any Builder Host signing/migration. Do not uninstall or replace existing apps.
