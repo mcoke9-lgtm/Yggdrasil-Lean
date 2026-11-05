@@ -21,9 +21,9 @@ Not every app needs all three installed on a device. CI may run only in a hosted
 - Production/reserved application ID: `org.yggdrasil.keysteward`, launcher label **Builder Key Steward**.
 - CI application ID: `org.yggdrasil.keysteward.ci`, launcher label **Builder Key Steward CI**.
 - The CI build uses a disposable PKCS#12 identity for signing tests. It is not a production key.
-- A separate Development variant is a future option, not yet implemented or approved as a repository change.
+- Development application ID: `org.yggdrasil.keysteward.dev`, launcher label **Builder Key Steward Development**. Its Gradle build type and manifest overlay have now been added; CI validation is pending.
 - The CI package is intended to coexist with the existing production installation. It must not update, migrate, or replace it.
-- The current implementation proves only a Production-reserved/CI pair at the source-configuration level. It does not yet prove a three-install arrangement because Development does not exist and pairwise device acceptance has not been completed.
+- The source configuration now defines three distinct identities: Production/reserved (`org.yggdrasil.keysteward`), CI (`org.yggdrasil.keysteward.ci`), and Development (`org.yggdrasil.keysteward.dev`). CI is being extended to build and inspect both non-production APKs. Three-way device coexistence remains unverified until all three are installed and tested together.
 
 ## 2. Six design rules
 
@@ -96,8 +96,8 @@ The current Builder Key Steward work demonstrates several parts of this pattern:
 - The user reported successful installation of the CI app and successful disposable-keystore creation, save, close, and reopen. These are user-confirmed observations, not independent device telemetry.
 - The user reported that the two app installations were difficult to distinguish and that the export process was unclear. The CI launcher label addresses the first issue. The export flow still requires clearer user-facing explanation and physical cancellation/clipboard acceptance.
 - Export-cancellation and clipboard-clear rehearsals remain pending. Two independently retained encrypted backups, production-key creation, formal security review, and production migration remain not done and gated.
-- The separate Development implementation is a possible future role; it has not been created by this document.
-- Three-way installation conflict testing is **not done**. Only the CI identity is currently configured as a distinct installable variant; the Development variant is absent. Do not interpret successful CI installation alongside Production as proof of a three-install arrangement.
+- A separate Development build type and manifest label have been added. Its successful build, artifact identity, and physical coexistence with Production and CI remain pending evidence.
+- Three-way installation conflict testing is **not done**. CI and Development have distinct configured package identities; the updated workflow must pass artifact inspection, and all three variants must then pass physical install-order, coexistence, update, data-isolation, and independent-uninstall tests. Do not interpret source configuration or CI success as proof of device coexistence.
 
 This case study supports the value of identity separation and automated build validation. It does not yet establish that the full pattern is proven or sufficient for other applications.
 
