@@ -1,6 +1,6 @@
 {
   "name": "nine-builders-analysis-engine",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Portable, dependency-free CSV/JSON analysis core with reproducible verification",
   "type": "module",
