@@ -348,14 +348,15 @@ The later lifecycle manager must enforce these invariants:
 
 ### Machine-readable contracts
 
-Five versioned JSON artifacts now accompany this specification:
+Six versioned JSON artifacts now accompany this specification:
 - `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
 - `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (63 required capability tests total).
 - `schemas/model-reduction-study-v0.1.json` — a planned study for selecting, evaluating, and packaging a compact model; no candidate model has been selected or tested.
+- `schemas/model-family-candidate-inventory-v0.1.json` — five research-stage model families with source references and explicit unverified artifact/license/runtime details.
 
-All five machine-readable artifacts were fetched back from the repository and structurally checked: they parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
+All six machine-readable artifacts were fetched back from the repository and structurally checked: they parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
-A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All five machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
+A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All six machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
 **Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
 
@@ -379,7 +380,7 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 ### Compact-model candidate research
 
-`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study still has zero registered source candidates.
+`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study now records five research-stage source candidates, none with registered exact artifacts or baseline evaluation.
 
 ### Compact model reduction study
 
