@@ -42,6 +42,13 @@ public final class SecureBuilderProviderSettings {
         }
     }
 
+    /** True only when a saved bearer token is staying with its original provider endpoint. */
+    public static boolean canReuseCredential(Configuration current, String providerId, String endpoint) {
+        if (current == null || providerId == null || endpoint == null) return false;
+        return current.providerId.equals(providerId.trim())
+                && current.endpoint.equals(endpoint.trim());
+    }
+
     public SecureBuilderProviderSettings(Context context) {
         if (context == null) throw new IllegalArgumentException("Context is required");
         preferences = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
