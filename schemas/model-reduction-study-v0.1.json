@@ -197,5 +197,15 @@
     "required_compute_profile_id": null,
     "reconstruction_claim": "not_selected",
     "student_weights_alone_sufficient": false
+  },
+  "selection_policy": {
+    "smallest_resource_footprint_among_passing_candidates": true,
+    "parameter_count_alone_is_sufficient": false,
+    "single_model_preferred_when_all_mandatory_gates_pass": true,
+    "model_combination_allowed": true,
+    "role_identity_and_memory_are_external_to_weights": true,
+    "dynamic_model_assignment_by_task_allowed": true,
+    "degraded_tier_must_name_lost_capabilities": true,
+    "no_acceptance_when_mandatory_gates_fail": true
   }
 }
