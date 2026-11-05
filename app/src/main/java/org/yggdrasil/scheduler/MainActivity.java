@@ -315,7 +315,8 @@ public final class MainActivity extends Activity {
         }
         dialog.show();
     }
-\n    private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
+
+    private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,8,24,8);
         EditText repo = field(form,"GitHub repository: owner/name"); EditText branch = field(form,"Branch name"); EditText workflow = field(form,"Exact workflow name"); EditText name = field(form,"Monitor name");
