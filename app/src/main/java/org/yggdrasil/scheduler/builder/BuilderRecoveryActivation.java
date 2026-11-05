@@ -1,7 +1,6 @@
 package org.yggdrasil.scheduler.builder;
 
 import android.content.Context;
-import android.system.Os;
 import android.system.OsConstants;
 import org.json.JSONObject;
 import java.io.File;
@@ -265,7 +264,7 @@ public final class BuilderRecoveryActivation {
         // A leftover temp is never authoritative; it is safe to discard before retry.
         if (temp.exists() && !temp.delete()) throw new IllegalStateException("Cannot clear stale generation temp file");
         writeSynced(temp, value);
-        Os.rename(temp.getAbsolutePath(), target.getAbsolutePath());
+        renameAtomically(temp, target);
         syncDirectory(target.getParentFile());
     }
 
@@ -275,6 +274,13 @@ public final class BuilderRecoveryActivation {
         // POSIX rename within one directory atomically replaces the old pointer.
         Os.rename(temp.getAbsolutePath(), target.getAbsolutePath());
         syncDirectory(target.getParentFile());
+    }
+
+    private static void renameAtomically(File source, File target) throws java.io.IOException {
+        // Both files are siblings on the same filesystem. Android's File.renameTo
+        // delegates to the platform rename operation and preserves atomic visibility.
+        if (!source.renameTo(target))
+            throw new java.io.IOException("Atomic rename failed: " + source.getName());
     }
 
     private static void writeSynced(File file, String value) throws Exception {
