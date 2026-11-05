@@ -24,3 +24,5 @@ Muninn retains the primary responsibility for memory, continuity, provenance, an
 ## Verification boundary
 
 Automated tests verify snapshot metadata/digest persistence, unavailable-snapshot recording, and role-specific pirate instructions. CI results are required before describing the changes as tested. This work does not install or modify an Android device, configure a provider, transmit data, or merge a pull request.
+
+A provenance event is recorded once per submission attempt, before model dispatch. It remains useful even if a provider call subsequently fails; the event records the selected roles, not a claim that every selected role completed successfully. Completion/failure remains visible in the conversation result and turn journal.
