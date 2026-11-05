@@ -18,6 +18,7 @@ public class BuilderProviderRoutingTest {
     private static final class FakeProvider implements BuilderModelProvider {
         final String id;
         Request lastRequest;
+        String reportedModel = "fake-model";
         FakeProvider(String id) { this.id = id; }
         @Override public String providerId() { return id; }
         @Override public Completion complete(Request request) {
@@ -26,7 +27,7 @@ public class BuilderProviderRoutingTest {
             assertNotNull(request.userMessage);
             return new Completion("{\"body\":\"A bounded finding.\","
                     + "\"turn_type\":\"RESPONSE\",\"recipient\":\"USER\","
-                    + "\"reply_to_turn_id\":null,\"evidence_status\":\"PROPOSED\"}", "fake-model");
+                    + "\"reply_to_turn_id\":null,\"evidence_status\":\"PROPOSED\"}", reportedModel);
         }
     }
 
@@ -55,11 +56,12 @@ public class BuilderProviderRoutingTest {
     }
 
     @Test public void modelResponderUsesProviderAndStrictParser() throws Exception {
-        FakeProvider provider = new FakeProvider("local-model");
+        FakeProvider provider = new FakeProvider("vendor");
+        provider.reportedModel = "inference";
         BuilderProviderRegistry registry = new BuilderProviderRegistry(
                 Collections.<BuilderModelProvider>singletonList(provider));
         Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
-        routes.put(BuilderRole.HUGINN, "local-model");
+        routes.put(BuilderRole.HUGINN, "vendor");
         BuilderModelResponder responder = new BuilderModelResponder(
                 new BuilderProviderRouter(registry, routes), 2048);
         BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
@@ -70,7 +72,7 @@ public class BuilderProviderRoutingTest {
         BuilderConversationCoordinator.Reply reply = responder.respond(
                 BuilderRole.HUGINN, Collections.singletonList(user), user);
         assertTrue(reply.body.contains("A bounded finding."));
-        assertTrue(reply.body.startsWith("[MODEL_PROVENANCE role=HUGINN provider=local-model reported_model=fake-model]"));
+        assertTrue(reply.body.startsWith("[MODEL_PROVENANCE role=HUGINN provider=vendor reported_model=inference]"));
         assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, reply.type);
     }
 
