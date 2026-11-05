@@ -74,7 +74,7 @@ class PhaseARunnerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     runner.validate_endpoint(endpoint)
 
-    @patch("run_phase_a_model_evaluation.urllib.request.urlopen")
+    @patch("run_phase_a_model_evaluation.open_without_redirect")
     def test_openai_compatible_response_is_parsed_and_usage_is_retained(self, mock_urlopen):
         mock_urlopen.return_value = FakeResponse({
             "choices": [{"message": {"content": "Evidence: observed; unknown: none."}}],
