@@ -3,6 +3,11 @@ plugins { id 'com.android.application' }
 android {
     namespace 'org.yggdrasil.keysteward'
     compileSdk 35
+    packaging {
+        resources {
+            excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
+        }
+    }
     defaultConfig {
         applicationId 'org.yggdrasil.keysteward'
         minSdk 26
