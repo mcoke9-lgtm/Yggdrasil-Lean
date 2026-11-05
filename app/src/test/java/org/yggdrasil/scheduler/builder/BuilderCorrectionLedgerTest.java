@@ -56,7 +56,17 @@ public class BuilderCorrectionLedgerTest {
         body.put("incident_turn_id", "incident-1");
         body.put("stage", stage);
         body.put("evidence", "Evidence for the " + stage + " milestone is attached to the referenced artifact.");
-        body.put("artifact_reference", "commit-or-run-reference-" + stage.toLowerCase());
+        String sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        String artifact;
+        if ("IMPLEMENTED".equals(stage)) {
+            artifact = "github+commit://github.com/acme/project/" + sha
+                    + "?branch=builder-improvement-runtime-001";
+        } else {
+            String runId = "TESTED".equals(stage) ? "12345" : "12346";
+            artifact = "github+actions://github.com/acme/project/runs/" + runId
+                    + "?workflow=android-unit-tests&sha=" + sha;
+        }
+        body.put("artifact_reference", artifact);
         body.put("acceptance_criteria_result", "Acceptance criteria review for " + stage + " is recorded.");
         body.put("unresolved", "Scheduler live deployment remains a separately tracked constraint.");
         return body.toString();
@@ -183,6 +193,20 @@ public class BuilderCorrectionLedgerTest {
                 BuilderConversationProtocol.EvidenceStatus.ADOPTED, 400, body.toString());
         assertThrows(IllegalArgumentException.class, () -> journal.append(forged));
         assertEquals(3, journal.readThread("correction-thread").size());
+    }
+
+    @Test public void rejectsUnstructuredArtifactReference() throws Exception {
+        BuilderConversationStore journal = openStore();
+        seedIncident(journal);
+        seedPlan(journal);
+        JSONObject body = new JSONObject(updateBody("IMPLEMENTED"));
+        body.put("artifact_reference", "some-commit-sha-written-as-text");
+        BuilderConversationProtocol.Turn invalid = turn("implemented-invalid",
+                BuilderConversationProtocol.Participant.HODR, BuilderConversationProtocol.Participant.USER,
+                "plan-1", BuilderConversationProtocol.TurnType.CORRECTION_UPDATE,
+                BuilderConversationProtocol.EvidenceStatus.IMPLEMENTED, 400, body.toString());
+        assertThrows(IllegalArgumentException.class, () ->
+                BuilderCorrectionLedger.validateUpdate(invalid, journal.readThread("correction-thread")));
     }
 
     @Test public void refusesAdoptionBeforeVerifiedMilestone() throws Exception {
