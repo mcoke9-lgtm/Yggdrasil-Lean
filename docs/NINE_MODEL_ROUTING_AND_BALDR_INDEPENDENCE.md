@@ -13,12 +13,12 @@ Replace the previous one-provider-for-nine-roles wiring with explicit per-role m
 - Configure routes in the Nine Builder Conversation screen using **Configure role-specific model routes**.
 - Each role route stores provider ID, endpoint, model ID, and an encrypted token. Blank token retains that role's existing credential only when provider ID and endpoint remain unchanged.
 - HTTPS is required for hosted endpoints. HTTP is allowed only for localhost. Saving a route does not contact the endpoint.
-- Before a model request, the app requires a route for every selected role and displays all selected provider IDs, model IDs, and endpoints in the data-sharing approval notice.
+- Before a model request, the app requires a route for every selected role, rejects duplicate model IDs among selected roles, and displays all selected provider IDs, model IDs, and endpoints in the data-sharing approval notice.
 - Approval is bound to the selected role/provider/endpoint/model set. A changed route requires a new approval.
 
 ## Baldr guard
 
-An explicit improvement review requires Baldr to be selected and configured. Baldr's endpoint **and** model ID must both differ from every configured non-Baldr role. The check rejects a missing Baldr route, a shared endpoint, or a shared model ID.
+An explicit improvement review requires Baldr to be selected and configured. Baldr's endpoint **and** model ID must both differ from every configured non-Baldr role. Model IDs must also be unique across all selected roles. The check rejects a missing Baldr route, a shared endpoint, or a shared model ID.
 
 This is a minimum configuration separation check, not proof of independent ownership, model lineage, weights, infrastructure, training data, or governance. Provider IDs and model IDs are user-entered labels; the remote provider's claims are not cryptographically attested. A Baldr reply must not be described as independently verified solely because this guard passes.
 
