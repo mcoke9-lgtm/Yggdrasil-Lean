@@ -207,7 +207,7 @@
     "created_on": "2026-11-05",
     "created_from": "conversation context and repository source inspection",
     "last_device_inventory": null,
-    "notes": "Registry expanded with explicit package visibility scope, install-gate rules, Scheduler package identity verified from its prototype build configuration, and an unresolved user-reported diagnostic installation conflict. No device inventory has yet been collected.",
+    "notes": "Registry expanded with explicit package visibility scope, install-gate rules, Scheduler package identity verified from its prototype build configuration, and an unresolved user-reported diagnostic installation conflict. No device inventory has yet been collected. Added a canonical artifact/download/installation history ledger with evidence-state distinctions and cross-chat incident correlation.",
     "last_updated_on": "2026-11-05"
   },
   "device_inventory_scope": [
@@ -228,6 +228,23 @@
       "existing_signer_sha256": null,
       "resolution": "Do not uninstall or replace anything. Inspect registered package IDs and signer identities first.",
       "observed_at": "2026-11-05T11:04:00-05:00"
+    },
+    {
+      "event_id": "install-conflict-2026-11-05-followup-unassigned",
+      "app_id": null,
+      "candidate_app_ids": [
+        "registry-dashboard",
+        "installed-signer-diagnostic"
+      ],
+      "device_id": "galaxy-s21-plus-primary",
+      "event": "user_reported_installation_conflict",
+      "status": "unresolved_identity",
+      "evidence": "User reported another installation conflict after the Registry Dashboard report-handoff APK had been offered. The user has not yet identified which APK was attempted or provided the exact Android message. The dashboard is a candidate based on sequence only; the diagnostic app remains a separate earlier incident.",
+      "artifact_id": null,
+      "exact_android_message": null,
+      "resolution": "Do not infer the app or cause. Ask one targeted question to identify the attempted app/artifact and capture the exact Android message. Do not uninstall, replace, or clear app data.",
+      "observed_at": "2026-11-05T11:28:00-05:00"
     }
-  ]
+  ],
+  "artifact_history_file": "app-registry/artifact-history.json"
 }
