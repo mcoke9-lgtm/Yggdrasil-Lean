@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:allowBackup="false" android:label="Yggdrasil Scheduler" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
+    <application android:allowBackup="false" android:label="Yggdrasil Builder Host" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
