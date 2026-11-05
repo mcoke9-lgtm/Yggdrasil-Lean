@@ -1,10 +1,10 @@
 import { resolve } from "node:path";
 import { JsonFileStore } from "./store.js";
 import { Scheduler } from "./scheduler.js";
+import { acquireProcessLock } from "./process-lock.js";
 
-const scheduler = new Scheduler({
-  store: new JsonFileStore(resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.json"))
-});
+const stateFile = resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.json");
+const scheduler = new Scheduler({ store: new JsonFileStore(stateFile) });
 const [command, ...args] = process.argv.slice(2);
 
 function usage() {
@@ -21,6 +21,7 @@ function usage() {
   ].join("\n"));
 }
 
+const releaseLock = await acquireProcessLock(stateFile + ".lock");
 try {
   if (command === "list") {
     process.stdout.write(JSON.stringify(await scheduler.listTasks(), null, 2) + "\n");
@@ -67,4 +68,6 @@ try {
 } catch (error) {
   process.stderr.write(`Scheduler command failed: ${error.message}\n`);
   process.exitCode = 1;
+} finally {
+  await releaseLock();
 }
