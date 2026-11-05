@@ -1,0 +1,13 @@
+{
+  "name": "nine-builders-independent-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free persistent scheduler core with bounded registered handlers",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
