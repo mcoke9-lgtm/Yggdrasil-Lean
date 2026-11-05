@@ -1,55 +1,54 @@
-# Android Builder Runtime — Continuity and Command Checkpoint
+# Android Builder Runtime — Phone-First Checkpoint
 
 **Branch:** `independent-builder-runtime-foundation-001`
-**Current source commit:** `53523547721ddf357b9c07862cede310fa06e28b`
-**Device target:** Samsung Galaxy S21 / Android 15 (user-reported). No APK has yet been installed from this branch on the physical phone.
+**Current source commit:** `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9`
+**Android application ID:** `org.yggdrasil.builderhost`
+**Display name:** Yggdrasil Builder Host
+**Device target:** Samsung Galaxy S21 / Android 15 (user-reported). No new APK has yet been installed on the physical phone.
 
 ## Implemented
 
 - Nine stable Builder role identifiers and immutable registry.
-- Versioned transport-neutral message envelope.
-- Separate SQLite continuity journal, independent of the scheduler database.
-- Unique event IDs, append-only events, SHA-256 linked hash chain, chain verification and transactional idempotent message receipts.
+- Versioned, transport-neutral Builder message envelope.
+- Separate SQLite continuity journal, independent of scheduler database.
+- Unique event IDs, append-only events, SHA-256 linked hash chain and full-chain verification.
+- Transactional idempotent message receipts.
 - Versioned JSON snapshot export and validated restore.
-- Restore validates format/version, event sequence, event identity, duplicate IDs, every hash link, and processed-message references before transactional replacement.
-- Android document-picker export to a user-selected JSON file.
-- Android document-picker import with 10 MB input cap, format preview, explicit user confirmation before replacing local memory, and full validation before mutation.
-- First local Mari-to-Muninn handoff.
-- Robolectric tests for snapshot round-trip, duplicate receipt protection, tampered snapshot rejection without mutation, and unsupported snapshot version rejection.
-- Deterministic Builder command router for the currently implemented local capabilities:
-  - “remember that …” / “record note …” / “save note …” / “tell Muninn …”
-  - “check memory” / “verify memory” / “memory status”
-  - unsupported instructions are explicitly declined rather than falsely reported as completed.
-- Android console UI wired to that limited router.
+- Restore checks format/version, event ordering, event IDs, hash links, duplicate IDs and receipt references before transactionally replacing local records.
+- Android document-picker export to user-selected JSON file.
+- Android document-picker import with 10 MB input limit, preview and explicit confirmation before replacement; invalid snapshots are rejected without replacing existing records.
+- Robolectric recovery tests: snapshot round-trip, duplicate receipt protection, tamper rejection without mutation, unsupported version rejection.
+- Deterministic local command router:
+  - “remember that …”, “record note …”, “save note …”, “tell Muninn …”
+  - “check memory”, “verify memory”, “memory status”
+  - unsupported requests are identified rather than falsely reported as completed.
+- Android Builder Console connected to this router.
+- Pending snapshot export survives Android activity recreation while the document picker is open.
+- Independent runtime now has a distinct Android application ID and display name, so it can be installed alongside the existing scheduler app without replacing it or sharing its private app data.
 
-## Verified
+## Verified and pending
 
-- Android CI passed at commit `071e7c7a0572fa54ccb3125d5c484ee95da25807`. The unit-test and Android compile step passed; debug APK upload passed.
-  - Run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002389771
-  - Artifact: `yggdrasil-builder-runtime-debug-apk`, ID `13403131759`, approximately 2.37 MB, retained for 14 days from creation.
-  - This run includes the Robolectric recovery tests and document-picker export/import implementation.
-- The command-router unit tests and Android UI integration are committed after that verified build. Latest Android CI run for current source: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002603400 (pending at checkpoint update).
-- No physical device installation or on-device test has occurred.
+- Android CI passed at commit `53523547721ddf357b9c07862cede310fa06e28b`, including unit tests, Android compilation and APK upload:
+  https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002603400
+- The source at commit `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9` includes the lifecycle preservation and separate app identity. Its Android CI run is pending:
+  https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42003024625
+- The command router and its tests passed in the Android CI run at commit `24fa009c7029e7247fcccb2812f0ceac866b6b6d`; the subsequent Android console integration passed at `5352354`.
+- No physical phone installation or on-device test has occurred.
 
-## Boundaries
+## Scope boundaries
 
-The command router is deterministic and intentionally limited; it is not a general language model. The local Mari-to-Muninn handoff runs inside one app process; it is not nine independent agents. No arbitrary app control, external messaging, purchasing, destructive operations, local inference, offline speech, or timed background Builder execution is claimed.
+The command router is deterministic and intentionally limited. It is not yet a general conversational model. The Mari-to-Muninn exchange is a local demonstration inside one app process, not nine independent agents. No arbitrary app control, external messaging, purchasing, destructive operations, local inference, offline speech or timed background Builder execution is claimed.
 
-The SHA-256 chain is tamper-evident, not authenticated against an attacker who can rewrite the entire database. Snapshot JSON is not encrypted; encrypted backup and key management remain future work.
+The journal hash chain is tamper-evident, not cryptographic authentication against an attacker able to rewrite the database. Snapshot JSON is not encrypted; encrypted backup and key management remain future work.
 
 ## Next gates
 
-1. Verify CI for the command-router UI integration.
-2. Install the latest verified APK on the Galaxy S21 and test:
-   - launch and basic UI;
-   - “remember that …” writes a note;
-   - “check memory” verifies the journal;
-   - export to a user-selected file;
-   - clear app data only after a separate backup decision, then import into a clean journal (or use a safe test database);
-   - tampered file is rejected without replacing existing records.
-3. Build the next conversational layer only after phone tests, with capability permissions and clear unsupported-action responses.
-4. Benchmark local inference, battery, heat, memory and offline behavior on the actual phone before choosing a model or voice stack.
+1. Complete CI for the separate application identity and final phone-ready source.
+2. Obtain the latest debug APK artifact and verify its package identity.
+3. Install alongside (not over) the existing scheduler app on the Galaxy S21.
+4. Test command routing, journal verification, export, import, cancellation and tampered-file rejection.
+5. Only after physical tests, benchmark local inference, thermal/battery/memory limits and offline voice.
 
-## Integrity
+## Integrity check
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; scheduler and continuity data separate; nine roles registered; import replacement requires confirmation and validated snapshot; CI and physical-device states distinguished.
+One active independent runtime branch; protected `main` and scheduler branch untouched; new app ID prevents package collision with the earlier scheduler app; scheduler and Builder databases separate; nine role identities; import requires confirmation and validation; automated CI is not confused with physical-device verification.
