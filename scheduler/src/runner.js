@@ -52,6 +52,11 @@ let tickActive = false;
 let activeTick = Promise.resolve();
 let timer;
 
+// Install shutdown handlers before announcing readiness or awaiting the first tick.
+// A SIGTERM delivered at the scheduler_started boundary must never be lost.
+process.once("SIGINT", () => { void shutdown("SIGINT"); });
+process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+
 async function tick() {
   if (stopping || tickActive) return;
   tickActive = true;
@@ -102,12 +107,10 @@ async function shutdown(signal) {
   scheduler.abortActiveRuns("Scheduler received " + signal);
   try {
     await activeTick;
-    await dashboard.close();
+    if (dashboard.server.listening) await dashboard.close();
   } finally {
     await releaseLock();
     process.exitCode = 0;
   }
 }
 
-process.once("SIGINT", () => { void shutdown("SIGINT"); });
-process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
