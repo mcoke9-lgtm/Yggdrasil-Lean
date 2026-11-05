@@ -10,8 +10,8 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
 
     public BuilderModelResponder(BuilderProviderRouter router, int maxOutputTokens) {
         this(router, maxOutputTokens,
-                "{\\"register_status\\":\\"UNAVAILABLE\\",\\"live_telemetry\\":false,"
-                        + "\\"unlisted_capability_decision\\":\\"RECHECK_REQUIRED\\"}");
+                "{\"register_status\":\"UNAVAILABLE\",\"live_telemetry\":false,"
+                        + "\"unlisted_capability_decision\":\"RECHECK_REQUIRED\"}");
     }
 
     public BuilderModelResponder(BuilderProviderRouter router, int maxOutputTokens,
