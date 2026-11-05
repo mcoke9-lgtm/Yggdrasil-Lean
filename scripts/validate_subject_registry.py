@@ -57,7 +57,7 @@ def validate_registry(root: Path = ROOT) -> list[str]:
         protocol_path = root / protocol_ref
         if not protocol_path.is_file():
             errors.append(f"{label}: conversation protocol reference does not resolve: {protocol_ref}")
-        elif "Protocol version: 2" not in protocol_path.read_text(encoding="utf-8"):
+        elif "**Protocol version:** 2" not in protocol_path.read_text(encoding="utf-8"):
             errors.append(f"{label}: referenced conversation protocol is not version 2")
 
     return errors
