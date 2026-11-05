@@ -1,6 +1,6 @@
 # Builder Key Steward — Design and Safety Gate
 
-**Status:** Android implementation built and CI-verified with disposable signing material; phone validation and production migration remain gated.
+**Status:** Android implementation built; disposable-key creation and saved-keystore verification reported successful on the user's Galaxy S21 / Android 15; CI repeat-build signer stability verified. Production migration remains gated.
 **Target:** Standalone Android app for the Samsung Galaxy S21 / Android 15.
 **Application ID:** `org.yggdrasil.keysteward` (reserved for this module).
 **Repository branch:** `builder-key-steward-foundation-001`.
@@ -43,8 +43,10 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 - [x] Wrong password and altered keystore data are rejected by unit tests.
 - [x] Fingerprint remains identical after export/import.
 - [x] User-initiated Base64 export has explicit confirmation, a 48 KB limit, sensitive clipboard metadata, and a scheduled clear.
-- [ ] Missing-alias, expired/not-yet-valid certificate, oversize-secret, and repeat-build signer-digest tests.
-- [ ] Install and exercise the disposable build on the user's Galaxy S21.
+- [x] Repeat APK assembly with the same disposable signing identity produces the same verified signer fingerprint (CI run `42015921585`).
+- [ ] Missing-alias, expired/not-yet-valid certificate, and oversize-secret edge-case tests.
+- [x] User reports disposable keystore creation succeeded on Galaxy S21 / Android 15.
+- [x] User reports the saved keystore was reopened and verified successfully on Galaxy S21 / Android 15.
 - [ ] Permanent key is created only after phone testing and all remaining release gates.
 - [ ] At least two independently retained encrypted backups are confirmed by the user before migration.
 
