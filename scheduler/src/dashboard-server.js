@@ -77,6 +77,9 @@ export function createDashboardServer({ scheduler, host = "127.0.0.1", port = 41
         if (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(body.repository)) {
           return send(response, 400, { error: "Repository must use owner/name format" });
         }
+        if (!["daily", "weekly"].includes(body.frequency)) {
+          return send(response, 400, { error: "Frequency must be daily or weekly" });
+        }
         if (typeof body.branch !== "string" || !body.branch.trim() || body.branch.length > 250) {
           return send(response, 400, { error: "A valid branch name is required" });
         }
