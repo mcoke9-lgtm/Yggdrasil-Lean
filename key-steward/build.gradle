@@ -16,11 +16,18 @@ android {
 
     buildTypes {
         debug {
-            // Keep CI/debug builds installable alongside the existing production app.
+            // CI is a separately installable test app; never replace Production.
             applicationIdSuffix '.ci'
             if (System.getenv('BUILDER_KEYSTORE_PATH') != null) {
                 signingConfig signingConfigs.disposableCi
             }
+        }
+        development {
+            // A third, separately installable identity for hands-on development.
+            initWith debug
+            applicationIdSuffix '.dev'
+            versionNameSuffix '-dev'
+            matchingFallbacks = ['debug']
         }
     }
 
