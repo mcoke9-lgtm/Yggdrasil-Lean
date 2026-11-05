@@ -2189,6 +2189,176 @@
         }
       },
       "additionalProperties": false
+    },
+    "capabilityExecutionRun": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "run_id",
+        "status",
+        "candidate_model_id",
+        "candidate_revision",
+        "endpoint_origin",
+        "request_config",
+        "started_at",
+        "finished_at",
+        "execution_count",
+        "success_count",
+        "failure_count",
+        "evaluator_status",
+        "executions",
+        "limitations"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.capability-execution-run"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed"
+          ]
+        },
+        "candidate_model_id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "candidate_revision": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "endpoint_origin": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "request_config": {
+          "type": "object",
+          "required": [
+            "temperature",
+            "max_tokens",
+            "timeout_seconds",
+            "api_key_present"
+          ],
+          "properties": {
+            "temperature": {
+              "type": "number"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "api_key_present": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "finished_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "execution_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "success_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evaluator_status": {
+          "const": "awaiting_independent_review"
+        },
+        "executions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "execution_id",
+              "builder_id",
+              "capability_id",
+              "case_id",
+              "system_prompt",
+              "user_prompt",
+              "raw_output",
+              "status",
+              "latency_ms",
+              "started_at",
+              "usage"
+            ],
+            "properties": {
+              "execution_id": {
+                "$ref": "#/$defs/id"
+              },
+              "builder_id": {
+                "$ref": "#/$defs/builderId"
+              },
+              "capability_id": {
+                "$ref": "#/$defs/id"
+              },
+              "case_id": {
+                "$ref": "#/$defs/id"
+              },
+              "system_prompt": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "user_prompt": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "raw_output": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "success",
+                  "transport_error"
+                ]
+              },
+              "error": {
+                "type": "string"
+              },
+              "latency_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "started_at": {
+                "$ref": "#/$defs/timestamp"
+              },
+              "usage": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -2233,6 +2403,9 @@
     },
     {
       "$ref": "#/$defs/modelFamilyInventory"
+    },
+    {
+      "$ref": "#/$defs/capabilityExecutionRun"
     }
   ]
 }
