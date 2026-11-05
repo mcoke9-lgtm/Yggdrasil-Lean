@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - independent-builder-runtime-foundation-001
+      - builder-android-ci-validation-004
   pull_request:
     branches:
       - independent-builder-runtime-foundation-001
