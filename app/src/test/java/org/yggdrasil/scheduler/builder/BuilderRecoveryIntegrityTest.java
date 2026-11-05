@@ -41,13 +41,20 @@ public class BuilderRecoveryIntegrityTest {
         assertTrue(BuilderRecoveryIntegrity.reconcileProvenance(source, backup));
     }
 
-    @Test public void detectsChangedOrReorderedProvenanceEvents() throws Exception {
+    @Test public void detectsChangedProvenanceEvents() throws Exception {
         JSONArray source = new JSONArray().put(event("event-1")).put(event("event-2"));
         JSONObject backup = export(source, "available");
         JSONArray altered = backup.getJSONObject("operational_snapshot_provenance").getJSONArray("events");
         altered.getJSONObject(0).put("thread_id", "other-thread");
         assertFalse(BuilderRecoveryIntegrity.reconcileProvenance(source, backup));
         assertFalse(BuilderRecoveryIntegrity.validate(backup).valid);
+    }
+
+    @Test public void detectsReorderedProvenanceEvents() throws Exception {
+        JSONArray source = new JSONArray().put(event("event-1")).put(event("event-2"));
+        JSONObject backup = export(source, "available");
+        JSONArray reorderedSource = new JSONArray().put(event("event-2")).put(event("event-1"));
+        assertFalse(BuilderRecoveryIntegrity.reconcileProvenance(reorderedSource, backup));
     }
 
     @Test public void rejectsDuplicateIdsAndMalformedSnapshotDigests() throws Exception {
