@@ -255,11 +255,12 @@ public final class BuilderConversationActivity extends Activity {
         if (difficultSpacesMode != null && difficultSpacesMode.isChecked()) {
             message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
         }
+        final String preparedMessage = message;
         String disclosureKey = config.endpoint + "\n" + config.model;
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
-            performSend(message, selected);
+            performSend(preparedMessage, selected);
             return;
         }
 
