@@ -54,7 +54,7 @@ export function registerBuilderRunHandler(
     const outcomes = [];
     let activeRole = null;
     const interrupt = async () => {
-      if (clock().getTime() >= new Date(run.deadlineAt).getTime()) {
+      if (clock().getTime() >= new Date(startedRun.deadlineAt).getTime()) {
         await ledger.markDeadlineExpired(runId);
       } else {
         await ledger.interruptRun(runId, "scheduler cancellation or host interruption", activeRole);
