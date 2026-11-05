@@ -130,7 +130,7 @@ public class BuilderConversationProtocolTest {
     }
 
     @Test public void preservesEvidenceStatusAsAnExplicitField() {
-        BuilderConversationProtocol.Turn verified = new BuilderConversationProtocol.Turn(1,
+        BuilderConversationProtocol.Turn verified = new BuilderConversationProtocol.Turn(BuilderConversationProtocol.CURRENT_VERSION,
                 "thread-1", "t1", BuilderConversationProtocol.Participant.BALDR, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION,
                 BuilderConversationProtocol.EvidenceStatus.VERIFIED, 100, "The test passed.");
