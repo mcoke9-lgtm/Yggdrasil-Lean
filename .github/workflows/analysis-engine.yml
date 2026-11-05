@@ -57,7 +57,7 @@ jobs:
           node-version: "22"
       - name: Check scheduler JavaScript syntax
         working-directory: scheduler
-        run: node --check src/calendar.js && node --check src/store.js && node --check src/scheduler.js && node --check src/runner.js && node --check src/cli.js
+        run: node --check src/calendar.js && node --check src/store.js && node --check src/scheduler.js && node --check src/runner.js && node --check src/cli.js && node --check src/github-watch.js
       - name: Run scheduler tests
         working-directory: scheduler
         run: npm test
