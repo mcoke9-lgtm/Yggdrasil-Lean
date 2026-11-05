@@ -59,20 +59,30 @@ jobs:
         run: gradle --no-daemon :key-steward:testDebugUnitTest
       - name: Assemble APK signed with app-generated disposable PKCS12
         run: gradle --no-daemon :key-steward:assembleDebug
-      - name: Verify APK signature
+      - name: Repeat APK assembly with the same disposable signing identity
         run: |
           APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          cp "$APK" "$RUNNER_TEMP/first-build.apk"
+          rm "$APK"
+          gradle --no-daemon :key-steward:assembleDebug
+          cp "$APK" "$RUNNER_TEMP/second-build.apk"
+      - name: Verify both APK signatures and stable signer fingerprint
+        run: |
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apk-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-build.apk" | tee "$RUNNER_TEMP/first-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-build.apk" | tee "$RUNNER_TEMP/second-signer.txt"
           KEY_DIGEST="$(keytool -list -v -keystore "$BUILDER_KEYSTORE_PATH" -storetype PKCS12 \
             -storepass "$BUILDER_KEYSTORE_PASSWORD" | sed -n 's/.*SHA256: //p' | head -n 1 \
             | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          APK_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/apk-signer.txt" \
+          FIRST_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/first-signer.txt" \
+            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          SECOND_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/second-signer.txt" \
             | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
           test -n "$KEY_DIGEST"
-          test "$KEY_DIGEST" = "$APK_DIGEST"
-          echo "Disposable PKCS12 certificate fingerprint matches the APK signer."
+          test "$KEY_DIGEST" = "$FIRST_DIGEST"
+          test "$KEY_DIGEST" = "$SECOND_DIGEST"
+          echo "Both independent APK assemblies use the same disposable PKCS12 certificate."
       - uses: actions/upload-artifact@v4
         with:
           name: builder-key-steward-debug-apk
