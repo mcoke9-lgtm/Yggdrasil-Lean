@@ -30,7 +30,6 @@ public final class MainActivity extends Activity {
     private static final int CREATE_FILE = 41;
     private static final int OPEN_FILE = 42;
     private static final int EXPORT_BASE64 = 43;
-    private static final int MAX_GITHUB_SECRET_CHARS = 48 * 1024;
 
     private EditText passwordField;
     private EditText confirmField;
@@ -281,10 +280,7 @@ public final class MainActivity extends Activity {
         byte[] encodedBytes = null;
         try {
             encodedBytes = Base64.encode(bytes, Base64.NO_WRAP);
-            if (encodedBytes.length > MAX_GITHUB_SECRET_CHARS) {
-                throw new IllegalArgumentException(
-                        "Base64 value exceeds GitHub's 48 KB secret limit");
-            }
+            KeyStoreEngine.validateBase64ExportSize(encodedBytes.length);
             String encoded = new String(encodedBytes,
                     java.nio.charset.StandardCharsets.US_ASCII);
             ClipboardManager clipboard = (ClipboardManager)
