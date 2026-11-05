@@ -195,12 +195,12 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(threadLabel);
         updateThreadLabel();
 
-        root.addView(text("Choose the Builders for this round", 18));
-        root.addView(text("All nine are selected by default. Each selected Builder receives the thread accumulated so far.", 13));
+        root.addView(text("Choose additional Builders for this round", 18));
+        root.addView(text("Automatic subject routing includes the matched primary stewards. Check any additional Builder you want to invite. With automatic routing off, checked Builders are the manual selection.", 13));
         for (BuilderRole role : BuilderRole.values()) {
             CheckBox check = new CheckBox(this);
             check.setText(role.getDisplayName() + " — " + role.getResponsibility());
-            check.setChecked(true);
+            check.setChecked(false);
             roleChecks.put(role, check);
             root.addView(check);
         }
@@ -407,7 +407,8 @@ public final class BuilderConversationActivity extends Activity {
                     return;
                 }
                 if (resolution.matched) {
-                    selected = new ArrayList<>(resolution.selectedRoles);
+                    selected = new ArrayList<>(BuilderSubjectResolver.withAdditionalRoles(
+                            resolution, selected));
                     routingSummary = "Subject " + resolution.heading
                             + (resolution.subheadingIds.isEmpty() ? " · broad subject"
                             : " · " + android.text.TextUtils.join(", ", resolution.subheadingIds))
