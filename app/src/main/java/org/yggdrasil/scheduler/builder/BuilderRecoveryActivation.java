@@ -156,7 +156,7 @@ public final class BuilderRecoveryActivation {
             next.put("manifest_sha256", checksum(next));
             replaceAtomic(pointerFile(app), next.toString(), pointerTempFile(app));
             return new ActivePair(target, active);
-        } catch (org.json.JSONException e) {
+        } catch (Exception e) {
             throw new IllegalStateException("Could not roll back recovery activation", e);
         }
     }
@@ -180,7 +180,7 @@ public final class BuilderRecoveryActivation {
                     || !expectedConversationDigest.equals(sha256(conversation.getJSONArray("threads").toString()))
                     || !expectedSubjectDigest.equals(sha256(subject.getJSONArray("events").toString())))
                 throw new IllegalStateException("Staged database contents no longer match the verified stage");
-        } catch (org.json.JSONException e) {
+        } catch (Exception e) {
             throw new IllegalStateException("Could not verify staged database contents", e);
         } finally {
             conversations.close();
