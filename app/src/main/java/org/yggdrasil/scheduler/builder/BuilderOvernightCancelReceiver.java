@@ -14,8 +14,12 @@ public final class BuilderOvernightCancelReceiver extends BroadcastReceiver {
         if (intent == null || !ACTION_CANCEL.equals(intent.getAction())) return;
         String runId = intent.getStringExtra(EXTRA_RUN_ID);
         if (runId == null || runId.trim().isEmpty()) return;
-        new BuilderOvernightRunStore(context).setStatus(runId, "CANCELLED",
-                "Stopped from the persistent run notification.", System.currentTimeMillis());
+        BuilderOvernightRunStore store = new BuilderOvernightRunStore(context);
+        org.json.JSONObject state = store.read(runId);
+        if (state != null && "RUNNING".equals(state.optString("status"))) {
+            store.setStatus(runId, "CANCELLED",
+                    "Stopped from the persistent run notification.", System.currentTimeMillis());
+        }
         WorkManager.getInstance(context.getApplicationContext())
                 .cancelUniqueWork(BuilderOvernightScheduler.workName(runId));
     }
