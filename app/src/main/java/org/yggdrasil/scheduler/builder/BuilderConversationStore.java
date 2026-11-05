@@ -90,6 +90,19 @@ public final class BuilderConversationStore extends SQLiteOpenHelper {
         return Collections.unmodifiableList(readThread(getReadableDatabase(), threadId.trim()));
     }
 
+    /** Returns known thread IDs, most recently active first, for restart recovery/navigation. */
+    public synchronized List<String> listThreadIds() {
+        List<String> threadIds = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT thread_id FROM " + TABLE
+                        + " GROUP BY thread_id ORDER BY MAX(_id) DESC", null)) {
+            while (cursor.moveToNext()) {
+                threadIds.add(cursor.getString(0));
+            }
+        }
+        return Collections.unmodifiableList(threadIds);
+    }
+
     private List<BuilderConversationProtocol.Turn> readThread(SQLiteDatabase db, String threadId) {
         List<BuilderConversationProtocol.Turn> turns = new ArrayList<>();
         try (Cursor cursor = db.query(TABLE, COLUMNS, "thread_id = ?",
