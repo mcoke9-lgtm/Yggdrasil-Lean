@@ -52,9 +52,9 @@
       "source_path": "app/",
       "source_branch": "independent-builder-runtime-foundation-001",
       "installation": {
-        "status": "user_reported_installed",
+        "status": "device_verified_installed",
         "device_id": "galaxy-s21-plus-primary",
-        "evidence": "User report in conversation; not independently device-verified."
+        "evidence": "User-shared Yggdrasil Signer Probe report dated 2026-11-05 confirms org.yggdrasil.builderhost is INSTALLED AND VISIBLE at version 0.1.0 (code 1)."
       },
       "build": {
         "status": "source_and_prior_build_evidence",
@@ -62,16 +62,24 @@
         "version_code": 2
       },
       "signing": {
-        "installed_signer_sha256": null,
+        "installed_signer_sha256": "91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A",
         "historical_artifact_signer_sha256": "91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A",
-        "status": "historical_artifact_only"
+        "status": "device_verified_matches_recorded_historical_fingerprint; exact installed artifact and private key recovery unverified"
       },
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "POST_NOTIFICATIONS"
       ],
-      "evidence_notes": "Application ID and version are verified from app/build.gradle on the foundation branch. User reports installation; installed version and signer remain unverified."
+      "evidence_notes": "Source branch build configuration records version 0.2.0/code 2. Device Signer Probe report confirms the installed package is version 0.1.0/code 1 and its signer matches the historical Builder Host signer fingerprint already recorded in artifact-history.json. Exact installed APK artifact identity and possession/recoverability of the original private key remain unknown.",
+      "device_observation": {
+        "observed_at": "2026-11-05",
+        "version_name": "0.1.0",
+        "version_code": 1,
+        "multiple_current_signers": false,
+        "current_signer_sha256": "91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A",
+        "evidence_source": "User-shared Yggdrasil Signer Probe report"
+      }
     },
     {
       "app_id": "key-steward",
@@ -207,7 +215,7 @@
     "created_on": "2026-11-05",
     "created_from": "conversation context and repository source inspection",
     "last_device_inventory": null,
-    "notes": "Registry expanded with explicit package visibility scope, install-gate rules, Scheduler package identity verified from its prototype build configuration, and an unresolved user-reported diagnostic installation conflict. No device inventory has yet been collected. Added a canonical artifact/download/installation history ledger with evidence-state distinctions and cross-chat incident correlation.",
+    "notes": "Registry expanded with explicit package visibility scope, install-gate rules, Scheduler package identity verified from its prototype build configuration, and an unresolved user-reported diagnostic installation conflict. No device inventory has yet been collected. Added a canonical artifact/download/installation history ledger with evidence-state distinctions and cross-chat incident correlation. Added a scoped device-reported Builder Host observation from Yggdrasil Signer Probe: installed version 0.1.0/code 1; current signer matches the historical fingerprint. This is not a full device inventory and does not identify the exact installed APK artifact.",
     "last_updated_on": "2026-11-05"
   },
   "device_inventory_scope": [
