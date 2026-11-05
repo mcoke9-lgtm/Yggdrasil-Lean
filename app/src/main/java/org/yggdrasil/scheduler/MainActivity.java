@@ -308,9 +308,13 @@ public final class MainActivity extends Activity {
                 });
         if (current != null) {
             dialog.setNeutralButton("Remove provider", (d, which) -> {
-                settings.clear();
-                providerStatus.setText(providerConfigurationSummary());
-                builderStatus.setText("Provider settings and encrypted credential removed from this device.");
+                try {
+                    settings.clear();
+                    providerStatus.setText(providerConfigurationSummary());
+                    builderStatus.setText("Provider settings and encrypted credential removed from this device.");
+                } catch (Exception e) {
+                    builderStatus.setText("Provider removal could not be fully confirmed: " + e.getMessage());
+                }
             });
         }
         dialog.show();
