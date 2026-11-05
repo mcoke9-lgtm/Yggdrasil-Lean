@@ -37,6 +37,11 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         buildUi();
         if (pendingBytes != null) copyButton.setEnabled(true);
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        ClipDescription currentClip = clipboard.getPrimaryClipDescription();
+        if (currentClip != null && "BUILDER_KEYSTORE_BASE64".contentEquals(currentClip.getLabel())) {
+            clearClipboardButton.setEnabled(true);
+        }
     }
 
     private void buildUi() {
