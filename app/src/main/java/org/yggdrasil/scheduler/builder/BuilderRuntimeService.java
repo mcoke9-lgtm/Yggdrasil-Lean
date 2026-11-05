@@ -74,9 +74,9 @@ public final class BuilderRuntimeService extends Service {
                     capabilities.add("CANONICAL_CONVERSATION_JOURNAL");
                     capabilities.add("APPEND_ONLY_TURN_STORAGE");
                     capabilities.add("THREAD_RECOVERY_AND_EXPORT");
-                    capabilities.add("LOCAL_ANDROID_IPC");
+                    capabilities.add("LOCAL_ANDROID_IPC");\n                    capabilities.add("DEVICE_CAPABILITY_INVENTORY");\n                    output.putString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON,\n                            new AndroidDeviceInventory(getApplicationContext()).collect().toString());
                     output.putStringArrayList(BuilderRuntimeProtocol.KEY_CAPABILITIES, capabilities);
-                } else if (request.what == BuilderRuntimeProtocol.MESSAGE_APPEND_TURN) {
+                } else if (request.what == BuilderRuntimeProtocol.MESSAGE_GET_DEVICE_INVENTORY) {\n                    output.putString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON,\n                            new AndroidDeviceInventory(getApplicationContext()).collect().toString());\n                } else if (request.what == BuilderRuntimeProtocol.MESSAGE_APPEND_TURN) {
                     BuilderConversationProtocol.Turn turn = readTurn(input);
                     journal.append(turn);
                     output.putBoolean("appended", true);
