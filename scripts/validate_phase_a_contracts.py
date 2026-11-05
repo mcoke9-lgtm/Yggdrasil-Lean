@@ -20,7 +20,7 @@ EXPECTED_BUILDERS = {
 }
 SHARED_CASES = {
     "case.shr-evid-01", "case.shr-ask-02",
-    "case.shr-hand-03", "case.shr-rec-04",
+    "case.shr-hand-03", "case.shr-rec-04", "case.shr-role-05",
 }
 
 
@@ -60,22 +60,22 @@ def main() -> int:
     if set(builder_ids) != EXPECTED_BUILDERS or len(builder_ids) != len(EXPECTED_BUILDERS):
         print("FAIL builder identity set must contain each of the nine expected IDs exactly once")
         failures += 1
-    if len(cases) != 22 or len(case_ids) != len(case_id_set):
-        print("FAIL evaluation suite must contain 22 uniquely identified cases")
+    if len(cases) != 23 or len(case_ids) != len(case_id_set):
+        print("FAIL evaluation suite must contain 23 uniquely identified cases")
         failures += 1
     if sum(case.get("test_kind") == "role_specific" for case in cases) != 18:
         print("FAIL evaluation suite must contain 18 role-specific cases")
         failures += 1
-    if sum(case.get("test_kind") == "shared" for case in cases) != 4:
-        print("FAIL evaluation suite must contain four shared cases")
+    if sum(case.get("test_kind") == "shared" for case in cases) != 5:
+        print("FAIL evaluation suite must contain five shared cases")
         failures += 1
 
     fixture_by_id = {case.get("case_id"): case for case in cases}
     for contract in contracts:
         builder = contract.get("builder_id", "<unknown>")
         capabilities = contract.get("required_capabilities", [])
-        if len(capabilities) != 6:
-            print(f"FAIL {builder} must define exactly six required capability tests")
+        if len(capabilities) != 7:
+            print(f"FAIL {builder} must define exactly seven required capability tests")
             failures += 1
         capability_ids = [capability.get("capability_id") for capability in capabilities]
         if len(capability_ids) != len(set(capability_ids)):
@@ -103,8 +103,8 @@ def main() -> int:
                 if builder not in fixture.get("builder_ids", []):
                     print(f"FAIL shared fixture {fixture.get('case_id')} omits {builder}")
                     failures += 1
-        if role_case_count != 2 or shared_case_count != 4:
-            print(f"FAIL {builder} must reference two role-specific and four shared fixtures")
+        if role_case_count != 2 or shared_case_count != 5:
+            print(f"FAIL {builder} must reference two role-specific and five shared fixtures")
             failures += 1
 
     for fixture in cases:
@@ -136,8 +136,8 @@ def main() -> int:
     print("PASS: Draft 2020-12 schema is valid.")
     print("PASS: Capability bundle, evaluation suite, and scoring rubric satisfy the JSON Schema.")
     print("PASS: Six evaluation dimensions have normalized weights.")
-    print("PASS: Nine unique Builder contracts; six capability tests each.")
-    print("PASS: 22 unique fixtures (18 role-specific, four shared).")
+    print("PASS: Nine unique Builder contracts; seven capability tests each.")
+    print("PASS: 23 unique fixtures (18 role-specific, five shared).")
     print("PASS: All capability-to-fixture references resolve.")
     print("PASS: Provisional thresholds and unexecuted fixture states remain explicit.")
     print("NOTE: This validates contract data only; it does not evaluate any model.")
