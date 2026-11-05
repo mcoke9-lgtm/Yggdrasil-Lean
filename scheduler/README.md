@@ -158,6 +158,50 @@ provenance, bounded output, and cancellation. Automated tests use a deterministi
 fake executor; that verifies runner registration, orchestration, and ledger
 behavior, not live model behavior or an overnight host.
 
+### Host executor module contract
+
+A host module is deliberately operator-owned because it is where secure task
+lookup, route configuration, consent enforcement, and provider credentials meet.
+The following is an interface sketch, not a working provider integration:
+
+```js
+export async function createBuilderExecutor() {
+  const taskVault = await openOperatorManagedTaskVault();
+  const routes = await loadOperatorManagedRoutes();
+
+  return async function executeBuilderRole(role, context) {
+    const task = await taskVault.get(context.task.taskReference);
+    if (!task) throw new Error("Unknown secure task reference");
+    const route = routes[role];
+    if (!route) throw new Error("No approved route for " + role);
+    if (context.signal.aborted) throw context.signal.reason;
+
+    // Implement the role-specific prompt, consent checks, provider call,
+    // provenance capture, output limits, and AbortSignal-aware transport here.
+    const result = await callApprovedProvider(route, {
+      role,
+      task,
+      priorOutcomes: context.outcomes,
+      signal: context.signal
+    });
+
+    // Mark safeToResume true only when the checkpoint is genuinely idempotent.
+    await context.checkpoint({
+      checkpointId: result.checkpointId,
+      data: result.checkpointMetadata,
+      safeToResume: result.safeToResume === true
+    });
+    return { status: "succeeded", summary: result.summary };
+  };
+}
+```
+
+The executor is responsible for passing the first eight roles' outcomes into
+Baldr's final review through `context.outcomes`. It must not treat a distinct
+endpoint/model label as proof of independent ownership or model weights. If the
+provider transport cannot abort a request, the executor must report that
+limitation and must not claim cancellation has stopped the external operation.
+
 ## Tests
 
 ```sh
