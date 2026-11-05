@@ -142,9 +142,13 @@ pass. A failed role is recorded and does not erase the remaining roles' chance
 to contribute.
 
 The adapter deliberately requires the host to inject the executor. It does not
-invent provider routes, credentials, consent, or model identity. The current
-foreground scheduler runner does not register this handler because no unattended
-model-execution host has yet been configured. Automated tests use a deterministic
+invent provider routes, credentials, consent, or model identity. It passes a
+cooperative cancellation signal to each role executor, enforces the recorded
+eight-hour deadline, and records abandoned active runs as interrupted on recovery.
+Executors must honor the signal; a provider adapter that ignores cancellation
+cannot be forcibly stopped by this in-process contract. The current foreground
+scheduler runner does not register this handler because no unattended model-
+execution host has yet been configured. Automated tests use a deterministic
 fake executor; that verifies orchestration and ledger behavior, not live model
 behavior or an overnight host.
 
