@@ -8,14 +8,15 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
+import android.os.HandlerThread;
 import android.os.Message;
 import android.os.Messenger;
 import java.util.ArrayList;
 import org.junit.Test;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
-import org.robolectric.Shadows;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
@@ -33,15 +34,20 @@ public class BuilderRuntimeServiceTest {
         Messenger host = new Messenger(binder);
 
         final Bundle[] received = new Bundle[1];
-        Messenger client = new Messenger(new Handler(Looper.getMainLooper()) {
+        CountDownLatch responseReceived = new CountDownLatch(1);
+        HandlerThread replyThread = new HandlerThread("runtime-service-test-reply");
+        replyThread.start();
+        Messenger client = new Messenger(new Handler(replyThread.getLooper()) {
             @Override public void handleMessage(Message message) {
                 received[0] = message.getData();
+                responseReceived.countDown();
             }
         });
         Message request = Message.obtain(null, BuilderRuntimeProtocol.MESSAGE_GET_HEALTH);
         request.replyTo = client;
         host.send(request);
-        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertTrue("Runtime service did not reply",
+                responseReceived.await(3, TimeUnit.SECONDS));
 
         assertNotNull(received[0]);
         assertEquals(BuilderRuntimeProtocol.VERSION,
@@ -60,5 +66,6 @@ public class BuilderRuntimeServiceTest {
         assertTrue(capabilities.contains("LOCAL_ANDROID_IPC"));
 
         controller.destroy();
+        replyThread.quitSafely();
     }
 }
