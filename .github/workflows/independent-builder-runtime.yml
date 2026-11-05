@@ -30,7 +30,8 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Configure persistent Builder signing key when repository secrets exist
+      - name: Configure persistent Builder signing key
+        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.BUILDER_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.BUILDER_KEYSTORE_PASSWORD }}
@@ -38,7 +39,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.BUILDER_KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64$KEYSTORE_PASSWORD$KEY_ALIAS$KEY_PASSWORD" ]; then
-            echo "::warning::Persistent signing is not configured. This APK will use a temporary runner debug key and is not suitable as a stable update."
+            echo "persistent_signing_configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Persistent signing is not configured. Tests and compilation will run, but no distributable APK will be uploaded."
             exit 0
           fi
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
@@ -52,6 +54,7 @@ jobs:
           echo "BUILDER_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "persistent_signing_configured=true" >> "$GITHUB_OUTPUT"
           echo "Persistent Builder signing key configured."
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -64,7 +67,8 @@ jobs:
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-      - name: Upload debug APK
+      - name: Upload persistently signed APK
+        if: steps.signing.outputs.persistent_signing_configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: yggdrasil-builder-runtime-debug-apk
