@@ -235,6 +235,16 @@ public final class BuilderCorrectionLedger {
             String incidentId = required(object(plan.body, "Correction plan"), "incident_turn_id");
             BuilderConversationProtocol.Turn incident = findTurn(context, incidentId);
             if (incident == null || incident.speaker == BuilderConversationProtocol.Participant.BALDR) continue;
+            List<BuilderConversationProtocol.Turn> beforeVerification = new ArrayList<>();
+            for (BuilderConversationProtocol.Turn prior : context) {
+                if (prior.turnId.equals(turn.turnId)) break;
+                beforeVerification.add(prior);
+            }
+            try {
+                validateUpdate(turn, beforeVerification);
+            } catch (IllegalArgumentException invalidLifecycle) {
+                continue;
+            }
             boolean adopted = false;
             for (BuilderConversationProtocol.Turn later : context) {
                 if (later.timestampEpochMillis <= turn.timestampEpochMillis
