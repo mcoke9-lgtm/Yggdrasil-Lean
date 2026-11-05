@@ -38,6 +38,7 @@ class BlindEvaluatorTests(unittest.TestCase):
             "format_id": "org.yggdrasil.lean.capability-execution-run",
             "run_id": "candidate-run-001",
             "candidate_artifact_id": "artifact.candidate",
+            "candidate_model_id": "candidate-model",
             "status": "completed",
             "scope": "full_suite",
             "execution_count": 63,
