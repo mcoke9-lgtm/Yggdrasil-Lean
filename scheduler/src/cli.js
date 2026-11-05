@@ -59,7 +59,7 @@ try {
         hour: Number(hourText), minute: Number(minuteText)
       }
     });
-    process.stdout.write(JSON.stringify(task, null, 2) + "\\n");
+    process.stdout.write(JSON.stringify(task, null, 2) + "\n");
   } else {
     usage();
     if (command) process.exitCode = 2;
