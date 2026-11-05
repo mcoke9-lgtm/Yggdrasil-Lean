@@ -3,12 +3,16 @@ package org.yggdrasil.scheduler.builder;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 
 import java.time.LocalDate;
 import java.util.Collections;
 
 import static org.junit.Assert.*;
 
+@RunWith(RobolectricTestRunner.class)
 public class BuilderOperationalLimitsTest {
     private static final String REGISTER =
             "{\"schema\":\"yggdrasil.operational-capacity-register\","
@@ -49,6 +53,23 @@ public class BuilderOperationalLimitsTest {
         BuilderOperationalLimits.Snapshot snapshot = BuilderOperationalLimits.fromJson(
                 changed.toString(), LocalDate.parse("2026-11-05"));
         assertEquals("RECHECK_REQUIRED", constraint(snapshot).getString("gate_decision"));
+    }
+
+    @Test public void partialCapacityRecordRequiresRecheck() throws Exception {
+        JSONObject changed = new JSONObject(REGISTER);
+        changed.getJSONArray("constraints").getJSONObject(0).remove("current_usage");
+        BuilderOperationalLimits.Snapshot snapshot = BuilderOperationalLimits.fromJson(
+                changed.toString(), LocalDate.parse("2026-11-05"));
+        assertEquals("RECHECK_REQUIRED", constraint(snapshot).getString("gate_decision"));
+    }
+
+    @Test public void bundledAssetLoadsAsSharedSnapshot() throws Exception {
+        BuilderOperationalLimits.Snapshot snapshot = BuilderOperationalLimits.load(
+                RuntimeEnvironment.getApplication());
+        JSONObject root = new JSONObject(snapshot.toPromptJson());
+        assertEquals("LOADED", root.getString("register_status"));
+        assertEquals("Create scheduled tasks / automations",
+                root.getJSONArray("constraints").getJSONObject(0).getString("capability"));
     }
 
     @Test public void missingCapabilityIsExplicitlyUnknownNotAvailable() throws Exception {
