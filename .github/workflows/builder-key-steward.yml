@@ -55,37 +55,69 @@ jobs:
           echo "BUILDER_KEYSTORE_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_ALIAS=builder-upload-key" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
-      - name: Run tests and create app-generated disposable PKCS12
-        run: gradle --no-daemon :key-steward:testDebugUnitTest
-      - name: Assemble APK signed with app-generated disposable PKCS12
-        run: gradle --no-daemon :key-steward:assembleDebug
-      - name: Repeat APK assembly with the same disposable signing identity
+      - name: Run unit tests for CI and Development variants
         run: |
-          APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
-          cp "$APK" "$RUNNER_TEMP/first-build.apk"
-          rm "$APK"
-          gradle --no-daemon :key-steward:assembleDebug
-          cp "$APK" "$RUNNER_TEMP/second-build.apk"
-      - name: Verify both APK signatures and stable signer fingerprint
+          gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:testDevelopmentUnitTest
+      - name: Assemble separately installable CI and Development APKs
+        run: |
+          gradle --no-daemon :key-steward:assembleDebug :key-steward:assembleDevelopment
+      - name: Verify distinct application IDs and visible labels
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          test -x "$AAPT"
+          test -f "$CI_APK"
+          test -f "$DEV_APK"
+          "$AAPT" dump badging "$CI_APK" | tee "$RUNNER_TEMP/ci-badging.txt"
+          "$AAPT" dump badging "$DEV_APK" | tee "$RUNNER_TEMP/dev-badging.txt"
+          grep -F "package: name='org.yggdrasil.keysteward.ci'" "$RUNNER_TEMP/ci-badging.txt"
+          grep -F "application-label:'Builder Key Steward CI'" "$RUNNER_TEMP/ci-badging.txt"
+          grep -F "package: name='org.yggdrasil.keysteward.dev'" "$RUNNER_TEMP/dev-badging.txt"
+          grep -F "application-label:'Builder Key Steward Development'" "$RUNNER_TEMP/dev-badging.txt"
+          if grep -F "package: name='org.yggdrasil.keysteward'" "$RUNNER_TEMP/ci-badging.txt" "$RUNNER_TEMP/dev-badging.txt"; then
+            echo "::error::A non-production variant has the reserved Production application ID."
+            exit 1
+          fi
+          echo "CI and Development have distinct package identities and labels; Production identity remains reserved."
+      - name: Repeat both APK assemblies with the same disposable signing identity
+        run: |
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          cp "$CI_APK" "$RUNNER_TEMP/first-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/first-development.apk"
+          rm "$CI_APK" "$DEV_APK"
+          gradle --no-daemon :key-steward:assembleDebug :key-steward:assembleDevelopment
+          cp "$CI_APK" "$RUNNER_TEMP/second-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/second-development.apk"
+      - name: Verify all four APK signatures and stable signer fingerprint
         run: |
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-build.apk" | tee "$RUNNER_TEMP/first-signer.txt"
-          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-build.apk" | tee "$RUNNER_TEMP/second-signer.txt"
+          for APK in "$RUNNER_TEMP/first-ci.apk" "$RUNNER_TEMP/second-ci.apk" \
+                     "$RUNNER_TEMP/first-development.apk" "$RUNNER_TEMP/second-development.apk"; do
+            "$APKSIGNER" verify --verbose --print-certs "$APK"
+          done
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-ci.apk" > "$RUNNER_TEMP/first-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-ci.apk" > "$RUNNER_TEMP/second-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-development.apk" > "$RUNNER_TEMP/first-dev-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-development.apk" > "$RUNNER_TEMP/second-dev-signer.txt"
           KEY_DIGEST="$(keytool -list -v -keystore "$BUILDER_KEYSTORE_PATH" -storetype PKCS12 \
             -storepass "$BUILDER_KEYSTORE_PASSWORD" | sed -n 's/.*SHA256: //p' | head -n 1 \
             | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          FIRST_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/first-signer.txt" \
-            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          SECOND_DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/second-signer.txt" \
-            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          test -n "$KEY_DIGEST"
-          test "$KEY_DIGEST" = "$FIRST_DIGEST"
-          test "$KEY_DIGEST" = "$SECOND_DIGEST"
-          echo "Both independent APK assemblies use the same disposable PKCS12 certificate."
+          for REPORT in "$RUNNER_TEMP/first-signer.txt" "$RUNNER_TEMP/second-signer.txt" \
+                        "$RUNNER_TEMP/first-dev-signer.txt" "$RUNNER_TEMP/second-dev-signer.txt"; do
+            DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$REPORT" | head -n 1 \
+              | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+            test -n "$DIGEST"
+            test "$KEY_DIGEST" = "$DIGEST"
+          done
+          echo "Both CI assemblies and both Development assemblies use the same disposable PKCS12 certificate."
       - uses: actions/upload-artifact@v4
         with:
-          name: builder-key-steward-debug-apk
-          path: key-steward/build/outputs/apk/debug/key-steward-debug.apk
+          name: builder-key-steward-ci-and-development-apks
+          path: |
+            key-steward/build/outputs/apk/debug/key-steward-debug.apk
+            key-steward/build/outputs/apk/development/key-steward-development.apk
           if-no-files-found: error
           retention-days: 14
