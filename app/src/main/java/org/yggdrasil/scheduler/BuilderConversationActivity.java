@@ -18,6 +18,7 @@ import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
+import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +45,7 @@ public final class BuilderConversationActivity extends Activity {
     private TextView status;
     private TextView threadLabel;
     private Button sendButton;
+    private CheckBox difficultSpacesMode;
     private String activeThreadId;
     private volatile boolean destroyed;
     private boolean busy;
@@ -117,6 +119,16 @@ public final class BuilderConversationActivity extends Activity {
             roleChecks.put(role, check);
             root.addView(check);
         }
+
+        difficultSpacesMode = new CheckBox(this);
+        difficultSpacesMode.setText("Navigating Difficult Spaces mode — Thurisaz / Algiz protection navigation");
+        difficultSpacesMode.setChecked(getSharedPreferences(UI_PREFS, MODE_PRIVATE)
+                .getBoolean("navigating_difficult_spaces_mode", false));
+        difficultSpacesMode.setOnCheckedChangeListener((buttonView, checked) ->
+                getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
+                        .putBoolean("navigating_difficult_spaces_mode", checked).apply());
+        root.addView(difficultSpacesMode);
+        root.addView(text("When enabled, the Builders investigate boundaries, identify protective authority, and choose an authorized path. They do not bypass safeguards.", 13));
 
         root.addView(text("Conversation history", 18));
         history = new LinearLayout(this);
