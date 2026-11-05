@@ -106,12 +106,7 @@ public final class BuilderOvernightWorker extends Worker {
                     + "contribute first. Baldr independently reviews their accumulated work last. Do not claim an action "
                     + "was performed unless it was actually completed.\n\nTASK:\n" + taskPrompt;
             BuilderConversationCoordinator.Result result = coordinator.submit(threadId, cyclePrompt, roles);
-            if (isStopped()) {
-                runStore.setStatus(runId, "INTERRUPTED",
-                        "WorkManager stopped this cycle after the model round returned; inspect before resuming.",
-                        System.currentTimeMillis());
-                return Result.failure();
-            }
+            if (isStopped()) return Result.failure();
             String summary = "cycle=" + cycle + "; replies=" + (result.appendedTurns.size() - 1)
                     + "; failed_roles=" + result.failedRoles
                     + "; unrouted_recipients=" + result.unroutedRecipients
