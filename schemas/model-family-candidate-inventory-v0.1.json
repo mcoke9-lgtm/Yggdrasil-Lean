@@ -33,6 +33,12 @@
           "kind": "provider_documentation",
           "status": "observed",
           "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
+        },
+        {
+          "ref": "https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face model API returned immutable repository revision, last-modified time, safetensors parameter counts, and repository storage total; individual weight-file digest is not yet registered."
         }
       ],
       "unknowns": [
@@ -40,7 +46,14 @@
         "No baseline evaluation against Builder contracts",
         "Quantized artifact and runtime memory not measured",
         "License review for project distribution not completed"
-      ]
+      ],
+      "immutable_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+      "revision_last_modified": "2026-03-02T11:26:58Z",
+      "repository_storage_bytes": 1759750582,
+      "safetensors_parameter_counts": {
+        "BF16": 873436192,
+        "F32": 2592
+      }
     },
     {
       "model_family_id": "lfm3_1_7b",
@@ -66,7 +79,7 @@
         "ONNX Runtime"
       ],
       "known_context_limit": 262144,
-      "known_quantization": "Publisher lists FP8 and NVFP4; GGUF variants available",
+      "known_quantization": "Publisher lists FP8, NVFP4 and GGUF variants; exact selected artifact and memory not yet measured.",
       "known_parameter_count": 1730000000,
       "evidence_refs": [
         {
@@ -176,7 +189,8 @@
       "license_id": "Apache-2.0",
       "license_status": "unknown",
       "usage_constraints": [
-        "Do not treat 2.3B effective parameters as total stored weights; publisher reports 5.1B total including embeddings."
+        "Do not treat 2.3B effective parameters as total stored weights; publisher reports 5.1B total including embeddings.",
+        "Google's current Gemma 4 documentation gives E2B an approximate mobile inference memory figure of 1.1 GB; the exact mobile deployment package and host-specific use must still be verified."
       ],
       "provenance_ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
       "weight_access_status": "downloadable",
