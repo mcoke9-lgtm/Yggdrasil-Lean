@@ -96,13 +96,16 @@ export class Scheduler {
       const state = await this.store.load();
 
       // A process restart must not silently replay a handler whose outcome is unknown.
+      let recoveredInterruptedRun = false;
       for (const run of state.runs) {
         if (run.status === "running") {
           run.status = "interrupted";
           run.finishedAt = nowIso;
           run.error = "Process stopped before the handler outcome was recorded; automatic replay is disabled.";
+          recoveredInterruptedRun = true;
         }
       }
+      if (recoveredInterruptedRun) await this.store.save(state);
 
       const due = state.tasks
         .filter(task => task.enabled && new Date(task.nextRunAt).getTime() <= now.getTime())
