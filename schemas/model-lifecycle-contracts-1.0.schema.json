@@ -2471,7 +2471,8 @@
         "scope",
         "planned_execution_count",
         "candidate_artifact_id",
-        "candidate_artifact_id_status"
+        "candidate_artifact_id_status",
+        "candidate_artifact_validation_state"
       ],
       "properties": {
         "format_id": {
@@ -2699,6 +2700,16 @@
         },
         "candidate_artifact_id_status": {
           "const": "operator_supplied_unverified"
+        },
+        "candidate_artifact_validation_state": {
+          "type": "string",
+          "enum": [
+            "unverified",
+            "checksum_verified",
+            "signature_verified",
+            "compatibility_verified",
+            "rejected"
+          ]
         }
       },
       "additionalProperties": false
