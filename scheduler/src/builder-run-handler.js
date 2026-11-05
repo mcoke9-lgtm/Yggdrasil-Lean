@@ -89,6 +89,7 @@ export function registerBuilderRunHandler(
           const result = await executor(role, {
             runId,
             scheduledFor: context.scheduledFor,
+            task: structuredClone(payload),
             outcomes: structuredClone(outcomes),
             checkpoint: details => ledger.checkpointBuilder(runId, role, details),
             signal: controller.signal
