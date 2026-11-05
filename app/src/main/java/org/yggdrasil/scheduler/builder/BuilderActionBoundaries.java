@@ -33,6 +33,12 @@ public final class BuilderActionBoundaries {
         return BuilderActionPreflight.execute(forAction(observation, "CHECK_GITHUB_ACTIONS"), now, action);
     }
 
+    public static <T> BuilderActionPreflight.Execution<T> enqueueManualCheck(
+            BuilderActionPreflight.Observation observation, Instant now,
+            BuilderActionPreflight.Action<T> action) throws Exception {
+        return BuilderActionPreflight.execute(forAction(observation, "ENQUEUE_MANUAL_CHECK"), now, action);
+    }
+
     private static BuilderActionPreflight.Observation forAction(
             BuilderActionPreflight.Observation observation, String expectedActionId) {
         return observation != null && expectedActionId.equals(observation.actionId)
