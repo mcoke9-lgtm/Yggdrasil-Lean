@@ -140,7 +140,10 @@
     "raw_evidence_retention": true,
     "candidate_must_not_self_evaluate": true,
     "evaluator_artifacts_must_be_distinct_from_candidate": true,
-    "human_or_deterministic_verification_required": true
+    "human_or_deterministic_verification_required": true,
+    "evaluator_selection_status": "not_selected",
+    "evaluator_model_artifact_refs": [],
+    "builder_roles_are_independent_model_artifacts": false
   },
   "reconstruction_seed_policy": {
     "seed_type": "not_selected",
@@ -169,8 +172,23 @@
     "No compression, quantization, distillation, pruning, or fine-tuning has been performed.",
     "No target hardware resource ceiling has been measured or adopted.",
     "Qwen3.5-0.8B repository revision 2fc06364715b967f1860aea9cf38778875588b17 is pinned as a research reference; the exact selected weight-file digest and complete artifact lock remain unregistered.",
-    "No candidate's deployment-specific license review is complete."
+    "No candidate's deployment-specific license review is complete.",
+    "The analytical/verifier Builder roles are role assignments, not independent model artifacts; a separate evaluator artifact or human/deterministic review path must be selected before any model is independently scored.",
+    "No larger-model expansion blueprint has been registered; architecture, tokenizer, source weights, training data, recipe, toolchain, license, and compute dependencies remain to be identified."
   ],
   "decision": "not_decided",
-  "evidence_refs": []
+  "evidence_refs": [],
+  "expansion_blueprint": {
+    "status": "planned",
+    "architecture_and_configuration_refs": [],
+    "tokenizer_refs": [],
+    "source_weight_artifact_refs": [],
+    "training_data_manifest_refs": [],
+    "training_recipe_refs": [],
+    "runtime_toolchain_refs": [],
+    "license_and_provenance_refs": [],
+    "required_compute_profile_id": null,
+    "reconstruction_claim": "not_selected",
+    "student_weights_alone_sufficient": false
+  }
 }
