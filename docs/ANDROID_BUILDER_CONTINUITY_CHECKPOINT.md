@@ -1,7 +1,7 @@
 # Android Builder Runtime — Phone-First Checkpoint
 
 **Branch:** `independent-builder-runtime-foundation-001`
-**Current source commit:** `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9` (checkpoint document updated after phone test)
+**Current source commit:** `0a23267dc51deba4d5fab814b39bd3af51177e19` (safe in-app recovery test added; Android CI pending)
 **Android application ID:** `org.yggdrasil.builderhost`
 **Display name:** Yggdrasil Builder Host
 **Device:** Samsung Galaxy S21 / Android 15 (user-reported). User confirmed successful installation of Yggdrasil Builder Host.
@@ -17,6 +17,7 @@
 - Restore checks format/version, event ordering, event IDs, hash links, duplicate IDs and receipt references before transactionally replacing local records.
 - Android document-picker export to user-selected JSON file.
 - Android document-picker import with 10 MB input limit, preview and explicit confirmation before replacement; invalid snapshots are rejected without replacing existing records.
+- In-app **Test recovery safeguards (safe)** control: creates a deliberately altered snapshot in memory, attempts restore, checks that the live journal remains byte-for-byte equivalent at the exported JSON level and chain-valid, and defensively restores the original snapshot if an unexpected mutation is detected. It does not edit or overwrite the user's backup file.
 - Robolectric recovery tests: snapshot round-trip, duplicate receipt protection, tamper rejection without mutation, unsupported version rejection.
 - Deterministic local command router:
   - “remember that …”, “record note …”, “save note …”, “tell Muninn …”
@@ -38,7 +39,8 @@
 - After the import action, the app's Journal Integrity control reported that the chain was verified.
 - User then completely closed and reopened the app; Journal Integrity again reported that the chain was verified. This is user-reported physical-device verification of post-import integrity and application-restart persistence.
 - User then restarted the Samsung Galaxy S21, reopened Yggdrasil Builder Host and ran Journal Integrity; the chain was again reported verified. This is user-reported physical-device verification of journal persistence across a full device reboot.
-- Not yet physically verified: cancellation behavior, tampered-file rejection without loss of existing records, offline operation, or independent agent execution.
+- New in-app recovery safety control is committed in source at `0a23267dc51deba4d5fab814b39bd3af51177e19`; Android CI run `42005258590` is pending, so no updated APK is available yet.
+- Not yet physically verified: the new in-app tamper-safety control, cancellation behavior, tampered-file rejection using a separately selected external file, offline operation, or independent agent execution.
 
 ## Scope boundaries
 
@@ -48,10 +50,10 @@ The journal hash chain is tamper-evident, not cryptographic authentication again
 
 ## Next gates
 
-1. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
-2. Clarify whether import preview and final replacement are separate UI actions; user observed one action button.
+1. Complete CI and install the updated APK; run the new in-app recovery safety test on the phone.
+2. Clarify import preview/confirmation UX; the user observed one action button.
 3. Test offline behavior and capability boundaries before selecting local inference or voice components.
 
 ## Integrity check
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery is now user-verified; tampered-file rejection remains pending.
+One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery is now user-verified; the new in-app tamper test remains pending until the updated APK passes CI and is exercised on the phone.
