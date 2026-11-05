@@ -236,8 +236,10 @@ public final class MainActivity extends Activity {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
         if (Build.VERSION.SDK_INT >= 33) {
-            clip.getDescription().getExtras().putBoolean(
-                    ClipDescription.EXTRA_IS_SENSITIVE, true);
+            android.os.PersistableBundle extras = clip.getDescription().getExtras();
+            if (extras == null) extras = new android.os.PersistableBundle();
+            extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+            clip.getDescription().setExtras(extras);
         }
         clipboard.setPrimaryClip(clip);
         final String label = "BUILDER_KEYSTORE_BASE64";
