@@ -46,6 +46,7 @@ public class BuilderRecoveryIntegrityTest {
         JSONObject backup = export(source, "available");
         JSONArray altered = backup.getJSONObject("operational_snapshot_provenance").getJSONArray("events");
         altered.getJSONObject(0).put("thread_id", "other-thread");
+        assertEquals("thread-a", source.getJSONObject(0).getString("thread_id"));
         assertFalse(BuilderRecoveryIntegrity.reconcileProvenance(source, backup));
         assertFalse(BuilderRecoveryIntegrity.validate(backup).valid);
     }
