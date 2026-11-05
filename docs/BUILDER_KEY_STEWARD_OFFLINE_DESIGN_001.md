@@ -81,3 +81,11 @@ The APK artifact linked from recovery verification run `42005258590` has signer 
 - Latest complete-source workflow run `42054633700` was queued at the time of this checkpoint. Run `42054477744` was still in progress on the earlier commit `d2249c8026141b8ec5146ed0ee307b944eae5f24`. No successful Key Steward build/artifact has yet been verified.
 - No keystore has been generated; no private key or password has been sent to GitHub; no repository signing secrets have been configured; no phone installation or change has occurred.
 - **Next gate:** verify the latest CI run for commit `f285fb984049a7fd88c3939da07c7012390255dd`; download only the Key Steward APK artifact; inspect its merged manifest/package and install it as a separate app; test PKCS#12 generation, export, reload, password rejection and fingerprint on the actual Galaxy S21+ Android 15. Do not configure GitHub secrets or migrate Builder Host until these phone tests pass.
+
+
+### Latest CI status refresh — 2026-11-05 15:26 UTC
+
+- Latest complete-source Android workflow: run `42054633700`, head commit `f285fb984049a7fd88c3939da07c7012390255dd`.
+- Run is in progress. Both `android-build` and `key-steward-build` are executing their Gradle test/build steps.
+- Offline manifest/source boundary check completed successfully.
+- No Key Steward artifact is available yet. No installation or key generation has occurred.
