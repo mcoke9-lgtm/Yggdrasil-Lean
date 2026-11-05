@@ -51,11 +51,23 @@ public final class BuilderSubjectThreadRecorder {
                     null, participant.name(), timestamp));
         }
 
-        BuilderSubjectThreadIndex index = new BuilderSubjectThreadIndex(context);
-        try {
-            index.appendAll(events);
-        } finally {
-            index.close();
-        }
+        Context app = context.getApplicationContext();
+        BuilderRecoveryGenerationBarrier.withLock(app, () -> {
+            BuilderRecoveryActivation.ActivePair active = BuilderRecoveryActivation.getActive(app);
+            if (active == null) {
+                BuilderSubjectThreadIndex index = new BuilderSubjectThreadIndex(app);
+                try {
+                    index.appendAll(events);
+                } finally {
+                    index.close();
+                }
+            } else {
+                BuilderRecoveryOverlayAccess.withActive(app, session -> {
+                    session.appendAll(events);
+                    return null;
+                });
+            }
+            return null;
+        });
     }
 }
