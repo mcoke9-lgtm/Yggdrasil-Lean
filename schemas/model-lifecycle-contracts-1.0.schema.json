@@ -538,6 +538,50 @@
             "effective_parameters",
             "unknown"
           ]
+        },
+        "artifact_variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "repository",
+              "immutable_revision",
+              "filename",
+              "format",
+              "displayed_size",
+              "size_is_approximate",
+              "sha256_status"
+            ],
+            "properties": {
+              "repository": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "immutable_revision": {
+                "type": "string",
+                "pattern": "^[A-Fa-f0-9]{7,64}$"
+              },
+              "filename": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "format": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "displayed_size": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "size_is_approximate": {
+                "type": "boolean"
+              },
+              "sha256_status": {
+                "type": "string",
+                "enum": [
+                  "not_retrieved",
+                  "verified"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false
