@@ -23,7 +23,7 @@ public class BuilderConversationStoreTest {
     }
 
     private BuilderConversationProtocol.Turn turn(
-            String id, BuilderRole speaker, BuilderRole recipient, String replyTo,
+            String id, BuilderConversationProtocol.Participant speaker, BuilderConversationProtocol.Participant recipient, String replyTo,
             BuilderConversationProtocol.TurnType type, long timestamp, String body) {
         return new BuilderConversationProtocol.Turn(
                 BuilderConversationProtocol.CURRENT_VERSION, "thread-recovery-test", id,
@@ -39,9 +39,9 @@ public class BuilderConversationStoreTest {
 
     @Test public void appendsAndReadsTurnsInOriginalOrder() {
         BuilderConversationStore journal = openStore();
-        journal.append(turn("t1", BuilderRole.HUGINN, null, null,
+        journal.append(turn("t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Set the objective."));
-        journal.append(turn("t2", BuilderRole.KVASIR, BuilderRole.HUGINN, "t1",
+        journal.append(turn("t2", BuilderConversationProtocol.Participant.KVASIR, BuilderConversationProtocol.Participant.HUGINN, "t1",
                 BuilderConversationProtocol.TurnType.QUESTION, 200, "Which evidence supports it?"));
 
         List<BuilderConversationProtocol.Turn> recovered =
@@ -49,15 +49,15 @@ public class BuilderConversationStoreTest {
         assertEquals(2, recovered.size());
         assertEquals("t1", recovered.get(0).turnId);
         assertEquals("t2", recovered.get(1).turnId);
-        assertEquals(BuilderRole.KVASIR, recovered.get(1).speaker);
+        assertEquals(BuilderConversationProtocol.Participant.KVASIR, recovered.get(1).speaker);
         assertEquals("t1", recovered.get(1).replyToTurnId);
     }
 
     @Test public void threadSurvivesClosingAndReopeningTheStore() {
         BuilderConversationStore first = openStore();
-        first.append(turn("t1", BuilderRole.MARI, null, null,
+        first.append(turn("t1", BuilderConversationProtocol.Participant.MARI, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "A shared thread begins."));
-        first.append(turn("t2", BuilderRole.MUNINN, BuilderRole.MARI, "t1",
+        first.append(turn("t2", BuilderConversationProtocol.Participant.MUNINN, BuilderConversationProtocol.Participant.MARI, "t1",
                 BuilderConversationProtocol.TurnType.HANDOFF, 200, "Preserve this context."));
         first.close();
         store = null;
@@ -72,11 +72,11 @@ public class BuilderConversationStoreTest {
 
     @Test public void invalidReplyDoesNotPartiallyAppend() {
         BuilderConversationStore journal = openStore();
-        journal.append(turn("t1", BuilderRole.HUGINN, null, null,
+        journal.append(turn("t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original turn."));
 
-        BuilderConversationProtocol.Turn invalid = turn("t2", BuilderRole.KVASIR,
-                BuilderRole.HUGINN, "missing-turn",
+        BuilderConversationProtocol.Turn invalid = turn("t2", BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.HUGINN, "missing-turn",
                 BuilderConversationProtocol.TurnType.RESPONSE, 200, "This must not persist.");
         assertThrows(IllegalArgumentException.class, () -> journal.append(invalid));
 
@@ -88,17 +88,17 @@ public class BuilderConversationStoreTest {
 
     @Test public void duplicateTurnIdIsRejectedWithoutChangingHistory() {
         BuilderConversationStore journal = openStore();
-        journal.append(turn("t1", BuilderRole.HUGINN, null, null,
+        journal.append(turn("t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original."));
         assertThrows(IllegalArgumentException.class, () -> journal.append(
-                turn("t1", BuilderRole.MUNINN, null, null,
+                turn("t1", BuilderConversationProtocol.Participant.MUNINN, null, null,
                         BuilderConversationProtocol.TurnType.CONTRIBUTION, 200, "Duplicate.")));
         assertEquals(1, journal.readThread("thread-recovery-test").size());
     }
 
     @Test public void returnedThreadSnapshotCannotBeModified() {
         BuilderConversationStore journal = openStore();
-        journal.append(turn("t1", BuilderRole.BALDR, null, null,
+        journal.append(turn("t1", BuilderConversationProtocol.Participant.BALDR, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Verified structure."));
         List<BuilderConversationProtocol.Turn> snapshot =
                 journal.readThread("thread-recovery-test");
@@ -107,14 +107,14 @@ public class BuilderConversationStoreTest {
 
     @Test public void listsRecoverableThreadsByMostRecentActivity() {
         BuilderConversationStore journal = openStore();
-        journal.append(turn("a1", BuilderRole.HUGINN, null, null,
+        journal.append(turn("a1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Thread A starts."));
         journal.append(new BuilderConversationProtocol.Turn(
                 BuilderConversationProtocol.CURRENT_VERSION, "thread-b", "b1",
-                BuilderRole.MARI, null, null,
+                BuilderConversationProtocol.Participant.MARI, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION,
                 BuilderConversationProtocol.EvidenceStatus.PROPOSED, 100, "Thread B starts."));
-        journal.append(turn("a2", BuilderRole.MUNINN, null, null,
+        journal.append(turn("a2", BuilderConversationProtocol.Participant.MUNINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 200, "Thread A resumes."));
 
         List<String> threadIds = journal.listThreadIds();
@@ -122,6 +122,29 @@ public class BuilderConversationStoreTest {
         assertEquals("thread-recovery-test", threadIds.get(0));
         assertEquals("thread-b", threadIds.get(1));
         assertThrows(UnsupportedOperationException.class, threadIds::clear);
+    }
+
+    @Test public void persistsAndRecoversUserAsAConversationParticipant() {
+        BuilderConversationStore journal = openStore();
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "director-thread", "u1",
+                BuilderConversationProtocol.Participant.USER,
+                BuilderConversationProtocol.Participant.HUGINN, null,
+                BuilderConversationProtocol.TurnType.QUESTION,
+                BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED,
+                100, "Please examine the current architecture."));
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "director-thread", "b1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "u1",
+                BuilderConversationProtocol.TurnType.RESPONSE,
+                BuilderConversationProtocol.EvidenceStatus.PROPOSED,
+                200, "I will examine it."));
+        List<BuilderConversationProtocol.Turn> recovered =
+                journal.readThread("director-thread");
+        assertEquals(BuilderConversationProtocol.Participant.USER, recovered.get(0).speaker);
+        assertEquals(BuilderConversationProtocol.Participant.HUGINN, recovered.get(0).recipient);
+        assertEquals(BuilderConversationProtocol.Participant.USER, recovered.get(1).recipient);
     }
 
     @Test public void rejectsBlankThreadLookup() {
