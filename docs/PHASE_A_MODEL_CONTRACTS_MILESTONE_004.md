@@ -1,6 +1,6 @@
 # Phase A — Elastic Model Contracts and Inventory (Milestone 004)
 
-**Status:** Six contracts specified; nine Builder capability drafts and machine-readable schemas committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
+**Status:** Six contracts specified; nine Builder capability drafts, machine-readable schemas, and 22 proposed evaluation fixtures committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
 **Branch:** `independent-builder-runtime-foundation-001`
 **Architecture parent:** Recursive Model Morphogenesis — Milestone 003
 **Authority:** The user remains director and final authority.
@@ -354,7 +354,9 @@ Two versioned JSON artifacts now accompany this specification:
 
 The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has six required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
-**Validation boundary:** this was a structural consistency check, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption.
+A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 22 cases: two role-specific cases for each Builder plus four shared cases run against all nine identities. Every one of the 54 capability requirements references its corresponding fixture. All three JSON files parse, all nine Builder contracts and 22 fixtures are present, and every capability-to-fixture reference resolves.
+
+**Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 22 fixtures remain `proposed_not_executed`.
 
 ## 10. Phase A deliverables and completion gates
 
