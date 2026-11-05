@@ -1,0 +1,208 @@
+{
+  "format_id": "org.yggdrasil.lean.model-family-inventory",
+  "schema_version": "0.1.0",
+  "status": "research_shortlist",
+  "candidates": [
+    {
+      "model_family_id": "qwen3_5_0_8b",
+      "display_name": "Qwen3.5-0.8B",
+      "provider_or_origin": "Qwen / Alibaba; official Hugging Face model card",
+      "architecture": "Multimodal vision-language model; 0.8B class",
+      "model_format": "Safetensors; official Transformers format",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Model card positions this size for prototyping, task-specific fine-tuning, and research/development; do not assume production suitability."
+      ],
+      "provenance_ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "KTransformers"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": null,
+      "known_parameter_count": 800000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "License review for project distribution not completed"
+      ]
+    },
+    {
+      "model_family_id": "lfm3_1_7b",
+      "display_name": "LFM3-1.7B",
+      "provider_or_origin": "Liquid AI; official Hugging Face model card",
+      "architecture": "Tri-hybrid text language model; 1.73B parameters",
+      "model_format": "Safetensors; publisher also lists GGUF, ONNX, FP8 and NVFP4 variants",
+      "license_id": "LFM Open License v1.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Commercial-use permission is subject to the $10M annual-revenue threshold in LFM Open License v1.0.",
+        "Publisher cautions that this size is not recommended for agentic coding or complex multi-step reasoning."
+      ],
+      "provenance_ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "available",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "llama.cpp GGUF",
+        "ONNX Runtime"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": "Publisher lists FP8 and NVFP4; GGUF variants available",
+      "known_parameter_count": 1730000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies size, context, deployment formats and task limitations."
+        },
+        {
+          "ref": "https://www.liquid.ai/lfm-license",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Actual 4-bit artifact size and memory not independently measured",
+        "License review for intended project deployment and redistribution not completed"
+      ]
+    },
+    {
+      "model_family_id": "qwen3_5_2b",
+      "display_name": "Qwen3.5-2B",
+      "provider_or_origin": "Qwen / Alibaba; official Hugging Face model card",
+      "architecture": "Multimodal vision-language model; 2B class",
+      "model_format": "Safetensors; official Transformers format",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Thinking and non-thinking modes; default non-thinking mode according to model card."
+      ],
+      "provenance_ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "KTransformers"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": null,
+      "known_parameter_count": 2000000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "License review for project distribution not completed"
+      ]
+    },
+    {
+      "model_family_id": "smollm3_3b",
+      "display_name": "SmolLM3-3B",
+      "provider_or_origin": "Hugging Face Smol Models Research; official Hugging Face model card",
+      "architecture": "Decoder-only transformer with GQA and NoPE; 3B parameters",
+      "model_format": "Safetensors; Transformers and vLLM",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Native context is 65,536 tokens; 128K requires YaRN configuration.",
+        "Six native languages listed by publisher."
+      ],
+      "provenance_ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers >= 4.53.0",
+        "vLLM",
+        "SGLang"
+      ],
+      "known_context_limit": 65536,
+      "known_quantization": null,
+      "known_parameter_count": 3000000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official card identifies Apache-2.0, 3B size, 64K native context, public training data mixture and training configurations."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "Availability and completeness of original training datasets must be checked before any rebuild claim"
+      ]
+    },
+    {
+      "model_family_id": "gemma4_e2b",
+      "display_name": "Gemma 4 E2B",
+      "provider_or_origin": "Google DeepMind; official Google AI model card",
+      "architecture": "Multimodal model with per-layer embeddings; 2.3B effective parameters and 5.1B total including embeddings",
+      "model_format": "Open weights; exact selected checkpoint format not yet registered",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Do not treat 2.3B effective parameters as total stored weights; publisher reports 5.1B total including embeddings."
+      ],
+      "provenance_ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Google AI Edge",
+        "Transformers-compatible ecosystem; exact tested runtime not yet selected"
+      ],
+      "known_context_limit": 131072,
+      "known_quantization": null,
+      "known_parameter_count": 5100000000,
+      "evidence_refs": [
+        {
+          "ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, total/effective parameter counts, context and modalities."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "Hardware compatibility and license notice requirements not independently reviewed"
+      ]
+    }
+  ]
+}
