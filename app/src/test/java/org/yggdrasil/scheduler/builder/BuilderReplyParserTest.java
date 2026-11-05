@@ -119,4 +119,37 @@ public class BuilderReplyParserTest {
         assertThrows(IllegalArgumentException.class, () -> BuilderReplyParser.parse(json));
     }
 
+
+    @Test public void parsesStructuredInterruptionWithExplicitResumeCondition() {
+        String body = "{"
+                + "\\"stop_state\\":\\"PAUSE\\","
+                + "\\"observed_constraint\\":\\"Scheduler availability is unknown.\\","
+                + "\\"source_time\\":\\"Shared operational snapshot observed 2026-11-05.\\","
+                + "\\"affected_step\\":\\"Creating a daily PR monitor.\\","
+                + "\\"impact\\":\\"The current route could claim a task is scheduled without proof.\\","
+                + "\\"unknowns\\":\\"Deployment and GitHub access are not verified.\\","
+                + "\\"feasible_alternative\\":\\"Verify the independent scheduler service and repository access.\\","
+                + "\\"required_recheck_authorization\\":\\"Recheck service and permissions; request authorization before deployment or credential changes.\\","
+                + "\\"resume_condition\\":\\"Resume after an actual monitor run is confirmed.\\"}";
+        String json = "{"
+                + "\\"body\\":\"" + body.replace("\\", "\\\\").replace("\"", "\\\"") + "\\","
+                + "\\"turn_type\\":\\"INTERRUPTION\\","
+                + "\\"recipient\\":\\"USER\\","
+                + "\\"reply_to_turn_id\\":\\"trigger-1\\","
+                + "\\"evidence_status\\":\\"OBSERVED\\"}";
+        BuilderConversationCoordinator.Reply reply = BuilderReplyParser.parse(json);
+        assertEquals(BuilderConversationProtocol.TurnType.INTERRUPTION, reply.type);
+        assertTrue(reply.body.contains("resume_condition"));
+    }
+
+    @Test public void rejectsUnstructuredInterruption() {
+        String json = "{"
+                + "\\"body\\":\\"Stop because something might be wrong.\\","
+                + "\\"turn_type\\":\\"INTERRUPTION\\","
+                + "\\"recipient\\":\\"USER\\","
+                + "\\"reply_to_turn_id\\":\\"trigger-1\\","
+                + "\\"evidence_status\\":\\"UNKNOWN\\"}";
+        assertThrows(IllegalArgumentException.class, () -> BuilderReplyParser.parse(json));
+    }
+
 }
