@@ -31,6 +31,7 @@ import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRoleProviderSettings;
+import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import org.yggdrasil.scheduler.builder.BuilderRole;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import java.io.OutputStream;
