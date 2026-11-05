@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import jsonschema
 import pathlib
 import sys
 import unittest
@@ -54,6 +55,8 @@ class ReconciliationTests(unittest.TestCase):
 
     def test_agreement_keeps_human_review_and_no_acceptance_decision(self):
         result = reconciler.reconcile(self.one, self.two)
+        schema = reconciler.load_json(ROOT / "schemas/model-lifecycle-contracts-1.0.schema.json")
+        jsonschema.validate(result, schema)
         self.assertFalse(result["third_review_required"])
         self.assertFalse(result["hard_failure_any"])
         self.assertTrue(result["human_review_required"])
