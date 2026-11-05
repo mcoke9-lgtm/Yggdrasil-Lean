@@ -90,7 +90,13 @@ Robolectric tests may validate ordering and fault injection but do not prove cro
 
 Added `BuilderRecoveryGenerationBarrier` as an isolated primitive. It uses a static process-wide `ReentrantLock`, a permanent app-private lock file, and an exclusive `FileChannel.lock()`. Same-thread nested calls reuse the existing OS lock to avoid overlapping-lock exceptions. Interrupted acquisition restores the interrupt flag and fails closed. Operation exceptions do not skip lock release. The lock file is never deleted or replaced by this class.
 
-The focused Robolectric suite has been authored to cover lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. CI is pending; these tests are not yet claimed as passed and cannot prove cross-process semantics. The primitive has no production callers yet; the activation methods and overlay operations remain unguarded until all entry points can be migrated together.
+The focused Robolectric suite has been authored to cover lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. CI is pending; these tests are not yet claimed as passed and cannot prove cross-process semantics. The primitive now has one isolated typed access facade: `BuilderRecoveryOverlayAccess.withActive(...)`. It acquires the barrier before resolving the active pointer, opens and verifies the matching overlay, exposes only callback-scoped typed operations, then invalidates the session and closes the SQLite helper before releasing the lock. Retained sessions reject later and cross-thread use. `BuilderRecoveryOverlayStore` is now package-private to reduce public API escape paths.
+
+This is not yet a complete enforcement boundary: package-local code can still call the store directly, and activation/rollback, startup selection, the canonical runtime journal, and the subject recorder are not yet routed through the barrier. Do not wire this facade into live writers until those paths are migrated as one coordinated change. Robolectric tests for the facade are authored; CI status is pending.
+
+## Access-facade checkpoint
+
+Added `BuilderRecoveryOverlayAccess` and focused tests. The facade resolves the active generation only while holding the cross-process lock; validates the active overlay's generation and both baseline digests; scopes store use to a callback; exposes no `SQLiteDatabase` handle; invalidates retained sessions after callback completion; and closes the helper before lock release. This is a constrained access API, not yet a global guarantee: direct package-local store access remains possible, and activation/rollback and the existing canonical writers are not yet fenced.
 
 ## Explicit non-actions
 
