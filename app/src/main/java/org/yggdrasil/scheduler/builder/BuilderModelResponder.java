@@ -18,7 +18,12 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
     @Override public BuilderConversationCoordinator.Reply respond(
             BuilderRole role, List<BuilderConversationProtocol.Turn> threadContext,
             BuilderConversationProtocol.Turn triggeringTurn) throws Exception {
-        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, threadContext, triggeringTurn);
+        if (threadContext == null || threadContext.isEmpty())
+            throw new IllegalArgumentException("Conversation context must contain the triggering turn");
+        // Later Builders receive earlier Builder replies too. The prompt factory
+        // requires its trigger to be the latest turn in the accumulated context.
+        BuilderConversationProtocol.Turn latestTurn = threadContext.get(threadContext.size() - 1);
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, threadContext, latestTurn);
         BuilderModelProvider provider = router.providerFor(role);
         BuilderModelProvider.Request request = new BuilderModelProvider.Request(
                 prompt.systemInstruction, prompt.userMessage, maxOutputTokens);
