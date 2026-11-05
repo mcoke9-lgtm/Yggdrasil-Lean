@@ -34,7 +34,7 @@ public final class SchedulerWorker extends Worker {
                 ZonedDateTime now = ZonedDateTime.now(zone);
                 String today = now.toLocalDate().toString();
                 String scheduledDays = "," + task.days + ",";
-                if (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate)) continue;
+                boolean forced = getInputData().getBoolean("force_check", false); if (!forced && (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate))) continue;
                 checkGithub(task, today);
             } catch (Exception e) {
                 db.record(task.id, 0, "error", safe(e.getMessage()));
