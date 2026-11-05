@@ -1,6 +1,6 @@
 # Builder Key Steward — Offline Android Signing Key Utility
 
-**Status:** Source implemented; CI and physical-phone verification pending.  
+**Status:** Source implemented; CI tests/build passed; standalone APK artifact produced; physical-phone verification pending.  
 **Module:** `:key-steward`  
 **Application ID:** `org.yggdrasil.keysteward`  
 **Target:** Galaxy S21+ SM-G996U, Android 15.
@@ -58,10 +58,18 @@ Do not send secret values in chat. The connected GitHub integration cannot creat
 
 The APK artifact linked from recovery verification run `42005258590` has signer subject/issuer `CN=Android Debug, O=Android, C=US`, serial `01`, SHA-256 `91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A`. This is not the permanent key and its private key cannot be recovered from the APK.
 
+## CI verification — 2026-11-05
+
+- Workflow run `42054633700` on source commit `f285fb984049a7fd88c3939da07c7012390255dd` completed successfully.
+- Android Builder Host unit tests and compilation passed. Persistent signing secrets were not configured, so no Builder Host APK was uploaded.
+- Key Steward offline-boundary CI check passed; Key Steward unit tests and APK build passed.
+- Artifact `13429485693` (`yggdrasil-builder-key-steward-apk`) was produced. The APK was downloaded and extracted for inspection; SHA-256: `7cafe494514f89a13e89c8d79b65a4ab3b6753ac9aca8eb840e1c9618a15a813`.
+- Artifact ZIP SHA-256: `44d56f6543218269882d7d3261020bba6e76c69d9a44c91ea83efbdbddbe6caa`.
+- The APK is the standalone Key Steward utility only; it contains no Builder Host signing key. Its separate application ID is `org.yggdrasil.keysteward`.
+
 ## Not yet verified
 
-- The app has not yet passed CI.
-- No Key Steward APK has been installed on the phone.
+- The Key Steward APK has not been installed on the physical phone.
 - No permanent keystore has been generated.
 - No GitHub secrets have been configured.
 - No persistent-signed Builder Host APK has been produced.
