@@ -377,6 +377,10 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 `docs/PHASE_A_PROVIDER_INVENTORY_001.md` records a source-verified inventory of the provider-neutral interface, immutable provider registry, explicit per-role router, OpenAI-compatible HTTP adapter, and device-local encrypted credential settings. The source confirms that the current route is static per Builder role and that no elastic allocator or local inference engine is implemented. Actual device-saved provider/model metadata and endpoint availability remain unknown; no credential values were accessed.
 
+### Compact-model candidate research
+
+`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study still has zero registered source candidates.
+
 ### Compact model reduction study
 
 `schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluators; Baldr and Týr are proposed independent verification roles. The evaluator artifact must be distinct from the candidate artifact, and model self-evaluation alone is insufficient.
