@@ -13,6 +13,7 @@ import android.util.Base64;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -64,12 +65,16 @@ public final class MainActivity extends Activity {
         passwordField.setSingleLine(true);
         passwordField.setHint("Keystore password (12+ characters)");
         passwordField.setInputType(129);
+        passwordField.setSaveEnabled(false);
+        passwordField.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         root.addView(passwordField, matchWrap());
 
         confirmField = new EditText(this);
         confirmField.setSingleLine(true);
         confirmField.setHint("Confirm password for new keystore");
         confirmField.setInputType(129);
+        confirmField.setSaveEnabled(false);
+        confirmField.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         root.addView(confirmField, matchWrap());
 
         Button create = new Button(this);
@@ -90,7 +95,7 @@ public final class MainActivity extends Activity {
         TextView warning = new TextView(this);
         warning.setText("Sensitive action: this copies the encrypted keystore to your clipboard. "
                 + "Only paste it into the BUILDER_KEYSTORE_BASE64 GitHub Actions secret. "
-                + "The clipboard is cleared after 60 seconds if it has not been replaced.");
+                + "The app schedules a clipboard clear after 60 seconds; if the app is stopped or killed first, clear manually.");
         warning.setTextSize(13);
         warning.setPadding(0, 12, 0, 0);
         root.addView(warning, matchWrap());
