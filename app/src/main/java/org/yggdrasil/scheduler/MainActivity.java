@@ -11,6 +11,9 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.Toast;
+import org.yggdrasil.scheduler.builder.BuilderEventJournal;
+import org.yggdrasil.scheduler.builder.BuilderLocalExchange;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -27,7 +30,8 @@ import java.util.concurrent.TimeUnit;
 public final class MainActivity extends Activity {
     private SchedulerDb db;
     private LinearLayout root, taskList, history;
-    private TextView status;
+    private TextView status, builderStatus;
+    private EditText builderNote;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); db = new SchedulerDb(this); scheduleWorker(); buildUi(); refresh();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
@@ -45,11 +49,47 @@ public final class MainActivity extends Activity {
         root.addView(text("Yggdrasil Scheduler", 26));
         root.addView(text("Local-first Android host · background checks are periodic, not exact-time guarantees", 14));
         status = text("Persistent task store ready", 14); root.addView(status);
+        root.addView(text("Builder continuity · local demonstration", 20));
+        root.addView(text("Send a note from Mari to Muninn. This records a local handoff; it is not yet a conversational AI.", 13));
+        builderNote = new EditText(this);
+        builderNote.setHint("Write a continuity note for Muninn");
+        builderNote.setMinLines(2);
+        builderNote.setMaxLines(4);
+        builderNote.setGravity(android.view.Gravity.TOP);
+        root.addView(builderNote);
+        root.addView(button("Send note to Muninn", this::sendBuilderNote));
+        builderStatus = text("Builder journal ready", 13);
+        root.addView(builderStatus);
+        root.addView(button("Check Builder journal integrity", this::refreshBuilderStatus));
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
         root.addView(button("Refresh status", this::refresh));
         root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setInputData(new androidx.work.Data.Builder().putBoolean("force_check", true).build()).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
+    }
+    private void sendBuilderNote() {
+        String note = builderNote.getText().toString().trim();
+        if (note.isEmpty()) {
+            Toast.makeText(this, "Write a note first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            BuilderLocalExchange.Result result = new BuilderLocalExchange(this).recordContinuityHandoff(note);
+            builderNote.setText("");
+            builderStatus.setText("Handoff recorded · " + (result.journalIntegrityVerified ? "journal verified" : "integrity check failed")
+                    + " · event count " + new BuilderEventJournal(this).eventCount());
+        } catch (Exception e) {
+            builderStatus.setText("Handoff failed: " + e.getMessage());
+        }
+    }
+    private void refreshBuilderStatus() {
+        try {
+            BuilderEventJournal journal = new BuilderEventJournal(this);
+            builderStatus.setText("Events: " + journal.eventCount() + " · SHA-256 chain: "
+                    + (journal.verifyChain() ? "verified" : "FAILED"));
+        } catch (Exception e) {
+            builderStatus.setText("Journal check failed: " + e.getMessage());
+        }
     }
     private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
