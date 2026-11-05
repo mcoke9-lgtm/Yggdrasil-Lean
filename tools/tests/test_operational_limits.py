@@ -51,6 +51,11 @@ class OperationalGateTests(unittest.TestCase):
         result, code = gate.evaluate(self.register, "Create scheduled tasks / automations", as_of=self.today)
         self.assertEqual((result["decision"], code), ("proceed_with_constraints", 0))
 
+    def test_inconsistent_capacity_fails_closed(self):
+        self.register["constraints"][0]["remaining_capacity"] = 1
+        result, code = gate.evaluate(self.register, "Create scheduled tasks / automations", as_of=self.today)
+        self.assertEqual((result["decision"], code), ("recheck_required", 3))
+
     def test_available_capability_can_proceed(self):
         self.register["constraints"][0]["state"] = "available"
         result, code = gate.evaluate(self.register, "Create scheduled tasks / automations", as_of=self.today)
