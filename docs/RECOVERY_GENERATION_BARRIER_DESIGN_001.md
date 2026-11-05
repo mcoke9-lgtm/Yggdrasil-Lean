@@ -1,6 +1,6 @@
 # Recovery Generation Barrier Design — 001
 
-Status: primitive implemented and Robolectric-tested; not integrated into generation-sensitive entry points; not wired to startup.
+Status: primitive implemented; focused Robolectric tests authored and CI validation pending; not integrated into generation-sensitive entry points; not wired to startup.
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Prevent conversation and subject writers in separate Android processes from obse
 
 ## Proposed primitive: one app-private exclusive OS file lock
 
-Use a permanent lock file in the app-private files directory, for example `builder-recovery-generation.lock`.
+Use a permanent lock file in the app-private files directory, for example `builder-recovery-generation.lock`. Implemented in `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderRecoveryGenerationBarrier.java`.
 
 Every operation that resolves or uses the active generation must acquire the same exclusive OS-level file lock and hold it across the complete critical section:
 1. Read and validate the active pointer and generation descriptor.
@@ -26,7 +26,7 @@ Every operation that resolves or uses the active generation must acquire the sam
 5. Commit any SQLite transaction and close temporary handles.
 6. Release the OS lock.
 
-Use `FileChannel.lock()` (exclusive) for the first implementation. Do not rely on shared locks or filesystem-specific shared-lock semantics. SQLite remains responsible for its own database transaction integrity; the file lock coordinates the multi-file generation boundary across Android processes.
+Use `FileChannel.lock()` (exclusive) for the first implementation. Do not rely on shared locks or filesystem-specific shared-lock semantics. SQLite remains responsible for its own database transaction integrity; the file lock coordinates the multi-file generation boundary across Android processes. The Android app declares `minSdk 26`; `java.nio.file` and `FileChannel` are available at that declared API floor. This configuration check does not establish runtime lock behavior on every supported filesystem/device.
 
 Within one process, guard acquisition with one static process-wide `ReentrantLock` so two threads do not trigger Java's overlapping-file-lock exception. Acquire the JVM lock before the OS file lock and release in reverse order. Do not delete or replace the lock file. Handle interruption and I/O failure as fail-closed errors; never continue without the lock.
 
@@ -90,7 +90,7 @@ Robolectric tests may validate ordering and fault injection but do not prove cro
 
 Added `BuilderRecoveryGenerationBarrier` as an isolated primitive. It uses a static process-wide `ReentrantLock`, a permanent app-private lock file, and an exclusive `FileChannel.lock()`. Same-thread nested calls reuse the existing OS lock to avoid overlapping-lock exceptions. Interrupted acquisition restores the interrupt flag and fails closed. Operation exceptions do not skip lock release. The lock file is never deleted or replaced by this class.
 
-The focused Robolectric suite covers lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. These tests do not prove cross-process semantics. The primitive has no production callers yet; the activation methods and overlay operations remain unguarded until all entry points can be migrated together.
+The focused Robolectric suite has been authored to cover lock-file persistence, nested calls, same-process thread serialization, operation-exception cleanup, and rejection of a non-file lock path. CI is pending; these tests are not yet claimed as passed and cannot prove cross-process semantics. The primitive has no production callers yet; the activation methods and overlay operations remain unguarded until all entry points can be migrated together.
 
 ## Explicit non-actions
 
@@ -98,7 +98,7 @@ This design does not authorize startup integration, activation, rollback, migrat
 
 ## Open questions before implementation
 
-- Confirm the app's minimum supported Android API and whether `FileChannel.lock()` is available and reliable across its supported Android versions.
+- Verify `FileChannel.lock()` semantics on a physical Android device and the actual app-private filesystem; `minSdk 26` satisfies the API availability requirement but not this runtime acceptance gate.
 - Confirm all generation-sensitive entry points and eliminate raw store-handle escape paths.
 - Decide whether generation descriptors should explicitly include overlay schema version and overlay database filename before activation can publish a generation.
 - Specify bounded lock acquisition / timeout behavior for UI responsiveness without ever bypassing the lock.
