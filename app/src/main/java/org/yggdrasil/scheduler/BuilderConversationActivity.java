@@ -2,6 +2,14 @@ package org.yggdrasil.scheduler;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ComponentName;
+import android.content.ServiceConnection;
+import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.net.Uri;
 import android.app.AlertDialog;
 import android.os.Bundle;
@@ -14,6 +22,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import org.yggdrasil.scheduler.builder.BuilderConversationCoordinator;
+import org.yggdrasil.scheduler.builder.BuilderRuntimeProtocol;
+import org.yggdrasil.scheduler.builder.BuilderRuntimeService;
 import org.yggdrasil.scheduler.builder.BuilderConversationProtocol;
 import org.yggdrasil.scheduler.builder.BuilderConversationStore;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
@@ -47,6 +57,40 @@ public final class BuilderConversationActivity extends Activity {
     private LinearLayout history;
     private EditText messageInput;
     private TextView status;
+    private TextView runtimeStatus;
+    private Messenger runtimeMessenger;
+    private boolean runtimeBound;
+    private final Messenger runtimeReply = new Messenger(new Handler(Looper.getMainLooper()) {
+        @Override public void handleMessage(Message message) {
+            if (runtimeStatus == null) return;
+            if (message.what == BuilderRuntimeProtocol.MESSAGE_HEALTH) {
+                Bundle data = message.getData();
+                String runtimeId = data.getString(BuilderRuntimeProtocol.KEY_RUNTIME_ID, "unknown");
+                java.util.ArrayList<String> roles = data.getStringArrayList(BuilderRuntimeProtocol.KEY_BUILDERS);
+                runtimeStatus.setText("Builder-native host: " + data.getString(BuilderRuntimeProtocol.KEY_STATUS)
+                        + " · runtime " + runtimeId.substring(0, Math.min(8, runtimeId.length()))
+                        + " · " + (roles == null ? 0 : roles.size()) + " role identities · separate process");
+            } else if (message.what == BuilderRuntimeProtocol.MESSAGE_ERROR) {
+                runtimeStatus.setText("Builder-native host error: " + message.getData().getString(BuilderRuntimeProtocol.KEY_ERROR));
+            }
+        }
+    });
+    private final ServiceConnection runtimeConnection = new ServiceConnection() {
+        @Override public void onServiceConnected(ComponentName name, IBinder binder) {
+            runtimeMessenger = new Messenger(binder);
+            try {
+                Message request = Message.obtain(null, BuilderRuntimeProtocol.MESSAGE_GET_HEALTH);
+                request.replyTo = runtimeReply;
+                runtimeMessenger.send(request);
+            } catch (RemoteException failure) {
+                if (runtimeStatus != null) runtimeStatus.setText("Builder-native host connection failed; local conversation remains available.");
+            }
+        }
+        @Override public void onServiceDisconnected(ComponentName name) {
+            runtimeMessenger = null;
+            if (runtimeStatus != null) runtimeStatus.setText("Builder-native host disconnected; Android will manage process recovery.");
+        }
+    };
     private TextView threadLabel;
     private Button sendButton;
     private CheckBox difficultSpacesMode;
@@ -62,6 +106,22 @@ public final class BuilderConversationActivity extends Activity {
             setActiveThread(UUID.randomUUID().toString());
         buildUi();
         refreshHistory();
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        runtimeStatus.setText("Connecting to Builder-native runtime process…");
+        runtimeBound = bindService(new Intent(this, BuilderRuntimeService.class), runtimeConnection, BIND_AUTO_CREATE);
+        if (!runtimeBound) runtimeStatus.setText("Builder-native host unavailable; conversation UI remains available.");
+    }
+
+    @Override protected void onStop() {
+        if (runtimeBound) {
+            unbindService(runtimeConnection);
+            runtimeBound = false;
+        }
+        runtimeMessenger = null;
+        super.onStop();
     }
 
     @Override protected void onDestroy() {
@@ -94,7 +154,9 @@ public final class BuilderConversationActivity extends Activity {
         setContentView(scroll);
 
         root.addView(text("Nine Builder Conversation", 24));
-        root.addView(text("Nine distinct AI roles sharing one recorded thread. They are coordinated by this app, not nine independent processes.", 14));
+        root.addView(text("Nine distinct AI roles sharing one recorded thread. They are coordinated by this app, not nine independent AI workers.", 14));
+        runtimeStatus = text("Builder-native host: waiting for connection", 13);
+        root.addView(runtimeStatus);
 
         SecureBuilderProviderSettings.Configuration config =
                 new SecureBuilderProviderSettings(this).readConfiguration();
