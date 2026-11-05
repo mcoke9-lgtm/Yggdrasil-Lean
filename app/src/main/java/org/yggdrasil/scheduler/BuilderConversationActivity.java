@@ -29,6 +29,7 @@ import org.yggdrasil.scheduler.builder.BuilderConversationJournal;
 import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
+import org.yggdrasil.scheduler.builder.BuilderOperationalSnapshotJournal;
 import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
@@ -454,6 +455,13 @@ public final class BuilderConversationActivity extends Activity {
                 // timestamped limits snapshot; never imply that this is live telemetry.
                 String operationalLimitsJson = BuilderOperationalLimits
                         .load(getApplicationContext()).toPromptJson();
+                // Persist snapshot provenance before dispatch. If this audit write fails,
+                // do not send the conversation to a model without a traceable snapshot.
+                try (BuilderOperationalSnapshotJournal provenance =
+                             new BuilderOperationalSnapshotJournal(getApplicationContext())) {
+                    provenance.append(threadId, operationalLimitsJson, roles,
+                            System.currentTimeMillis());
+                }
                 BuilderModelResponder responder = new BuilderModelResponder(
                         router, 2048, operationalLimitsJson);
                 store = new BuilderRuntimeJournalClient(getApplicationContext());
