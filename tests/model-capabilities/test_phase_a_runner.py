@@ -34,6 +34,7 @@ class PhaseARunnerTests(unittest.TestCase):
     def test_plan_contains_exactly_63_role_mapped_executions(self):
         plan = runner.build_evaluation_plan(self.bundle, self.suite)
         self.assertEqual(63, len(plan))
+        self.assertEqual(9, sum(bool(item.get("follow_up_builder_id")) for item in plan))
         for builder in runner.BUILDERS:
             own = [item for item in plan if item["builder_id"] == builder]
             self.assertEqual(7, len(own))
@@ -48,6 +49,17 @@ class PhaseARunnerTests(unittest.TestCase):
             self.assertIn("untrusted content", item["user_prompt"])
             self.assertIn(item["builder_id"], item["system_prompt"])
             self.assertIn("I am ", item["user_prompt"])
+
+    def test_handoff_receiver_turn_is_a_separate_builder_identity(self):
+        bundle = self.bundle
+        plan = runner.build_evaluation_plan(bundle, self.suite)
+        sender = next(item for item in plan if item["builder_id"] == "HUGINN" and item["case_id"] == "case.shr-hand-03")
+        follow = runner.build_handoff_follow_up(bundle, sender, "Completed: schema checked. Failed: restore test. Unknown: host RAM.")
+        self.assertEqual("MUNINN", follow["builder_id"])
+        self.assertIn("MUNINN", follow["system_prompt"])
+        self.assertIn("HUGINN", follow["user_prompt"])
+        self.assertIn("Completed: schema checked. Failed: restore test. Unknown: host RAM.", follow["user_prompt"])
+        self.assertIn("untrusted task-state", follow["user_prompt"])
 
     def test_endpoint_defaults_to_loopback(self):
         self.assertEqual(
