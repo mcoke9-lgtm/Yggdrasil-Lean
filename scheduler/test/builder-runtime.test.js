@@ -82,6 +82,7 @@ test("rejects a shared scheduler and Builder ledger file", async () => {
   await assert.rejects(() => registerOptionalBuilderRuntime({
     scheduler,
     schedulerStateFile: samePath,
+    builderStateFilePath: samePath,
     executorModulePath: "/tmp/host-executor.mjs",
     loadModule: async () => ({ createBuilderExecutor: async () => async () => ({ status: "succeeded" }) })
   }), /separate state file/);
