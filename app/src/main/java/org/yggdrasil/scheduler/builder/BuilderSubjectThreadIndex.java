@@ -55,7 +55,12 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
     }
 
     public BuilderSubjectThreadIndex(Context context) {
-        super(context.getApplicationContext(), "builder-subject-thread-index.db", null, DATABASE_VERSION);
+        this(context, "builder-subject-thread-index.db");
+    }
+
+    /** Alternate database names isolate recovery staging and tests from live metadata. */
+    public BuilderSubjectThreadIndex(Context context, String databaseName) {
+        super(context.getApplicationContext(), requireDatabaseName(databaseName), null, DATABASE_VERSION);
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -158,6 +163,12 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
         for (byte b : digest) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
         return out.toString();
     }
+    private static String requireDatabaseName(String name) {
+        if (name == null || name.trim().isEmpty())
+            throw new IllegalArgumentException("databaseName must not be blank");
+        return name.trim();
+    }
+
     private static String required(String value, String field) {
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException(field + " must not be blank");
         return value.trim();
