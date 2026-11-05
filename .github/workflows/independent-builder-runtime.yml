@@ -97,6 +97,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Enforce offline Key Steward source boundary
+        run: |
+          if grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)' key-steward/src/main/AndroidManifest.xml; then
+            echo "Network permission found in offline Key Steward manifest."
+            exit 1
+          fi
+          if grep -R -E 'HttpURLConnection|OkHttpClient|android.util.Log' key-steward/src/main/java; then
+            echo "Network transport or logging reference found in Key Steward source."
+            exit 1
+          fi
       - name: Test and build offline Key Steward utility
         run: gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:assembleDebug
       - name: Upload Key Steward app only (contains no signing key)
