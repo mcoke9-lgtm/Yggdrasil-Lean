@@ -74,9 +74,17 @@ public final class BuilderCorrectionLedger {
         BuilderConversationProtocol.Turn plan = findPlan(context, correctionId);
         if (plan == null)
             throw new IllegalArgumentException("Correction update references no recorded plan");
+        List<BuilderConversationProtocol.Turn> beforePlan = new ArrayList<>();
+        for (BuilderConversationProtocol.Turn prior : context) {
+            if (prior.turnId.equals(plan.turnId)) break;
+            beforePlan.add(prior);
+        }
+        validatePlan(plan, beforePlan, plan.replyToTurnId);
         JSONObject planBody = object(plan.body, "Correction plan");
         if (!incidentId.equals(required(planBody, "incident_turn_id")))
             throw new IllegalArgumentException("Correction update incident does not match its plan");
+        if (!incidentId.equals(plan.replyToTurnId))
+            throw new IllegalArgumentException("Correction plan reference does not match its incident");
         BuilderConversationProtocol.Turn incident = findTurn(context, incidentId);
         if (incident == null || incident.type != BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT)
             throw new IllegalArgumentException("Correction update references no recorded incident");
