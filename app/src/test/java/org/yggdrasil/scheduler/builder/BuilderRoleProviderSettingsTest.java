@@ -115,6 +115,18 @@ public class BuilderRoleProviderSettingsTest {
         assertFalse(settings.hasDistinctBaldrRoute());
     }
 
+    @Test public void baldrEndpointComparisonPreservesReservedAndPercentEscapes() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        settings.save(BuilderRole.HUGINN, "implementation",
+                "http://localhost:8101/v1/a%2Fb", "model-a", "");
+        settings.save(BuilderRole.BALDR, "verification",
+                "http://localhost:8101/v1/a/b", "model-b", "");
+        assertTrue(settings.hasDistinctBaldrRoute());
+        settings.save(BuilderRole.BALDR, "verification",
+                "http://localhost:8101/v1/a%252Fb", "model-c", "");
+        assertTrue(settings.hasDistinctBaldrRoute());
+    }
+
     @Test public void baldrMustDifferFromEveryConfiguredRoleNotOnlySelectedRoles() throws Exception {
         BuilderRoleProviderSettings settings = settings();
         save(settings, BuilderRole.HUGINN, "implementation", "8101", "model-a");
