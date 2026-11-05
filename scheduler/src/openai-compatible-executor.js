@@ -283,7 +283,7 @@ async function readLimitedResponse(response, signal) {
   return new TextDecoder().decode(merged);
 }
 
-function validateTask(task, routes) {
+function validateTask(task, routes, runId) {
   if (!task || typeof task !== "object" || Array.isArray(task)) {
     throw new TypeError("Secure task vault returned no task object");
   }
@@ -306,7 +306,14 @@ function validateTask(task, routes) {
       fingerprint !== fingerprintForValidatedRoutes(routes, prompt)) {
     throw new Error("Scheduled task or one or more Builder routes changed after user approval; fresh consent is required");
   }
-  return { prompt, history, consentFingerprint: fingerprint };
+
+  const threadId = requiredText(task.threadId, "Run-specific threadId", 256);
+  for (const turn of history) {
+    if (!turn || turn.runId !== runId || turn.threadId !== threadId) {
+      throw new Error("Task history contains data outside this scheduled run's dedicated thread");
+    }
+  }
+  return { prompt, history, threadId, consentFingerprint: fingerprint };
 }
 
 export function createOpenAiCompatibleExecutor({
@@ -328,6 +335,7 @@ export function createOpenAiCompatibleExecutor({
     throw new RangeError("timeoutMs must be between 1 second and 5 minutes");
   }
 
+  const runThreads = new Map();
   return async function executeBuilderRole(role, context) {
     if (!BUILDER_ROLES.includes(role)) throw new Error("Unknown Builder role: " + role);
     if (!context || typeof context !== "object") throw new TypeError("Builder execution context is required");
@@ -343,7 +351,12 @@ export function createOpenAiCompatibleExecutor({
     }
 
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
-    const task = validateTask(await taskVault.getTask(taskReference), routes);
+    const task = validateTask(await taskVault.getTask(taskReference, { runId }), routes, runId);
+    const previousThreadId = runThreads.get(runId);
+    if (previousThreadId && previousThreadId !== task.threadId) {
+      throw new Error("Task vault changed the dedicated thread ID during a scheduled run");
+    }
+    runThreads.set(runId, task.threadId);
     const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
     const userMessage = JSON.stringify({
       task_prompt: task.prompt,
@@ -409,6 +422,7 @@ export function createOpenAiCompatibleExecutor({
       const saved = await taskVault.appendBuilderResult(taskReference, {
         idempotencyKey: runId + ":" + role,
         runId,
+        threadId: task.threadId,
         role,
         requestedProviderId: route.providerId,
         requestedModel: route.model,
@@ -423,6 +437,7 @@ export function createOpenAiCompatibleExecutor({
       const checkpointId = requiredText(saved?.checkpointId, "Task vault checkpointId", 256);
       await context.checkpoint({
         checkpointId,
+        threadId: task.threadId,
         providerId: route.providerId,
         requestedModel: route.model,
         providerReportedModel,
