@@ -170,6 +170,19 @@ def main() -> int:
     if evaluation_design.get("model_self_evaluation_is_sufficient") is not False:
         print("FAIL candidate model must not be its own sole evaluator")
         failures += 1
+    selection_policy = study.get("selection_policy", {})
+    if selection_policy.get("parameter_count_alone_is_sufficient") is not False:
+        print("FAIL parameter count alone cannot select a compact Builder model")
+        failures += 1
+    if selection_policy.get("smallest_resource_footprint_among_passing_candidates") is not True:
+        print("FAIL compact selection must compare measured resource footprints among passing candidates")
+        failures += 1
+    if selection_policy.get("role_identity_and_memory_are_external_to_weights") is not True:
+        print("FAIL Builder identity and memory must remain external to model weights")
+        failures += 1
+    if selection_policy.get("model_combination_allowed") is not True or selection_policy.get("dynamic_model_assignment_by_task_allowed") is not True:
+        print("FAIL elastic model combinations and task-based assignments must remain permitted")
+        failures += 1
     if study.get("status") != "planned" or study.get("decision") != "not_decided":
         print("FAIL model reduction study must remain planned without an acceptance decision")
         failures += 1
