@@ -129,7 +129,7 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     @Override public void onCreate(SQLiteDatabase db) {
         if (!allowCreate)
             throw new IllegalStateException("Recovery overlay is missing; refusing implicit recreation");
-        db.execSQL("CREATE TABLE " + META + " (
+        db.execSQL("CREATE TABLE " + META + " ("
                 + "singleton INTEGER PRIMARY KEY CHECK(singleton = 1), "
                 + "format TEXT NOT NULL, schema_version INTEGER NOT NULL, "
                 + "generation_id TEXT NOT NULL, conversation_sha256 TEXT NOT NULL, "
