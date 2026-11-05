@@ -174,6 +174,31 @@ public class BuilderPromptFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> BuilderPromptFactory.forTurn(
                 BuilderRole.BALDR, Collections.singletonList(request), request));
     }
+    @Test public void improvementReviewDefinesEvidenceGatedCorrectionLifecycle() {
+        BuilderConversationProtocol.Turn origin = turn("u0",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");
+        BuilderConversationProtocol.Turn incident = turn("incident-1",
+                BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.USER, "u0",
+                BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, 200,
+                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\","
+                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\","
+                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\","
+                        + "\"proposed_next_step\":\"peer review\",\"status\":\"OPEN_REVIEW\"}");
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.HODR, Arrays.asList(origin, incident, request), request);
+        assertTrue(prompt.systemInstruction.contains("PROPOSED (plan) -> IMPLEMENTED -> TESTED -> VERIFIED -> ADOPTED"));
+        assertTrue(prompt.systemInstruction.contains("Only an unaffected Baldr may issue VERIFIED"));
+        assertTrue(prompt.systemInstruction.contains("Never issue ADOPTED: only the user may record adoption"));
+        assertTrue(prompt.userMessage.contains("CORRECTION_PLAN"));
+        assertTrue(prompt.userMessage.contains("CORRECTION_UPDATE"));
+    }
+
     @Test public void kvasirPromptNamesIndependentSchedulerAsFirstClassAlternative() {
         BuilderConversationProtocol.Turn user = turn("u1",
                 BuilderConversationProtocol.Participant.USER, null, null,
