@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Run the Phase A capability suite against one explicitly selected OpenAI-compatible model endpoint. A single model can be assigned to all nine Builder roles; each role receives its own contract prompt and its own output record. The suite expands to 63 executions: two role-specific tasks and five shared tasks for each Builder identity.
+Run the Phase A capability suite against one explicitly selected OpenAI-compatible model endpoint. A single model can be assigned to all nine Builder roles; each role receives its own contract prompt and its own output record. The suite expands to 63 capability evaluations: two role-specific tasks and five shared tasks for each Builder identity. The handoff evaluation includes a second receiving-Builder turn, so a full run makes 72 model calls.
 
 ## Invocation
 
@@ -15,7 +15,7 @@ python scripts/run_phase_a_model_evaluation.py \
   --output evaluation-runs/run-001.json
 ```
 
-The default endpoint is `http://127.0.0.1:8000/v1/chat/completions`. Use `--limit 1` for a smoke test. A full run makes 63 sequential requests.
+The default endpoint is `http://127.0.0.1:8000/v1/chat/completions`. Use `--limit 1` for a smoke test. A full run makes 72 sequential model calls (63 primary capability evaluations plus nine receiving-Builder handoff turns).
 
 For a remote HTTPS endpoint, the operator must explicitly add `--allow-remote`. Optional bearer credentials are read from `BUILDER_MODEL_API_KEY`; the secret itself is never stored in the report. Never put credentials in the endpoint URL.
 
@@ -33,12 +33,13 @@ For a remote HTTPS endpoint, the operator must explicitly add `--allow-remote`. 
 
 ## CI behavior
 
-The Phase A GitHub Actions workflow runs the schema validator and unit tests using a mocked endpoint. It does not connect to a real model. The test suite verifies 63-case role mapping, role-conflict injection, endpoint restrictions, OpenAI-compatible response parsing, and credential non-disclosure.
+The Phase A GitHub Actions workflow runs the schema validator and unit tests using a mocked endpoint. It does not connect to a real model. The test suite verifies 63-case role mapping, nine two-stage handoffs, role-conflict injection, endpoint restrictions, redirect rejection, OpenAI-compatible response parsing, and credential non-disclosure.
 
 ## Current status
 
 - Runner source: committed.
-- Mock endpoint unit tests: committed; CI pending.
+- Mock endpoint unit tests: committed; CI status is tracked on the current branch.
+- Model revision in the report is operator-supplied and explicitly marked unverified; the runner does not attest what the endpoint actually loaded.
 - Live model calls: not run.
 - Model quality scores: none.
 - Resource measurements: none.
