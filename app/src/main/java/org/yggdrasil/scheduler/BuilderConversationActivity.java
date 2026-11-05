@@ -253,6 +253,7 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(sendButton);
         root.addView(button("Schedule eight-hour Nine Builders run", this::scheduleOvernightRun));
         root.addView(button("Cancel last scheduled overnight run", this::confirmCancelOvernightRun));
+        root.addView(button("Review latest overnight run", this::reviewLatestOvernightRun));
         root.addView(button("Review latest improvement incident", this::requestImprovementReview));
         root.addView(button("Adopt latest verified correction (record only)", this::requestAdoptLatestCorrection));
         status = text("No model request has been sent from this screen.", 13);
@@ -884,6 +885,37 @@ public final class BuilderConversationActivity extends Activity {
                         status.setText("Could not confirm cancellation: " + failure.getMessage());
                     }
                 }).show();
+    }
+
+    private void reviewLatestOvernightRun() {
+        try {
+            org.json.JSONObject state = BuilderOvernightScheduler.latestState(this);
+            if (state == null) {
+                status.setText("No overnight run has started yet. A delayed schedule may still be waiting.");
+                return;
+            }
+            String threadId = state.optString("thread_id", "");
+            String message = "Status: " + state.optString("status")
+                    + "\nCompleted cycles: " + state.optInt("completed_cycles")
+                    + "\nStarted: " + state.optLong("started_at_epoch_millis")
+                    + "\nDeadline: " + state.optLong("deadline_epoch_millis")
+                    + "\nLast checkpoint: " + state.optString("last_cycle_summary", "none")
+                    + "\nStatus detail: " + state.optString("status_reason", "none")
+                    + "\nRun thread: " + threadId;
+            AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                    .setTitle("Latest overnight run")
+                    .setMessage(message)
+                    .setNegativeButton("Close", null);
+            if (!threadId.isEmpty()) {
+                dialog.setPositiveButton("Open run thread", (view, which) -> {
+                    setActiveThread(threadId);
+                    refreshHistory();
+                });
+            }
+            dialog.show();
+        } catch (Exception failure) {
+            status.setText("Could not read the overnight run checkpoint: " + failure.getMessage());
+        }
     }
 
     private void renderTurns(List<BuilderConversationProtocol.Turn> turns) {
