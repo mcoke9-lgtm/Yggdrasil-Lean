@@ -136,3 +136,22 @@ Acceptance checks added:
 - Damaged manifests and missing/corrupt descriptors fail closed; the active pair is not guessed.
 - A staged database altered after staging is rejected even if row counts remain unchanged.
 - Activation and rollback do not delete or rewrite either generation's database files.
+
+
+## Read-only startup recovery selection — version 1
+
+`BuilderRecoveryStartupSelector` adds a read-only decision layer for the eventual app startup integration. If no active recovery manifest exists, it selects the established canonical database names: `builder-conversations.db` and `builder-subject-thread-index.db`. If a manifest exists, it delegates to `BuilderRecoveryActivation.getActive`, which validates the manifest checksum, generation descriptor, both database files, record counts, and exact record-array digests before returning either recovery database name.
+
+The selector returns one `Selection` containing both database names and the source (`CANONICAL` or `RECOVERY`). It does not open, create, migrate, rename, delete, or modify either database. If a manifest exists but is malformed, its descriptor is missing, or either database fails verification, selection throws an error. It never silently falls back to canonical history or guesses the previous generation.
+
+Robolectric tests cover: absent-manifest canonical selection; valid recovery-pair selection; damaged-manifest fail-closed behavior; missing member of the active pair; and preservation of an existing canonical conversation database.
+
+**Boundary:** this is a tested selection primitive, not yet wired into `BuilderConversationActivity`, `MainActivity`, the runtime service, or any application startup path. Existing app behavior is unchanged. The production Android filesystem path and physical-device startup behavior remain unverified.
+
+Acceptance checks added:
+- No manifest selects the established canonical pair without creating recovery files.
+- A valid manifest selects both verified recovery databases together.
+- A damaged manifest cannot trigger silent canonical fallback.
+- A missing/corrupt member of the active pair blocks selection.
+- Selector does not mutate the canonical conversation database.
+- No app startup integration, installation, device modification, or activation is performed by this milestone.
