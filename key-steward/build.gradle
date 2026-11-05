@@ -38,3 +38,11 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
+
+tasks.register("createDisposableTestKeystore", JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "org.yggdrasil.keysteward.DisposableKeystoreGenerator"
+    args layout.buildDirectory.file("disposable-test-key.p12").get().asFile.absolutePath,
+            "disposable-test-password"
+}
