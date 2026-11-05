@@ -95,6 +95,13 @@ public class KeyStoreEngineTest {
     }
 
     @Test
+    public void base64ExportSizeAcceptsExact48KbLimitAndRejectsOversize() {
+        KeyStoreEngine.validateBase64ExportSize(KeyStoreEngine.MAX_BASE64_CHARS);
+        assertThrows(IllegalArgumentException.class, () ->
+                KeyStoreEngine.validateBase64ExportSize(KeyStoreEngine.MAX_BASE64_CHARS + 1));
+    }
+
+    @Test
     public void expiredCertificateIsRejected() throws Exception {
         Provider provider = new BouncyCastleProvider();
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", provider);
