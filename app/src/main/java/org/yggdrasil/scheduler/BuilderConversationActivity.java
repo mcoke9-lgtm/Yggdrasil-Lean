@@ -494,6 +494,8 @@ public final class BuilderConversationActivity extends Activity {
                 store = new BuilderRuntimeJournalClient(getApplicationContext());
                 BuilderConversationCoordinator coordinator =
                         new BuilderConversationCoordinator(store, responder);
+                // This method is reached only after the endpoint disclosure is accepted.
+                // Save the routing decision before model calls so it survives partial reply failure.
                 String continuityStatus = "";
                 if (subjectResolution != null && subjectResolution.matched
                         && !subjectResolution.ambiguous) {
