@@ -348,15 +348,16 @@ The later lifecycle manager must enforce these invariants:
 
 ### Machine-readable contracts
 
-Six versioned JSON artifacts now accompany this specification:
+Seven versioned JSON artifacts now accompany this specification:
 - `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
 - `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (63 required capability tests total).
 - `schemas/model-reduction-study-v0.1.json` — a planned study for selecting, evaluating, and packaging a compact model; no candidate model has been selected or tested.
-- `schemas/model-family-candidate-inventory-v0.1.json` — five research-stage model families with source references and explicit unverified artifact/license/runtime details.
+- `schemas/model-family-candidate-inventory-v0.1.json` — five research-stage model families with pinned repository revisions and source-reported variant metadata.
+- `schemas/model-artifact-inventory-v0.1.json` — four exact-size model-weight artifact records with publisher-reported SHA-256 digests, provenance, and explicit unverified local state.
 
-All six machine-readable artifacts were fetched back from the repository and structurally checked: they parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
+All seven machine-readable artifacts were fetched back from the repository and structurally checked: they parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
-A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All six machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
+A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All seven machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
 **Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
 
@@ -365,7 +366,7 @@ A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1
 A proposed weighted scoring rubric is now defined in `schemas/capability-evaluation-rubric-v0.1.json`. It scores task completion, evidence integrity, role-boundary judgment, failure handling, handoff/recovery, and clarity. It includes hard-failure conditions, independent evaluator requirements, resource measurements, and a minimum compact-seed acceptance gate. Its thresholds remain proposed, not adopted.
 
 The repository now contains `scripts/validate_phase_a_contracts.py` and `.github/workflows/phase-a-contract-validation.yml`. The workflow uses a pinned JSON Schema validator and checks:
-- Draft 2020-12 schema validity and the bundle, fixture suite, rubric, model-reduction study, and model-family inventory against that schema;
+- Draft 2020-12 schema validity and the bundle, fixture suite, rubric, model-reduction study, model-family inventory, and model-artifact inventory against that schema;
 - nine unique Builder contracts and seven required capabilities per Builder;
 - 23 unique fixtures, including 18 role-specific and five shared;
 - correct Builder and capability ownership for every role-specific fixture;
@@ -403,7 +404,7 @@ The CI workflow runs unit tests with a mocked endpoint only. It never calls a li
 
 ### Compact-model candidate research
 
-`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study now records five research-stage source candidates, one with a pinned repository revision but no individual weight-file digest or baseline evaluation.
+`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected. The model-reduction study records five research-stage families; four weight artifacts have exact byte sizes and publisher-reported SHA-256 values, but no file has been downloaded or locally hashed and no baseline evaluation has run.
 
 ### Compact model reduction study
 
@@ -413,7 +414,7 @@ The selection policy defines the compact model as the smallest measured resource
 
 The expansion blueprint separately records architecture/configuration, tokenizer, source weights, training-data manifests, training recipes, runtime toolchains, license/provenance, and required compute. It explicitly forbids treating student weights alone as sufficient to reconstruct a larger model. The blueprint is planned, with no dependencies or reconstruction claim registered.
 
-The study currently has **five research-stage model families**, but repository revisions are pinned for Qwen3.5-0.8B, Qwen3.5-2B, and LFM3-1.7B, but no individual weight-file digests or complete artifact locks are registered; no baseline evaluations or selected candidate exist, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
+The study currently has **five research-stage model families** and **four publisher-pinned weight artifacts**: Qwen3.5-0.8B BF16, Qwen3.5-2B BF16, LFM3-1.7B Q4_K_M, and LFM3-1.7B BF16 GGUF. Their exact byte sizes and SHA-256 values are recorded from official Git LFS pointers. The files have not been downloaded and locally hashed; license review, baseline evaluations, and candidate selection remain pending, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
 ### Elastic lifecycle and reconstruction
 
