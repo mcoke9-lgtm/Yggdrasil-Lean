@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, lstat } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { createEncryptedTaskVault } from "./encrypted-task-vault.js";
