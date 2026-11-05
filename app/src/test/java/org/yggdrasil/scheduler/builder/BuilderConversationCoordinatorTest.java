@@ -86,16 +86,24 @@ public class BuilderConversationCoordinatorTest {
 
     @Test public void routesBuilderQuestionToNamedPeerAndAllowsPeerResponse() {
         BuilderConversationStore journal = openStore();
+        java.util.Map<BuilderRole, Integer> calls = new java.util.EnumMap<>(BuilderRole.class);
         BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
                 journal,
                 (role, context, userTurn) -> {
-                    if (role == BuilderRole.HUGINN) {
+                    int call = calls.containsKey(role) ? calls.get(role) + 1 : 1;
+                    calls.put(role, call);
+                    if (role == BuilderRole.HUGINN && call == 1) {
                         return new BuilderConversationCoordinator.Reply(
                                 "Kvasir, verify the source evidence.",
                                 BuilderConversationProtocol.EvidenceStatus.PROPOSED,
                                 BuilderConversationProtocol.TurnType.QUESTION,
                                 BuilderConversationProtocol.Participant.KVASIR,
                                 null);
+                    }
+                    if (role == BuilderRole.HUGINN && call == 2) {
+                        return new BuilderConversationCoordinator.Reply(
+                                "Kvasir's evidence review is incorporated.",
+                                BuilderConversationProtocol.EvidenceStatus.TESTED);
                     }
                     if (role == BuilderRole.KVASIR) {
                         BuilderConversationProtocol.Turn question = context.get(context.size() - 1);
@@ -116,7 +124,10 @@ public class BuilderConversationCoordinatorTest {
                 Arrays.asList(BuilderRole.HUGINN, BuilderRole.KVASIR));
 
         assertTrue(result.failedRoles.isEmpty());
-        assertEquals(3, result.appendedTurns.size());
+        assertTrue(result.unroutedRecipients.isEmpty());
+        assertEquals(4, result.appendedTurns.size());
+        assertEquals(Integer.valueOf(2), calls.get(BuilderRole.HUGINN));
+        assertEquals(Integer.valueOf(1), calls.get(BuilderRole.KVASIR));
         BuilderConversationProtocol.Turn question = result.appendedTurns.get(1);
         BuilderConversationProtocol.Turn response = result.appendedTurns.get(2);
         assertEquals(BuilderConversationProtocol.TurnType.QUESTION, question.type);
@@ -161,12 +172,9 @@ public class BuilderConversationCoordinatorTest {
                                 BuilderConversationProtocol.Participant.HUGINN, question.turnId);
                     }
                     if (role == BuilderRole.HUGINN && call == 2) {
-                        BuilderConversationProtocol.Turn peerReply = context.get(context.size() - 1);
                         return new BuilderConversationCoordinator.Reply(
                                 "I have incorporated that limitation.",
-                                BuilderConversationProtocol.EvidenceStatus.TESTED,
-                                BuilderConversationProtocol.TurnType.RESPONSE,
-                                BuilderConversationProtocol.Participant.KVASIR, peerReply.turnId);
+                                BuilderConversationProtocol.EvidenceStatus.TESTED);
                     }
                     throw new IllegalStateException("Unexpected additional turn");
                 });
