@@ -130,7 +130,11 @@ public final class BuilderRoleProviderSettings {
         int port = uri.getPort();
         if (("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80))
             port = -1;
-        String path = uri.getPath() == null ? "" : uri.getPath();
+        // getPath() decodes percent-encoded unreserved characters. Normalize
+        // dot segments again after decoding so /a/%2e%2e/v1 cannot evade the
+        // comparison against /v1. Reserved escapes remain encoded by URI.
+        String decodedPath = uri.getPath() == null ? "" : uri.getPath();
+        String path = URI.create(decodedPath).normalize().getPath();
         while (path.length() > 1 && path.endsWith("/"))
             path = path.substring(0, path.length() - 1);
         return scheme + "://" + host + (port < 0 ? "" : ":" + port) + path;
