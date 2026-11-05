@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 public final class MainActivity extends Activity {
     private SchedulerDb db;
     private LinearLayout root, taskList, history;
-    private TextView status, builderStatus;
+    private TextView status, builderStatus, providerStatus;
     private EditText builderNote;
     private String pendingContinuityExport;
     @Override public void onCreate(Bundle state) {
@@ -59,6 +59,9 @@ public final class MainActivity extends Activity {
         root.addView(text("Local-first Android host · background checks are periodic, not exact-time guarantees", 14));
         status = text("Persistent task store ready", 14); root.addView(status);
         root.addView(text("Builder Console · first local commands", 20));
+        root.addView(button("Configure model provider", this::showProviderSettings));
+        providerStatus = text(providerConfigurationSummary(), 13);
+        root.addView(providerStatus);
         root.addView(text("Try: “remember that …” or “check memory”. This is a small local command router, not yet a general AI conversation.", 13));
         builderNote = new EditText(this);
         builderNote.setHint("Enter an instruction for the Builders");
@@ -249,7 +252,70 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
+
+    private String providerConfigurationSummary() {
+        try {
+            SecureBuilderProviderSettings.Configuration config =
+                    new SecureBuilderProviderSettings(this).readConfiguration();
+            if (config == null) return "Model provider: not configured · no model requests will be sent";
+            return "Model provider: " + config.providerId + " · " + config.model
+                    + " · " + (config.hasCredential ? "credential stored securely" : "no credential")
+                    + " · configuration saved; connection not tested";
+        } catch (Exception e) {
+            return "Model provider settings unavailable";
+        }
+    }
+
+    private void showProviderSettings() {
+        SecureBuilderProviderSettings settings = new SecureBuilderProviderSettings(this);
+        SecureBuilderProviderSettings.Configuration current = settings.readConfiguration();
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(24, 8, 24, 8);
+        EditText providerId = field(form, "Provider ID (e.g. hosted-main or local-main)");
+        EditText endpoint = field(form, "HTTPS endpoint, or http://localhost:PORT/...");
+        EditText model = field(form, "Model ID");
+        EditText token = field(form, "API token (stored encrypted)");
+        token.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        token.setSingleLine(true);
+        form.addView(text("Hosted providers require HTTPS and a token. Local HTTP is allowed only for localhost. "
+                + "Leave the token blank to retain an existing credential. Saving does not test or contact the endpoint.", 13));
+        if (current != null) {
+            providerId.setText(current.providerId);
+            endpoint.setText(current.endpoint);
+            model.setText(current.model);
+        } else {
+            providerId.setText("hosted-main");
+        }
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setTitle("Builder model provider")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save configuration", (d, which) -> {
+                    try {
+                        String secret = token.getText().toString();
+                        if (secret.trim().isEmpty() && current != null && current.hasCredential)
+                            secret = settings.readToken();
+                        settings.save(providerId.getText().toString(), endpoint.getText().toString(),
+                                model.getText().toString(), secret);
+                        providerStatus.setText(providerConfigurationSummary());
+                        builderStatus.setText("Provider configuration saved locally. No connection was attempted.");
+                        token.setText("");
+                    } catch (Exception e) {
+                        builderStatus.setText("Provider settings not saved: " + e.getMessage());
+                    }
+                });
+        if (current != null) {
+            dialog.setNeutralButton("Remove provider", (d, which) -> {
+                settings.clear();
+                providerStatus.setText(providerConfigurationSummary());
+                builderStatus.setText("Provider settings and encrypted credential removed from this device.");
+            });
+        }
+        dialog.show();
+    }
+\n    private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,8,24,8);
         EditText repo = field(form,"GitHub repository: owner/name"); EditText branch = field(form,"Branch name"); EditText workflow = field(form,"Exact workflow name"); EditText name = field(form,"Monitor name");
