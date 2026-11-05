@@ -528,6 +528,16 @@
             }
           },
           "additionalProperties": false
+        },
+        "parameter_count_scope": {
+          "type": "string",
+          "enum": [
+            "publisher_reported_language_model",
+            "total_parameters",
+            "total_including_embeddings",
+            "effective_parameters",
+            "unknown"
+          ]
         }
       },
       "additionalProperties": false
