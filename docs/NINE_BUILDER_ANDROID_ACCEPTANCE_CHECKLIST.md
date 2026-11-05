@@ -37,3 +37,9 @@ A passing Gradle unit-test job does not establish that the APK installs, Android
 - [ ] Use non-sensitive test content.
 - [ ] Confirm provider retention, data-use, and privacy terms before sending project material.
 - [ ] Record endpoint type, model identifier, device/OS, date, and observed result. Never record the API token.
+
+## Build toolchain pin
+- Gradle Wrapper version: 8.9.
+- Distribution: `https://services.gradle.org/distributions/gradle-8.9-bin.zip`.
+- Distribution SHA-256: `d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab`.
+- Wrapper JAR is sourced from the official Gradle `v8.9.0` release tag and is validated by the Gradle setup action.
