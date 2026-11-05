@@ -18,7 +18,7 @@ Replace the previous one-provider-for-nine-roles wiring with explicit per-role m
 
 ## Baldr guard
 
-An explicit improvement review requires Baldr to be selected and configured. Baldr's canonical endpoint **and** model ID must both differ from every configured non-Baldr role, not merely the roles selected for one conversation. Endpoint comparison normalizes host case, default ports, dot segments (including percent-encoded unreserved dot segments after decoding), and trailing slashes to catch equivalent URL variations. Model IDs are compared case-insensitively. The check rejects a missing Baldr route, a shared canonical endpoint, or a shared model ID.
+An explicit improvement review requires Baldr to be selected and configured. Baldr's canonical endpoint **and** model ID must both differ from every configured non-Baldr role, not merely the roles selected for one conversation. Endpoint comparison normalizes host case, default ports, dot segments (including percent-encoded dot characters, while preserving reserved path escapes), and trailing slashes to catch equivalent URL variations. Model IDs are compared case-insensitively. The check rejects a missing Baldr route, a shared canonical endpoint, or a shared model ID.
 
 This is a minimum configuration separation check, not proof of independent ownership, model lineage, weights, infrastructure, training data, or governance. Provider IDs and model IDs are user-entered labels; the remote provider's claims are not cryptographically attested. Different endpoint strings may still be operated by the same organization or route to the same underlying model. A Baldr reply must not be described as independently verified solely because this guard passes.
 
