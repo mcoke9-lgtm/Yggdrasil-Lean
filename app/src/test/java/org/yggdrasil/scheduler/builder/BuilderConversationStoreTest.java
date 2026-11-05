@@ -105,6 +105,25 @@ public class BuilderConversationStoreTest {
         assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 
+    @Test public void listsRecoverableThreadsByMostRecentActivity() {
+        BuilderConversationStore journal = openStore();
+        journal.append(turn("a1", BuilderRole.HUGINN, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Thread A starts."));
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "thread-b", "b1",
+                BuilderRole.MARI, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.PROPOSED, 100, "Thread B starts."));
+        journal.append(turn("a2", BuilderRole.MUNINN, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 200, "Thread A resumes."));
+
+        List<String> threadIds = journal.listThreadIds();
+        assertEquals(2, threadIds.size());
+        assertEquals("thread-recovery-test", threadIds.get(0));
+        assertEquals("thread-b", threadIds.get(1));
+        assertThrows(UnsupportedOperationException.class, threadIds::clear);
+    }
+
     @Test public void rejectsBlankThreadLookup() {
         BuilderConversationStore journal = openStore();
         assertThrows(IllegalArgumentException.class, () -> journal.readThread("  "));
