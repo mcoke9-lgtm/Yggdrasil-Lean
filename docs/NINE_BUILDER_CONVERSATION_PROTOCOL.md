@@ -1,6 +1,6 @@
 # Nine Builder Conversation Protocol
 
-**Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, and single-process coordinator with an injectable responder; a real model adapter, app conversation UI, and independent Builder workers remain pending.
+**Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, single-process coordinator with an injectable responder, and role-specific structured prompt factory; a concrete model adapter, in-app conversation history UI, and independent Builder workers remain pending.
 **Protocol version:** 2 (reads legacy version 1 Builder-only turns)
 **Authority:** The user remains director and final authority for consequential commitments.
 
@@ -95,7 +95,11 @@ The validator is structural. It does not prove the truth of a claim, authenticat
 
 ## Single-process coordinator
 
-`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful replies as directed responses to the user turn. It invokes selected roles sequentially; later roles receive earlier successful replies in their context. It preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. This first coordinator does not yet schedule Builder-to-Builder challenge/response cycles. It is not evidence of independent agents.
+`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful replies as directed responses to the user turn. It invokes selected roles sequentially; later roles receive earlier successful replies in their context. It preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. `BuilderPromptFactory` creates separate role-specific system instructions and JSON-serialized conversation context for each Builder, preserving turn metadata and treating historical bodies as data rather than higher-priority instructions. The prompt factory does not call a model. This first coordinator does not yet schedule Builder-to-Builder challenge/response cycles. It is not evidence of independent agents.
+
+## Role-specific prompt boundary
+
+`BuilderPromptFactory` creates a model-neutral prompt for any of the nine roles. It includes the Builder's display identity and primary responsibility in the system instruction, states the user's director authority, prohibits fabricated work/verification, and serializes the thread as JSON with turn IDs, speaker, recipient, type, evidence status, reply reference, and body. It validates that the triggering turn is the latest turn in a valid single-thread context. Historical message bodies are data, not instructions that can override the role and authority rules. This is a prompt-construction boundary only: it does not choose a provider, store API credentials, make network requests, or guarantee that a model will follow the instructions.
 
 ## First conversation acceptance exercise
 
@@ -131,6 +135,6 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator, journal, coordinator, and unit tests are committed in this branch; CI execution of these tests is pending. A real model adapter, app-level conversation UI, and independent workers remain pending.
+- **Evidence:** validator, journal, coordinator, role-specific prompt factory, and unit tests are committed in this branch; CI execution of these tests is pending. A concrete model adapter, app-level conversation UI, and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
