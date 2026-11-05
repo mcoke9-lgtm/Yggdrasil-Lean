@@ -34,12 +34,14 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
   const saved = [];
   const checkpoints = [];
   const vault = taskVault || {
-    async getTask(reference) {
+    async getTask(reference, { runId }) {
       assert.equal(reference, "vault:task-001");
       const prompt = "Investigate the next safe engineering step.";
+      const threadId = "thread-" + runId;
       return {
         prompt,
-        history: [{ speaker: "USER", body: "Continue carefully." }],
+        threadId,
+        history: [{ runId, threadId, speaker: "USER", body: "Continue carefully." }],
         consent: {
           status: "USER_APPROVED",
           scope: "NINE_BUILDERS_OVERNIGHT",
@@ -110,6 +112,8 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(userContext.prior_turns_oldest_first.length, 1);
   assert.equal(h.saved.length, 1);
   assert.equal(h.saved[0].idempotencyKey, "builder:test-run:ODIN");
+  assert.equal(h.saved[0].threadId, "thread-builder:test-run");
+  assert.equal(h.checkpoints[0].value.threadId, "thread-builder:test-run");
   assert.equal(h.saved[0].providerReportedModel, "reported-odin-v2");
   assert.equal(h.saved[0].requestedProviderId, "provider-odin");
   assert.equal(h.saved[0].reply.body, "A bounded, evidence-labelled contribution.");
@@ -163,6 +167,34 @@ test("blocks provider disclosure when the task vault has no explicit user approv
   });
   await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /no explicit user approval/);
   assert.equal(secretReads, 0);
+  assert.equal(calls, 0);
+});
+
+test("rejects history that does not belong to the current run-specific thread", async () => {
+  const routes = makeRoutes();
+  const prompt = "approved task prompt";
+  let calls = 0;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [{ runId: "previous-run", threadId: "old-thread", speaker: "ODIN", body: "old data" }],
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { throw new Error("must not persist"); }
+    },
+    fetchImpl: async () => { calls++; return new Response("{}"); }
+  });
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /outside this scheduled run/);
   assert.equal(calls, 0);
 });
 
