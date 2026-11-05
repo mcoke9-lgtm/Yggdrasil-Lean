@@ -20,12 +20,21 @@ export function registerBuilderRunHandler(
   scheduler.registerHandler(HANDLER_TYPE, async (payload, context) => {
     await ledger.recoverAbandonedRuns();
     const durationMs = payload?.durationMs ?? MAX_BUILDER_RUN_DURATION_MS;
-    const runId = "builder:" + context.runId;
-    const run = await ledger.createRun({
-      runId,
-      scheduledFor: context.scheduledFor,
-      durationMs
-    });
+    let run;
+    if (payload?.resumeRunId) {
+      run = await ledger.getRun(payload.resumeRunId);
+      if (!run) throw new Error("Requested Builder run checkpoint does not exist");
+      if (run.status !== "interrupted") {
+        throw new Error("Only an interrupted Builder run can be resumed");
+      }
+    } else {
+      run = await ledger.createRun({
+        runId: "builder:" + context.runId,
+        scheduledFor: context.scheduledFor,
+        durationMs
+      });
+    }
+    const runId = run.runId;
     await ledger.startRun(runId);
 
     const controller = new AbortController();
@@ -56,6 +65,23 @@ export function registerBuilderRunHandler(
     try {
       for (const role of BUILDER_ROLES) {
         if (controller.signal.aborted) await interrupt();
+
+        const savedRun = await ledger.getRun(runId);
+        const savedBuilder = savedRun.builders.find(item => item.role === role);
+        if (["succeeded", "failed", "skipped"].includes(savedBuilder.status)) {
+          outcomes.push({
+            role,
+            status: savedBuilder.status,
+            summary: savedBuilder.error ?? "Previously completed checkpoint"
+          });
+          continue;
+        }
+        if (savedBuilder.status === "interrupted" && !savedBuilder.checkpoint?.safeToResume) {
+          await ledger.interruptRun(runId,
+            "Manual reconciliation required: interrupted Builder has no safe resume checkpoint",
+            role);
+          throw new Error("Cannot resume " + role + ": no explicitly safe checkpoint");
+        }
 
         activeRole = role;
         await ledger.startBuilder(runId, role);
