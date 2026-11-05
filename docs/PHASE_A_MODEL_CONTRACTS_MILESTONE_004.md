@@ -380,7 +380,7 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 ### Reproducible model evaluation runner
 
-`scripts/run_phase_a_model_evaluation.py` converts the nine contracts and 23 fixtures into **63 separate role-assigned executions**: two role-specific and five shared tasks for each Builder. It sends one Builder's responsibility contract at a time, including a deliberately conflicting prior-role message for the identity-separation test.
+`scripts/run_phase_a_model_evaluation.py` converts the nine contracts and 23 fixtures into **63 separate role-assigned executions**: two role-specific and five shared tasks for each Builder. It sends one Builder's responsibility contract at a time, including a deliberately conflicting prior-role message for the identity-separation test. The handoff fixture performs a second call under the receiving Builder's own role prompt, preserving the sender output verbatim.
 
 Safety and evidence behavior:
 - Loopback-only endpoint by default; remote endpoints require explicit `--allow-remote` and HTTPS.
