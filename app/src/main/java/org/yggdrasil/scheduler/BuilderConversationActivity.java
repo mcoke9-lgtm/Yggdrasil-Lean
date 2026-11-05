@@ -493,7 +493,7 @@ public final class BuilderConversationActivity extends Activity {
             status.setText("No model request sent. " + missing.getMessage());
             return;
         }
-        boolean improvementReview = preparedMessage.startsWith("BUILDER_IMPROVEMENT_REVIEW_MODE");
+        boolean improvementReview = preparedMessage.contains("BUILDER_IMPROVEMENT_REVIEW_MODE");
         if (improvementReview) {
             if (!selected.contains(BuilderRole.BALDR)) {
                 status.setText("No review sent. Baldr must be selected for an independent improvement review.");
@@ -674,7 +674,7 @@ public final class BuilderConversationActivity extends Activity {
                 BuilderRoleProviderSettings settings =
                         new BuilderRoleProviderSettings(getApplicationContext());
                 settings.requireConfigured(roles);
-                if (message.startsWith("BUILDER_IMPROVEMENT_REVIEW_MODE")) {
+                if (message.contains("BUILDER_IMPROVEMENT_REVIEW_MODE")) {
                     if (!roles.contains(BuilderRole.BALDR))
                         throw new IllegalStateException("Baldr must be selected for an improvement review");
                     settings.requireIndependentBaldrRoute();
