@@ -63,7 +63,7 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
                 + "_id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, thread_id TEXT NOT NULL, subject_id TEXT NOT NULL, "
                 + "event_type TEXT NOT NULL, subheading_id TEXT, participant TEXT, "
                 + "timestamp_epoch_millis INTEGER NOT NULL)");
-        db.execSQL("CREATE INDEX subject_thread_order ON " + TABLE + "(thread_id, timestamp_epoch_millis)");
+        db.execSQL("CREATE INDEX subject_thread_order ON " + TABLE + "(thread_id, _id)");
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -94,10 +94,10 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
         try (Cursor c = getReadableDatabase().query(TABLE, null, "thread_id = ?",
                 new String[]{id}, null, null, "_id ASC")) {
             while (c.moveToNext()) {
-                String subheading = c.isNull(4) ? null : c.getString(4);
-                String participant = c.isNull(5) ? null : c.getString(5);
-                events.add(new Event(c.getString(0), c.getString(1), c.getString(2),
-                        EventType.valueOf(c.getString(3)), subheading, participant, c.getLong(6)));
+                String subheading = c.isNull(5) ? null : c.getString(5);
+                String participant = c.isNull(6) ? null : c.getString(6);
+                events.add(new Event(c.getString(1), c.getString(2), c.getString(3),
+                        EventType.valueOf(c.getString(4)), subheading, participant, c.getLong(7)));
             }
         }
         return Collections.unmodifiableList(events);
