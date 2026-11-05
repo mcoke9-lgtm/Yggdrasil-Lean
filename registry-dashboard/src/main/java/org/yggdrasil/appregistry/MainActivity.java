@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
             return new JSONObject("{\"applications\":["
                 + "{\"display_name\":\"Yggdrasil Builder Host\",\"purpose\":\"Android Builder runtime host and conversation interface.\",\"package_id\":\"org.yggdrasil.builderhost\"},"
                 + "{\"display_name\":\"Builder Key Steward\",\"purpose\":\"Key and signing material stewardship.\",\"package_id\":\"org.yggdrasil.keysteward\"},"
-                + "{\"display_name\":\"Yggdrasil Scheduler\",\"purpose\":\"Independent scheduling prototype; package identity not yet verified.\",\"package_id\":null},"
+                + "{\"display_name\":\"Yggdrasil Scheduler\",\"purpose\":\"Independent scheduling and build monitoring prototype.\",\"package_id\":\"org.yggdrasil.scheduler\"},"
                 + "{\"display_name\":\"Installed Signer Diagnostic\",\"purpose\":\"Read-only installed signing-certificate inspection.\",\"package_id\":\"org.yggdrasil.signingdiagnostic\"}"
                 + "]}");
         } catch (Exception e) { return new JSONObject(); }
