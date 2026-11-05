@@ -229,7 +229,17 @@ public class BuilderConversationCoordinatorTest {
                     update.put("incident_turn_id", "incident-1");
                     update.put("stage", stage);
                     update.put("evidence", "Evidence for " + stage + " milestone is recorded.");
-                    update.put("artifact_reference", "artifact-" + stage.toLowerCase());
+                    String sha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+                    String artifact;
+                    if ("IMPLEMENTED".equals(stage)) {
+                        artifact = "github+commit://github.com/acme/project/" + sha
+                                + "?branch=builder-improvement-runtime-001";
+                    } else {
+                        String runId = "TESTED".equals(stage) ? "22345" : "22346";
+                        artifact = "github+actions://github.com/acme/project/runs/" + runId
+                                + "?workflow=android-unit-tests&sha=" + sha;
+                    }
+                    update.put("artifact_reference", artifact);
                     update.put("acceptance_criteria_result", "Acceptance criteria result for " + stage + " is recorded.");
                     update.put("unresolved", "Live deployment remains unverified.");
                     return new BuilderConversationCoordinator.Reply(update.toString(),
