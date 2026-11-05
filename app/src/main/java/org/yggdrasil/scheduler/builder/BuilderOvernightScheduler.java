@@ -41,10 +41,14 @@ public final class BuilderOvernightScheduler {
         String runId = UUID.randomUUID().toString();
         String threadId = UUID.randomUUID().toString();
         String workName = workName(runId);
+        BuilderOvernightPayloadCipher.Payload sealed;
+        try { sealed = BuilderOvernightPayloadCipher.encrypt(taskPrompt.trim()); }
+        catch (Exception failure) { throw new IllegalStateException("Could not protect scheduled prompt", failure); }
         Data input = new Data.Builder()
                 .putString(BuilderOvernightWorker.KEY_RUN_ID, runId)
                 .putString(BuilderOvernightWorker.KEY_THREAD_ID, threadId)
-                .putString(BuilderOvernightWorker.KEY_TASK_PROMPT, taskPrompt.trim())
+                 .putString(BuilderOvernightWorker.KEY_TASK_PROMPT_CIPHERTEXT, sealed.ciphertext)
+                .putString(BuilderOvernightWorker.KEY_TASK_PROMPT_IV, sealed.iv)
                 .putString(BuilderOvernightWorker.KEY_DISCLOSURE_HASH, disclosureFingerprint)
                 .putLong(BuilderOvernightWorker.KEY_CYCLE_INTERVAL, DEFAULT_CYCLE_INTERVAL_MILLIS)
                 .build();
