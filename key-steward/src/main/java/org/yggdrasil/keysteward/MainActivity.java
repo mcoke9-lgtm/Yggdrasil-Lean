@@ -29,6 +29,7 @@ public final class MainActivity extends Activity {
     private EditText password;
     private EditText confirmation;
     private TextView status;
+    private Button saveButton;
     private Button copyButton;
     private Button clearClipboardButton;
     private byte[] pendingBytes;
@@ -90,6 +91,12 @@ public final class MainActivity extends Activity {
         open.setOnClickListener(v -> openExisting());
         root.addView(open);
 
+        saveButton = new Button(this);
+        saveButton.setText("Export .p12 backup");
+        saveButton.setEnabled(false);
+        saveButton.setOnClickListener(v -> savePending());
+        root.addView(saveButton);
+
         copyButton = new Button(this);
         copyButton.setText("Copy Base64 for GitHub secret");
         copyButton.setEnabled(false);
@@ -127,17 +134,23 @@ public final class MainActivity extends Activity {
             status.setText("Key generated and reloaded successfully. Remember this password: enter the same value for GitHub secrets BUILDER_KEYSTORE_PASSWORD and BUILDER_KEY_PASSWORD.\nCertificate SHA-256:\n"
                     + generated.certificateSha256
                     + "\n\nChoose a secure local destination for the .p12 backup.");
-            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/x-pkcs12");
-            intent.putExtra(Intent.EXTRA_TITLE, "yggdrasil-builder-signing.p12");
-            startActivityForResult(intent, REQUEST_SAVE);
+            saveButton.setEnabled(true);
+            savePending();
         } catch (Exception failure) {
             status.setText("Key generation failed. No key was exported. Check device support and try again.");
             password.setText("");
             confirmation.setText("");
             clearPending();
         }
+    }
+
+    private void savePending() {
+        if (pendingBytes == null) return;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/x-pkcs12");
+        intent.putExtra(Intent.EXTRA_TITLE, "yggdrasil-builder-signing.p12");
+        startActivityForResult(intent, REQUEST_SAVE);
     }
 
     private void openExisting() {
@@ -149,7 +162,12 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            if (requestCode == REQUEST_SAVE && pendingBytes != null) {
+                status.setText("Export cancelled. The key remains in memory; tap Export .p12 backup to try again, or close the app to clear it.");
+            }
+            return;
+        }
         Uri uri = data.getData();
         if (requestCode == REQUEST_SAVE) {
             try (OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
@@ -157,6 +175,7 @@ public final class MainActivity extends Activity {
                 out.write(pendingBytes);
                 out.flush();
                 copyButton.setEnabled(true);
+                saveButton.setEnabled(true);
                 status.setText(status.getText() + "\nBackup exported. Keep this file private. "
                         + "Next, copy its Base64 into GitHub's BUILDER_KEYSTORE_BASE64 secret. Then enter the same password for both password secrets.");
             } catch (Exception failure) {
@@ -181,6 +200,7 @@ public final class MainActivity extends Activity {
                 password.setText("");
                 clearPending();
                 pendingBytes = candidate;
+                saveButton.setEnabled(true);
                 copyButton.setEnabled(true);
                 status.setText("Existing backup verified. Alias: " + KeystoreMaterial.ALIAS
                         + "\nCertificate SHA-256:\n" + fingerprint
@@ -204,6 +224,7 @@ public final class MainActivity extends Activity {
         clipboard.setPrimaryClip(clip);
         clearPending();
         copyButton.setEnabled(false);
+        saveButton.setEnabled(false);
         clearClipboardButton.setEnabled(true);
         status.setText("Base64 copied to this phone's clipboard. Paste it directly into GitHub secret BUILDER_KEYSTORE_BASE64. Do not paste it into chat or a public location. Then return here and clear the clipboard.");
     }
@@ -219,6 +240,7 @@ public final class MainActivity extends Activity {
         if (pendingBytes != null) Arrays.fill(pendingBytes, (byte) 0);
         pendingBytes = null;
         if (copyButton != null) copyButton.setEnabled(false);
+        if (saveButton != null) saveButton.setEnabled(false);
     }
 
     @Override protected void onDestroy() {
