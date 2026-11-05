@@ -1,9 +1,9 @@
 {
   "name": "nine-builders-independent-scheduler",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Dependency-free persistent scheduler core with bounded registered handlers",
+  "description": "Persistent local scheduling service with loopback dashboard and bounded registered handlers",
   "scripts": {
     "test": "node --test",
     "start": "node src/runner.js",
