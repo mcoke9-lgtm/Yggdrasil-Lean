@@ -31,4 +31,32 @@ public class BuilderOvernightRunStoreTest {
   org.json.JSONObject b=s.beginOrRecover("r2","t2","task",t+2000);
   assertEquals("INTERRUPTED",b.optString("status"));
  }
+ @Test public void cancellationCannotBeOverwrittenByLateCycleCompletion() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  long t=1800000000000L;
+  s.beginOrRecover("r3","t3","task",t);
+  s.beginCycle("r3",t+1000);
+  s.setStatus("r3","CANCELLED","user stopped",t+1500);
+  try {
+   s.finishCycle("r3","late response",t+2000);
+   fail("Cancelled cycle must not be committed");
+  } catch (IllegalStateException expected) { }
+  assertEquals("CANCELLED",s.read("r3").optString("status"));
+ }
+ @Test public void terminalRunStatusCannotBeReplacedByCompletion() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  long t=1800000000000L;
+  s.beginOrRecover("r4","t4","task",t);
+  s.setStatus("r4","CANCELLED","user stopped",t+1000);
+  try {
+   s.setStatus("r4","COMPLETED","late worker",t+2000);
+   fail("Terminal state must be immutable");
+  } catch (IllegalStateException expected) { }
+  assertEquals("CANCELLED",s.read("r4").optString("status"));
+ }
+
 }
