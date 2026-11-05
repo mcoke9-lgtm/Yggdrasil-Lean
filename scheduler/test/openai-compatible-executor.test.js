@@ -149,6 +149,10 @@ test("cancellation aborts the provider request and does not persist a result", a
   const controller = new AbortController();
   const h = makeHarness({
     fetchImpl: async (_url, options) => new Promise((_resolve, reject) => {
+      if (options.signal.aborted) {
+        reject(options.signal.reason);
+        return;
+      }
       options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
     })
   });
