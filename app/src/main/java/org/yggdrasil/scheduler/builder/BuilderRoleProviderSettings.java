@@ -109,7 +109,7 @@ public final class BuilderRoleProviderSettings {
     public void requireIndependentBaldrRoute() {
         if (!hasDistinctBaldrRoute())
             throw new IllegalStateException("Baldr requires its own configured route and a different "
-                    + "endpoint/model pair from every configured non-Baldr role. This does not prove "
+                    + "endpoint AND model from every configured non-Baldr role. This does not prove "
                     + "provider ownership or infrastructure independence.");
     }
 
