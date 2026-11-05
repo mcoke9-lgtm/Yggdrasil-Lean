@@ -158,7 +158,8 @@ public class BuilderConversationStoreTest {
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Preserve this conversation."));
         journal.append(new BuilderConversationProtocol.Turn(
                 BuilderConversationProtocol.CURRENT_VERSION, "thread-b", "b1",
-                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.Participant.USER,
+                BuilderConversationProtocol.Participant.HUGINN, null,
                 BuilderConversationProtocol.TurnType.QUESTION,
                 BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED,
                 200, "A second thread."));
