@@ -253,6 +253,54 @@ test("rejects a task vault that changes the dedicated thread during one run", as
   assert.equal(appends, 1);
 });
 
+test("falls back to unavailable when a supplied operational limits snapshot is malformed", async () => {
+  const routes = makeRoutes();
+  const prompt = "task with malformed limits";
+  let userContext;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [],
+          operationalLimitsSnapshot: {
+            schema: "yggdrasil.operational-capacity-register",
+            schema_version: "1.0.0",
+            register_status: "LOADED",
+            constraints: [],
+            runtime_evaluation: {
+              evaluated_on: "2026-11-05",
+              maximum_evidence_age_days: 7,
+              live_telemetry: true,
+              unlisted_capability_decision: "PROCEED"
+            }
+          },
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "safe-fallback" }; }
+    },
+    fetchImpl: async (_url, options) => {
+      userContext = JSON.parse(JSON.parse(options.body).messages[1].content);
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("ODIN", h.context("ODIN"));
+  assert.equal(userContext.operational_limits_snapshot.register_status, "UNAVAILABLE");
+  assert.equal(userContext.operational_limits_snapshot.live_telemetry, false);
+  assert.equal(userContext.operational_limits_snapshot.unlisted_capability_decision, "RECHECK_REQUIRED");
+});
+
 test("rejects history that does not belong to the current run-specific thread", async () => {
   const routes = makeRoutes();
   const prompt = "approved task prompt";
@@ -307,6 +355,32 @@ test("blocks disclosure when the approved prompt or any route changes", async ()
     fetchImpl: async () => { calls++; return new Response("{}"); }
   });
   await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /changed after user approval/);
+  assert.equal(calls, 0);
+
+  const promptRoutes = makeRoutes();
+  const approvedPrompt = "original prompt";
+  const changedPrompt = "edited prompt";
+  const promptChanged = makeHarness({
+    routes: promptRoutes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt: changedPrompt,
+          threadId: "thread-" + runId,
+          history: [],
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(promptRoutes, approvedPrompt)
+          }
+        };
+      },
+      async appendBuilderResult() { throw new Error("must not persist"); }
+    },
+    fetchImpl: async () => { calls++; return new Response("{}"); }
+  });
+  await assert.rejects(() => promptChanged.executor("ODIN", promptChanged.context("ODIN")), /changed after user approval/);
   assert.equal(calls, 0);
 });
 
