@@ -1,10 +1,10 @@
 # Android Builder Runtime — Phone-First Checkpoint
 
 **Branch:** `independent-builder-runtime-foundation-001`
-**Current source commit:** `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9`
+**Current source commit:** `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9` (checkpoint document updated after phone test)
 **Android application ID:** `org.yggdrasil.builderhost`
 **Display name:** Yggdrasil Builder Host
-**Device target:** Samsung Galaxy S21 / Android 15 (user-reported). No new APK has yet been installed on the physical phone.
+**Device:** Samsung Galaxy S21 / Android 15 (user-reported). User confirmed successful installation of Yggdrasil Builder Host.
 
 ## Implemented
 
@@ -28,12 +28,12 @@
 
 ## Verified and pending
 
-- Android CI passed at commit `53523547721ddf357b9c07862cede310fa06e28b`, including unit tests, Android compilation and APK upload:
-  https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002603400
-- The source at commit `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9` includes the lifecycle preservation and separate app identity. Its Android CI run is pending:
+- Final Android CI passed for source commit `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9`: unit tests, Android compilation and debug APK upload all succeeded. Run `42003024625`:
   https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42003024625
-- The command router and its tests passed in the Android CI run at commit `24fa009c7029e7247fcccb2812f0ceac866b6b6d`; the subsequent Android console integration passed at `5352354`.
-- No physical phone installation or on-device test has occurred.
+- Uploaded artifact `13403960642` (`yggdrasil-builder-runtime-debug-apk`, 2,374,793 bytes; not expired at verification).
+- User confirmed successful installation on the physical Samsung Galaxy S21.
+- User then confirmed the first on-device note command was sent and the journal verification reported success. This is user-reported physical-device verification of basic note capture and journal integrity check.
+- Not yet physically verified: export, import/restore, cancellation, tampered-file rejection, reboot/process-death recovery, offline operation, or independent agent execution.
 
 ## Scope boundaries
 
@@ -43,12 +43,12 @@ The journal hash chain is tamper-evident, not cryptographic authentication again
 
 ## Next gates
 
-1. Complete CI for the separate application identity and final phone-ready source.
-2. Obtain the latest debug APK artifact and verify its package identity.
-3. Install alongside (not over) the existing scheduler app on the Galaxy S21.
-4. Test command routing, journal verification, export, import, cancellation and tampered-file rejection.
-5. Only after physical tests, benchmark local inference, thermal/battery/memory limits and offline voice.
+1. Physically test snapshot export to a user-selected file.
+2. Test import/restore with a known-good snapshot, then verify the restored journal.
+3. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
+4. Test process restart and device reboot continuity.
+5. Only after these foundations, benchmark local inference, thermal/battery/memory limits and offline voice.
 
 ## Integrity check
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; new app ID prevents package collision with the earlier scheduler app; scheduler and Builder databases separate; nine role identities; import requires confirmation and validation; automated CI is not confused with physical-device verification.
+One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export/restore and resilience tests remain pending.
