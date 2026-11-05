@@ -218,6 +218,38 @@
       "safe_next_step": "Ask which APK/app was attempted and request exact Android wording. Dashboard is a sequence-based candidate only, not a verified identification."
     }
   ],
-  "last_reconciled_at": "2026-11-05T11:28:00-05:00",
-  "integrity_note": "This ledger is a project record, not a live download manager. It cannot observe Android Downloads or installation attempts unless the user reports them or a consented device report/bridge supplies evidence."
+  "last_reconciled_at": "2026-11-05T12:46:00-05:00",
+  "integrity_note": "This ledger is a project record, not a live download manager. It cannot observe Android Downloads or installation attempts unless the user reports them or a consented device report/bridge supplies evidence. Latest scoped Builder Host observation is a user-shared Signer Probe report; it confirms package/version/current signer but does not identify the exact installed APK artifact or prove possession of the private signing key.",
+  "device_observations": [
+    {
+      "observation_id": "builder-host-signer-probe-2026-11-05-001",
+      "device_id": "galaxy-s21-plus-primary",
+      "observed_at": "2026-11-05",
+      "evidence_source": "User-shared output from installed Yggdrasil Signer Probe; user confirmed successful probe installation.",
+      "package_id": "org.yggdrasil.builderhost",
+      "status": "INSTALLED AND VISIBLE",
+      "version_name": "0.1.0",
+      "version_code": 1,
+      "multiple_current_signers": false,
+      "current_signer_sha256": "91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A",
+      "comparison": {
+        "matches_recorded_historical_builder_host_signer": true,
+        "historical_record_id": "builder-host-historical-recovery-artifact",
+        "exact_installed_artifact_identity": "unknown",
+        "note": "Signer fingerprint matches the historical Builder Host signer fingerprint already in this ledger. The historical record says version 0.2.0/code 2, while the device report says 0.1.0/code 1; do not attribute the installed package to that exact artifact without further provenance."
+      },
+      "bridge_compatibility": {
+        "compared_bridge_apk_signer_sha256": "1C:C4:BA:7F:85:64:8A:6D:DE:DF:1A:30:7D:00:2B:00:C7:28:EC:B5:28:70:C6:5B:5A:06:F1:2C:E7:DB:A7:64",
+        "matches": false,
+        "result": "The previously recorded Bridge APK is not update-compatible with the installed package signer."
+      },
+      "safety": {
+        "builder_host_modified": false,
+        "builder_host_uninstalled": false,
+        "app_data_cleared": false,
+        "signing_key_recovered": false,
+        "backup_verified": false
+      }
+    }
+  ]
 }
