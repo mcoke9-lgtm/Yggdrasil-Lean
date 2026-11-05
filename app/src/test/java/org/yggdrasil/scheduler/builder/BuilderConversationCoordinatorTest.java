@@ -137,6 +137,71 @@ public class BuilderConversationCoordinatorTest {
                         null));
     }
 
+    @Test public void returnsToEarlierBuilderForBoundedPeerFollowUp() {
+        BuilderConversationStore journal = openStore();
+        java.util.Map<BuilderRole, Integer> calls = new java.util.EnumMap<>(BuilderRole.class);
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> {
+                    int call = calls.containsKey(role) ? calls.get(role) + 1 : 1;
+                    calls.put(role, call);
+                    if (role == BuilderRole.HUGINN && call == 1) {
+                        return new BuilderConversationCoordinator.Reply(
+                                "Kvasir, examine this evidence.",
+                                BuilderConversationProtocol.EvidenceStatus.PROPOSED,
+                                BuilderConversationProtocol.TurnType.QUESTION,
+                                BuilderConversationProtocol.Participant.KVASIR, null);
+                    }
+                    if (role == BuilderRole.KVASIR) {
+                        BuilderConversationProtocol.Turn question = context.get(context.size() - 1);
+                        return new BuilderConversationCoordinator.Reply(
+                                "The evidence has a limitation.",
+                                BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                                BuilderConversationProtocol.TurnType.RESPONSE,
+                                BuilderConversationProtocol.Participant.HUGINN, question.turnId);
+                    }
+                    if (role == BuilderRole.HUGINN && call == 2) {
+                        BuilderConversationProtocol.Turn peerReply = context.get(context.size() - 1);
+                        return new BuilderConversationCoordinator.Reply(
+                                "I have incorporated that limitation.",
+                                BuilderConversationProtocol.EvidenceStatus.TESTED,
+                                BuilderConversationProtocol.TurnType.RESPONSE,
+                                BuilderConversationProtocol.Participant.KVASIR, peerReply.turnId);
+                    }
+                    throw new IllegalStateException("Unexpected additional turn");
+                });
+
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "bounded-peer-round", "Review this evidence.",
+                Arrays.asList(BuilderRole.HUGINN, BuilderRole.KVASIR));
+
+        assertTrue(result.failedRoles.isEmpty());
+        assertTrue(result.unroutedRecipients.isEmpty());
+        assertEquals(Integer.valueOf(2), calls.get(BuilderRole.HUGINN));
+        assertEquals(Integer.valueOf(1), calls.get(BuilderRole.KVASIR));
+        assertEquals(4, journal.readThread("bounded-peer-round").size());
+        BuilderConversationProtocol.validateThread(journal.readThread("bounded-peer-round"));
+    }
+
+    @Test public void reportsPeerRecipientThatWasNotSelected() {
+        BuilderConversationStore journal = openStore();
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> new BuilderConversationCoordinator.Reply(
+                        "Mari should review this interface.",
+                        BuilderConversationProtocol.EvidenceStatus.PROPOSED,
+                        BuilderConversationProtocol.TurnType.HANDOFF,
+                        BuilderConversationProtocol.Participant.MARI,
+                        userTurn.turnId));
+
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "unrouted-peer", "Review the interface.",
+                Collections.singletonList(BuilderRole.HUGINN));
+
+        assertEquals(Collections.singletonList(BuilderRole.MARI), result.unroutedRecipients);
+        assertEquals(2, journal.readThread("unrouted-peer").size());
+    }
+
     @Test public void rejectsDuplicateRolesBeforeRecordingUserTurn() {
         BuilderConversationStore journal = openStore();
         BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
