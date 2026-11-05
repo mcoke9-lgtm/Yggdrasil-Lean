@@ -159,7 +159,7 @@ export class BuilderRunLedger {
     });
   }
 
-  async interruptRun(runId, reason) {
+  async interruptRun(runId, reason, activeRole = null) {
     return this.mutate(runId, run => {
       if (run.status !== "running") throw new Error("Only a running work window can be interrupted");
       const now = this.clock().toISOString();
@@ -167,7 +167,8 @@ export class BuilderRunLedger {
       run.interruptedAt = now;
       run.interruptionReason = String(reason || "unspecified interruption").slice(0, 1000);
       for (const builder of run.builders) {
-        if (builder.status === "running") {
+        if (builder.status === "running"
+            || (builder.role === activeRole && !TERMINAL.has(builder.status))) {
           builder.status = "interrupted";
           builder.finishedAt = now;
           builder.error = "Interrupted; resume requires an explicitly safe checkpoint.";
