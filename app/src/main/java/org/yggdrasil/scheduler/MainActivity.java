@@ -32,6 +32,7 @@ public final class MainActivity extends Activity {
         super.onCreate(state); db = new SchedulerDb(this); scheduleWorker(); buildUi(); refresh();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
     }
+    @Override protected void onResume() { super.onResume(); if (db != null && taskList != null) refresh(); }
     private void scheduleWorker() {
         Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
         PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(SchedulerWorker.class, 15, TimeUnit.MINUTES).setConstraints(constraints).build();
@@ -47,7 +48,8 @@ public final class MainActivity extends Activity {
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
-        root.addView(button("Check now", () -> { androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued"); }));
+        root.addView(button("Refresh status", this::refresh));
+        root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
     }
     private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
