@@ -122,9 +122,12 @@ public final class BuilderOperationalLimits {
         Object maximum = entry.opt("maximum_capacity");
         Object usage = entry.opt("current_usage");
         Object remaining = entry.opt("remaining_capacity");
-        if (maximum == null || usage == null || remaining == null
-                || maximum == JSONObject.NULL || usage == JSONObject.NULL || remaining == JSONObject.NULL)
+        boolean maxMissing = maximum == null || maximum == JSONObject.NULL;
+        boolean usageMissing = usage == null || usage == JSONObject.NULL;
+        boolean remainingMissing = remaining == null || remaining == JSONObject.NULL;
+        if (maxMissing && usageMissing && remainingMissing)
             return true; // Capacity is optional for non-capacity constraints.
+        if (maxMissing || usageMissing || remainingMissing) return false;
         if (!(maximum instanceof Number) || !(usage instanceof Number) || !(remaining instanceof Number))
             return false;
         double max = ((Number) maximum).doubleValue();
