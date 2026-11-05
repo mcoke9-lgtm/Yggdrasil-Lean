@@ -79,7 +79,8 @@ public final class MainActivity extends Activity {
             String actionId, BuilderActionPreflight.Authorization authorization) {
         boolean internetPermission = getPackageManager().checkPermission(
                 Manifest.permission.INTERNET, getPackageName()) == PackageManager.PERMISSION_GRANTED;
-        boolean available = schedulerReady && db != null && internetPermission;
+        boolean startupRegistration = "INSTALL_PERIODIC_POLL".equals(actionId);
+        boolean available = db != null && internetPermission && (schedulerReady || startupRegistration);
         return new BuilderActionPreflight.Observation(
                 "yggdrasil-android-workmanager", actionId,
                 available ? BuilderActionPreflight.CapabilityState.AVAILABLE
