@@ -110,7 +110,7 @@ public final class BuilderPromptFactory {
             responseSchema.put("recipient", "one of USER, HUGINN, MUNINN, KVASIR, MARI, HODR, TYR, LOKI, ODIN, BALDR, or null; required for directed turn types");
             responseSchema.put("reply_to_turn_id", "earlier turn ID or null; required for CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION, INTERRUPTION, IMPROVEMENT_INCIDENT");
             responseSchema.put("incident_body", "For IMPROVEMENT_INCIDENT only, body is a JSON object with incident_summary, observed_behavior, expected_behavior, evidence, unknowns, suspected_causes, proposed_next_step, status; status OPEN_DIAGNOSIS or OPEN_REVIEW.");
-            responseSchema.put("interruption_body", "For INTERRUPTION only, body explains stop/pause, evidence/source/time, affected step/impact, unknowns, feasible alternative, required recheck/authorization, and resume condition.");
+            responseSchema.put("interruption_body", "For INTERRUPTION only, body is a JSON object with stop_state (STOP or PAUSE), observed_constraint, source_time, affected_step, impact, unknowns, feasible_alternative, required_recheck_authorization, resume_condition; all values non-empty strings.");
             responseSchema.put("evidence_status", "one of PROPOSED, OBSERVED, TESTED, VERIFIED, USER_CONFIRMED, DISPUTED, UNKNOWN");
             payload.put("response_schema", responseSchema);
             message = payload.toString(2);
