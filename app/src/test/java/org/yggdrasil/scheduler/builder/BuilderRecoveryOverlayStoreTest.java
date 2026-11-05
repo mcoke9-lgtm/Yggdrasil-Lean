@@ -48,8 +48,14 @@ public class BuilderRecoveryOverlayStoreTest {
         context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(GENERATION));
     }
 
+    private BuilderRecoveryOverlayStore createOverlay() {
+        return BuilderRecoveryOverlayStore.create(context,
+                staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                staged.conversationDataSha256, staged.subjectDataSha256);
+    }
+
     private BuilderRecoveryOverlayStore openOverlay() {
-        return new BuilderRecoveryOverlayStore(context,
+        return BuilderRecoveryOverlayStore.openExisting(context,
                 staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
                 staged.conversationDataSha256, staged.subjectDataSha256);
     }
@@ -68,7 +74,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void appendsRemainSeparateAndBaselineDigestStillVerifiesAfterReopen() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         overlay.append(turn("overlay-turn", 2000L, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION));
         overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
@@ -156,7 +162,7 @@ public class BuilderRecoveryOverlayStoreTest {
     @Test public void overlayCannotBeOpenedWithDifferentBaselineDigest() {
         overlay = openOverlay();
         overlay.close();
-        overlay = new BuilderRecoveryOverlayStore(context,
+        overlay = BuilderRecoveryOverlayStore.openExisting(context,
                 staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
                 "0000000000000000000000000000000000000000000000000000000000000000", staged.subjectDataSha256);
         try {
@@ -167,9 +173,21 @@ public class BuilderRecoveryOverlayStoreTest {
         }
     }
 
+
+    @Test public void missingOverlayIsNotSilentlyRecreated() {
+        try {
+            BuilderRecoveryOverlayStore.openExisting(context,
+                    staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                    staged.conversationDataSha256, staged.subjectDataSha256);
+            fail("missing overlay must fail closed");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("missing"));
+        }
+    }
+
     @Test public void generationMustMatchTheBaselineDatabaseNames() {
         try {
-            new BuilderRecoveryOverlayStore(context,
+            BuilderRecoveryOverlayStore.create(context,
                     staged.conversationDatabaseName, staged.subjectDatabaseName, "other-generation",
                     staged.conversationDataSha256, staged.subjectDataSha256);
             fail("generation mismatch must fail before opening a new overlay");
