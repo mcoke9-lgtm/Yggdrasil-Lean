@@ -20,7 +20,13 @@ const scheduler = new Scheduler({
   maxRunsPerTick: 5
 });
 registerGithubWatch(scheduler);
-const builderRuntime = await registerOptionalBuilderRuntime({ scheduler, schedulerStateFile: stateFile });
+let builderRuntime;
+try {
+  builderRuntime = await registerOptionalBuilderRuntime({ scheduler, schedulerStateFile: stateFile });
+} catch (error) {
+  await releaseLock();
+  throw error;
+}
 process.stdout.write(JSON.stringify({
   event: builderRuntime.configured ? "nine_builders_executor_registered" : "nine_builders_executor_unconfigured",
   reason: builderRuntime.reason ?? null,
