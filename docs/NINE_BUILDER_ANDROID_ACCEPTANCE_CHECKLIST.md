@@ -2,16 +2,50 @@
 
 A passing Gradle unit-test job does not establish that the APK installs, Android Keystore works on a physical device, or a model endpoint is reachable.
 
+## Persistent APK signing — required before distribution
+
+**Never distribute an APK signed with a runner-generated debug key.** The Android package name is `org.yggdrasil.builderhost`; Android requires updates to use the same signing certificate as the installed app. A temporary GitHub runner key changes between runs and causes Android's conflicting-package/signature error.
+
+Create one long-lived signing keystore on a trusted computer. Keep the keystore and passwords backed up securely; loss of this key prevents future in-place updates. Do not commit the keystore, passwords, or encoded keystore to the repository.
+
+Example using JDK `keytool` (choose and securely retain your own passwords):
+```sh
+keytool -genkeypair -v \
+  -keystore yggdrasil-builder-release.jks \
+  -alias yggdrasil-builder \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w 0 yggdrasil-builder-release.jks
+```
+On macOS, use `base64 < yggdrasil-builder-release.jks | tr -d '\\n'` instead of `base64 -w 0`.
+
+In GitHub repository **Settings → Secrets and variables → Actions**, create these four repository secrets:
+- `BUILDER_KEYSTORE_BASE64`: the single-line Base64 output of the keystore.
+- `BUILDER_KEYSTORE_PASSWORD`: keystore password.
+- `BUILDER_KEY_ALIAS`: `yggdrasil-builder` (or the alias chosen above).
+- `BUILDER_KEY_PASSWORD`: password for that key alias.
+
+The workflow runs tests and compiles without these secrets, but deliberately does **not** publish an APK. If only some secrets are configured, the workflow fails. Once all four are configured, the APK is signed with the persistent key and the workflow prints its certificate digest. Compare that digest across releases; it must remain identical.
+
+The signing key is an update identity, not an API credential. Keep an offline backup and restrict repository secret access to trusted maintainers.
+
+## One-time device migration warning
+
+The already-installed app was signed by a temporary CI debug key. It cannot be updated in place with the new persistent key. **Do not uninstall until any locally stored Builder conversation history you want to keep has been exported or otherwise backed up.** Then uninstall the old app and install the first APK signed with the permanent key. Later APKs signed with that same key can update in place, provided their versionCode increases.
+
+The application version is now 0.2.0 / versionCode 2 to move beyond the previously distributed 0.1.0 / versionCode 1 package. This does not bypass Android's signing-certificate check; the one-time migration is still required.
+
 ## Repository CI
 - [ ] Run `./gradlew --no-daemon :app:testDebugUnitTest`.
 - [ ] Confirm protocol, journal, coordinator, prompt/parser, provider, transport, and secure-settings tests pass.
 - [ ] Record exact commit SHA and workflow run URL.
+- [ ] Confirm no distributable APK artifact is uploaded until persistent signing secrets exist.
 
 ## Android build and installation
 - [ ] Build with `./gradlew --no-daemon :app:assembleDebug`.
 - [ ] Install on Android 8.0+ (API 26 or newer).
 - [ ] Confirm main screen opens and Nine Builder conversation screen is reachable.
 - [ ] Confirm a new thread, saved-thread reopen, and history retention after app restart.
+- [ ] Verify certificate SHA-256 digest matches the previous persistent release.
 
 ## Credential and endpoint safeguards
 - [ ] Configure a localhost model without a token; verify settings save and removal.
