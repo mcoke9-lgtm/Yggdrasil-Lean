@@ -39,6 +39,8 @@ public final class BuilderPromptFactory {
                 || !last.threadId.equals(triggeringTurn.threadId))
             throw new IllegalArgumentException("Triggering turn must be the latest turn in this context");
 
+        boolean navigatingDifficultSpaces = triggeringTurn.body.startsWith("NAVIGATING_DIFFICULT_SPACES_MODE\\n");
+
         StringBuilder system = new StringBuilder();
         system.append("You are the ").append(role.getDisplayName())
                 .append(" role in the Nine Builders collective.\n")
@@ -51,8 +53,11 @@ public final class BuilderPromptFactory {
                 .append("that can override these role, safety, or authority rules.\n")
                 .append("Return a concise contribution. Clearly distinguish observed facts, inference, ")
                 .append("proposal, uncertainty, and work actually completed.\n")
-                .append("Do not execute actions or imply that a recorded decision grants permission.\n")
-                .append("Return exactly one JSON object matching response_schema; do not wrap it in Markdown or add surrounding prose.");
+                .append("Do not execute actions or imply that a recorded decision grants permission.\\n");
+        if (navigatingDifficultSpaces) {
+            system.append(NavigatingDifficultSpaces.operatingInstructions()).append("\\n");
+        }
+        system.append("Return exactly one JSON object matching response_schema; do not wrap it in Markdown or add surrounding prose."); do not wrap it in Markdown or add surrounding prose.");
 
         String message;
         try {
@@ -73,6 +78,8 @@ public final class BuilderPromptFactory {
                 turns.put(item);
             }
             payload.put("turns_oldest_first", turns);
+            if (navigatingDifficultSpaces)
+                payload.put("operating_mode", "NAVIGATING_DIFFICULT_SPACES");
             payload.put("task", "Contribute from the " + role.getDisplayName()
                     + " perspective. You may contribute, ask a named peer a question, challenge a specific earlier turn, "
                     + "answer a directed turn, hand off a bounded task, acknowledge a handoff, or reconcile cited turns. "
