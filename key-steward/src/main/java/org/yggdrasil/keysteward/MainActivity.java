@@ -225,9 +225,7 @@ public final class MainActivity extends Activity {
             int total = 0;
             while ((count = input.read(buffer)) != -1) {
                 total += count;
-                if (total > 36 * 1024) {
-                    throw new IllegalArgumentException("Keystore is too large for a GitHub secret");
-                }
+                KeyStoreEngine.validateExportSize(total);
                 output.write(buffer, 0, count);
             }
             bytes = output.toByteArray();
