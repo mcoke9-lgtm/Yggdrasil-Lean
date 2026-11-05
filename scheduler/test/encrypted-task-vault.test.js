@@ -73,13 +73,16 @@ test("vault ciphertext does not expose task prompt and rejects wrong keys", asyn
   }
 });
 
-test("vault refuses to overwrite an existing task reference", async () => {
+test("task setup can safely retry the same prompt but rejects a changed prompt", async () => {
   const f = await fixture();
   try {
-    await f.vault.initializeTask("task:pilot", "Original prompt.");
+    const first = await f.vault.initializeTask("task:pilot", "Original prompt.");
+    const retry = await f.vault.initializeTask("task:pilot", "Original prompt.");
+    assert.equal(first.approvalRequired, true);
+    assert.equal(retry.approvalRequired, true);
     await assert.rejects(
       () => f.vault.initializeTask("task:pilot", "Replacement prompt."),
-      /already exists/
+      /different prompt/
     );
   } finally {
     await rm(f.directory, { recursive: true, force: true });
