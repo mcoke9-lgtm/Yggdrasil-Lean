@@ -56,14 +56,25 @@ public final class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,8,24,8);
         EditText repo = field(form,"GitHub repository: owner/name"); EditText branch = field(form,"Branch name"); EditText workflow = field(form,"Exact workflow name"); EditText name = field(form,"Monitor name");
         EditText time = field(form,"Local time HH:MM (24-hour)"); time.setText("09:00");
+        form.addView(text("Repeat on",16));
+        String[] dayNames={"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+        CheckBox[] dayChecks=new CheckBox[7];
+        for(int i=0;i<7;i++){ dayChecks[i]=new CheckBox(this); dayChecks[i].setText(dayNames[i]); dayChecks[i].setChecked(true); form.addView(dayChecks[i]); }
         new AlertDialog.Builder(this).setTitle("New daily GitHub monitor").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Save",(dialog,which)->{
             try {
                 String r=repo.getText().toString().trim(), b=branch.getText().toString().trim(), w=workflow.getText().toString().trim(), n=name.getText().toString().trim();
                 if (!r.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+") || b.isEmpty() || w.isEmpty() || n.isEmpty()) throw new IllegalArgumentException("Fill every field and use owner/name repository format");
                 String[] parts=time.getText().toString().split(":"); if(parts.length!=2) throw new IllegalArgumentException("Use HH:MM time"); int h=Integer.parseInt(parts[0]), m=Integer.parseInt(parts[1]); if(h<0||h>23||m<0||m>59) throw new IllegalArgumentException("Time must be between 00:00 and 23:59");
-                String id="gh-"+UUID.randomUUID().toString().substring(0,8); db.addTask(id,n,r,b,w,h,m,ZoneId.systemDefault().getId()); status.setText("Saved locally · timezone " + ZoneId.systemDefault().getId()); refresh();
+                StringBuilder days=new StringBuilder(); for(int i=0;i<7;i++) if(dayChecks[i].isChecked()){ if(days.length()>0) days.append(","); days.append(i+1); }
+                if(days.length()==0) throw new IllegalArgumentException("Choose at least one day");
+                String id="gh-"+UUID.randomUUID().toString().substring(0,8); db.addTask(id,n,r,b,w,h,m,ZoneId.systemDefault().getId(),days.toString()); status.setText("Saved locally · timezone " + ZoneId.systemDefault().getId()); refresh();
             } catch(Exception e) { new AlertDialog.Builder(this).setMessage(e.getMessage()).setPositiveButton("OK",null).show(); }
         }).show();
+    }
+    private String daysLabel(String days) {
+        String[] names={"Mon","Tue","Wed","Thu","Fri","Sat","Sun"}; StringBuilder out=new StringBuilder();
+        for(String part:days.split(",")){ try{ int n=Integer.parseInt(part); if(n>=1&&n<=7){ if(out.length()>0) out.append(" "); out.append(names[n-1]); } }catch(NumberFormatException ignored){} }
+        return out.toString();
     }
     private void refresh() {
         taskList.removeAllViews();
@@ -71,7 +82,7 @@ public final class MainActivity extends Activity {
             LinearLayout card=new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(0,8,0,12);
             card.addView(text(t.name + (t.enabled ? " · ACTIVE" : " · PAUSED"),18));
             card.addView(text(t.repo + " / " + t.branch + " / " + t.workflow,13));
-            card.addView(text(String.format(java.util.Locale.US,"Daily %02d:%02d · %s · %s",t.hour,t.minute,t.zone,t.lastStatus),13));
+            card.addView(text(String.format(java.util.Locale.US,"%s %02d:%02d · %s · %s",daysLabel(t.days),t.hour,t.minute,t.zone,t.lastStatus),13));
             LinearLayout actions=new LinearLayout(this); actions.addView(button(t.enabled?"Pause":"Resume",()->{db.setEnabled(t.id,!t.enabled);refresh();})); actions.addView(button("Delete",()->new AlertDialog.Builder(this).setMessage("Delete this monitor?").setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{db.delete(t.id);refresh();}).show())); card.addView(actions); taskList.addView(card);
         }
         history.removeAllViews(); for(String item:db.recentRuns(25)) history.addView(text(item,12)); if(db.recentRuns(1).isEmpty()) history.addView(text("No activity yet",13));
