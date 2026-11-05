@@ -38,26 +38,37 @@ export function registerGithubWatch(scheduler, {
       throw new TypeError("GitHub watch requires one or more exact workflow names");
     }
 
-    const url = new URL(`https://api.github.com/repos/${repo}/actions/runs`);
-    url.searchParams.set("branch", branch);
-    url.searchParams.set("per_page", "100");
     const headers = {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28"
     };
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetchImpl(url, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(30000)
-    });
-    if (!response.ok) throw new Error(`GitHub Actions API returned HTTP ${response.status}`);
-    const body = await response.json();
-    if (!Array.isArray(body.workflow_runs)) throw new Error("GitHub Actions response did not contain workflow_runs");
+    const allRuns = [];
+    let totalCount = null;
+    for (let page = 1; page <= 10; page += 1) {
+      const url = new URL(`https://api.github.com/repos/${repo}/actions/runs`);
+      url.searchParams.set("branch", branch);
+      url.searchParams.set("per_page", "100");
+      url.searchParams.set("page", String(page));
+      const response = await fetchImpl(url, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(30000)
+      });
+      if (!response.ok) throw new Error(`GitHub Actions API returned HTTP ${response.status}`);
+      const body = await response.json();
+      if (!Array.isArray(body.workflow_runs)) throw new Error("GitHub Actions response did not contain workflow_runs");
+      totalCount = Number.isInteger(body.total_count) ? body.total_count : totalCount;
+      allRuns.push(...body.workflow_runs);
+      if (body.workflow_runs.length < 100 || (totalCount !== null && allRuns.length >= totalCount)) break;
+    }
+    if (totalCount !== null && allRuns.length < totalCount) {
+      throw new Error("GitHub Actions history exceeds the 1,000-run safety scan; cursor was not advanced");
+    }
 
     const names = new Set(workflowNames);
-    const completed = body.workflow_runs.filter(run =>
+    const completed = allRuns.filter(run =>
       names.has(run.name) && run.head_branch === branch && run.status === "completed" &&
       run.id !== undefined && run.id !== null
     );
@@ -73,7 +84,7 @@ export function registerGithubWatch(scheduler, {
         branch,
         workflowNames: [...names],
         initializedAt: new Date().toISOString(),
-        seenCompletedRunIds: completed.map(run => String(run.id)).slice(0, 500)
+        seenCompletedRunIds: completed.map(run => String(run.id)).slice(0, 1500)
       });
       output(JSON.stringify({
         event: "github_watch_baseline_created",
@@ -86,7 +97,7 @@ export function registerGithubWatch(scheduler, {
     }
 
     const fresh = completed.filter(run => !seen.has(String(run.id)));
-    const failures = fresh.filter(run => run.conclusion !== "success");
+    const failures = fresh.filter(run => ["failure", "timed_out", "startup_failure"].includes(run.conclusion));
     for (const run of failures) {
       output(JSON.stringify({
         event: "github_build_failure",
@@ -111,7 +122,7 @@ export function registerGithubWatch(scheduler, {
       }));
     }
 
-    const merged = [...new Set([...seen, ...completed.map(run => String(run.id))])].slice(-500);
+    const merged = [...new Set([...seen, ...completed.map(run => String(run.id))])].slice(-1500);
     await saveCursor(cursorPath, {
       repository: repo,
       branch,
