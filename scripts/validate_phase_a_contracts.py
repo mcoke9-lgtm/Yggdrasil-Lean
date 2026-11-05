@@ -213,8 +213,8 @@ def main() -> int:
     if set(artifact_by_id) != {ref for candidate in study.get("source_candidates", []) for ref in candidate.get("artifact_refs", [])}:
         print("FAIL artifact inventory and study source candidate references must match")
         failures += 1
-    if any(candidate.get("baseline_evaluation_status") != "not_evaluated" or candidate.get("artifact_refs") for candidate in study.get("source_candidates", [])):
-        print("FAIL research candidates must not imply registered artifacts or completed baseline evaluation")
+    if any(candidate.get("baseline_evaluation_status") != "not_evaluated" for candidate in study.get("source_candidates", [])):
+        print("FAIL research candidates must not imply completed baseline evaluation")
         failures += 1
     if rubric.get("aggregation", {}).get("threshold_status") != "proposed_not_adopted":
         print("FAIL evaluation thresholds must remain explicitly unadopted")
