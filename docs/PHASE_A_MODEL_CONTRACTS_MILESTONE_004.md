@@ -380,13 +380,13 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 ### Compact-model candidate research
 
-`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study now records five research-stage source candidates, none with registered exact artifacts or baseline evaluation.
+`docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study now records five research-stage source candidates, one with a pinned repository revision but no individual weight-file digest or baseline evaluation.
 
 ### Compact model reduction study
 
 `schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluators; Baldr and Týr are proposed independent verification roles. The evaluator artifact must be distinct from the candidate artifact, and model self-evaluation alone is insufficient.
 
-The study currently has **five research-stage model families**, but no exact artifact revisions or digests, no baseline evaluations, and no selected candidate; it remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
+The study currently has **five research-stage model families**, but one repository revision is pinned for Qwen3.5-0.8B, but no individual weight-file digest or complete artifact lock is registered; no baseline evaluations or selected candidate exist, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
 ### Elastic lifecycle and reconstruction
 
