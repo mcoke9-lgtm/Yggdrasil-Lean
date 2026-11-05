@@ -165,11 +165,11 @@
   ],
   "known_losses": [],
   "known_unknowns": [
-    "No source model family or weight artifact has been selected or inventoried.",
     "No candidate model has been benchmarked against the nine Builder contracts.",
     "No compression, quantization, distillation, pruning, or fine-tuning has been performed.",
     "No target hardware resource ceiling has been measured or adopted.",
-    "No model license or artifact provenance has yet been verified for a candidate."
+    "Qwen3.5-0.8B repository revision 2fc06364715b967f1860aea9cf38778875588b17 is pinned as a research reference; the exact selected weight-file digest and complete artifact lock remain unregistered.",
+    "No candidate's deployment-specific license review is complete."
   ],
   "decision": "not_decided",
   "evidence_refs": []
