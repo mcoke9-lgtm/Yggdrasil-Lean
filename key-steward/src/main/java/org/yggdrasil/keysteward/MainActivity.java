@@ -38,6 +38,7 @@ public final class MainActivity extends Activity {
     private boolean creating;
     private boolean exporting;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private byte[] pendingExportBytes;
 
     @Override
     public void onCreate(Bundle state) {
@@ -146,6 +147,7 @@ public final class MainActivity extends Activity {
 
     private void beginVerify() {
         if (!hasValidPassword()) return;
+        confirmField.setText("");
         creating = false;
         exporting = false;
         openKeystorePicker(OPEN_FILE);
@@ -153,6 +155,7 @@ public final class MainActivity extends Activity {
 
     private void beginBase64Export() {
         if (!hasValidPassword()) return;
+        confirmField.setText("");
         creating = false;
         exporting = true;
         status.setText("Select the encrypted PKCS#12 file. Its password and key will be verified before copying.");
@@ -169,7 +172,11 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            passwordField.setText("");
+            confirmField.setText("");
+            return;
+        }
         Uri uri = data.getData();
         char[] password = readPassword();
         if (password == null) return;
@@ -239,18 +246,37 @@ public final class MainActivity extends Activity {
             throw failure;
         }
 
+        clearPendingExportBytes();
+        pendingExportBytes = bytes;
         new AlertDialog.Builder(this)
                 .setTitle("Copy sensitive keystore data?")
                 .setMessage("This copies the encrypted PKCS#12 file as Base64 to the Android clipboard. "
                         + "Only paste it into the BUILDER_KEYSTORE_BASE64 GitHub Actions secret. "
                         + "The app schedules a clear after 60 seconds, but you must clear it manually "
                         + "if the app is stopped or killed. Continue?")
-                .setNegativeButton("Cancel", (dialog, which) ->
-                        java.util.Arrays.fill(bytes, (byte) 0))
-                .setPositiveButton("Copy to clipboard", (dialog, which) ->
-                        putVerifiedBytesOnClipboard(bytes, exactVerification.fingerprint))
-                .setOnCancelListener(dialog -> java.util.Arrays.fill(bytes, (byte) 0))
+                .setNegativeButton("Cancel", (dialog, which) -> clearPendingExportBytes())
+                .setPositiveButton("Copy to clipboard", (dialog, which) -> {
+                    byte[] confirmedBytes = pendingExportBytes;
+                    pendingExportBytes = null;
+                    if (confirmedBytes != null) {
+                        putVerifiedBytesOnClipboard(confirmedBytes, exactVerification.fingerprint);
+                    }
+                })
+                .setOnCancelListener(dialog -> clearPendingExportBytes())
                 .show();
+    }
+
+    private void clearPendingExportBytes() {
+        if (pendingExportBytes != null) {
+            java.util.Arrays.fill(pendingExportBytes, (byte) 0);
+            pendingExportBytes = null;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        clearPendingExportBytes();
+        super.onDestroy();
     }
 
     private void putVerifiedBytesOnClipboard(byte[] bytes, String fingerprint) {
