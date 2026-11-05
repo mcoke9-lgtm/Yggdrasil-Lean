@@ -19,6 +19,12 @@ Replace the previous one-provider-for-nine-roles wiring with explicit per-role m
 - The data-sharing notice identifies the shared timestamped operational-limits snapshot as prompt content sent to each selected provider.
 - Approval fingerprints include a disclosure-scope version and the categories of prompt content sent (user message, saved thread history, selected role instructions, and timestamped operational-limits snapshot). A change to those categories or the disclosure version invalidates prior consent and requires a fresh approval.
 
+## Mari's complementarity reasoning
+
+Mari's role-specific prompt explicitly asks her to test whether apparently competing proposals are genuinely incompatible or can coexist. When both provide distinct compatible benefits, she should argue for preserving both, explain their contributions and interface, and propose layered or context-sensitive use where appropriate. Persistent consent and per-submission consent are included as an example of complementary layers: bounded persistent permission for routine in-scope submissions, with fresh approval when sensitivity, content, recipient, or scope crosses the boundary. When proposals truly conflict, Mari must identify the exact incompatibility and explain trade-offs and remaining alternatives rather than inventing compatibility or flattening meaningful distinctions.
+
+This is prompt guidance, not a hard runtime guarantee. The regression test verifies the guidance is specific to Mari's role; behavioral reliability still requires empirical evaluation across representative scenarios, including genuinely incompatible alternatives.
+
 ## Baldr guard
 
 An explicit improvement review requires Baldr to be selected and configured. Baldr's canonical endpoint **and** model ID must both differ from every configured non-Baldr role, not merely the roles selected for one conversation. Endpoint comparison normalizes host case, default ports, dot segments (including percent-encoded dot characters, while preserving reserved path escapes), and trailing slashes to catch equivalent URL variations. Model IDs are compared case-insensitively. The check rejects a missing Baldr route, a shared canonical endpoint, or a shared model ID.
