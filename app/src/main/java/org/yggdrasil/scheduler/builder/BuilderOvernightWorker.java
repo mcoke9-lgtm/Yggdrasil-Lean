@@ -84,6 +84,11 @@ public final class BuilderOvernightWorker extends Worker {
                 return Result.failure();
             }
 
+            long available = state.optLong("deadline_epoch_millis") - System.currentTimeMillis();
+            if (available < MINIMUM_CYCLE_BUDGET_MILLIS) {
+                runStore.setStatus(runId, "COMPLETED", "No further full cycle fits in the eight-hour window.", System.currentTimeMillis());
+                return Result.success();
+            }
             state = runStore.beginCycle(runId, now);
             int cycle = state.optInt("current_cycle");
             setForegroundAsync(foregroundInfo(runId, "Cycle " + cycle + " · nine Builders working"))
