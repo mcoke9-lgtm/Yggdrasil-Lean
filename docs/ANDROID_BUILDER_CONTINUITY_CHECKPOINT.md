@@ -109,3 +109,18 @@ Committed support:
 - **Migration status:** the user previously exported a fresh journal snapshot, uninstalled the original package after an Android package-conflict, installed the new Builder Host, passed the safe recovery test, restored the snapshot, and confirmed the journal chain. Those are user-reported results. A further change to a permanent signer would require another controlled migration unless the permanent certificate can be made to match the installed certificate; the matching private key is unavailable.
 - Do not ask the user to uninstall or clear app data. Before any future signer migration, protect the current journal with a fresh export and verify the chain. The user has already experienced one migration; avoid repeating it unless essential.
 - No signing secrets can be read or written through the currently connected GitHub integration. The user must create/store the permanent private key in a user-controlled secure location and enter the four GitHub Actions secrets through GitHub's protected settings. Never request secret values in chat.
+
+
+## Builder Key Steward implementation checkpoint — 2026-11-05
+
+- Added separate Android module `:key-steward`, application ID `org.yggdrasil.keysteward`; it does not replace or modify the existing Builder Host or Scheduler package.
+- The app generates a password-protected PKCS#12 file locally (RSA-3072, alias `yggdrasil-builder-host`, SHA256withRSA certificate, 25-year validity), reloads and verifies it, and reports the certificate SHA-256 digest.
+- User explicitly chooses the export location through Android's document picker. The app offers a second export, can load and verify a backup, and copies Base64 only on explicit request. It marks the clipboard item sensitive and provides a targeted clear operation.
+- The app declares no Internet/network-state permission, disables Android backup, prevents screenshots, avoids logging and app-private key persistence, and clears in-memory key bytes when the activity is destroyed. Password is not stored; PKCS#12 uses the same password for store and key entry.
+- The workflow includes a static offline-boundary check and builds/uploads only the Key Steward APK, never a generated signing key. APK artifact is a temporary installer only, not key material.
+- Builder Host Gradle signing now explicitly selects PKCS#12; CI decodes the user-created keystore only after the four protected GitHub secrets exist.
+- CI attempt 1 failed on duplicate Bouncy Castle multi-release OSGI metadata; added a packaging exclusion.
+- CI attempt 2 failed because Android's `ClipDescription.setExtras` expects `PersistableBundle`, not `Bundle`; corrected this. Later UI/security refinements added retryable backup export, clipboard cleanup after app restart, and screenshot blocking.
+- Latest complete-source workflow run `42054633700` was queued at the time of this checkpoint. Run `42054477744` was still in progress on the earlier commit `d2249c8026141b8ec5146ed0ee307b944eae5f24`. No successful Key Steward build/artifact has yet been verified.
+- No keystore has been generated; no private key or password has been sent to GitHub; no repository signing secrets have been configured; no phone installation or change has occurred.
+- **Next gate:** verify the latest CI run for commit `f285fb984049a7fd88c3939da07c7012390255dd`; download only the Key Steward APK artifact; inspect its merged manifest/package and install it as a separate app; test PKCS#12 generation, export, reload, password rejection and fingerprint on the actual Galaxy S21+ Android 15. Do not configure GitHub secrets or migrate Builder Host until these phone tests pass.
