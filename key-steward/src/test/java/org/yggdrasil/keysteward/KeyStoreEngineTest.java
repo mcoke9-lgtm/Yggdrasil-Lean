@@ -7,7 +7,6 @@ import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyStore;
-import java.io.ByteArrayInputStream;
 
 import org.junit.Test;
 
