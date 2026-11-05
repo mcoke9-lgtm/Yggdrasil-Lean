@@ -17,6 +17,7 @@ function usage() {
     "  add-daily-heartbeat <id> <name> <IANA-time-zone> <hour> <minute>",
     "  add-weekly-heartbeat <id> <name> <IANA-time-zone> <hour> <minute> <days:0,1,...,6>",
     "  add-github-watch <id> <name> <owner/repo> <branch> <IANA-time-zone> <hour> <minute> <workflow-name> [workflow-name...]",
+    "  add-nine-builders-run <id> <name> <IANA-time-zone> <hour> <minute> <task-reference>",
     ""
   ].join("\n"));
 }
@@ -47,6 +48,20 @@ try {
     const task = await scheduler.addTask({
       id, name, handlerType: "system.heartbeat", payload: {},
       schedule
+    });
+    process.stdout.write(JSON.stringify(task, null, 2) + "\n");
+  } else if (command === "add-nine-builders-run") {
+    const [id, name, timeZone, hourText, minuteText, taskReference] = args;
+    if (!taskReference || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(taskReference)) {
+      throw new Error("Supply an opaque task reference from the host executor's secure task store; do not put the task prompt or credentials in scheduler state");
+    }
+    const task = await scheduler.addTask({
+      id, name, handlerType: "nine-builders.run",
+      payload: { taskReference },
+      schedule: {
+        kind: "calendar", frequency: "daily", timeZone,
+        hour: Number(hourText), minute: Number(minuteText)
+      }
     });
     process.stdout.write(JSON.stringify(task, null, 2) + "\n");
   } else if (command === "add-github-watch") {
