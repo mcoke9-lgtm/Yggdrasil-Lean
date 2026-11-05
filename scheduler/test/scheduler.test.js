@@ -1,5 +1,6 @@
 import test from "node:test";
 import { spawn } from "node:child_process";
+import { request as httpRequest } from "node:http";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -242,8 +243,21 @@ test("dashboard exposes local task management and rejects hostile hosts", async 
       body: JSON.stringify({ enabled: false })
     });
     assert.equal((await paused.json()).enabled, false);
-    const hostile = await fetch(base + "/api/tasks", { headers: { Host: "attacker.example" } });
-    assert.equal(hostile.status, 403);
+    const hostileStatus = await new Promise((resolveHostile, rejectHostile) => {
+      const request = httpRequest({
+        hostname: "127.0.0.1",
+        port: address.port,
+        path: "/api/tasks",
+        method: "GET",
+        headers: { Host: "attacker.example" }
+      }, response => {
+        response.resume();
+        resolveHostile(response.statusCode);
+      });
+      request.once("error", rejectHostile);
+      request.end();
+    });
+    assert.equal(hostileStatus, 403);
     const deleted = await fetch(base + "/api/tasks/dashboard-watch", { method: "DELETE" });
     assert.equal((await deleted.json()).deleted, true);
   } finally {
