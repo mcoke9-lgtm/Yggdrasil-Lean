@@ -77,4 +77,46 @@ public class BuilderReplyParserTest {
         assertThrows(IllegalArgumentException.class, () -> BuilderReplyParser.parse(blankBody));
         assertThrows(IllegalArgumentException.class, () -> BuilderReplyParser.parse(badEvidence));
     }
+
+    @Test public void parsesStructuredImprovementIncidentAndKeepsItOpen() {
+        String incident = "{"
+                + "\\"incident_summary\\":\\"A Builder overlooked an adopted alternative.\\","
+                + "\\"observed_behavior\\":\\"Recommended freeing a ChatGPT task slot.\\","
+                + "\\"expected_behavior\\":\\"Check the independent scheduler first.\\","
+                + "\\"evidence\\":\\"Project record identifies an independent scheduler.\\","
+                + "\\"unknowns\\":\\"Current deployment and GitHub access are unverified.\\","
+                + "\\"suspected_causes\\":\\"Context delivery or reasoning failure.\\","
+                + "\\"proposed_next_step\\":\\"Peer-review the operational context path.\\","
+                + "\\"status\\":\\"OPEN_DIAGNOSIS\\"}";
+        String json = "{"
+                + "\\"body\\":\"" + incident.replace("\\", "\\\\").replace("\"", "\\\"") + "\\","
+                + "\\"turn_type\\":\\"IMPROVEMENT_INCIDENT\\","
+                + "\\"recipient\\":\\"USER\\","
+                + "\\"reply_to_turn_id\\":\\"trigger-1\\","
+                + "\\"evidence_status\\":\\"OBSERVED\\"}";
+        BuilderConversationCoordinator.Reply reply = BuilderReplyParser.parse(json);
+        assertEquals(BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, reply.type);
+        assertEquals(BuilderConversationProtocol.Participant.USER, reply.recipient);
+        assertTrue(reply.body.contains("OPEN_DIAGNOSIS"));
+    }
+
+    @Test public void rejectsImprovementIncidentThatClaimsAdoptionAtCreation() {
+        String incident = "{"
+                + "\\"incident_summary\\":\\"A failure occurred.\\","
+                + "\\"observed_behavior\\":\\"Observed.\\","
+                + "\\"expected_behavior\\":\\"Expected.\\","
+                + "\\"evidence\\":\\"Evidence.\\","
+                + "\\"unknowns\\":\\"Unknown.\\","
+                + "\\"suspected_causes\\":\\"Cause.\\","
+                + "\\"proposed_next_step\\":\\"Review.\\","
+                + "\\"status\\":\\"ADOPTED\\"}";
+        String json = "{"
+                + "\\"body\\":\"" + incident.replace("\\", "\\\\").replace("\"", "\\\"") + "\\","
+                + "\\"turn_type\\":\\"IMPROVEMENT_INCIDENT\\","
+                + "\\"recipient\\":\\"USER\\","
+                + "\\"reply_to_turn_id\\":\\"trigger-1\\","
+                + "\\"evidence_status\\":\\"OBSERVED\\"}";
+        assertThrows(IllegalArgumentException.class, () -> BuilderReplyParser.parse(json));
+    }
+
 }
