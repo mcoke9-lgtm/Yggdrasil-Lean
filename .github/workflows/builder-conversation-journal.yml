@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - independent-builder-runtime-foundation-001
+      - recovery-export-provenance-002
   pull_request:
     branches:
       - independent-builder-runtime-foundation-001
+      - operational-snapshot-journal-muninn-pirate-001
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
