@@ -5,6 +5,8 @@ on:
     branches: [independent-builder-runtime-foundation-001]
     paths:
       - 'app/**'
+      - 'key-steward/**'
+      - 'settings.gradle'
       - '*.gradle'
       - 'gradle.properties'
       - '.github/workflows/independent-builder-runtime.yml'
@@ -47,7 +49,7 @@ jobs:
             echo "::error::Persistent signing secrets are only partially configured. Set all four BUILDER_* secrets."
             exit 1
           fi
-          KEYSTORE_PATH="$RUNNER_TEMP/builder-host-signing.jks"
+          KEYSTORE_PATH="$RUNNER_TEMP/builder-host-signing.p12"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           test -s "$KEYSTORE_PATH"
           echo "BUILDER_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
@@ -73,5 +75,34 @@ jobs:
         with:
           name: yggdrasil-builder-runtime-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  key-steward-build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Test and build offline Key Steward utility
+        run: gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:assembleDebug
+      - name: Upload Key Steward app only (contains no signing key)
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-builder-key-steward-apk
+          path: key-steward/build/outputs/apk/debug/key-steward-debug.apk
           if-no-files-found: error
           retention-days: 14
