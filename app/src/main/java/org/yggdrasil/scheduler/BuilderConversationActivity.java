@@ -29,11 +29,10 @@ import org.yggdrasil.scheduler.builder.BuilderConversationJournal;
 import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
-import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
+import org.yggdrasil.scheduler.builder.BuilderRoleProviderSettings;
 import org.yggdrasil.scheduler.builder.BuilderRole;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
-import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -60,6 +59,7 @@ public final class BuilderConversationActivity extends Activity {
     private EditText messageInput;
     private TextView status;
     private TextView runtimeStatus;
+    private TextView routesStatus;
     private Messenger runtimeMessenger;
     private boolean runtimeBound;
     private final Messenger runtimeReply = new Messenger(new Handler(Looper.getMainLooper()) {
@@ -204,6 +204,9 @@ public final class BuilderConversationActivity extends Activity {
             roleChecks.put(role, check);
             root.addView(check);
         }
+        root.addView(button("Configure role-specific model routes", this::chooseRoleRoute));
+        routesStatus = text(routeConfigurationSummary(), 12);
+        root.addView(routesStatus);
 
         difficultSpacesMode = new CheckBox(this);
         difficultSpacesMode.setText("Navigating Difficult Spaces mode — Thurisaz / Algiz protection navigation");
@@ -381,6 +384,87 @@ public final class BuilderConversationActivity extends Activity {
         }
     }
 
+    private void chooseRoleRoute() {
+        BuilderRole[] roles = BuilderRole.values();
+        String[] labels = new String[roles.length];
+        for (int i = 0; i < roles.length; i++) labels[i] = roles[i].getDisplayName();
+        new AlertDialog.Builder(this).setTitle("Choose a Builder to configure")
+                .setItems(labels, (dialog, which) -> showRoleProviderSettings(roles[which]))
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void showRoleProviderSettings(BuilderRole role) {
+        BuilderRoleProviderSettings store = new BuilderRoleProviderSettings(this);
+        org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings.Configuration current =
+                store.configuration(role);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(24, 8, 24, 8);
+        EditText providerId = new EditText(this);
+        providerId.setSingleLine(true);
+        providerId.setHint("Provider ID");
+        form.addView(providerId);
+        EditText endpoint = new EditText(this);
+        endpoint.setSingleLine(true);
+        endpoint.setHint("HTTPS endpoint, or http://localhost:PORT/...");
+        form.addView(endpoint);
+        EditText model = new EditText(this);
+        model.setSingleLine(true);
+        model.setHint("Model ID");
+        form.addView(model);
+        EditText token = new EditText(this);
+        token.setSingleLine(true);
+        token.setHint("API token (encrypted on this device)");
+        token.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        form.addView(token);
+        form.addView(text("This role has its own encrypted credential namespace. Leave token blank only to retain this role's existing credential. Saving does not contact the endpoint.", 12));
+        if (current != null) {
+            providerId.setText(current.providerId);
+            endpoint.setText(current.endpoint);
+            model.setText(current.model);
+        }
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setTitle(role.getDisplayName() + " model route")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save route", (d, which) -> {
+                    try {
+                        store.save(role, providerId.getText().toString(),
+                                endpoint.getText().toString(), model.getText().toString(),
+                                token.getText().toString());
+                        routesStatus.setText(routeConfigurationSummary());
+                        status.setText(role.getDisplayName()
+                                + " route saved locally. Endpoint connectivity and model identity are not yet verified.");
+                        token.setText("");
+                    } catch (Exception failure) {
+                        status.setText("Role route not saved: " + failure.getMessage());
+                    }
+                });
+        if (current != null) {
+            dialog.setNeutralButton("Remove route", (d, which) -> {
+                try {
+                    store.clear(role);
+                    routesStatus.setText(routeConfigurationSummary());
+                    status.setText(role.getDisplayName() + " route and its encrypted credential were removed.");
+                } catch (Exception failure) {
+                    status.setText("Route removal could not be confirmed: " + failure.getMessage());
+                }
+            });
+        }
+        dialog.show();
+    }
+
+    private String routeConfigurationSummary() {
+        BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
+        StringBuilder summary = new StringBuilder("Role-specific routes (not yet connection-tested):\\n");
+        for (BuilderRole role : BuilderRole.values())
+            summary.append(settings.routeSummary(role)).append('\\n');
+        summary.append("Baldr distinct route: ")
+                .append(settings.hasDistinctBaldrRoute() ? "configured (not independently verified)"
+                        : "NOT CONFIGURED / NOT DISTINCT");
+        return summary.toString();
+    }
+
     private void requestSend() {
         if (busy) return;
         String message = messageInput.getText().toString().trim();
@@ -398,17 +482,39 @@ public final class BuilderConversationActivity extends Activity {
             return;
         }
 
-        SecureBuilderProviderSettings settings = new SecureBuilderProviderSettings(this);
-        SecureBuilderProviderSettings.Configuration config = settings.readConfiguration();
-        if (config == null) {
-            status.setText("No model provider is configured. No message was sent.");
+        BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
+        try {
+            settings.requireConfigured(selected);
+        } catch (Exception missing) {
+            status.setText("No model request sent. " + missing.getMessage());
             return;
         }
-        if (difficultSpacesMode != null && difficultSpacesMode.isChecked()) {
-            message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
+        boolean improvementReview = preparedMessage.startsWith("BUILDER_IMPROVEMENT_REVIEW_MODE");
+        if (improvementReview) {
+            if (!selected.contains(BuilderRole.BALDR)) {
+                status.setText("No review sent. Baldr must be selected for an independent improvement review.");
+                return;
+            }
+            try {
+                settings.requireIndependentBaldrRoute();
+            } catch (Exception missingBaldr) {
+                status.setText("No review sent. " + missingBaldr.getMessage());
+                return;
+            }
         }
-        final String preparedMessage = message;
-        String disclosureKey = config.endpoint + "\n" + config.model;
+
+        StringBuilder disclosure = new StringBuilder();
+        StringBuilder routeNotice = new StringBuilder();
+        for (BuilderRole role : selected) {
+            org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings.Configuration config =
+                    settings.configuration(role);
+            disclosure.append(role.name()).append('|').append(config.providerId).append('|')
+                    .append(config.endpoint).append('|').append(config.model).append('\\n');
+            routeNotice.append(role.getDisplayName()).append(" → ")
+                    .append(config.providerId).append(" / ").append(config.model).append("\\n")
+                    .append(config.endpoint).append("\\n\\n");
+        }
+        String disclosureKey = disclosure.toString();
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
@@ -417,12 +523,12 @@ public final class BuilderConversationActivity extends Activity {
         }
 
         String notice = "Your message and the saved conversation history for this thread, together "
-                + "with each selected Builder's role instructions, will be sent to:\n\n"
-                + config.endpoint + "\nModel: " + config.model + "\n\n"
-                + "The provider may process or retain submitted content under its own terms. "
-                + "Do not include passwords, API keys, or information you do not want sent to this provider. "
+                + "with each selected Builder's role instructions, will be sent to these configured routes:\\n\\n"
+                + routeNotice
+                + "Each listed provider may process or retain submitted content under its own terms. "
+                + "Do not include passwords, API keys, or information you do not want sent to these providers. "
                 + "No request has been made yet.";
-        new AlertDialog.Builder(this).setTitle("Allow this provider to receive the conversation?")
+        new AlertDialog.Builder(this).setTitle("Allow these providers to receive the conversation?")
                 .setMessage(notice)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Allow and send", (dialog, which) -> {
@@ -561,15 +667,15 @@ public final class BuilderConversationActivity extends Activity {
         executor.execute(() -> {
             BuilderConversationJournal store = null;
             try {
-                SecureBuilderProviderSettings settings =
-                        new SecureBuilderProviderSettings(getApplicationContext());
-                org.yggdrasil.scheduler.builder.OpenAiCompatibleModelProvider provider =
-                        settings.buildProvider();
-                BuilderProviderRegistry registry = new BuilderProviderRegistry(
-                        Collections.singletonList(provider));
-                Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
-                for (BuilderRole role : BuilderRole.values()) routes.put(role, provider.providerId());
-                BuilderProviderRouter router = new BuilderProviderRouter(registry, routes);
+                BuilderRoleProviderSettings settings =
+                        new BuilderRoleProviderSettings(getApplicationContext());
+                settings.requireConfigured(roles);
+                if (message.startsWith("BUILDER_IMPROVEMENT_REVIEW_MODE")) {
+                    if (!roles.contains(BuilderRole.BALDR))
+                        throw new IllegalStateException("Baldr must be selected for an improvement review");
+                    settings.requireIndependentBaldrRoute();
+                }
+                BuilderProviderRouter router = settings.buildRouter();
                 // Load once per submission so every selected Builder receives the same
                 // timestamped limits snapshot; never imply that this is live telemetry.
                 String operationalLimitsJson = BuilderOperationalLimits
