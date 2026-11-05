@@ -13,6 +13,7 @@ export async function registerOptionalBuilderRuntime({
   scheduler,
   schedulerStateFile,
   executorModulePath = process.env.BUILDER_EXECUTOR_MODULE,
+  builderStateFilePath = process.env.BUILDER_RUN_STATE_FILE,
   loadModule = url => import(url),
   output = line => process.stdout.write(line + "\n")
 }) {
@@ -35,8 +36,8 @@ export async function registerOptionalBuilderRuntime({
   // Keep BuilderRunLedger in a separate file so its load/modify/save operations
   // cannot overwrite concurrent scheduler task/run updates in scheduler.json.
   const resolvedSchedulerStateFile = resolve(schedulerStateFile);
-  const builderStateFile = process.env.BUILDER_RUN_STATE_FILE
-    ? resolve(process.env.BUILDER_RUN_STATE_FILE)
+  const builderStateFile = builderStateFilePath
+    ? resolve(builderStateFilePath)
     : resolve(schedulerStateFile + ".builder-runs.json");
   if (builderStateFile === resolvedSchedulerStateFile) {
     throw new Error("Builder run ledger must use a separate state file from scheduler tasks and runs");
