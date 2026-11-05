@@ -124,9 +124,23 @@ public class BuilderRecoveryActivationTest {
         }
     }
 
-    @Test public void refusesActivationWhenStageReadBackWasNotVerified() {
+    @Test public void refusesActivationIfStagedContentChangesAfterReadBack() {
         BuilderRecoveryStager.StageResult staged = stage(ONE);
-        // StageResult's constructor is private; a false verification state cannot be supplied by callers.
-        assertTrue(staged.readBackVerified);
+        android.database.sqlite.SQLiteDatabase database =
+                android.database.sqlite.SQLiteDatabase.openDatabase(
+                        context.getDatabasePath(staged.conversationDatabaseName).getAbsolutePath(),
+                        null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE);
+        try {
+            database.execSQL("UPDATE conversation_turns SET body = ?", new Object[]{"altered after staging"});
+        } finally {
+            database.close();
+        }
+        try {
+            BuilderRecoveryActivation.activate(context, staged);
+            fail("activation must verify exact staged records, not counts alone");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("contents no longer match"));
+        }
+        assertNull(BuilderRecoveryActivation.getActive(context));
     }
 }
