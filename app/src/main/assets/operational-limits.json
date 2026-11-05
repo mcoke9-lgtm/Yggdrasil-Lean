@@ -51,7 +51,7 @@
       "unit": "active scheduled-task slots",
       "evidence_source": "Automations create response: plan limit 3, current count 3; creation of 'Review app artifacts weekly' failed due to capacity.",
       "observed_at": "2026-11-05",
-      "recheck_trigger": "After user frees a task slot, when task state changes, or when user explicitly asks to retry.",
+      "recheck_trigger": "Only after the user explicitly asks to retry ChatGPT scheduled-task creation, or fresh service evidence indicates task usage/capacity may have changed. Do not assume that freeing a slot is the intended path.",
       "safe_alternative": "Prefer the project's independent scheduler when its deployment and GitHub access are freshly verified. If that capability is unavailable or unknown, report the exact gap and propose the next implementation/recheck step. Do not recommend freeing a ChatGPT task slot as the default workaround; no existing task may be changed without explicit authorization.",
       "confidence": "verified_service_response",
       "unknowns": [
