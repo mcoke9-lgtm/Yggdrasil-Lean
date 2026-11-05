@@ -179,8 +179,50 @@ public final class MainActivity extends Activity {
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
         root.addView(button("Refresh status", this::refresh));
-        root.addView(button("Check now", () -> { Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); androidx.work.OneTimeWorkRequest request = new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class).setInputData(new androidx.work.Data.Builder().putBoolean("force_check", true).build()).setConstraints(c).build(); WorkManager.getInstance(this).enqueue(request); status.setText("Manual check queued; refresh in a moment"); }));
+        root.addView(button("Check now", this::enqueueManualCheck));
     }
+    private void enqueueManualCheck() {
+        try {
+            WorkManager manager = WorkManager.getInstance(this);
+            java.time.Instant observedAt = java.time.Instant.now();
+            BuilderActionPreflight.Execution<Operation> result =
+                    org.yggdrasil.scheduler.builder.BuilderActionBoundaries.enqueueManualCheck(
+                            localSchedulerObservation("ENQUEUE_MANUAL_CHECK",
+                                    BuilderActionPreflight.Authorization.NOT_REQUIRED),
+                            observedAt, () -> {
+                                Constraints constraints = new Constraints.Builder()
+                                        .setRequiredNetworkType(NetworkType.CONNECTED).build();
+                                androidx.work.OneTimeWorkRequest request =
+                                        new androidx.work.OneTimeWorkRequest.Builder(SchedulerWorker.class)
+                                                .setInputData(new androidx.work.Data.Builder()
+                                                        .putBoolean("force_check", true).build())
+                                                .setConstraints(constraints).build();
+                                return manager.enqueue(request);
+                            });
+            if (!result.executed) {
+                status.setText("Manual check not queued: " + result.reason);
+                return;
+            }
+            Operation operation = result.value;
+            status.setText("Manual check submission pending WorkManager confirmation");
+            operation.getResult().addListener(() -> {
+                try {
+                    operation.getResult().get();
+                    if (status != null) status.setText(
+                            "Manual check accepted by WorkManager; GitHub result pending");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    if (status != null) status.setText("Manual check enqueue interrupted");
+                } catch (Exception failure) {
+                    if (status != null) status.setText("Manual check enqueue failed: "
+                            + failure.getClass().getSimpleName());
+                }
+            }, ContextCompat.getMainExecutor(this));
+        } catch (Exception failure) {
+            if (status != null) status.setText("Manual check could not be submitted");
+        }
+    }
+
     private void sendBuilderNote() {
         String instruction = builderNote.getText().toString().trim();
         org.yggdrasil.scheduler.builder.BuilderCommandRouter.Command command =
