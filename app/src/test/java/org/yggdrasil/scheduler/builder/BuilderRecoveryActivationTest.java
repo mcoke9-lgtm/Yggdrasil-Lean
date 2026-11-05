@@ -57,6 +57,7 @@ public class BuilderRecoveryActivationTest {
         for (String id : new String[]{ONE,TWO}) {
             context.deleteDatabase("builder-recovery-" + id + "-conversations.db");
             context.deleteDatabase("builder-recovery-" + id + "-subjects.db");
+            context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(id));
             new File(context.getFilesDir(), "builder-recovery-generation-" + id + ".json").delete();
             new File(context.getFilesDir(), "builder-recovery-generation-" + id + ".json.tmp").delete();
         }
@@ -76,6 +77,7 @@ public class BuilderRecoveryActivationTest {
         BuilderRecoveryActivation.ActivePair activeOne =
                 BuilderRecoveryActivation.activate(context, first);
         assertEquals(ONE, activeOne.generationId);
+        assertTrue(context.getDatabasePath(BuilderRecoveryOverlayStore.databaseNameForGeneration(ONE)).isFile());
         assertNull(activeOne.previousGenerationId);
 
         BuilderRecoveryStager.StageResult second = stage(TWO);
@@ -283,4 +285,29 @@ public class BuilderRecoveryActivationTest {
         }
         assertNull(BuilderRecoveryActivation.getActive(context));
     }
+
+    @Test public void refusesActiveGenerationWhenItsOverlayIsMissing() {
+        BuilderRecoveryActivation.activate(context, stage(ONE));
+        assertTrue(context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(ONE)));
+        try {
+            BuilderRecoveryActivation.getActive(context);
+            fail("active generation without its overlay must fail closed");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("overlay is missing"));
+        }
+    }
+
+    @Test public void refusesRollbackWhenPreviousGenerationOverlayIsMissing() {
+        BuilderRecoveryActivation.activate(context, stage(ONE));
+        BuilderRecoveryActivation.activate(context, stage(TWO));
+        assertTrue(context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(ONE)));
+        try {
+            BuilderRecoveryActivation.rollback(context);
+            fail("rollback target without matching overlay must not be published");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not roll back"));
+        }
+        assertEquals(TWO, BuilderRecoveryActivation.getActive(context).generationId);
+    }
+
 }
