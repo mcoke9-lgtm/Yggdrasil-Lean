@@ -196,7 +196,7 @@ public final class BuilderConversationActivity extends Activity {
         threadActions.addView(button("Open saved thread", this::chooseThread));
         threadActions.addView(button("Export backup", this::requestExport));
         threadActions.addView(button("Run recovery drill", this::requestRecoveryDrill));
-        root.addView(text("Recovery drill: choose a previously exported Yggdrasil JSON backup. The app checks its structure and checksum and shows a readiness report. This is read-only: it does not restore, overwrite, or delete anything. Source comparison is marked unavailable unless a separate independent source capture is supplied.", 13));
+        root.addView(text("Recovery drill: choose a previously exported Yggdrasil JSON backup. The app checks its structure and checksum and shows a readiness report. This is read-only: it does not restore, overwrite, or delete anything. This first interface pass does not yet compare against a separately retained source capture, so the report will identify that limitation.", 13));
         root.addView(threadActions);
         threadLabel = text("", 12);
         root.addView(threadLabel);
