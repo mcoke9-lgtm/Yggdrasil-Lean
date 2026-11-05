@@ -33,11 +33,12 @@ export function createDashboardServer({ scheduler, host = "127.0.0.1", port = 41
   if (host !== "127.0.0.1" && host !== "::1" && host !== "localhost") {
     throw new Error("Dashboard may bind only to loopback; remote network access is disabled");
   }
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new RangeError("Dashboard port must be 1024–65535");
+  if (!Number.isInteger(port) || port < 0 || port > 65535 || (port > 0 && port < 1024)) throw new RangeError("Dashboard port must be 0 or 1024–65535");
+  let actualPort = port;
 
   const server = createServer(async (request, response) => {
     try {
-      const expectedHost = host.includes(":") ? `[${host}]:${port}` : `${host}:${port}`;
+      const expectedHost = host.includes(":") ? `[${host}]:${actualPort}` : `${host}:${actualPort}`;
       if (request.headers.host !== expectedHost) return send(response, 403, { error: "Host header rejected" });
       const origin = request.headers.origin;
       if (origin && origin !== `http://${expectedHost}`) return send(response, 403, { error: "Cross-origin request rejected" });
@@ -107,6 +108,7 @@ export function createDashboardServer({ scheduler, host = "127.0.0.1", port = 41
         server.once("error", reject);
         server.listen(port, host, () => {
           server.removeListener("error", reject);
+          actualPort = server.address().port;
           resolveListen(server.address());
         });
       });
