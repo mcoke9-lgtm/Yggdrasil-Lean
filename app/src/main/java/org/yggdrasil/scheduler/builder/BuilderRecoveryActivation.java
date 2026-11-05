@@ -274,7 +274,7 @@ public final class BuilderRecoveryActivation {
 
     private static void syncDirectory(File directory) throws Exception {
         java.io.FileDescriptor fd = Os.open(directory.getAbsolutePath(),
-                OsConstants.O_RDONLY | OsConstants.O_DIRECTORY, 0);
+                OsConstants.O_RDONLY, 0);
         try { Os.fsync(fd); } finally { Os.close(fd); }
     }
 
