@@ -44,6 +44,8 @@ def validate_evaluator_run(report: dict) -> dict[str, dict]:
         raise ValueError("A model evaluator cannot be the sole authority.")
     if report.get("candidate_artifact_id_status") != "operator_supplied_unverified":
         raise ValueError("Candidate artifact provenance must remain explicitly unverified.")
+    if report.get("candidate_artifact_validation_state") not in ("unverified", "checksum_verified", "signature_verified", "compatibility_verified"):
+        raise ValueError("Candidate artifact has a rejected or invalid validation state.")
     if report.get("evaluator_artifact_id_status") != "operator_supplied_unverified":
         raise ValueError("Evaluator artifact provenance must remain explicitly unverified.")
     if report.get("evaluator_model_revision_status") != "operator_supplied_unverified":
@@ -86,6 +88,8 @@ def reconcile(report_one: dict, report_two: dict) -> dict:
         raise ValueError("Evaluator reports must reference the same candidate execution run.")
     if report_one["candidate_artifact_id"] != report_two["candidate_artifact_id"]:
         raise ValueError("Evaluator reports must reference the same candidate artifact.")
+    if report_one["candidate_artifact_validation_state"] != report_two["candidate_artifact_validation_state"]:
+        raise ValueError("Evaluator reports must reference the same candidate artifact validation state.")
     if report_one["evaluator_artifact_id"] == report_two["evaluator_artifact_id"]:
         raise ValueError("The two evaluator artifact IDs must be distinct.")
     if report_one["evaluator_model_id"] == report_two["evaluator_model_id"]:
@@ -146,6 +150,7 @@ def reconcile(report_one: dict, report_two: dict) -> dict:
         "run_id": str(uuid.uuid4()),
         "source_execution_run_id": report_one["source_execution_run_id"],
         "candidate_artifact_id": report_one["candidate_artifact_id"],
+        "candidate_artifact_validation_state": report_one["candidate_artifact_validation_state"],
         "evaluators": [
             {
                 "evaluator_run_id": report_one["run_id"],
