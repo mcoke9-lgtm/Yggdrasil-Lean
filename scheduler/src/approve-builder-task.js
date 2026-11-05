@@ -37,7 +37,12 @@ stdout.write("Task reference: " + taskReference + "\n");
 stdout.write("All nine configured Builder routes will receive:\n");
 stdout.write("- The scheduled task prompt\n- Run-specific conversation history\n");
 stdout.write("- Selected role instructions\n- Operational-limits snapshot\n");
-stdout.write("Route endpoint, provider ID, and model ID are included in the approval fingerprint.\n");
+stdout.write("Configured destinations (review each before approval):\n");
+for (const role of ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR", "BALDR"]) {
+  const route = config.routes?.[role];
+  if (!route) throw new Error("Missing route for " + role);
+  stdout.write(role + " — " + route.providerId + " — " + route.model + "\n  " + route.endpoint + "\n");
+}
 stdout.write("No credentials are displayed. Approval does not authorize external actions or deployment.\n\n");
 stdout.write("Task prompt:\n" + prompt + "\n\n");
 const rl = createInterface({ input: stdin, output: stdout });
