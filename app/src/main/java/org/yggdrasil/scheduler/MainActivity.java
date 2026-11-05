@@ -97,8 +97,8 @@ public final class MainActivity extends Activity {
                 when = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a", java.util.Locale.getDefault())
                         .withZone(ZoneId.systemDefault()).format(java.time.Instant.parse(item.createdAt));
             } catch (Exception ignored) { when = item.createdAt; }
-            history.addView(text(when + " · " + kind + "\\n" + item.taskName + " · " + item.status.toUpperCase(java.util.Locale.US)
-                    + (detail.isEmpty() ? "" : "\\n" + detail), 13));
+            history.addView(text(when + " · " + kind + "\n" + item.taskName + " · " + item.status.toUpperCase(java.util.Locale.US)
+                    + (detail.isEmpty() ? "" : "\n" + detail), 13));
         }
         if (activities.isEmpty()) history.addView(text("No activity yet",13));
     }
