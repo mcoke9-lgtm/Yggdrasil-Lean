@@ -132,6 +132,22 @@ when the worker explicitly records `safeToResume: true`; otherwise recovery
 must stop for reconciliation. The current scheduler runner does not yet register
 a `nine-builders.run` handler.
 
+### Scheduler-to-Builder handler adapter
+
+`src/builder-run-handler.js` registers the `nine-builders.run` handler when
+the host supplies both a `BuilderRunLedger` and an explicit executor function.
+It invokes the nine roles in the canonical sequence, records per-role checkpoints
+and outcomes, and passes the first eight outcomes to Baldr for the final review
+pass. A failed role is recorded and does not erase the remaining roles' chance
+to contribute.
+
+The adapter deliberately requires the host to inject the executor. It does not
+invent provider routes, credentials, consent, or model identity. The current
+foreground scheduler runner does not register this handler because no unattended
+model-execution host has yet been configured. Automated tests use a deterministic
+fake executor; that verifies orchestration and ledger behavior, not live model
+behavior or an overnight host.
+
 ## Tests
 
 ```sh
