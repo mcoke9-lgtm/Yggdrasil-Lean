@@ -53,7 +53,8 @@
       "safetensors_parameter_counts": {
         "BF16": 873436192,
         "F32": 2592
-      }
+      },
+      "parameter_count_scope": "publisher_reported_language_model"
     },
     {
       "model_family_id": "lfm3_1_7b",
@@ -100,7 +101,8 @@
         "No baseline evaluation against Builder contracts",
         "Actual 4-bit artifact size and memory not independently measured",
         "License review for intended project deployment and redistribution not completed"
-      ]
+      ],
+      "parameter_count_scope": "total_parameters"
     },
     {
       "model_family_id": "qwen3_5_2b",
@@ -152,7 +154,8 @@
       "safetensors_parameter_counts": {
         "BF16": 2274067232,
         "F32": 2592
-      }
+      },
+      "parameter_count_scope": "publisher_reported_language_model"
     },
     {
       "model_family_id": "smollm3_3b",
@@ -191,7 +194,8 @@
         "No baseline evaluation against Builder contracts",
         "Quantized artifact and runtime memory not measured",
         "Availability and completeness of original training datasets must be checked before any rebuild claim"
-      ]
+      ],
+      "parameter_count_scope": "total_parameters"
     },
     {
       "model_family_id": "gemma4_e2b",
@@ -229,7 +233,8 @@
         "No baseline evaluation against Builder contracts",
         "Quantized artifact and runtime memory not measured",
         "Hardware compatibility and license notice requirements not independently reviewed"
-      ]
+      ],
+      "parameter_count_scope": "total_including_embeddings"
     }
   ]
 }
