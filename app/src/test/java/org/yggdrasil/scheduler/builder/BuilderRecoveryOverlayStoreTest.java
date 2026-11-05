@@ -73,7 +73,7 @@ public class BuilderRecoveryOverlayStoreTest {
                 BuilderSubjectThreadIndex.EventType.SUBJECT_ATTACHED, null, null, timestamp);
     }
 
-    @Test public void appendsRemainSeparateAndBaselineDigestStillVerifiesAfterReopen() {
+    @Test public void appendsRemainSeparateAndBaselineDigestStillVerifiesAfterReopen() throws Exception {
         overlay = createOverlay();
         overlay.append(turn("overlay-turn", 2000L, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION));
