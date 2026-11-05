@@ -8,7 +8,7 @@ import java.util.Set;
 
 /** Typed, transport-neutral Nine Builder conversation contract. */
 public final class BuilderConversationProtocol {
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 4;
     public static final int LEGACY_VERSION = 1;
     public static final int MAX_BODY_LENGTH = 8000;
 
