@@ -93,7 +93,9 @@ try {
     note: "Single process, loopback-only dashboard, registered handlers only."
   }) + "\n");
   await tick();
-  timer = setInterval(tick, pollMs);
+  // Shutdown may arrive while the initial tick is awaited. Do not recreate
+  // the polling timer after shutdown has already cleared it.
+  if (!stopping) timer = setInterval(tick, pollMs);
 } catch (error) {
   await releaseLock();
   throw error;
