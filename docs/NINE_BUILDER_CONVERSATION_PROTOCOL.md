@@ -149,6 +149,6 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 46 unit tests are committed in this branch; CI execution of these tests is pending. Concrete hosted/local adapters, app-level conversation UI, and independent workers remain pending.
+- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 52 unit tests plus the compatible hosted/local HTTP adapter are committed in this branch; CI execution of these tests is pending. Secure credential storage, provider setup UI, conversation history UI, and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
