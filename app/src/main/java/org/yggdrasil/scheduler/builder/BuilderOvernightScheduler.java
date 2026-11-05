@@ -75,12 +75,12 @@ public final class BuilderOvernightScheduler {
                 .getString("last_scheduled_run_id", null);
         if (runId == null || runId.trim().isEmpty()) return false;
         WorkManager.getInstance(app).cancelUniqueWork(workName(runId));
-        try {
-            new BuilderOvernightRunStore(app).setStatus(runId, "CANCELLED",
+        BuilderOvernightRunStore store = new BuilderOvernightRunStore(app);
+        org.json.JSONObject state = store.read(runId);
+        if (state != null && "RUNNING".equals(state.optString("status"))) {
+            store.setStatus(runId, "CANCELLED",
                     "Cancelled by the user from the Builder Conversation screen.",
                     System.currentTimeMillis());
-        } catch (IllegalStateException notStartedYet) {
-            // A delayed WorkManager request may not have created its run checkpoint yet.
         }
         return true;
     }
