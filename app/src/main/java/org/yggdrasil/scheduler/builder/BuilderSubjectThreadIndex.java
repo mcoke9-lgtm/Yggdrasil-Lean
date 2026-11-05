@@ -73,18 +73,37 @@ public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
     /** Appends one immutable association event; duplicate event IDs are rejected. */
     public synchronized void append(Event event) {
         if (event == null) throw new IllegalArgumentException("event is required");
+        appendAll(Collections.singletonList(event));
+    }
+
+    /**
+     * Appends a related set of metadata events atomically. Either every association
+     * is stored, or none is; the canonical conversation journal is not involved.
+     */
+    public synchronized void appendAll(List<Event> events) {
+        if (events == null || events.isEmpty())
+            throw new IllegalArgumentException("at least one event is required");
         SQLiteDatabase db = getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put("event_id", event.eventId);
-        values.put("thread_id", event.threadId);
-        values.put("subject_id", event.subjectId);
-        values.put("event_type", event.type.name());
-        if (event.subheadingId == null) values.putNull("subheading_id");
-        else values.put("subheading_id", event.subheadingId);
-        if (event.participant == null) values.putNull("participant");
-        else values.put("participant", event.participant);
-        values.put("timestamp_epoch_millis", event.timestampEpochMillis);
-        db.insertOrThrow(TABLE, null, values);
+        db.beginTransaction();
+        try {
+            for (Event event : events) {
+                if (event == null) throw new IllegalArgumentException("event is required");
+                ContentValues values = new ContentValues();
+                values.put("event_id", event.eventId);
+                values.put("thread_id", event.threadId);
+                values.put("subject_id", event.subjectId);
+                values.put("event_type", event.type.name());
+                if (event.subheadingId == null) values.putNull("subheading_id");
+                else values.put("subheading_id", event.subheadingId);
+                if (event.participant == null) values.putNull("participant");
+                else values.put("participant", event.participant);
+                values.put("timestamp_epoch_millis", event.timestampEpochMillis);
+                db.insertOrThrow(TABLE, null, values);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     /** Returns immutable event history for one conversation thread. */
