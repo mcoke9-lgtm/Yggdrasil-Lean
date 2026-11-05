@@ -1,6 +1,7 @@
 package org.yggdrasil.keysteward;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -207,7 +208,7 @@ public final class MainActivity extends Activity {
     }
 
     private void copyVerifiedKeystore(Uri uri, char[] password,
-                                      KeyStoreEngine.Verification verification) throws Exception {
+                                      KeyStoreEngine.Verification initialVerification) throws Exception {
         byte[] bytes;
         try (InputStream input = getContentResolver().openInputStream(uri);
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -224,36 +225,71 @@ public final class MainActivity extends Activity {
             }
             bytes = output.toByteArray();
         }
-        byte[] encodedBytes = Base64.encode(bytes, Base64.NO_WRAP);
-        java.util.Arrays.fill(bytes, (byte) 0);
-        if (encodedBytes.length > MAX_GITHUB_SECRET_CHARS) {
-            java.util.Arrays.fill(encodedBytes, (byte) 0);
-            throw new IllegalArgumentException("Base64 value exceeds GitHub's 48 KB secret limit");
+
+        // Verify the exact bytes that will be encoded, not a separate read of the document.
+        KeyStoreEngine.Verification exactVerification;
+        try {
+            exactVerification = KeyStoreEngine.verify(
+                    new java.io.ByteArrayInputStream(bytes), password);
+            if (!initialVerification.fingerprint.equals(exactVerification.fingerprint)) {
+                throw new IllegalStateException("Selected keystore changed during verification");
+            }
+        } catch (Exception failure) {
+            java.util.Arrays.fill(bytes, (byte) 0);
+            throw failure;
         }
 
-        String encoded = new String(encodedBytes, java.nio.charset.StandardCharsets.US_ASCII);
-        java.util.Arrays.fill(encodedBytes, (byte) 0);
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
-        if (Build.VERSION.SDK_INT >= 33) {
-            android.os.PersistableBundle extras = clip.getDescription().getExtras();
-            if (extras == null) extras = new android.os.PersistableBundle();
-            extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
-            clip.getDescription().setExtras(extras);
-        }
-        clipboard.setPrimaryClip(clip);
-        final String label = "BUILDER_KEYSTORE_BASE64";
-        handler.postDelayed(() -> {
-            if (clipboard.hasPrimaryClip()
-                    && clipboard.getPrimaryClipDescription() != null
-                    && label.contentEquals(clipboard.getPrimaryClipDescription().getLabel())) {
-                clipboard.clearPrimaryClip();
+        new AlertDialog.Builder(this)
+                .setTitle("Copy sensitive keystore data?")
+                .setMessage("This copies the encrypted PKCS#12 file as Base64 to the Android clipboard. "
+                        + "Only paste it into the BUILDER_KEYSTORE_BASE64 GitHub Actions secret. "
+                        + "The app schedules a clear after 60 seconds, but you must clear it manually "
+                        + "if the app is stopped or killed. Continue?")
+                .setNegativeButton("Cancel", (dialog, which) ->
+                        java.util.Arrays.fill(bytes, (byte) 0))
+                .setPositiveButton("Copy to clipboard", (dialog, which) ->
+                        putVerifiedBytesOnClipboard(bytes, exactVerification.fingerprint))
+                .setOnCancelListener(dialog -> java.util.Arrays.fill(bytes, (byte) 0))
+                .show();
+    }
+
+    private void putVerifiedBytesOnClipboard(byte[] bytes, String fingerprint) {
+        byte[] encodedBytes = null;
+        try {
+            encodedBytes = Base64.encode(bytes, Base64.NO_WRAP);
+            if (encodedBytes.length > MAX_GITHUB_SECRET_CHARS) {
+                throw new IllegalArgumentException(
+                        "Base64 value exceeds GitHub's 48 KB secret limit");
             }
-        }, 60_000L);
-        status.setText("Verified keystore copied to clipboard. Fingerprint: "
-                + verification.fingerprint
-                + "\nPaste only into GitHub Actions secret BUILDER_KEYSTORE_BASE64. "
-                + "Clipboard clears in 60 seconds unless replaced.");
+            String encoded = new String(encodedBytes,
+                    java.nio.charset.StandardCharsets.US_ASCII);
+            ClipboardManager clipboard = (ClipboardManager)
+                    getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
+            if (Build.VERSION.SDK_INT >= 33) {
+                android.os.PersistableBundle extras = clip.getDescription().getExtras();
+                if (extras == null) extras = new android.os.PersistableBundle();
+                extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+                clip.getDescription().setExtras(extras);
+            }
+            clipboard.setPrimaryClip(clip);
+            final String label = "BUILDER_KEYSTORE_BASE64";
+            handler.postDelayed(() -> {
+                if (clipboard.hasPrimaryClip()
+                        && clipboard.getPrimaryClipDescription() != null
+                        && label.contentEquals(clipboard.getPrimaryClipDescription().getLabel())) {
+                    clipboard.clearPrimaryClip();
+                }
+            }, 60_000L);
+            status.setText("Verified keystore copied. Fingerprint: " + fingerprint
+                    + "\\nPaste only into GitHub Actions secret BUILDER_KEYSTORE_BASE64. "
+                    + "A 60-second clear is scheduled; if the app is stopped or killed, clear manually.");
+        } catch (Exception failure) {
+            status.setText("Clipboard export failed. Clear the clipboard if necessary and try again.");
+        } finally {
+            java.util.Arrays.fill(bytes, (byte) 0);
+            if (encodedBytes != null) java.util.Arrays.fill(encodedBytes, (byte) 0);
+        }
     }
 
     private String formatResult(String heading, KeyStoreEngine.Verification result) {
