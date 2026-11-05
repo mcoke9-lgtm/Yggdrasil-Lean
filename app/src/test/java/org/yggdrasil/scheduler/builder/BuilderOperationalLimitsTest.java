@@ -72,6 +72,19 @@ public class BuilderOperationalLimitsTest {
                 root.getJSONArray("constraints").getJSONObject(0).getString("capability"));
     }
 
+    @Test public void duplicateCapabilityRecordsRequireReconciliation() throws Exception {
+        JSONObject changed = new JSONObject(REGISTER);
+        JSONObject duplicate = new JSONObject(
+                changed.getJSONArray("constraints").getJSONObject(0).toString());
+        changed.getJSONArray("constraints").put(duplicate);
+        BuilderOperationalLimits.Snapshot snapshot = BuilderOperationalLimits.fromJson(
+                changed.toString(), LocalDate.parse("2026-11-05"));
+        JSONArray entries = new JSONObject(snapshot.toPromptJson()).getJSONArray("constraints");
+        assertEquals(2, entries.length());
+        assertEquals("RECHECK_REQUIRED", entries.getJSONObject(0).getString("gate_decision"));
+        assertEquals("RECHECK_REQUIRED", entries.getJSONObject(1).getString("gate_decision"));
+    }
+
     @Test public void missingCapabilityIsExplicitlyUnknownNotAvailable() throws Exception {
         BuilderOperationalLimits.Snapshot snapshot = BuilderOperationalLimits.fromJson(
                 REGISTER, LocalDate.parse("2026-11-05"));
