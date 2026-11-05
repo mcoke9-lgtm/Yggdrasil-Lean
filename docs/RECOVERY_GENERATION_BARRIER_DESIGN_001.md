@@ -98,6 +98,10 @@ This is not yet a complete enforcement boundary: package-local code can still ca
 
 Added `BuilderRecoveryOverlayAccess` and focused tests. The facade resolves the active generation only while holding the cross-process lock; validates the active overlay's generation and both baseline digests; scopes store use to a callback; exposes no `SQLiteDatabase` handle; invalidates retained sessions after callback completion; and closes the helper before lock release. This is a constrained access API, not yet a global guarantee: direct package-local store access remains possible, and activation/rollback and the existing canonical writers are not yet fenced.
 
+## Real-device cross-process test
+
+Added a debug-only service in `app/src/debug` running under `:recovery_lock_probe` and an Android instrumentation test in `app/src/androidTest`. The test acquires the barrier in the instrumentation/target process, asks the separate service process to acquire the same lock, verifies that the second process remains blocked, releases the first, and verifies that the second then acquires and releases it. CI compiles the instrumentation APK; the test is not executed by the hosted unit-test runner. It must be run on a physical Android device (Galaxy S21 is the first planned host) or a suitable emulator before accepting cross-process runtime behavior. The debug probe is excluded from release source sets.
+
 ## Explicit non-actions
 
 This design does not authorize startup integration, activation, rollback, migration, changing canonical stores, touching user history, installing an APK, or changing a device. Those remain separate milestones requiring their own tests and authorization.
