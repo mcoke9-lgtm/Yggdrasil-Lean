@@ -103,6 +103,64 @@ public final class BuilderConversationStore extends SQLiteOpenHelper {
         return Collections.unmodifiableList(threadIds);
     }
 
+    /**
+     * Exports every saved conversation as a portable JSON snapshot.
+     * The checksum covers the complete snapshot before the checksum field is added.
+     * This is a local integrity check, not encryption or proof of origin.
+     */
+    public synchronized org.json.JSONObject exportSnapshot() {
+        org.json.JSONObject root = new org.json.JSONObject();
+        org.json.JSONArray threads = new org.json.JSONArray();
+        int totalTurns = 0;
+        try {
+            root.put("format", "yggdrasil-nine-builder-conversations");
+            root.put("format_version", 1);
+            root.put("exported_at_epoch_millis", System.currentTimeMillis());
+            for (String threadId : listThreadIds()) {
+                org.json.JSONObject thread = new org.json.JSONObject();
+                org.json.JSONArray turns = new org.json.JSONArray();
+                for (BuilderConversationProtocol.Turn turn : readThread(threadId)) {
+                    org.json.JSONObject item = new org.json.JSONObject();
+                    item.put("protocol_version", turn.protocolVersion);
+                    item.put("thread_id", turn.threadId);
+                    item.put("turn_id", turn.turnId);
+                    item.put("speaker", turn.speaker.name());
+                    item.put("recipient", turn.recipient == null ? org.json.JSONObject.NULL : turn.recipient.name());
+                    item.put("reply_to_turn_id", turn.replyToTurnId == null
+                            ? org.json.JSONObject.NULL : turn.replyToTurnId);
+                    item.put("turn_type", turn.type.name());
+                    item.put("evidence_status", turn.evidenceStatus.name());
+                    item.put("timestamp_epoch_millis", turn.timestampEpochMillis);
+                    item.put("body", turn.body);
+                    turns.put(item);
+                    totalTurns++;
+                }
+                thread.put("thread_id", threadId);
+                thread.put("turns", turns);
+                threads.put(thread);
+            }
+            root.put("thread_count", threads.length());
+            root.put("turn_count", totalTurns);
+            root.put("threads", threads);
+            root.put("content_sha256", sha256(root.toString()));
+            return root;
+        } catch (org.json.JSONException e) {
+            throw new IllegalStateException("Could not encode conversation snapshot", e);
+        }
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : digest) hex.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
     private List<BuilderConversationProtocol.Turn> readThread(SQLiteDatabase db, String threadId) {
         List<BuilderConversationProtocol.Turn> turns = new ArrayList<>();
         try (Cursor cursor = db.query(TABLE, COLUMNS, "thread_id = ?",
