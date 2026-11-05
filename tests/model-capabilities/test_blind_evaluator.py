@@ -5,6 +5,7 @@ import json
 import pathlib
 import sys
 import unittest
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -113,6 +114,43 @@ class BlindEvaluatorTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "must differ"):
             evaluator.run(args)
+
+    @patch("evaluate_phase_a_run.request_evaluator")
+    def test_run_binds_candidate_and_evaluator_artifacts_and_requires_human_review(self, mock_request):
+        valid = {
+            "scores": {key: 4 for key in evaluator.DIMENSION_IDS},
+            "hard_failure_detected": False,
+            "hard_failure_ids": [],
+            "evidence_quotes": [],
+            "limitations": ["No hardware telemetry."],
+            "rationale": "The output meets the fixture's required properties.",
+        }
+        mock_request.return_value = (json.dumps(valid), {})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_path = pathlib.Path(temp_dir) / "candidate-run.json"
+            report_path.write_text(json.dumps(self.execution_report), encoding="utf-8")
+            args = SimpleNamespace(
+                endpoint="http://127.0.0.1:8000/v1/chat/completions",
+                allow_remote=False,
+                candidate_artifact_id="artifact.candidate",
+                evaluator_artifact_id="artifact.judge",
+                candidate_model_id="candidate-model",
+                evaluator_model="judge-model",
+                execution_report=report_path,
+                evaluator_revision="judge-revision",
+                output=pathlib.Path(temp_dir) / "evaluator-run.json",
+                timeout=10,
+                max_tokens=128,
+                limit=1,
+            )
+            result = evaluator.run(args)
+        self.assertEqual("smoke_test", result["scope"])
+        self.assertTrue(result["blind_candidate_identity"])
+        self.assertTrue(result["human_review_required"])
+        self.assertFalse(result["evaluator_is_sole_authority"])
+        self.assertEqual("artifact.candidate", result["candidate_artifact_id"])
+        self.assertEqual("artifact.judge", result["evaluator_artifact_id"])
+        self.assertEqual("success", result["evaluations"][0]["status"])
 
     def test_parse_scores_requires_exact_six_dimensions(self):
         payload = {
