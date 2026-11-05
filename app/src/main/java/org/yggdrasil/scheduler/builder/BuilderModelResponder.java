@@ -47,7 +47,7 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
         // Persist route and provider-reported model provenance with the reply.
         // This records what the adapter reports; it is not cryptographic attestation.
         String providerId = provider.providerId().replaceAll("[\\r\\n]", "_");
-        String modelId = completion.modelId.replaceAll("[\\\\r\\\\n]", "_");
+        String modelId = completion.modelId.replaceAll("[\\r\\n]", "_");
         String provenance = "[MODEL_PROVENANCE role=" + role.name()
                 + " provider=" + providerId + " reported_model=" + modelId + "]\n";
         return new BuilderConversationCoordinator.Reply(
