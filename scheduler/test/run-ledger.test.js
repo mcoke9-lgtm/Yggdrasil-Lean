@@ -214,3 +214,55 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
   assert.equal(baldrOutcomes.find(item => item.role === "HODR").status, "failed");
   assert.equal((await ledger.listRuns())[0].status, "completed_with_failures");
 });
+
+test("recovers abandoned active Builder runs without automatic replay", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const store = new MemoryStore();
+  const first = new BuilderRunLedger({ store, clock: time.clock });
+  const run = await first.createRun({ runId: "abandoned-run", durationMs: 60 * 60 * 1000 });
+  await first.startRun(run.runId);
+  await first.startBuilder(run.runId, "ODIN");
+  const recovered = await new BuilderRunLedger({ store, clock: time.clock })
+    .recoverAbandonedRuns("simulated host restart");
+  assert.deepEqual(recovered, [run.runId]);
+  const state = await first.getRun(run.runId);
+  assert.equal(state.status, "interrupted");
+  assert.equal(state.builders.find(item => item.role === "ODIN").status, "interrupted");
+  await first.startRun(run.runId);
+  await assert.rejects(() => first.startBuilder(run.runId, "ODIN"), /safe resume checkpoint/);
+});
+
+test("scheduler shutdown cooperatively cancels a Builder executor and preserves interruption", async () => {
+  const store = new MemoryStore();
+  const scheduler = new Scheduler({ store, clock });
+  const ledger = new BuilderRunLedger({ store, clock });
+  let started;
+  const began = new Promise(resolve => { started = resolve; });
+  registerBuilderRunHandler(scheduler, {
+    ledger,
+    executor: async (role, context) => {
+      if (role === "ODIN") {
+        started();
+        await new Promise((resolve, reject) => {
+          context.signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+        });
+      }
+      return { status: "succeeded" };
+    },
+    output: () => {}
+  });
+  await scheduler.addTask({
+    id: "cancel-builder-run",
+    name: "Cancellable Nine Builders run",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await began;
+  assert.equal(scheduler.abortActiveRuns("test shutdown"), 1);
+  const result = await execution;
+  assert.equal(result.runs[0].status, "failed");
+  const saved = await ledger.listRuns();
+  assert.equal(saved[0].status, "interrupted");
+  assert.equal(saved[0].builders.find(item => item.role === "ODIN").status, "interrupted");
+});
