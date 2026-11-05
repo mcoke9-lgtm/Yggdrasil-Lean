@@ -35,8 +35,8 @@ Each role keeps its own primary responsibility. Any Builder may contribute, ask 
 Every turn has:
 - protocol version;
 - thread ID and unique turn ID;
-- speaking Builder;
-- optional recipient Builder;
+- speaking participant (the user or a Builder);
+- optional recipient participant (the user or a Builder);
 - optional referenced earlier turn;
 - turn type;
 - explicit evidence status;
@@ -67,8 +67,8 @@ Evidence status applies to the claim in that turn, not to the speaker's identity
 
 ## Conversation rules
 
-1. **Distinct voices:** identify the Builder speaking. Do not silently merge separate contributions into a generic collective voice.
-2. **Direct dialogue:** address another Builder by recipient and reference the turn being answered or challenged.
+1. **Distinct voices:** identify the participant speaking; Builder turns retain their distinct identities. Do not silently merge separate contributions into a generic collective voice.
+2. **Direct dialogue:** address another participant by recipient and reference the turn being answered or challenged.
 3. **Disagreement is retained:** a challenge does not delete the original claim. Record the response and any remaining dispute.
 4. **Handoffs are explicit:** name the receiving Builder, identify the referenced task/context, and require an acknowledgement before treating receipt as confirmed.
 5. **Reconciliation does not erase provenance:** Odin may synthesize the current position, but the source contributions and unresolved differences remain visible.
@@ -87,7 +87,7 @@ The BuilderConversationProtocol validator checks:
 - unique turn IDs and one thread identity;
 - strictly increasing timestamps in supplied thread order;
 - replies and handoffs reference earlier turns;
-- responses, challenges, and acknowledgements name the Builder who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
+- responses, challenges, and acknowledgements name the participant who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
 
 Protocol version 2 adds `USER` as a first-class participant. Version 1 Builder-only turns remain readable so existing local history can be recovered; new turns use version 2. This compatibility is limited to the unchanged turn fields and existing Builder participant names.
 
