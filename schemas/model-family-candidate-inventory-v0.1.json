@@ -39,6 +39,12 @@
           "kind": "provider_documentation",
           "status": "observed",
           "note": "Hugging Face model API returned immutable repository revision, last-modified time, safetensors parameter counts, and repository storage total; individual weight-file digest is not yet registered."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/tree/2fc06364715b967f1860aea9cf38778875588b17",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned repository tree displays model.safetensors-00001-of-00001.safetensors at 1.75 GB; individual SHA-256 not retrieved."
         }
       ],
       "unknowns": [
@@ -54,7 +60,18 @@
         "BF16": 873436192,
         "F32": 2592
       },
-      "parameter_count_scope": "publisher_reported_language_model"
+      "parameter_count_scope": "publisher_reported_language_model",
+      "artifact_variants": [
+        {
+          "repository": "Qwen/Qwen3.5-0.8B",
+          "immutable_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+          "filename": "model.safetensors-00001-of-00001.safetensors",
+          "format": "Safetensors BF16",
+          "displayed_size": "1.75 GB",
+          "size_is_approximate": true,
+          "sha256_status": "not_retrieved"
+        }
+      ]
     },
     {
       "model_family_id": "lfm3_1_7b",
@@ -181,6 +198,12 @@
           "kind": "provider_documentation",
           "status": "observed",
           "note": "Hugging Face model API returned immutable repository revision, last-modified time, safetensors parameter counts, and repository storage total; individual weight-file digest is not yet registered."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B/tree/15852e8c16360a2fea060d615a32b45270f8a8fc",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned repository tree displays model.safetensors-00001-of-00001.safetensors at 4.55 GB; individual SHA-256 not retrieved."
         }
       ],
       "unknowns": [
@@ -196,7 +219,18 @@
         "BF16": 2274067232,
         "F32": 2592
       },
-      "parameter_count_scope": "publisher_reported_language_model"
+      "parameter_count_scope": "publisher_reported_language_model",
+      "artifact_variants": [
+        {
+          "repository": "Qwen/Qwen3.5-2B",
+          "immutable_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+          "filename": "model.safetensors-00001-of-00001.safetensors",
+          "format": "Safetensors BF16",
+          "displayed_size": "4.55 GB",
+          "size_is_approximate": true,
+          "sha256_status": "not_retrieved"
+        }
+      ]
     },
     {
       "model_family_id": "smollm3_3b",
