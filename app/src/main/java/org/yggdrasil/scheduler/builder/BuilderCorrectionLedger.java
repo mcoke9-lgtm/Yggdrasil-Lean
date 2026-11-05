@@ -120,7 +120,7 @@ public final class BuilderCorrectionLedger {
      * Append an explicit user adoption record after a VERIFIED correction.
      * This records acceptance only; it performs no deployment, publication, or external action.
      */
-    public static BuilderConversationProtocol.Turn recordUserAdoption(
+    public static synchronized BuilderConversationProtocol.Turn recordUserAdoption(
             BuilderConversationJournal journal, String threadId, String correctionId) {
         if (journal == null) throw new IllegalArgumentException("Correction journal is required");
         if (threadId == null || threadId.trim().isEmpty())
