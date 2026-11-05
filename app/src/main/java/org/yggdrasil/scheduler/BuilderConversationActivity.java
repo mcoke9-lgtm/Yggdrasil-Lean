@@ -32,6 +32,7 @@ import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
 import org.yggdrasil.scheduler.builder.BuilderSubjectResolver;
+import org.yggdrasil.scheduler.builder.BuilderSubjectThreadRecorder;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import java.io.OutputStream;
@@ -398,6 +399,7 @@ public final class BuilderConversationActivity extends Activity {
             if (check != null && check.isChecked()) selected.add(role);
         }
         String routingSummary = "Manual Builder selection";
+        BuilderSubjectResolver.Resolution subjectResolution = null;
         if (subjectRouting != null && subjectRouting.isChecked()) {
             try {
                 BuilderSubjectResolver.Resolution resolution =
@@ -407,6 +409,7 @@ public final class BuilderConversationActivity extends Activity {
                     return;
                 }
                 if (resolution.matched) {
+                    subjectResolution = resolution;
                     selected = new ArrayList<>(BuilderSubjectResolver.withAdditionalRoles(
                             resolution, selected));
                     routingSummary = "Subject " + resolution.heading
@@ -441,11 +444,12 @@ public final class BuilderConversationActivity extends Activity {
         }
         final String preparedMessage = message;
         final String preparedRoutingSummary = routingSummary;
+        final BuilderSubjectResolver.Resolution preparedSubjectResolution = subjectResolution;
         String disclosureKey = config.endpoint + "\n" + config.model;
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
-            performSend(preparedMessage, selectedForSend, preparedRoutingSummary);
+            performSend(preparedMessage, selectedForSend, preparedRoutingSummary, preparedSubjectResolution);
             return;
         }
 
@@ -461,11 +465,12 @@ public final class BuilderConversationActivity extends Activity {
                 .setPositiveButton("Allow and send", (dialog, which) -> {
                     getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                             .putString(KEY_DISCLOSURE, disclosureKey).apply();
-                    performSend(preparedMessage, selectedForSend, preparedRoutingSummary);
+                    performSend(preparedMessage, selectedForSend, preparedRoutingSummary, preparedSubjectResolution);
                 }).show();
     }
 
-    private void performSend(String message, List<BuilderRole> selectedRoles, String routingSummary) {
+    private void performSend(String message, List<BuilderRole> selectedRoles, String routingSummary,
+                             BuilderSubjectResolver.Resolution subjectResolution) {
         busy = true;
         sendButton.setEnabled(false);
         messageInput.setEnabled(false);
@@ -489,11 +494,24 @@ public final class BuilderConversationActivity extends Activity {
                 store = new BuilderRuntimeJournalClient(getApplicationContext());
                 BuilderConversationCoordinator coordinator =
                         new BuilderConversationCoordinator(store, responder);
+                String continuityStatus = "";
+                if (subjectResolution != null && subjectResolution.matched
+                        && !subjectResolution.ambiguous) {
+                    try {
+                        BuilderSubjectThreadRecorder.record(getApplicationContext(), threadId,
+                                subjectResolution.subjectId, subjectResolution.subheadingIds, roles);
+                        continuityStatus = " · subject continuity saved";
+                    } catch (Exception indexFailure) {
+                        // The sidecar is deliberately non-authoritative: its failure must
+                        // not prevent the canonical conversation from proceeding.
+                        continuityStatus = " · subject continuity unavailable";
+                    }
+                }
                 BuilderConversationCoordinator.Result result =
                         coordinator.submit(threadId, message, roles);
                 List<BuilderConversationProtocol.Turn> turns = store.readThread(threadId);
                 int successful = result.appendedTurns.size() - 1;
-                String summary = "Recorded " + successful + " Builder replies";
+                String summary = "Recorded " + successful + " Builder replies" + continuityStatus;
                 if (!result.failedRoles.isEmpty()) summary += " · failed: " + roleNames(result.failedRoles);
                 if (!result.unroutedRecipients.isEmpty())
                     summary += " · not routed: " + roleNames(result.unroutedRecipients);
