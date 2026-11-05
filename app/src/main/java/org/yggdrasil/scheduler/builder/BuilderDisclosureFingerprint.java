@@ -37,7 +37,15 @@ public final class BuilderDisclosureFingerprint {
                 item.put("model_id", route.modelId);
                 encoded.put(item);
             }
-            return encoded.toString();
+            JSONObject approval = new JSONObject();
+            approval.put("disclosure_version", "builder-prompt-scope-v2");
+            approval.put("prompt_contents", new JSONArray()
+                    .put("user_message")
+                    .put("saved_thread_history")
+                    .put("selected_role_instructions")
+                    .put("timestamped_operational_limits_snapshot"));
+            approval.put("routes", encoded);
+            return approval.toString();
         } catch (JSONException invalid) {
             throw new IllegalArgumentException("Could not encode route disclosure fingerprint", invalid);
         }
