@@ -26,6 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Check server and browser JavaScript syntax
+        working-directory: analysis-engine
+        run: node --check src/server.js && node --check src/public/app.js
       - name: Run automated tests
         working-directory: analysis-engine
         run: npm test
