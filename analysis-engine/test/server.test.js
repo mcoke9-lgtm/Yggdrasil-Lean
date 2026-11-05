@@ -72,3 +72,12 @@ test("server binds only when caller chooses loopback; response hardens browser h
     assert.equal(response.headers.get("cache-control"), "no-store");
   });
 });
+
+
+test("server rejects requests carrying a non-local Host header", async () => {
+  await withServer(async base => {
+    const response = await fetch(base, { headers: { host: "attacker.example" } });
+    assert.equal(response.status, 403);
+    assert.match((await response.json()).error, /only through localhost/);
+  });
+});
