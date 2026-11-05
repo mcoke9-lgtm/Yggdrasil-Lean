@@ -8,8 +8,14 @@ import java.util.Set;
 
 /** Typed, transport-neutral Nine Builder conversation contract. */
 public final class BuilderConversationProtocol {
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
+    public static final int LEGACY_VERSION = 1;
     public static final int MAX_BODY_LENGTH = 8000;
+
+    /** USER is the director; the remaining participants are the Nine Builders. */
+    public enum Participant {
+        USER, HUGINN, MUNINN, KVASIR, MARI, HODR, TYR, LOKI, ODIN, BALDR
+    }
 
     public enum TurnType {
         CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF,
@@ -26,8 +32,8 @@ public final class BuilderConversationProtocol {
         public final int protocolVersion;
         public final String threadId;
         public final String turnId;
-        public final BuilderRole speaker;
-        public final BuilderRole recipient;
+        public final Participant speaker;
+        public final Participant recipient;
         public final String replyToTurnId;
         public final TurnType type;
         public final EvidenceStatus evidenceStatus;
@@ -35,10 +41,10 @@ public final class BuilderConversationProtocol {
         public final String body;
 
         public Turn(int protocolVersion, String threadId, String turnId,
-                    BuilderRole speaker, BuilderRole recipient, String replyToTurnId,
+                    Participant speaker, Participant recipient, String replyToTurnId,
                     TurnType type, EvidenceStatus evidenceStatus,
                     long timestampEpochMillis, String body) {
-            if (protocolVersion != CURRENT_VERSION)
+            if (protocolVersion != CURRENT_VERSION && protocolVersion != LEGACY_VERSION)
                 throw new IllegalArgumentException("Unsupported conversation protocol version");
             this.protocolVersion = protocolVersion;
             this.threadId = required(threadId, "threadId");
@@ -114,7 +120,7 @@ public final class BuilderConversationProtocol {
         if (needsRecipient && turn.recipient == null)
             throw new IllegalArgumentException(turn.type + " requires a recipient");
         if (turn.recipient == turn.speaker)
-            throw new IllegalArgumentException("A Builder cannot address a turn to itself");
+            throw new IllegalArgumentException("A participant cannot address a turn to itself");
         if (needsReply && turn.replyToTurnId == null)
             throw new IllegalArgumentException(turn.type + " requires replyToTurnId");
         if (turn.replyToTurnId != null && turn.replyToTurnId.equals(turn.turnId))
