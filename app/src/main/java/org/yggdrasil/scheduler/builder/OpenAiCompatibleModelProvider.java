@@ -124,10 +124,9 @@ public final class OpenAiCompatibleModelProvider implements BuilderModelProvider
                 throw new IllegalArgumentException("Model endpoint must be an absolute endpoint URL without user info, query, or fragment");
             boolean https = "https".equalsIgnoreCase(scheme);
             boolean loopbackHttp = "http".equalsIgnoreCase(scheme)
-                    && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host)
-                    || "::1".equals(host) || "[::1]".equals(host));
+                    && "localhost".equalsIgnoreCase(host);
             if (!https && !loopbackHttp)
-                throw new IllegalArgumentException("Use HTTPS, or HTTP only for a loopback local model");
+                throw new IllegalArgumentException("Use HTTPS, or HTTP only for localhost");
             return uri.toString();
         } catch (IllegalArgumentException invalid) {
             throw invalid;
