@@ -10,7 +10,7 @@ import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
-import java.security.Security;
+import java.security.Provider;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -26,7 +26,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 final class KeyStoreEngine {
     static final String ALIAS = "builder-upload-key";
-    private static final String PROVIDER = "BC";
+    private static final Provider PROVIDER = new BouncyCastleProvider();
     private static final int RSA_BITS = 3072;
     private static final long VALIDITY_DAYS = 10000L;
 
@@ -49,19 +49,11 @@ final class KeyStoreEngine {
 
     private KeyStoreEngine() { }
 
-    private static synchronized void ensureProvider() {
-        if (Security.getProvider(PROVIDER) == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
-    }
-
     static Verification create(OutputStream destination, char[] password) throws Exception {
         if (destination == null) throw new IllegalArgumentException("No destination selected");
         if (password == null || password.length < 12) {
             throw new IllegalArgumentException("Use a password of at least 12 characters");
         }
-        ensureProvider();
-
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", PROVIDER);
         generator.initialize(RSA_BITS, new SecureRandom());
         KeyPair pair = generator.generateKeyPair();
