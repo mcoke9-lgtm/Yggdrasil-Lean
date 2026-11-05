@@ -1,12 +1,18 @@
 package org.yggdrasil.scheduler.builder;
 
+import android.app.Application;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.UUID;
 import static org.junit.Assert.*;
 
+@RunWith(RobolectricTestRunner.class)
 public class BuilderProviderRoutingTest {
     private static final class FakeProvider implements BuilderModelProvider {
         final String id;
@@ -97,5 +103,38 @@ public class BuilderProviderRoutingTest {
                 new BuilderModelProvider.Request("system", "message", 0));
         assertThrows(IllegalArgumentException.class, () ->
                 new BuilderModelProvider.Request("system", "message", 32769));
+    }
+
+    @Test public void fullNineRoleRoundCompletesThroughOneProvider() {
+        Application app = RuntimeEnvironment.getApplication();
+        String databaseName = "builder-round-" + UUID.randomUUID() + ".db";
+        BuilderConversationStore store = new BuilderConversationStore(app, databaseName);
+        try {
+            FakeProvider provider = new FakeProvider("shared-provider");
+            BuilderProviderRegistry registry = new BuilderProviderRegistry(
+                    Collections.<BuilderModelProvider>singletonList(provider));
+            Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
+            for (BuilderRole role : BuilderRole.values()) routes.put(role, "shared-provider");
+            BuilderModelResponder responder = new BuilderModelResponder(
+                    new BuilderProviderRouter(registry, routes), 2048);
+            BuilderConversationCoordinator coordinator =
+                    new BuilderConversationCoordinator(store, responder);
+            BuilderConversationCoordinator.Result result = coordinator.submit(
+                    "all-nine-thread", "All Builders, review this project.", Arrays.asList(BuilderRole.values()));
+            assertEquals(10, result.appendedTurns.size());
+            assertTrue(result.failedRoles.isEmpty());
+            assertTrue(result.unroutedRecipients.isEmpty());
+            List<BuilderConversationProtocol.Turn> turns = store.readThread("all-nine-thread");
+            assertEquals(10, turns.size());
+            for (BuilderRole role : BuilderRole.values()) {
+                boolean found = false;
+                for (BuilderConversationProtocol.Turn turn : turns)
+                    if (turn.speaker.name().equals(role.name())) found = true;
+                assertTrue("Missing Builder role " + role, found);
+            }
+        } finally {
+            store.close();
+            app.deleteDatabase(databaseName);
+        }
     }
 }
