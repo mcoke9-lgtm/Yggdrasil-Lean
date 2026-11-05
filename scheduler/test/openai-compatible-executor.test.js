@@ -394,6 +394,58 @@ test("blocks disclosure when the approved prompt or any route changes", async ()
   assert.equal(calls, 0);
 });
 
+test("returns a durable interruption outcome for explicit stop events", async () => {
+  const cases = [
+    {
+      type: "INTERRUPTION",
+      body: {
+        stop_state: "PAUSE",
+        observed_constraint: "Required source evidence is unavailable",
+        source_time: "2026-11-05T20:00:00Z",
+        affected_step: "provider route validation",
+        impact: "Continuing would rely on unknown capability state",
+        unknowns: "current route availability",
+        feasible_alternative: "pause and verify the route",
+        required_recheck_authorization: "fresh route evidence",
+        resume_condition: "route evidence is verified"
+      }
+    },
+    {
+      type: "IMPROVEMENT_INCIDENT",
+      body: {
+        incident_summary: "Provider returned an invalid reply",
+        observed_behavior: "response did not match the contract",
+        expected_behavior: "strict Builder JSON response",
+        evidence: "provider response rejected by parser",
+        unknowns: "whether the provider changed its output format",
+        suspected_causes: "model or endpoint behavior changed",
+        proposed_next_step: "independent review",
+        status: "OPEN_REVIEW"
+      }
+    }
+  ];
+  for (const item of cases) {
+    const h = makeHarness({
+      fetchImpl: async () => new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply({
+          body: JSON.stringify(item.body),
+          turn_type: item.type,
+          evidence_status: "OBSERVED",
+          recipient: "USER",
+          reply_to_turn_id: "user-turn-001"
+        })) } }]
+      }), { status: 200 })
+    });
+    const result = await h.executor("HODR", h.context("HODR"));
+    assert.equal(result.status, "interrupted");
+    assert.equal(result.turnType, item.type);
+    assert.equal(h.saved.length, 1, "stop event must be saved before the round pauses");
+    assert.equal(h.checkpoints.length, 1);
+    assert.equal(h.checkpoints[0].value.safeToResume, false);
+  }
+});
+
 test("Baldr cannot run until all eight other Builder outcomes and their recorded results are present", async () => {
   let calls = 0;
   const routes = makeRoutes();
