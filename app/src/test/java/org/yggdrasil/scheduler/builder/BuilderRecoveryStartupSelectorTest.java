@@ -112,7 +112,7 @@ public class BuilderRecoveryStartupSelectorTest {
             BuilderRecoveryStartupSelector.resolve(context);
             fail("incomplete recovery pair must not be selected");
         } catch (IllegalStateException expected) {
-            assertTrue(expected.getMessage().contains("Could not verify staged database contents"));
+            assertTrue(expected.getMessage().contains("A staged database file is missing"));
         }
     }
 
