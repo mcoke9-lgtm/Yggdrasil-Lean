@@ -1,0 +1,77 @@
+name: Isolated Builder Host Signer Probe
+
+on:
+  push:
+    branches: [signer-probe-isolated-001]
+    paths:
+      - 'signer-probe/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/signer-probe.yml'
+  pull_request:
+    branches: [installed-signer-diagnostic-001]
+    paths:
+      - 'signer-probe/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/signer-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-probe:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build isolated signer probe
+        run: gradle --no-daemon :signer-probe:assembleDebug
+      - name: Verify package identity, query scope, permissions, and APK signature
+        run: |
+          APK="signer-probe/build/outputs/apk/debug/signer-probe-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -f "$APK"
+          "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/badging.txt"
+          "$AAPT" dump permissions "$APK" > "$RUNNER_TEMP/permissions.txt"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/manifest.txt"
+          grep -F "package: name='org.yggdrasil.signerprobe'" "$RUNNER_TEMP/badging.txt"
+          grep -F 'org.yggdrasil.builderhost' "$RUNNER_TEMP/manifest.txt"
+          if grep -Eq 'org.yggdrasil.(keysteward|signingdiagnostic|builderhost)' "$RUNNER_TEMP/badging.txt"; then
+            echo "::error::Probe application ID collides with an existing Yggdrasil package."
+            exit 1
+          fi
+          if grep -q 'android.permission.INTERNET\|android.permission.ACCESS_NETWORK_STATE\|android.permission.QUERY_ALL_PACKAGES' "$RUNNER_TEMP/permissions.txt"; then
+            echo "::error::Signer probe must remain offline and narrowly scoped."
+            exit 1
+          fi
+          if grep -q 'android.permission.' "$RUNNER_TEMP/permissions.txt"; then
+            echo "::error::Unexpected permission declared by signer probe."
+            cat "$RUNNER_TEMP/permissions.txt"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/signing.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/apk-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-isolated-signer-probe-apk
+          path: signer-probe/build/outputs/apk/debug/signer-probe-debug.apk
+          if-no-files-found: error
+          retention-days: 14
