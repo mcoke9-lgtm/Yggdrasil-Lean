@@ -1,6 +1,13 @@
 import { BUILDER_ROLES, BuilderRunLedger, MAX_BUILDER_RUN_DURATION_MS } from "./run-ledger.js";
 
 const HANDLER_TYPE = "nine-builders.run";
+class BuilderRequestedInterruption extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "BuilderRequestedInterruption";
+  }
+}
+
 
 /**
  * Connects the scheduler to a replaceable role executor.
@@ -96,6 +103,20 @@ export function registerBuilderRunHandler(
           });
           if (controller.signal.aborted) await interrupt();
           const status = result?.status ?? "succeeded";
+          const stopTurn = result?.turnType === "INTERRUPTION"
+            || result?.turnType === "IMPROVEMENT_INCIDENT";
+          if (status === "interrupted" || stopTurn) {
+            const reason = String(result?.summary || (role + " issued " + (result?.turnType || "an interruption"))).slice(0, 1000);
+            await ledger.interruptRun(runId, reason, role);
+            output(JSON.stringify({
+              event: "nine_builders_run_interrupted",
+              runId,
+              role,
+              turnType: result?.turnType ?? null,
+              reason
+            }));
+            throw new BuilderRequestedInterruption(reason);
+          }
           if (status === "skipped" && role === "BALDR") {
             throw new Error("Baldr review cannot be skipped");
           }
@@ -104,6 +125,7 @@ export function registerBuilderRunHandler(
           outcomes.push({ role, status, summary: result?.summary ?? null });
         } catch (error) {
           if (controller.signal.aborted) await interrupt();
+          if (error instanceof BuilderRequestedInterruption) throw error;
           await ledger.finishBuilder(runId, role, "failed", error?.message || error);
           activeRole = null;
           outcomes.push({ role, status: "failed", summary: String(error?.message || error).slice(0, 1000) });
