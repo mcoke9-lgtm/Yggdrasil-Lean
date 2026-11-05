@@ -39,10 +39,10 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
             "timestamp_epoch_millis", "body"
     };
 
-    public static final class Identity {
-        public final String generationId;
-        public final String conversationBaselineSha256;
-        public final String subjectBaselineSha256;
+    static final class Identity {
+        final String generationId;
+        final String conversationBaselineSha256;
+        final String subjectBaselineSha256;
 
         private Identity(String generationId, String conversationDigest, String subjectDigest) {
             this.generationId = generationId;
@@ -59,7 +59,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     private final String subjectDigest;
     private final boolean allowCreate;
 
-    public static String databaseNameForGeneration(String generationId) {
+    static String databaseNameForGeneration(String generationId) {
         return "builder-recovery-" + requireGenerationId(generationId) + "-overlay.db";
     }
 
@@ -87,7 +87,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Explicit first-time creation. Existing overlay files are never overwritten or reset. */
-    public static BuilderRecoveryOverlayStore create(Context context,
+    static BuilderRecoveryOverlayStore create(Context context,
             String conversationBaselineName, String subjectBaselineName, String generationId,
             String conversationBaselineSha256, String subjectBaselineSha256) {
         Context app = requireContext(context);
@@ -107,7 +107,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Opens an existing overlay only. A missing file is not silently recreated. */
-    public static BuilderRecoveryOverlayStore openExisting(Context context,
+    static BuilderRecoveryOverlayStore openExisting(Context context,
             String conversationBaselineName, String subjectBaselineName, String generationId,
             String conversationBaselineSha256, String subjectBaselineSha256) {
         Context app = requireContext(context);
@@ -184,14 +184,14 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** The immutable generation binding carried by this overlay. */
-    public Identity identity() {
+    Identity identity() {
         SQLiteDatabase db = getReadableDatabase();
         verifyMetadata(db);
         return new Identity(generationId, conversationDigest, subjectDigest);
     }
 
     /** Atomically appends one turn after validating the complete baseline + overlay thread. */
-    public void append(BuilderConversationProtocol.Turn turn) {
+    void append(BuilderConversationProtocol.Turn turn) {
         if (turn == null) throw new IllegalArgumentException("turn is required");
         BuilderConversationProtocol.validateTurn(turn);
         SQLiteDatabase db = getWritableDatabase();
@@ -213,7 +213,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Atomically appends a subject-event group; either all events commit or none do. */
-    public void appendAll(List<BuilderSubjectThreadIndex.Event> events) {
+    void appendAll(List<BuilderSubjectThreadIndex.Event> events) {
         if (events == null || events.isEmpty())
             throw new IllegalArgumentException("at least one subject event is required");
         SQLiteDatabase db = getWritableDatabase();
@@ -236,7 +236,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Returns baseline turns followed by overlay turns in append order. */
-    public List<BuilderConversationProtocol.Turn> readThread(String threadId) {
+    List<BuilderConversationProtocol.Turn> readThread(String threadId) {
         String id = required(threadId, "threadId");
         SQLiteDatabase baseline = baselineConversation();
         try {
@@ -248,7 +248,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Returns the union of thread IDs, with overlay-active threads first. */
-    public List<String> listThreadIds() {
+    List<String> listThreadIds() {
         LinkedHashSet<String> ids = new LinkedHashSet<>();
         SQLiteDatabase overlay = getReadableDatabase();
         try (Cursor c = overlay.rawQuery("SELECT thread_id FROM " + TURNS
@@ -264,7 +264,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Returns baseline subject events followed by overlay events for one thread. */
-    public List<BuilderSubjectThreadIndex.Event> readSubjectThread(String threadId) {
+    List<BuilderSubjectThreadIndex.Event> readSubjectThread(String threadId) {
         String id = required(threadId, "threadId");
         List<BuilderSubjectThreadIndex.Event> merged = readBaselineEvents(id);
         merged.addAll(readOverlayEvents(getReadableDatabase(), id));
@@ -272,7 +272,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Exports a merged canonical conversation snapshot without modifying either layer. */
-    public JSONObject exportConversationSnapshot() {
+    JSONObject exportConversationSnapshot() {
         try {
             JSONObject root = new JSONObject();
             JSONArray threads = new JSONArray();
@@ -302,7 +302,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     }
 
     /** Exports merged metadata in baseline-then-overlay append order. */
-    public JSONObject exportSubjectSnapshot() {
+    JSONObject exportSubjectSnapshot() {
         try {
             JSONArray rows = new JSONArray();
             SQLiteDatabase base = baselineSubject();
@@ -330,7 +330,7 @@ final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
      * concurrent process cannot commit between the conversation and subject snapshots.
      * The outer object carries the immutable generation and baseline provenance.
      */
-    public JSONObject exportMergedSnapshots() {
+    JSONObject exportMergedSnapshots() {
         SQLiteDatabase overlay = getReadableDatabase();
         SQLiteDatabase conversations = null;
         SQLiteDatabase subjects = null;
