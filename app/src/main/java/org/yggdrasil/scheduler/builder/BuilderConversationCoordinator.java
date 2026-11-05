@@ -64,11 +64,18 @@ public final class BuilderConversationCoordinator {
         public final List<BuilderConversationProtocol.Turn> appendedTurns;
         public final List<BuilderRole> failedRoles;
         public final List<BuilderRole> unroutedRecipients;
+        public final boolean interrupted;
+        public final BuilderRole interruptedBy;
+        public final BuilderConversationProtocol.TurnType interruptionType;
+        public final List<BuilderRole> notRunRoles;
 
         private Result(String threadId, String userTurnId,
                        List<BuilderConversationProtocol.Turn> appendedTurns,
                        List<BuilderRole> failedRoles,
-                       List<BuilderRole> unroutedRecipients) {
+                       List<BuilderRole> unroutedRecipients,
+                       boolean interrupted, BuilderRole interruptedBy,
+                       BuilderConversationProtocol.TurnType interruptionType,
+                       List<BuilderRole> notRunRoles) {
             this.threadId = threadId;
             this.userTurnId = userTurnId;
             this.appendedTurns = Collections.unmodifiableList(
@@ -77,6 +84,10 @@ public final class BuilderConversationCoordinator {
                     new ArrayList<>(failedRoles));
             this.unroutedRecipients = Collections.unmodifiableList(
                     new ArrayList<>(unroutedRecipients));
+            this.interrupted = interrupted;
+            this.interruptedBy = interruptedBy;
+            this.interruptionType = interruptionType;
+            this.notRunRoles = Collections.unmodifiableList(new ArrayList<>(notRunRoles));
         }
     }
 
@@ -129,6 +140,9 @@ public final class BuilderConversationCoordinator {
         Set<BuilderRole> queued = new HashSet<>();
         Map<BuilderRole, Integer> turnCounts = new HashMap<>();
         List<BuilderRole> unrouted = new ArrayList<>();
+        boolean interrupted = false;
+        BuilderRole interruptedBy = null;
+        BuilderConversationProtocol.TurnType interruptionType = null;
         for (BuilderRole role : selectedRoles) {
             queue.addLast(role);
             queued.add(role);
@@ -169,6 +183,14 @@ public final class BuilderConversationCoordinator {
                 appended.add(response);
 
                 BuilderRole nextRole = builderRoleFor(recipient);
+                if (reply.type == BuilderConversationProtocol.TurnType.INTERRUPTION
+                        || reply.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                    interrupted = true;
+                    interruptedBy = role;
+                    interruptionType = reply.type;
+                    break;
+                }
+
                 if (nextRole != null) {
                     int nextCount = turnCounts.containsKey(nextRole) ? turnCounts.get(nextRole) : 0;
                     if (!selected.contains(nextRole) || nextCount >= MAX_TURNS_PER_BUILDER_PER_SUBMISSION) {
@@ -181,7 +203,14 @@ public final class BuilderConversationCoordinator {
                 failed.add(role);
             }
         }
-        return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted);
+        List<BuilderRole> notRun = new ArrayList<>();
+        if (interrupted) {
+            for (BuilderRole selectedRole : selectedRoles) {
+                if (!turnCounts.containsKey(selectedRole)) notRun.add(selectedRole);
+            }
+        }
+        return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted,
+                interrupted, interruptedBy, interruptionType, notRun);
     }
 
     private static BuilderRole builderRoleFor(BuilderConversationProtocol.Participant participant) {
