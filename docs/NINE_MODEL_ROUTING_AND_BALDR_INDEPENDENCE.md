@@ -15,6 +15,7 @@ Replace the previous one-provider-for-nine-roles wiring with explicit per-role m
 - HTTPS is required for hosted endpoints. HTTP is allowed only for localhost. Saving a route does not contact the endpoint.
 - Before a model request, the app requires a route for every selected role, rejects duplicate model IDs among selected roles, and displays all selected provider IDs, model IDs, and endpoints in the data-sharing approval notice.
 - Approval is bound to the selected role/provider/endpoint/model set. A changed route requires a new approval.
+- The approval fingerprint serializes each route as a structured JSON object, rather than joining user-entered values with delimiters. This prevents provider/model identifiers containing separator characters from colliding with a different route configuration. Existing delimiter-based approvals no longer match and therefore require renewed approval.
 
 ## Baldr guard
 
