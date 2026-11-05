@@ -252,6 +252,7 @@ public final class BuilderConversationActivity extends Activity {
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
         root.addView(button("Schedule eight-hour Nine Builders run", this::scheduleOvernightRun));
+        root.addView(button("Cancel last scheduled overnight run", this::confirmCancelOvernightRun));
         root.addView(button("Review latest improvement incident", this::requestImprovementReview));
         root.addView(button("Adopt latest verified correction (record only)", this::requestAdoptLatestCorrection));
         status = text("No model request has been sent from this screen.", 13);
@@ -866,6 +867,22 @@ public final class BuilderConversationActivity extends Activity {
                                     status.setText("Overnight run was not scheduled: " + failure.getMessage());
                                 }
                             }).show();
+                }).show();
+    }
+
+    private void confirmCancelOvernightRun() {
+        new AlertDialog.Builder(this)
+                .setTitle("Cancel the last scheduled overnight run?")
+                .setMessage("This cancels its pending continuation and stops an active cycle as soon as the current provider call returns. Any replies already recorded remain in the run's dedicated thread.")
+                .setNegativeButton("Keep run", null)
+                .setPositiveButton("Cancel run", (dialog, which) -> {
+                    try {
+                        boolean cancelled = BuilderOvernightScheduler.cancelLast(this);
+                        status.setText(cancelled ? "Cancellation requested for the last scheduled overnight run."
+                                : "No scheduled overnight run was found.");
+                    } catch (Exception failure) {
+                        status.setText("Could not confirm cancellation: " + failure.getMessage());
+                    }
                 }).show();
     }
 
