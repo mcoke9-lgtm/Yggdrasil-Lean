@@ -84,6 +84,16 @@ public final class BuilderRoleProviderSettings {
                     + android.text.TextUtils.join(", ", names)
                     + ". Configure each selected Builder; no shared-provider fallback is used.");
         }
+        Map<String, BuilderRole> modelOwners = new java.util.HashMap<>();
+        for (BuilderRole role : selectedRoles) {
+            SecureBuilderProviderSettings.Configuration config = configuration(role);
+            String modelKey = config.model.trim().toLowerCase(java.util.Locale.ROOT);
+            BuilderRole prior = modelOwners.put(modelKey, role);
+            if (prior != null)
+                throw new IllegalStateException("Selected Builders " + prior.getDisplayName()
+                        + " and " + role.getDisplayName() + " share model ID '" + config.model
+                        + "'. Assign a distinct model ID to each selected role.");
+        }
     }
 
     /**
