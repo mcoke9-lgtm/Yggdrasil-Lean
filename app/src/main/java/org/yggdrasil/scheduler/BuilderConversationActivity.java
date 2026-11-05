@@ -427,6 +427,7 @@ public final class BuilderConversationActivity extends Activity {
             status.setText("Select at least one Builder, or enter a recognized subject.");
             return;
         }
+        final List<BuilderRole> selectedForSend = new ArrayList<>(selected);
 
         SecureBuilderProviderSettings settings = new SecureBuilderProviderSettings(this);
         SecureBuilderProviderSettings.Configuration config = settings.readConfiguration();
@@ -435,21 +436,21 @@ public final class BuilderConversationActivity extends Activity {
             return;
         }
         if (difficultSpacesMode != null && difficultSpacesMode.isChecked()) {
-            message = "NAVIGATING_DIFFICULT_SPACES_MODE\\n" + message;
+            message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
         }
         final String preparedMessage = message;
         final String preparedRoutingSummary = routingSummary;
-        String disclosureKey = config.endpoint + "\\n" + config.model;
+        String disclosureKey = config.endpoint + "\n" + config.model;
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
-            performSend(preparedMessage, selected, preparedRoutingSummary);
+            performSend(preparedMessage, selectedForSend, preparedRoutingSummary);
             return;
         }
 
         String notice = "Your message and the saved conversation history for this thread, together "
-                + "with each selected Builder's role instructions, will be sent to:\\n\\n"
-                + config.endpoint + "\\nModel: " + config.model + "\\n\\n"
+                + "with each selected Builder's role instructions, will be sent to:\n\n"
+                + config.endpoint + "\nModel: " + config.model + "\n\n"
                 + "The provider may process or retain submitted content under its own terms. "
                 + "Do not include passwords, API keys, or information you do not want sent to this provider. "
                 + "No request has been made yet.";
@@ -459,7 +460,7 @@ public final class BuilderConversationActivity extends Activity {
                 .setPositiveButton("Allow and send", (dialog, which) -> {
                     getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                             .putString(KEY_DISCLOSURE, disclosureKey).apply();
-                    performSend(preparedMessage, selected, preparedRoutingSummary);
+                    performSend(preparedMessage, selectedForSend, preparedRoutingSummary);
                 }).show();
     }
 
