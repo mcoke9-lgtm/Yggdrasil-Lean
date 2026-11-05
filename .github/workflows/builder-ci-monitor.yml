@@ -1,0 +1,45 @@
+name: Nine Builder CI Monitor
+
+on:
+  workflow_run:
+    workflows:
+      - Lean build and analysis engine checks
+      - Builder Conversation Journal
+      - Independent Builder Runtime Android
+    types: [completed]
+    branches: [independent-builder-runtime-foundation-001]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: nine-builder-ci-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Inspect required workflow state
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out monitor
+        uses: actions/checkout@v4
+        with:
+          ref: independent-builder-runtime-foundation-001
+      - name: Generate commit-specific status report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MONITOR_BRANCH: independent-builder-runtime-foundation-001
+        run: python3 .github/scripts/builder_ci_monitor.py
+      - name: Preserve machine-readable and human-readable report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nine-builder-ci-status
+          path: monitor-output/
+          if-no-files-found: warn
+          retention-days: 30
