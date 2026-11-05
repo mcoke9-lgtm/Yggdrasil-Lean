@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import jsonschema
 import pathlib
 import sys
 import unittest
@@ -77,6 +78,8 @@ class PhaseARunnerTests(unittest.TestCase):
             limit=5,
         )
         report = runner.run(args)
+        schema = runner.load_json(ROOT / "schemas/model-lifecycle-contracts-1.0.schema.json")
+        jsonschema.validate(report, schema)
         self.assertEqual(5, report["execution_count"])
         self.assertEqual(6, report["model_call_count"])
         self.assertEqual(6, mock_request.call_count)
