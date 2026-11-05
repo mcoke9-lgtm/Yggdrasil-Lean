@@ -43,11 +43,28 @@ public final class BuilderReplyParser {
             }
             if (type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
                 validateIncidentBody(body);
+            } else if (type == BuilderConversationProtocol.TurnType.INTERRUPTION) {
+                validateInterruptionBody(body);
             }
             return new BuilderConversationCoordinator.Reply(
                     body, evidence, type, recipient, replyTo);
         } catch (JSONException malformed) {
             throw new IllegalArgumentException("Builder response is not valid JSON", malformed);
+        }
+    }
+
+    private static void validateInterruptionBody(String body) {
+        try {
+            JSONObject interruption = new JSONObject(body);
+            String[] required = {"stop_state", "observed_constraint", "source_time",
+                    "affected_step", "impact", "unknowns", "feasible_alternative",
+                    "required_recheck_authorization", "resume_condition"};
+            for (String field : required) requiredString(interruption, field);
+            String stopState = requiredString(interruption, "stop_state");
+            if (!"STOP".equals(stopState) && !"PAUSE".equals(stopState))
+                throw new IllegalArgumentException("Interruption stop_state must be STOP or PAUSE");
+        } catch (JSONException malformed) {
+            throw new IllegalArgumentException("Interruption body must be a JSON object", malformed);
         }
     }
 
