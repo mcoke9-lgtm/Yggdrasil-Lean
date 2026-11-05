@@ -162,7 +162,7 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 
 ## Integrity checkpoint
 
-- **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
+- **Count:** ten turn types, including `INTERRUPTION` and `IMPROVEMENT_INCIDENT`; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
 - **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 59 unit tests plus the compatible hosted/local HTTP adapter, Android Keystore-backed credential storage, localhost-only cleartext network policy, provider setup UI, and consent-gated conversation/history screen are committed in this branch; CI execution and on-device acceptance testing remain pending. Independent Builder workers remain pending.
