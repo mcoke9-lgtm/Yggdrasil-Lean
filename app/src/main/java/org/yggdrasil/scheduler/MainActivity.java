@@ -50,17 +50,22 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onResume() { super.onResume(); if (db != null && taskList != null) refresh(); }
     private void scheduleWorker() {
-        BuilderActionPreflight.Observation observation = localSchedulerObservation(
-                "INSTALL_PERIODIC_POLL", BuilderActionPreflight.Authorization.NOT_REQUIRED);
         try {
+            WorkManager manager = WorkManager.getInstance(this);
+            boolean internetPermission = getPackageManager().checkPermission(
+                    Manifest.permission.INTERNET, getPackageName()) == PackageManager.PERMISSION_GRANTED;
+            schedulerReady = db != null && internetPermission && manager != null;
+            if (!schedulerReady) return;
             BuilderActionPreflight.Execution<Void> result = BuilderActionPreflight.execute(
-                    observation, java.time.Instant.now(), () -> {
+                    localSchedulerObservation("INSTALL_PERIODIC_POLL",
+                            BuilderActionPreflight.Authorization.NOT_REQUIRED),
+                    java.time.Instant.now(), () -> {
                         Constraints constraints = new Constraints.Builder()
                                 .setRequiredNetworkType(NetworkType.CONNECTED).build();
                         PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
                                 SchedulerWorker.class, 15, TimeUnit.MINUTES)
                                 .setConstraints(constraints).build();
-                        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                        manager.enqueueUniquePeriodicWork(
                                 "yggdrasil-scheduler-poll", ExistingPeriodicWorkPolicy.KEEP, request);
                         return null;
                     });
@@ -79,8 +84,7 @@ public final class MainActivity extends Activity {
             String actionId, BuilderActionPreflight.Authorization authorization) {
         boolean internetPermission = getPackageManager().checkPermission(
                 Manifest.permission.INTERNET, getPackageName()) == PackageManager.PERMISSION_GRANTED;
-        boolean startupRegistration = "INSTALL_PERIODIC_POLL".equals(actionId);
-        boolean available = db != null && internetPermission && (schedulerReady || startupRegistration);
+        boolean available = schedulerReady && db != null && internetPermission;
         return new BuilderActionPreflight.Observation(
                 "yggdrasil-android-workmanager", actionId,
                 available ? BuilderActionPreflight.CapabilityState.AVAILABLE
