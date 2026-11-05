@@ -97,6 +97,19 @@ public class BuilderProviderRoutingTest {
                 "[MODEL_PROVENANCE role=HUGINN provider=ven_dor reported_model=infer_ence]"));
     }
 
+    @Test public void disclosureFingerprintDoesNotCollideAcrossDelimitedRouteFields() {
+        String first = BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a|https://x/v1|b", "https://y/v1", "c")));
+        String second = BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a", "https://x/v1", "b|https://y/v1|c")));
+        assertNotEquals(first, second);
+        assertEquals(first, BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a|https://x/v1|b", "https://y/v1", "c"))));
+    }
+
     @Test public void laterBuilderReceivesAccumulatedPeerContext() throws Exception {
         FakeProvider provider = new FakeProvider("local-model");
         BuilderProviderRegistry registry = new BuilderProviderRegistry(
