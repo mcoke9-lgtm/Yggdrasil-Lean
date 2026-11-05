@@ -69,7 +69,8 @@ public class BuilderProviderRoutingTest {
                 BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 1L, "Review this.");
         BuilderConversationCoordinator.Reply reply = responder.respond(
                 BuilderRole.HUGINN, Collections.singletonList(user), user);
-        assertEquals("A bounded finding.", reply.body);
+        assertTrue(reply.body.contains("A bounded finding."));
+        assertTrue(reply.body.startsWith("[MODEL_PROVENANCE role=HUGINN provider=local-model reported_model=fake-model]"));
         assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, reply.type);
     }
 
