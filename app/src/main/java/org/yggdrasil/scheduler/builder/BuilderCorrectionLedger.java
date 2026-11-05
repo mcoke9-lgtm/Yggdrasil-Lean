@@ -71,6 +71,12 @@ public final class BuilderCorrectionLedger {
         int stageIndex = stageIndex(stage);
         if (stageIndex < 1 || stageIndex > 3)
             throw new IllegalArgumentException("Builder correction stage must be IMPLEMENTED, TESTED, or VERIFIED");
+        BuilderEvidenceReference.Reference evidenceReference = BuilderEvidenceReference.parse(artifact);
+        BuilderEvidenceReference.Kind expectedKind = stageIndex == 1
+                ? BuilderEvidenceReference.Kind.COMMIT : BuilderEvidenceReference.Kind.ACTIONS_RUN;
+        if (evidenceReference.kind != expectedKind)
+            throw new IllegalArgumentException(stage + " requires a typed "
+                    + expectedKind + " evidence reference");
         BuilderConversationProtocol.Turn plan = findPlan(context, correctionId);
         if (plan == null)
             throw new IllegalArgumentException("Correction update references no recorded plan");
