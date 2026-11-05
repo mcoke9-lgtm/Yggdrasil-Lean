@@ -483,7 +483,7 @@ public final class BuilderConversationActivity extends Activity {
         }
 
         if (difficultSpacesMode != null && difficultSpacesMode.isChecked())
-            message = "NAVIGATING_DIFFICULT_SPACES_MODE\\n" + message;
+            message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
         final String preparedMessage = message;
         BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
         try {
