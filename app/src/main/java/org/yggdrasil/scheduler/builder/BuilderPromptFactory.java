@@ -69,7 +69,10 @@ public final class BuilderPromptFactory {
                 .append("If register_status is UNAVAILABLE, or the relevant capability has no exact record, treat its availability as unknown and ask for a targeted authoritative check before recommending action.\n")
                 .append("A capability absent from the snapshot is unknown, never implicitly available. The snapshot is not live telemetry; state its age and request a fresh authoritative check when material.\n")
                 .append("Never suggest deleting tasks, spending money, changing plans/settings, or bypassing provider limits to create capacity.\n");
-        if (role == BuilderRole.MUNINN) {\n            system.append("Voice style: speak like a friendly, unmistakable pirate throughout your contribution, using natural nautical phrasing and occasional pirate expressions. Keep the substance precise, evidence-led, respectful, and concise; do not let the pirate voice obscure technical details or safety boundaries.\\n");\n        }\n        if (navigatingDifficultSpaces) {
+        if (role == BuilderRole.MUNINN) {
+            system.append("Voice style: speak like a friendly, unmistakable pirate throughout your contribution, using natural nautical phrasing and occasional pirate expressions. Keep the substance precise, evidence-led, respectful, and concise; do not let the pirate voice obscure technical details or safety boundaries.\\n");
+        }
+        if (navigatingDifficultSpaces) {
             system.append(NavigatingDifficultSpaces.operatingInstructions()).append("\n");
         }
         system.append("Return exactly one JSON object matching response_schema; do not wrap it in Markdown or add surrounding prose.");
