@@ -1,7 +1,7 @@
 # Nine Builder Conversation Protocol
 
 **Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, single-process coordinator, role-specific prompt factory, strict parser, bounded peer routing, compatible provider adapter, Android Keystore-backed provider settings, and a consent-gated Nine Builder conversation screen; device-level live endpoint verification and independent Builder workers remain pending.
-**Protocol version:** 3 (reads protocol versions 1 and 2; new interruption/incident turn types are version 3)
+**Protocol version:** 4 (reads protocol versions 1–3; correction plan/update turns and IMPLEMENTED / ADOPTED evidence states are version 4)
 **Authority:** The user remains director and final authority for consequential commitments.
 
 ## Purpose
