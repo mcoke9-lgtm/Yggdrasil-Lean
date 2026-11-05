@@ -1,6 +1,8 @@
 const $ = selector => document.querySelector(selector);
 let token = "";
 let selectedTaskId = null;
+const seenRunIds = new Set();
+let runBaselineLoaded = false;
 
 function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
@@ -83,6 +85,13 @@ async function loadRuns() {
     return;
   }
   for (const run of runs) {
+    if (runBaselineLoaded && !seenRunIds.has(run.id) && run.status === "failed" && "Notification" in window && Notification.permission === "granted") {
+      new Notification("Scheduled task failed", {
+        body: `${run.taskId}: ${run.error || "Execution failed"}`,
+        tag: run.id
+      });
+    }
+    seenRunIds.add(run.id);
     const card = element("article", "run");
     card.append(element("div", "task-title", run.taskId));
     card.append(element("span", "status " + (run.status === "succeeded" ? "good" : "bad"), run.status));
@@ -90,6 +99,7 @@ async function loadRuns() {
     if (run.error) card.append(element("div", "meta bad", run.error));
     host.append(card);
   }
+  runBaselineLoaded = true;
 }
 
 async function refreshAll() {
@@ -103,6 +113,17 @@ async function refreshAll() {
     throw error;
   }
 }
+
+$("#notifications").addEventListener("click", async () => {
+  if (!("Notification" in window)) {
+    $("#connection").textContent = "This browser does not support notifications.";
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  $("#connection").textContent = permission === "granted"
+    ? "Browser notifications enabled while this dashboard is open."
+    : "Browser notifications were not enabled.";
+});
 
 $("#connect").addEventListener("click", async () => {
   token = $("#token").value;
@@ -151,3 +172,13 @@ $("#add-task").addEventListener("submit", async event => {
 $("#add-task [name=frequency]").addEventListener("change", event => {
   $("#days-label").hidden = event.target.value !== "weekly";
 });
+
+
+setInterval(async () => {
+  if (!token && $("#token").value) return;
+  try {
+    await Promise.all([loadTasks(), loadRuns()]);
+  } catch (error) {
+    $("#connection").textContent = error.message;
+  }
+}, 30000);
