@@ -503,6 +503,31 @@
           "items": {
             "$ref": "#/$defs/nonEmpty"
           }
+        },
+        "immutable_revision": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{7,64}$"
+        },
+        "revision_last_modified": {
+          "type": "string"
+        },
+        "repository_storage_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safetensors_parameter_counts": {
+          "type": "object",
+          "properties": {
+            "BF16": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "F32": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
