@@ -21,16 +21,36 @@ public final class BuilderConversationCoordinator {
     public static final class Reply {
         public final String body;
         public final BuilderConversationProtocol.EvidenceStatus evidenceStatus;
+        public final BuilderConversationProtocol.TurnType type;
+        public final BuilderConversationProtocol.Participant recipient;
+        public final String replyToTurnId;
 
+        /** Default reply directed to the user contribution that started this round. */
         public Reply(String body, BuilderConversationProtocol.EvidenceStatus evidenceStatus) {
+            this(body, evidenceStatus, BuilderConversationProtocol.TurnType.RESPONSE,
+                    BuilderConversationProtocol.Participant.USER, null);
+        }
+
+        /** Typed Builder-to-Builder contribution, question, challenge, reply, or handoff. */
+        public Reply(String body, BuilderConversationProtocol.EvidenceStatus evidenceStatus,
+                     BuilderConversationProtocol.TurnType type,
+                     BuilderConversationProtocol.Participant recipient,
+                     String replyToTurnId) {
             if (body == null || body.trim().isEmpty())
                 throw new IllegalArgumentException("Builder reply must not be blank");
             if (body.length() > BuilderConversationProtocol.MAX_BODY_LENGTH)
                 throw new IllegalArgumentException("Builder reply exceeds the protocol body limit");
             if (evidenceStatus == null)
                 throw new IllegalArgumentException("Builder reply evidence status is required");
+            if (type == null) throw new IllegalArgumentException("Builder turn type is required");
+            if (type == BuilderConversationProtocol.TurnType.DECISION)
+                throw new IllegalArgumentException("Builders cannot record an authorized decision");
             this.body = body.trim();
             this.evidenceStatus = evidenceStatus;
+            this.type = type;
+            this.recipient = recipient;
+            this.replyToTurnId = replyToTurnId == null || replyToTurnId.trim().isEmpty()
+                    ? null : replyToTurnId.trim();
         }
     }
 
@@ -103,14 +123,21 @@ public final class BuilderConversationCoordinator {
                 if (reply == null) throw new IllegalStateException("Responder returned no reply");
 
                 long timestamp = nextTimestamp(context);
+                BuilderConversationProtocol.TurnType turnType = reply.type;
+                BuilderConversationProtocol.Participant recipient = reply.recipient;
+                String replyToTurnId = reply.replyToTurnId;
+                if (turnType == BuilderConversationProtocol.TurnType.RESPONSE
+                        && replyToTurnId == null) {
+                    replyToTurnId = userTurnId;
+                }
                 BuilderConversationProtocol.Turn response = new BuilderConversationProtocol.Turn(
                         BuilderConversationProtocol.CURRENT_VERSION,
                         normalizedThreadId,
                         UUID.randomUUID().toString(),
                         BuilderConversationProtocol.Participant.valueOf(role.name()),
-                        BuilderConversationProtocol.Participant.USER,
-                        userTurnId,
-                        BuilderConversationProtocol.TurnType.RESPONSE,
+                        recipient,
+                        replyToTurnId,
+                        turnType,
                         reply.evidenceStatus,
                         timestamp,
                         reply.body);
