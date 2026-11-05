@@ -96,7 +96,7 @@ Reopen or update this record when:
 A draft runtime implementation is now proposed in [PR #35](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/pull/35), stacked on the protocol documentation PR.
 
 Implemented in the PR branch (not yet merged or deployed):
-- Protocol version 3 adds typed `INTERRUPTION` and `IMPROVEMENT_INCIDENT` events while retaining read compatibility for protocol versions 1 and 2.
+- Protocol version 3 adds typed `INTERRUPTION` and `IMPROVEMENT_INCIDENT` events; protocol version 4 adds correction-plan and lifecycle milestone records while retaining read compatibility for protocol versions 1–3.
 - Every Builder prompt permits a structured interruption; the coordinator appends the event to the existing journal and halts remaining Builder calls in that round.
 - The coordinator reports which Builder interrupted and which selected roles were not run.
 - Structured incident reports are validated and retained as append-only journal turns with status restricted to `OPEN_DIAGNOSIS` or `OPEN_REVIEW`.
@@ -125,3 +125,21 @@ The incident's root cause remains open. The runtime change reduces the chance of
 - Jobs verified: `build` and `analysis-engine`; the sample CSV acceptance check also passed.
 - This workflow did not execute Android Gradle/Robolectric tests. No Android instrumentation/device run is evidenced.
 - Consequently, Java runtime implementation remains **not yet tested/verified**; the successful Lean/analysis workflow is narrower evidence only.
+
+
+## I. Correction lifecycle implementation checkpoint — 2026-11-05
+
+PR #35 now adds a traceable, append-only correction lifecycle:
+- A structured CORRECTION_PLAN is linked to this incident and begins as PROPOSED.
+- CORRECTION_UPDATE records must advance one step at a time: IMPLEMENTED, TESTED, VERIFIED.
+- Each update carries the correction ID, incident ID, evidence, artifact reference, acceptance-criteria result, unresolved items, and a reply reference to the immediately preceding lifecycle record.
+- Only an unaffected Baldr may issue VERIFIED, and only after TESTED. If Baldr authored the incident, Baldr cannot verify its correction.
+- ADOPTED is reserved for a user-authored record. The journal validates the preceding VERIFIED milestone inside the append transaction; the Android screen requires a separate confirmation action.
+- Adoption means accepting the correction as project practice. It does not deploy code, change settings, contact services, or authorize external actions.
+
+### Current status
+- **Implemented:** lifecycle protocol v4, structured parser, coordinator sequencing, append-only ledger validation, journal-level adoption gate, Android adoption control, documentation, and regression tests are committed to the PR branch.
+- **Tested:** tests have been added, but no Android JVM test run is evidenced for the latest branch head.
+- **Verified:** not yet. The runtime has not been executed on a device or emulator.
+- **Adopted:** not adopted. PR #35 remains draft and unmerged.
+- **Original incident diagnosis:** still open; this correction mechanism does not itself establish whether the original cause was missing context, reasoning failure, or both.
