@@ -6,6 +6,7 @@ The registry is the canonical inventory for Yggdrasil applications and component
 
 - `registry.json` — machine-readable canonical inventory.
 - `artifact-history.json` — canonical per-artifact build, publication, download-evidence, installation-attempt, and incident history.
+- `operational-limits.json` — shared operating constraints, capacity observations, recheck triggers, and output-adaptation rules for the Nine Builders.
 - This document — human-readable rules and operating guidance.
 
 ## Status meanings
