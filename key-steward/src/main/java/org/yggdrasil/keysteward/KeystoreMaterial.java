@@ -12,6 +12,7 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
+import java.util.Arrays;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -87,9 +88,14 @@ public final class KeystoreMaterial {
             throw new IllegalArgumentException("Expected signing alias is missing.");
         }
         Key key = store.getKey(ALIAS, password);
-        if (key == null || key.getEncoded() == null) {
+        if (key == null) {
             throw new IllegalArgumentException("Private-key entry could not be read.");
         }
+        byte[] encodedKey = key.getEncoded();
+        if (encodedKey == null) {
+            throw new IllegalArgumentException("Private-key entry could not be read.");
+        }
+        Arrays.fill(encodedKey, (byte) 0);
         Certificate raw = store.getCertificate(ALIAS);
         if (!(raw instanceof X509Certificate)) {
             throw new IllegalArgumentException("Signing certificate is missing.");
