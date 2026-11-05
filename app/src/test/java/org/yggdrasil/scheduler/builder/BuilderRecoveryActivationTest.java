@@ -21,6 +21,7 @@ public class BuilderRecoveryActivationTest {
 
     @Before public void setUp() {
         context = RuntimeEnvironment.getApplication();
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
         clearAll();
         sourceConversations = new BuilderConversationStore(context, "activation-source.db");
         sourceSubjects = new BuilderSubjectThreadIndex(context, "activation-source-subjects.db");
@@ -40,6 +41,7 @@ public class BuilderRecoveryActivationTest {
         sourceConversations.close();
         sourceSubjects.close();
         clearAll();
+        BuilderRecoveryActivation.setDirectorySyncForTests(null);
     }
 
     private void clearAll() {
@@ -139,7 +141,7 @@ public class BuilderRecoveryActivationTest {
             BuilderRecoveryActivation.activate(context, staged);
             fail("activation must verify exact staged records, not counts alone");
         } catch (IllegalStateException expected) {
-            assertTrue(expected.getMessage().contains("contents no longer match"));
+            assertTrue(expected.getMessage().contains("Could not verify staged database contents"));
         }
         assertNull(BuilderRecoveryActivation.getActive(context));
     }
