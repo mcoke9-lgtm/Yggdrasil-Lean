@@ -55,3 +55,15 @@ Every change should identify the record changed, prior value, new value, evidenc
 ## Current unresolved installation incident
 
 On 2026-11-05 the user reported that Android displayed an existing-package conflict while attempting to install the Installed Signer Diagnostic APK. The identity and signer of the existing package are unknown. No app should be uninstalled or replaced until the dashboard inventory and signer evidence are reviewed.
+
+## Nine Builders pre-action limits gate
+
+- Before proposing or attempting a capability-dependent action, invoke `tools/check_operational_limits.py` with the exact capability name recorded in `operational-limits.json`.
+- The gate is read-only. It does not query live account/provider telemetry, alter the register, execute the action, or free capacity.
+- Decisions: `proceed`, `proceed_with_constraints`, `blocked`, `recheck_required`, or `authorization_required`.
+- Unknown capabilities, malformed observations, and observations older than the configured freshness window fail closed to `recheck_required`; they are not treated as available.
+- A fresh blocked observation stops the action. A constrained observation may proceed only while honoring its recorded conditions. Explicitly excluded actions require separate authorization.
+- Default evidence freshness is seven days; use a stricter threshold for rapidly changing limits. Recheck dynamic account or provider capacity through the authoritative connected service before relying on it.
+- Exit codes: 0 proceed/conditioned; 2 blocked; 3 recheck required; 4 authorization required.
+- CI runs unit tests and confirms that the current scheduled-task capacity observation is blocked. This is a regression test of the recorded evidence, not live account telemetry.
+- The Nine Builders must treat the gate as a required pre-action check in their orchestration. CI passing alone does not prove that every runtime or conversation path invokes it.
