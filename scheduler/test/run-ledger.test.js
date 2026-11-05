@@ -218,6 +218,46 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
   assert.equal((await ledger.listRuns())[0].status, "completed_with_failures");
 });
 
+test("Builder interruption and improvement incident stop the round without failing the role", async () => {
+  for (const scenario of [
+    { status: "interrupted", turnType: "INTERRUPTION" },
+    { status: "succeeded", turnType: "IMPROVEMENT_INCIDENT" }
+  ]) {
+    const store = new MemoryStore();
+    const scheduler = new Scheduler({ store, clock });
+    const ledger = new BuilderRunLedger({ store, clock });
+    const invoked = [];
+    const events = [];
+    registerBuilderRunHandler(scheduler, {
+      ledger,
+      executor: async role => {
+        invoked.push(role);
+        if (role === "HODR") {
+          return { ...scenario, summary: "Höðr requested a pause for review" };
+        }
+        return { status: "succeeded", summary: role + " completed" };
+      },
+      output: line => events.push(JSON.parse(line))
+    });
+    await scheduler.addTask({
+      id: "stop-on-builder-event-" + scenario.turnType.toLowerCase(),
+      name: "Stop on Builder event",
+      handlerType: BUILDER_RUN_HANDLER_TYPE,
+      schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+    });
+    const result = await scheduler.runDue();
+    assert.equal(result.runs[0].status, "failed");
+    assert.deepEqual(invoked, ["ODIN", "HODR"]);
+    const saved = (await ledger.listRuns())[0];
+    assert.equal(saved.status, "interrupted");
+    assert.equal(saved.builders.find(item => item.role === "ODIN").status, "succeeded");
+    assert.equal(saved.builders.find(item => item.role === "HODR").status, "interrupted");
+    assert.equal(saved.builders.find(item => item.role === "LOKI").status, "pending");
+    assert.ok(events.some(event => event.event === "nine_builders_run_interrupted"
+      && event.role === "HODR" && event.turnType === scenario.turnType));
+  }
+});
+
 test("recovers abandoned active Builder runs without automatic replay", async () => {
   const time = clockAt("2026-11-05T20:00:00.000Z");
   const store = new MemoryStore();
