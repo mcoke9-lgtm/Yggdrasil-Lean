@@ -95,6 +95,18 @@ after restart. It is not automatically replayed because the external outcome
 may be unknown. Task state uses atomic file replacement. The store and lock are
 designed for one local process and one host, not distributed workers.
 
+## Long-running task isolation
+
+The current scheduler executes due handlers sequentially within a tick and waits
+for each handler to return. An eight-hour Nine Builders handler therefore
+occupies that scheduler process's active tick; other tasks in the same scheduler
+instance will not be dispatched until it finishes. Until the scheduler gains a
+separately supervised worker pool, isolate overnight Builder schedules in a
+dedicated runner instance with its own `SCHEDULER_STATE_FILE`, lock file, and
+dashboard port. Keep GitHub monitors and short maintenance tasks in a separate
+scheduler instance. This is process isolation on one host, not distributed
+execution or proof that either process will remain alive overnight.
+
 ## Safety boundaries
 
 - Only explicitly registered handler functions can execute.
