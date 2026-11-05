@@ -241,4 +241,39 @@ public class BuilderConversationCoordinatorTest {
                 Arrays.asList(BuilderRole.HUGINN, BuilderRole.KVASIR));
         assertEquals(3, journal.readThread("context-thread").size());
     }
+
+    @Test public void interruptionStopsRemainingBuildersAndPreservesTheInterruptionTurn() {
+        BuilderConversationStore journal = openStore();
+        java.util.List<BuilderRole> invoked = new java.util.ArrayList<>();
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> {
+                    invoked.add(role);
+                    assertEquals(userTurn.turnId, context.get(0).turnId);
+                    return new BuilderConversationCoordinator.Reply(
+                            "PAUSE. The proposed route depends on an unavailable capability. "
+                                    + "Evidence: current shared register does not establish availability. "
+                                    + "Alternative: verify the independent scheduler before choosing a route. "
+                                    + "Resume only after the dependency is checked.",
+                            BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                            BuilderConversationProtocol.TurnType.INTERRUPTION,
+                            BuilderConversationProtocol.Participant.USER,
+                            userTurn.turnId);
+                });
+
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "interrupt-round", "Schedule the monitoring work.",
+                Arrays.asList(BuilderRole.KVASIR, BuilderRole.HUGINN, BuilderRole.MARI));
+
+        assertTrue(result.interrupted);
+        assertEquals(BuilderRole.KVASIR, result.interruptedBy);
+        assertEquals(BuilderConversationProtocol.TurnType.INTERRUPTION, result.interruptionType);
+        assertEquals(Collections.singletonList(BuilderRole.KVASIR), invoked);
+        assertEquals(Arrays.asList(BuilderRole.HUGINN, BuilderRole.MARI), result.notRunRoles);
+        List<BuilderConversationProtocol.Turn> saved = journal.readThread("interrupt-round");
+        assertEquals(2, saved.size());
+        assertEquals(BuilderConversationProtocol.TurnType.INTERRUPTION, saved.get(1).type);
+        BuilderConversationProtocol.validateThread(saved);
+    }
+
 }
