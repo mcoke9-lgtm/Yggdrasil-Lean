@@ -128,14 +128,12 @@ prompts, credentials, or full conversation payloads. It uses the scheduler store
 interface but is persisted in a separate `*.builder-runs.json` file by default,
 so ledger writes cannot overwrite concurrent task and scheduler-run updates.
 
-**Important limitation:** this is a tested state/ledger foundation, not yet a
-scheduled Builder executor. It does not invoke model routes, start or supervise
-a persistent host, send heartbeats, cancel provider requests, or prove that an
-interrupted external operation is safe to replay. A checkpoint is resumable only
-when the worker explicitly records `safeToResume: true`; otherwise recovery
-must stop for reconciliation. The runner now registers this handler only when
-`BUILDER_EXECUTOR_MODULE` points to an operator-supplied module exporting
-`createBuilderExecutor()`. With no module configured, the runner logs
+**Important limitation:** the ledger and adapter are now connected to the
+persistent runner through an optional host module, but this is not yet a
+production model executor or a verified unattended host. The runner does not
+ship provider routes or credentials. A checkpoint is resumable only when the
+worker explicitly records `safeToResume: true`; otherwise recovery must stop
+for reconciliation. When no module is configured, the runner logs
 `nine_builders_executor_unconfigured`; a due Nine Builders task then fails
 visibly with “No handler registered” rather than pretending work occurred.
 
