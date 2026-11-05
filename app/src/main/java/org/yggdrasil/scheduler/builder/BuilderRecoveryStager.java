@@ -26,10 +26,13 @@ public final class BuilderRecoveryStager {
         public final int turnCount;
         public final int subjectEventCount;
         public final boolean readBackVerified;
+        public final String conversationDataSha256;
+        public final String subjectDataSha256;
 
         private StageResult(String stagingId, String conversationDatabaseName,
                             String subjectDatabaseName, int threadCount, int turnCount,
-                            int subjectEventCount, boolean readBackVerified) {
+                            int subjectEventCount, boolean readBackVerified,
+                            String conversationDataSha256, String subjectDataSha256) {
             this.stagingId = stagingId;
             this.conversationDatabaseName = conversationDatabaseName;
             this.subjectDatabaseName = subjectDatabaseName;
@@ -37,6 +40,8 @@ public final class BuilderRecoveryStager {
             this.turnCount = turnCount;
             this.subjectEventCount = subjectEventCount;
             this.readBackVerified = readBackVerified;
+            this.conversationDataSha256 = conversationDataSha256;
+            this.subjectDataSha256 = subjectDataSha256;
         }
     }
 
@@ -87,9 +92,11 @@ public final class BuilderRecoveryStager {
             if (!subjects.exportSnapshot().getJSONArray("events").toString().equals(eventRows.toString()))
                 throw new IllegalStateException("Staged subject metadata did not match recovery snapshot");
 
+            String conversationDigest = sha256(threads.toString());
+            String subjectDigest = sha256(eventRows.toString());
             success = true;
             return new StageResult(id, conversationName, subjectName, report.threadCount,
-                    report.turnCount, report.subjectEventCount, true);
+                    report.turnCount, report.subjectEventCount, true, conversationDigest, subjectDigest);
         } catch (org.json.JSONException e) {
             throw new IllegalArgumentException("Malformed recovery snapshot during staging", e);
         } finally {
@@ -166,6 +173,18 @@ public final class BuilderRecoveryStager {
                 row.getString("thread_id"), row.getString("subject_id"),
                 BuilderSubjectThreadIndex.EventType.valueOf(row.getString("event_type")),
                 subheading, participant, row.getLong("timestamp_epoch_millis"));
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder();
+            for (byte b : digest) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
+            return out.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     private static String requiredStagingId(String value) {
