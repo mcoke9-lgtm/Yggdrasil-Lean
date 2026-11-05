@@ -20,7 +20,7 @@ import java.util.List;
  * history are never rewritten. One thread may accumulate multiple subjects and
  * subheadings while its canonical turns remain in BuilderConversationStore.
  */
-public final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
+final class BuilderSubjectThreadIndex extends SQLiteOpenHelper {
     private static final int DATABASE_VERSION = 1;
     private static final String TABLE = "subject_thread_events";
 
