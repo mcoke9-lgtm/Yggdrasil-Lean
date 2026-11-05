@@ -106,6 +106,15 @@ public class BuilderRoleProviderSettingsTest {
         assertFalse(settings.hasDistinctBaldrRoute());
     }
 
+    @Test public void baldrRejectsPercentEncodedDotSegmentEndpointVariants() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        settings.save(BuilderRole.HUGINN, "implementation",
+                "http://localhost:8101/a/%2e%2e/v1/chat/completions", "model-a", "");
+        settings.save(BuilderRole.BALDR, "verification",
+                "http://localhost:8101/v1/chat/completions", "model-b", "");
+        assertFalse(settings.hasDistinctBaldrRoute());
+    }
+
     @Test public void baldrMustDifferFromEveryConfiguredRoleNotOnlySelectedRoles() throws Exception {
         BuilderRoleProviderSettings settings = settings();
         save(settings, BuilderRole.HUGINN, "implementation", "8101", "model-a");
