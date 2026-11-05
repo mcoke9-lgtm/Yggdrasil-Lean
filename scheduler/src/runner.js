@@ -2,22 +2,23 @@ import { resolve } from "node:path";
 import { JsonFileStore } from "./store.js";
 import { Scheduler } from "./scheduler.js";
 import { registerGithubWatch } from "./github-watch.js";
+import { createDashboardServer } from "./dashboard-server.js";
+import { acquireProcessLock } from "./process-lock.js";
 
 const stateFile = resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.json");
 const pollMs = Number(process.env.SCHEDULER_POLL_MS || 15000);
+const dashboardPort = Number(process.env.SCHEDULER_DASHBOARD_PORT || 4174);
+const dashboardHost = process.env.SCHEDULER_DASHBOARD_HOST || "127.0.0.1";
 if (!Number.isInteger(pollMs) || pollMs < 1000 || pollMs > 300000) {
   throw new RangeError("SCHEDULER_POLL_MS must be between 1000 and 300000");
 }
 
+const releaseLock = await acquireProcessLock(stateFile + ".lock");
 const scheduler = new Scheduler({
   store: new JsonFileStore(stateFile),
   maxRunsPerTick: 5
 });
-
-// Only fixed, reviewed handlers are registered here. Add real integrations as
-// explicit modules with narrowly scoped credentials and approval requirements.
 registerGithubWatch(scheduler);
-
 scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
   process.stdout.write(JSON.stringify({
     event: "scheduled_heartbeat",
@@ -28,9 +29,15 @@ scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
   }) + "\n");
 });
 
+const dashboard = createDashboardServer({
+  scheduler,
+  host: dashboardHost,
+  port: dashboardPort
+});
 let stopping = false;
 let tickActive = false;
 let activeTick = Promise.resolve();
+let timer;
 
 async function tick() {
   if (stopping || tickActive) return;
@@ -56,25 +63,36 @@ async function tick() {
   }
 }
 
-const tasks = await scheduler.listTasks();
-process.stdout.write(JSON.stringify({
-  event: "scheduler_started",
-  stateFile,
-  pollMs,
-  taskCount: tasks.length,
-  note: "Single-process local runner; only registered handlers can execute."
-}) + "\n");
-
-await tick();
-const timer = setInterval(tick, pollMs);
+try {
+  const address = await dashboard.listen();
+  const tasks = await scheduler.listTasks();
+  process.stdout.write(JSON.stringify({
+    event: "scheduler_started",
+    stateFile,
+    pollMs,
+    taskCount: tasks.length,
+    dashboard: `http://127.0.0.1:${dashboardPort}`,
+    note: "Single process, loopback-only dashboard, registered handlers only."
+  }) + "\n");
+  await tick();
+  timer = setInterval(tick, pollMs);
+} catch (error) {
+  await releaseLock();
+  throw error;
+}
 
 async function shutdown(signal) {
   if (stopping) return;
   stopping = true;
-  clearInterval(timer);
+  if (timer) clearInterval(timer);
   process.stdout.write(JSON.stringify({ event: "scheduler_stopping", signal }) + "\n");
-  await activeTick;
-  process.exitCode = 0;
+  try {
+    await activeTick;
+    await dashboard.close();
+  } finally {
+    await releaseLock();
+    process.exitCode = 0;
+  }
 }
 
 process.once("SIGINT", () => { void shutdown("SIGINT"); });
