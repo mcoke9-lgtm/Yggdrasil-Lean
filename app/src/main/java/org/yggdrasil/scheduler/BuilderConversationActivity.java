@@ -456,9 +456,9 @@ public final class BuilderConversationActivity extends Activity {
 
     private String routeConfigurationSummary() {
         BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
-        StringBuilder summary = new StringBuilder("Role-specific routes (not yet connection-tested):\\n");
+        StringBuilder summary = new StringBuilder("Role-specific routes (not yet connection-tested):\n");
         for (BuilderRole role : BuilderRole.values())
-            summary.append(settings.routeSummary(role)).append('\\n');
+            summary.append(settings.routeSummary(role)).append('\n');
         summary.append("Baldr distinct route: ")
                 .append(settings.hasDistinctBaldrRoute() ? "configured (not independently verified)"
                         : "NOT CONFIGURED / NOT DISTINCT");
@@ -509,10 +509,10 @@ public final class BuilderConversationActivity extends Activity {
             org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings.Configuration config =
                     settings.configuration(role);
             disclosure.append(role.name()).append('|').append(config.providerId).append('|')
-                    .append(config.endpoint).append('|').append(config.model).append('\\n');
+                    .append(config.endpoint).append('|').append(config.model).append('\n');
             routeNotice.append(role.getDisplayName()).append(" → ")
-                    .append(config.providerId).append(" / ").append(config.model).append("\\n")
-                    .append(config.endpoint).append("\\n\\n");
+                    .append(config.providerId).append(" / ").append(config.model).append("\n")
+                    .append(config.endpoint).append("\n\n");
         }
         String disclosureKey = disclosure.toString();
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
@@ -523,7 +523,7 @@ public final class BuilderConversationActivity extends Activity {
         }
 
         String notice = "Your message and the saved conversation history for this thread, together "
-                + "with each selected Builder's role instructions, will be sent to these configured routes:\\n\\n"
+                + "with each selected Builder's role instructions, will be sent to these configured routes:\n\n"
                 + routeNotice
                 + "Each listed provider may process or retain submitted content under its own terms. "
                 + "Do not include passwords, API keys, or information you do not want sent to these providers. "
