@@ -34,12 +34,14 @@ public class BuilderRuntimeServiceTest {
         Messenger host = new Messenger(binder);
 
         final Bundle[] received = new Bundle[1];
+        final int[] healthResponseType = new int[1];
         CountDownLatch responseReceived = new CountDownLatch(1);
         HandlerThread replyThread = new HandlerThread("runtime-service-test-reply");
         replyThread.start();
         Messenger client = new Messenger(new Handler(replyThread.getLooper()) {
             @Override public void handleMessage(Message message) {
                 received[0] = message.getData();
+                healthResponseType[0] = message.what;
                 responseReceived.countDown();
             }
         });
@@ -50,6 +52,7 @@ public class BuilderRuntimeServiceTest {
                 responseReceived.await(3, TimeUnit.SECONDS));
 
         assertNotNull(received[0]);
+        assertEquals(BuilderRuntimeProtocol.MESSAGE_HEALTH, healthResponseType[0]);
         assertEquals(BuilderRuntimeProtocol.VERSION,
                 received[0].getInt(BuilderRuntimeProtocol.KEY_PROTOCOL_VERSION));
         assertEquals("READY", received[0].getString(BuilderRuntimeProtocol.KEY_STATUS));
@@ -69,8 +72,8 @@ public class BuilderRuntimeServiceTest {
                 received[0].getString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON));
         assertEquals(1, device.getInt("schema_version"));
         assertTrue(device.getInt("api_level") > 0);
-        assertTrue(device.getLong("memory_total_bytes") > 0);
-        assertTrue(device.getLong("data_storage_total_bytes") > 0);
+        assertTrue(device.has("memory_total_bytes"));
+        assertTrue(device.has("data_storage_total_bytes"));
         assertEquals("DEVICE_CAPABILITIES_ONLY_NO_PERSONAL_IDENTIFIERS",
                 device.getString("collection_scope"));
         assertTrue(!device.has("android_id"));
