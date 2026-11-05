@@ -12,9 +12,18 @@ function required(value, name) {
 const taskReference = required(process.env.BUILDER_TASK_REFERENCE, "BUILDER_TASK_REFERENCE");
 const promptPath = required(process.env.BUILDER_TASK_PROMPT_FILE, "BUILDER_TASK_PROMPT_FILE");
 const configPath = required(process.env.BUILDER_HOST_CONFIG_FILE, "BUILDER_HOST_CONFIG_FILE");
+async function readPrivateFile(path, label, maximumBytes) {
+  const info = await lstat(path);
+  if (!info.isFile() || info.isSymbolicLink()) throw new Error(label + " must be a regular non-symlink file");
+  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
+    throw new Error(label + " permissions are too broad; use owner-only permissions (0600)");
+  }
+  if (info.size > maximumBytes) throw new RangeError(label + " exceeds its size limit");
+  return readFile(path, "utf8");
+}
 const [prompt, configText] = await Promise.all([
-  readFile(promptPath, "utf8"),
-  readFile(configPath, "utf8")
+  readPrivateFile(promptPath, "Task prompt file", 32000),
+  readPrivateFile(configPath, "Builder host config", 65536)
 ]);
 if (Buffer.byteLength(prompt, "utf8") > 32000) throw new Error("Task prompt exceeds 32 KiB");
 const config = JSON.parse(configText);
