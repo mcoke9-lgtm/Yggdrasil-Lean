@@ -26,9 +26,16 @@ Use this checklist as a starting point. Tailor it to the platform, threat model,
 | Development | [ ] | [isolated identity/environment] | [synthetic/disposable] | [disposable/test] |
 
 - [ ] Decide which roles need separate installable identities.
+- [ ] If all three are installable, assign and verify three pairwise-distinct Android application IDs.
+- [ ] Give each installable variant a unique, recognizable launcher label.
+- [ ] Audit merged manifests for duplicate provider authorities, custom permissions, exported component identities, deep links/app links, and other globally registered identifiers.
+- [ ] Check shared/external storage paths, notification channels, scheduled-work identifiers, databases, backup/restore behavior, and any other cross-variant state.
+- [ ] Define signing compatibility for each variant; never use CI/development signing credentials as production credentials.
+- [ ] Verify built APK metadata and merged manifests, not just source declarations.
+- [ ] Test all install orders and pairwise combinations; confirm installing, updating, or uninstalling one variant leaves the other two intact.
 - [ ] Ensure CI and Development cannot accidentally overwrite production data.
 - [ ] Ensure test credentials cannot access production resources.
-- [ ] Confirm the visible name and built identity of each installable variant.
+- [ ] If a role is not installable, record that explicitly and do not claim three-way device coexistence.
 
 ## 3. Automated validation
 
@@ -49,6 +56,7 @@ Use this checklist as a starting point. Tailor it to the platform, threat model,
 - [ ] Exercise the normal success path.
 - [ ] Exercise cancellation and failure paths.
 - [ ] Check permissions, data isolation, and external side effects.
+- [ ] If three variants are intended to coexist, install all three together and test each install order, update-in-place, independent data, and independent uninstall.
 - [ ] Confirm recovery/rollback behavior.
 - [ ] Record user-confirmed observations separately from automated or independently verified evidence.
 
