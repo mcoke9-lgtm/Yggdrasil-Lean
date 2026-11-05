@@ -106,7 +106,7 @@ public final class BuilderPromptFactory {
             responseSchema.put("body", "string: concise contribution");
             responseSchema.put("turn_type", "one of CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
             responseSchema.put("recipient", "one of USER, HUGINN, MUNINN, KVASIR, MARI, HODR, TYR, LOKI, ODIN, BALDR, or null; required for directed turn types");
-            responseSchema.put("reply_to_turn_id", "earlier turn ID or null; required for CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
+            responseSchema.put("reply_to_turn_id", "earlier turn ID or null; required for CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION, INTERRUPTION, IMPROVEMENT_INCIDENT");
             responseSchema.put("evidence_status", "one of PROPOSED, OBSERVED, TESTED, VERIFIED, USER_CONFIRMED, DISPUTED, UNKNOWN");
             payload.put("response_schema", responseSchema);
             message = payload.toString(2);
