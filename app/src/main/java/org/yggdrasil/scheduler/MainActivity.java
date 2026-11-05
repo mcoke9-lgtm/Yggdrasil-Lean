@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -32,6 +34,7 @@ public final class MainActivity extends Activity {
     private LinearLayout root, taskList, history;
     private TextView status, builderStatus;
     private EditText builderNote;
+    private String pendingContinuityExport;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); db = new SchedulerDb(this); scheduleWorker(); buildUi(); refresh();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
@@ -61,6 +64,8 @@ public final class MainActivity extends Activity {
         builderStatus = text("Builder journal ready", 13);
         root.addView(builderStatus);
         root.addView(button("Check Builder journal integrity", this::refreshBuilderStatus));
+        root.addView(button("Export Builder memory", this::beginContinuityExport));
+        root.addView(button("Import Builder memory", this::beginContinuityImport));
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
@@ -91,6 +96,87 @@ public final class MainActivity extends Activity {
             builderStatus.setText("Journal check failed: " + e.getMessage());
         }
     }
+    private static final int REQUEST_EXPORT_CONTINUITY = 7101;
+    private static final int REQUEST_IMPORT_CONTINUITY = 7102;
+
+    private void beginContinuityExport() {
+        try {
+            pendingContinuityExport = new BuilderEventJournal(this).exportSnapshot().toString(2);
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.putExtra(Intent.EXTRA_TITLE, "yggdrasil-builder-continuity.json");
+            startActivityForResult(intent, REQUEST_EXPORT_CONTINUITY);
+        } catch (Exception e) {
+            builderStatus.setText("Could not prepare export: " + e.getMessage());
+        }
+    }
+
+    private void beginContinuityImport() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        startActivityForResult(intent, REQUEST_IMPORT_CONTINUITY);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        if (requestCode == REQUEST_EXPORT_CONTINUITY) {
+            try (java.io.OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
+                if (out == null || pendingContinuityExport == null)
+                    throw new java.io.IOException("Could not open the selected destination");
+                out.write(pendingContinuityExport.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                out.flush();
+                builderStatus.setText("Continuity snapshot exported successfully");
+            } catch (Exception e) {
+                builderStatus.setText("Export failed: " + e.getMessage());
+            } finally { pendingContinuityExport = null; }
+        } else if (requestCode == REQUEST_IMPORT_CONTINUITY) {
+            previewContinuityImport(uri);
+        }
+    }
+
+    private void previewContinuityImport(Uri uri) {
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new java.io.IOException("Could not open selected file");
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int total = 0, read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > 10 * 1024 * 1024) throw new java.io.IOException("Snapshot exceeds 10 MB limit");
+                bytes.write(buffer, 0, read);
+            }
+            org.json.JSONObject snapshot = new org.json.JSONObject(
+                    new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+            org.json.JSONArray events = snapshot.optJSONArray("events");
+            org.json.JSONArray receipts = snapshot.optJSONArray("processed_messages");
+            if (!"yggdrasil-builder-continuity".equals(snapshot.optString("format"))
+                    || snapshot.optInt("format_version", -1) != 1 || events == null || receipts == null)
+                throw new IllegalArgumentException("This is not a supported Builder continuity snapshot");
+            new AlertDialog.Builder(this)
+                    .setTitle("Replace local Builder memory?")
+                    .setMessage("The selected snapshot contains " + events.length() + " events and "
+                            + receipts.length() + " processed-message receipts. Import replaces the current Builder journal. "
+                            + "The file's full integrity will be checked before any replacement.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Validate and import", (dialog, which) -> {
+                        try {
+                            BuilderEventJournal journal = new BuilderEventJournal(this);
+                            journal.restoreSnapshot(snapshot);
+                            builderStatus.setText("Imported " + journal.eventCount()
+                                    + " events · integrity " + (journal.verifyChain() ? "verified" : "FAILED"));
+                        } catch (Exception e) {
+                            builderStatus.setText("Import rejected; existing journal preserved: " + e.getMessage());
+                        }
+                    }).show();
+        } catch (Exception e) {
+            builderStatus.setText("Import preview failed; existing journal unchanged: " + e.getMessage());
+        }
+    }
+
     private EditText field(LinearLayout layout, String hint) { EditText e = new EditText(this); e.setSingleLine(true); e.setHint(hint); layout.addView(e); return e; }
     private void showAddDialog() {
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,8,24,8);
