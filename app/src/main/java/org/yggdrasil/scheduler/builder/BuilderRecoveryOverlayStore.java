@@ -57,21 +57,23 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     private final String generationId;
     private final String conversationDigest;
     private final String subjectDigest;
+    private final boolean allowCreate;
 
     public static String databaseNameForGeneration(String generationId) {
         return "builder-recovery-" + requireGenerationId(generationId) + "-overlay.db";
     }
 
-    public BuilderRecoveryOverlayStore(Context context, String conversationBaselineName,
-                                       String subjectBaselineName, String generationId,
-                                       String conversationBaselineSha256,
-                                       String subjectBaselineSha256) {
+    private BuilderRecoveryOverlayStore(Context context, String conversationBaselineName,
+                                        String subjectBaselineName, String generationId,
+                                        String conversationBaselineSha256,
+                                        String subjectBaselineSha256, boolean allowCreate) {
         super(requireContext(context), databaseNameForGeneration(generationId), null,
                 DATABASE_VERSION);
         this.app = context.getApplicationContext();
         this.conversationBaselineName = requireDatabaseName(conversationBaselineName);
         this.subjectBaselineName = requireDatabaseName(subjectBaselineName);
         this.generationId = requireGenerationId(generationId);
+        this.allowCreate = allowCreate;
         if (!("builder-recovery-" + this.generationId + "-conversations.db")
                     .equals(this.conversationBaselineName)
                 || !("builder-recovery-" + this.generationId + "-subjects.db")
@@ -84,8 +86,50 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         verifyBaselineFiles();
     }
 
+    /** Explicit first-time creation. Existing overlay files are never overwritten or reset. */
+    public static BuilderRecoveryOverlayStore create(Context context,
+            String conversationBaselineName, String subjectBaselineName, String generationId,
+            String conversationBaselineSha256, String subjectBaselineSha256) {
+        Context app = requireContext(context);
+        File file = app.getDatabasePath(databaseNameForGeneration(generationId));
+        if (file.exists())
+            throw new IllegalStateException("Recovery overlay already exists; refusing to replace it");
+        BuilderRecoveryOverlayStore store = new BuilderRecoveryOverlayStore(context,
+                conversationBaselineName, subjectBaselineName, generationId,
+                conversationBaselineSha256, subjectBaselineSha256, true);
+        try {
+            store.getWritableDatabase();
+            return store;
+        } catch (RuntimeException failure) {
+            store.close();
+            throw failure;
+        }
+    }
+
+    /** Opens an existing overlay only. A missing file is not silently recreated. */
+    public static BuilderRecoveryOverlayStore openExisting(Context context,
+            String conversationBaselineName, String subjectBaselineName, String generationId,
+            String conversationBaselineSha256, String subjectBaselineSha256) {
+        Context app = requireContext(context);
+        File file = app.getDatabasePath(databaseNameForGeneration(generationId));
+        if (!file.isFile())
+            throw new IllegalStateException("Recovery overlay is missing; refusing to create an empty replacement");
+        BuilderRecoveryOverlayStore store = new BuilderRecoveryOverlayStore(context,
+                conversationBaselineName, subjectBaselineName, generationId,
+                conversationBaselineSha256, subjectBaselineSha256, false);
+        try {
+            store.getReadableDatabase();
+            return store;
+        } catch (RuntimeException failure) {
+            store.close();
+            throw failure;
+        }
+    }
+
     @Override public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE " + META + " ("
+        if (!allowCreate)
+            throw new IllegalStateException("Recovery overlay is missing; refusing implicit recreation");
+        db.execSQL("CREATE TABLE " + META + " (
                 + "singleton INTEGER PRIMARY KEY CHECK(singleton = 1), "
                 + "format TEXT NOT NULL, schema_version INTEGER NOT NULL, "
                 + "generation_id TEXT NOT NULL, conversation_sha256 TEXT NOT NULL, "
@@ -140,8 +184,9 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         BuilderConversationProtocol.validateTurn(turn);
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
-        SQLiteDatabase baseline = baselineConversation();
+        SQLiteDatabase baseline = null;
         try {
+            baseline = baselineConversation();
             List<BuilderConversationProtocol.Turn> candidate =
                     readConversationThread(baseline, turn.threadId);
             candidate.addAll(readOverlayThread(db, turn.threadId));
@@ -150,7 +195,7 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
             db.insertOrThrow(TURNS, null, turnValues(turn));
             db.setTransactionSuccessful();
         } finally {
-            baseline.close();
+            if (baseline != null) baseline.close();
             db.endTransaction();
         }
     }
