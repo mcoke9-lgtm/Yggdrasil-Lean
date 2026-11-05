@@ -60,6 +60,8 @@ public final class MainActivity extends Activity {
         status = text("Persistent task store ready", 14); root.addView(status);
         root.addView(text("Builder Console · first local commands", 20));
         root.addView(button("Configure model provider", this::showProviderSettings));
+        root.addView(button("Open Nine Builder conversation", () -> startActivity(
+                new Intent(this, BuilderConversationActivity.class))));
         providerStatus = text(providerConfigurationSummary(), 13);
         root.addView(providerStatus);
         root.addView(text("Try: “remember that …” or “check memory”. This is a small local command router, not yet a general AI conversation.", 13));
