@@ -231,6 +231,40 @@
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
           ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
+          ]
         }
       ],
       "optional_capabilities": [],
@@ -458,6 +492,40 @@
             "test_result",
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
+          ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
           ]
         }
       ],
@@ -687,6 +755,40 @@
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
           ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
+          ]
         }
       ],
       "optional_capabilities": [],
@@ -914,6 +1016,40 @@
             "test_result",
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
+          ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
           ]
         }
       ],
@@ -1143,6 +1279,40 @@
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
           ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
+          ]
         }
       ],
       "optional_capabilities": [],
@@ -1370,6 +1540,40 @@
             "test_result",
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
+          ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
           ]
         }
       ],
@@ -1599,6 +1803,40 @@
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
           ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
+          ]
         }
       ],
       "optional_capabilities": [],
@@ -1827,6 +2065,40 @@
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
           ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
+          ]
         }
       ],
       "optional_capabilities": [],
@@ -2054,6 +2326,40 @@
             "test_result",
             "source_or_artifact_reference",
             "uncertainty_and_failure_record"
+          ]
+        },
+        {
+          "capability_id": "SHR-ROLE-05",
+          "task": "Given role-specific instructions for multiple Builder identities, complete a turn under one selected identity while preserving the other identities' responsibilities and boundaries.",
+          "expected_output_properties": [
+            "Uses the assigned Builder identity and responsibility contract",
+            "Does not claim to be another Builder or borrow another Builder's authority",
+            "Preserves role distinctions when using a shared model instance"
+          ],
+          "test_method": "Supply multiple conflicting role prompts and prior-turn context, then request a response as one selected Builder; inspect attribution, scope, and authority boundaries.",
+          "test_case_refs": [
+            {
+              "ref": "case.shr-role-05",
+              "kind": "test",
+              "status": "unverified",
+              "note": "Proposed fixture; not executed."
+            }
+          ],
+          "minimum_quality": {
+            "metric": "role_separation_pass_rate",
+            "threshold": 0.9
+          },
+          "failure_conditions": [
+            "Claims another Builder identity",
+            "Uses another Builder's authority without an explicit handoff",
+            "Drops the assigned role contract when context includes other Builder voices"
+          ],
+          "mandatory": true,
+          "deterministic_verification": false,
+          "evidence_required": [
+            "raw_prompt_and_context",
+            "raw_model_output",
+            "independent_role_attribution_review"
           ]
         }
       ],
