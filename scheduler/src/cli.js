@@ -16,6 +16,7 @@ function usage() {
     "  resume <task-id>",
     "  add-daily-heartbeat <id> <name> <IANA-time-zone> <hour> <minute>",
     "  add-weekly-heartbeat <id> <name> <IANA-time-zone> <hour> <minute> <days:0,1,...,6>",
+    "  add-github-watch <id> <name> <owner/repo> <branch> <IANA-time-zone> <hour> <minute> <workflow-name> [workflow-name...]",
     ""
   ].join("\n"));
 }
@@ -47,6 +48,18 @@ try {
       schedule
     });
     process.stdout.write(JSON.stringify(task, null, 2) + "\n");
+  } else if (command === "add-github-watch") {
+    const [id, name, repository, branch, timeZone, hourText, minuteText, ...workflowNames] = args;
+    if (workflowNames.length < 1) throw new Error("Supply at least one exact workflow name");
+    const task = await scheduler.addTask({
+      id, name, handlerType: "github.workflow-check",
+      payload: { repository, branch, workflowNames },
+      schedule: {
+        kind: "calendar", frequency: "daily", timeZone,
+        hour: Number(hourText), minute: Number(minuteText)
+      }
+    });
+    process.stdout.write(JSON.stringify(task, null, 2) + "\\n");
   } else {
     usage();
     if (command) process.exitCode = 2;
