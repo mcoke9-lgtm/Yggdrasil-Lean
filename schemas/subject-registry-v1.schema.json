@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://yggdrasil.example/schemas/subject-registry-v1.schema.json",
+  "$id": "urn:yggdrasil:subject-registry:1.0.0",
   "title": "Nine Builders Subject Registry",
   "description": "Versioned subject headings, stewardship, subheadings, conversation-entry rules, and evidence-record references.",
   "type": "object",
