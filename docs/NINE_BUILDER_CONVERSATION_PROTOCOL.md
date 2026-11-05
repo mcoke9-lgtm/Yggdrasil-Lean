@@ -87,7 +87,7 @@ The BuilderConversationProtocol validator checks:
 - unique turn IDs and one thread identity;
 - strictly increasing timestamps in supplied thread order;
 - replies and handoffs reference earlier turns;
-- responses, challenges, and acknowledgements name the participant who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
+- responses, challenges, and acknowledgements name the participant who authored the referenced turn; responses and acknowledgements to a directed question, challenge, or handoff must come from the participant originally addressed; a handoff names its new recipient while retaining a reference to its source turn.
 
 Protocol version 2 adds `USER` as a first-class participant. Version 1 Builder-only turns remain readable so existing local history can be recovered; new turns use version 2. This compatibility is limited to the unchanged turn fields and existing Builder participant names.
 
@@ -95,7 +95,7 @@ The validator is structural. It does not prove the truth of a claim, authenticat
 
 ## Single-process coordinator
 
-`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful replies as directed responses to the user turn. It preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. This coordinator is not evidence of independent agents.
+`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful replies as directed responses to the user turn. It invokes selected roles sequentially; later roles receive earlier successful replies in their context. It preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. This first coordinator does not yet schedule Builder-to-Builder challenge/response cycles. It is not evidence of independent agents.
 
 ## First conversation acceptance exercise
 
