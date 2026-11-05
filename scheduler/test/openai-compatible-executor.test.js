@@ -102,6 +102,37 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(h.checkpoints[0].value.checkpointId, "checkpoint-odin");
 });
 
+test("invokes all nine canonical roles with distinct responsibilities and Baldr last", async () => {
+  const prompts = [];
+  const h = makeHarness({
+    fetchImpl: async (_url, options) => {
+      prompts.push(JSON.parse(options.body));
+      return new Response(JSON.stringify({
+        model: "reported-role-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  const outcomes = [];
+  for (const role of BUILDER_ROLES) {
+    await h.executor(role, h.context(role, [...outcomes]));
+    outcomes.push({ role, status: "succeeded", summary: role + " completed" });
+  }
+  assert.deepEqual(h.saved.map(item => item.role), BUILDER_ROLES);
+  assert.equal(prompts.length, 9);
+  assert.match(prompts[0].messages[0].content, /coordination, orchestration, and integration/);
+  assert.match(prompts[1].messages[0].content, /service runner, GitHub monitoring/);
+  assert.match(prompts[2].messages[0].content, /daylight-saving handling, and duplicate suppression/);
+  assert.match(prompts[3].messages[0].content, /persistence, history, continuity/);
+  assert.match(prompts[4].messages[0].content, /evidence, source verification/);
+  assert.match(prompts[5].messages[0].content, /operational constraints, capability limits/);
+  assert.match(prompts[6].messages[0].content, /complementary alternatives, relationships/);
+  assert.match(prompts[7].messages[0].content, /authorization, permissions, and security/);
+  assert.match(prompts[8].messages[0].content, /separately invoked final reviewer/);
+  const baldrContext = JSON.parse(prompts[8].messages[1].content);
+  assert.equal(baldrContext.prior_builder_outcomes.length, 8);
+});
+
 test("Baldr cannot run until all eight other Builder outcomes are present", async () => {
   let calls = 0;
   const h = makeHarness({ fetchImpl: async () => {
