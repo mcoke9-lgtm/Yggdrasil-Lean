@@ -28,7 +28,94 @@
   ],
   "evaluation_suite_ref": "tests/model-capabilities/phase-a-suite-v0.1.json",
   "evaluation_rubric_ref": "schemas/capability-evaluation-rubric-v0.1.json",
-  "source_candidates": [],
+  "source_candidates": [
+    {
+      "model_family_ref": "qwen3_5_0_8b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    },
+    {
+      "model_family_ref": "lfm3_1_7b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies size, context, deployment formats and task limitations."
+        },
+        {
+          "ref": "https://www.liquid.ai/lfm-license",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    },
+    {
+      "model_family_ref": "qwen3_5_2b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    },
+    {
+      "model_family_ref": "smollm3_3b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official card identifies Apache-2.0, 3B size, 64K native context, public training data mixture and training configurations."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    },
+    {
+      "model_family_ref": "gemma4_e2b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, total/effective parameter counts, context and modalities."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    }
+  ],
   "target_resource_profile_id": "profile.seed_compact.provisional",
   "reduction_method": "not_selected",
   "candidate_compact_artifact_ref": null,
