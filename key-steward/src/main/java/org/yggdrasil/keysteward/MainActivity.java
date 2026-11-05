@@ -42,11 +42,6 @@ public final class MainActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_SECURE);
         buildUi();
         if (pendingBytes != null) copyButton.setEnabled(true);
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        ClipDescription currentClip = clipboard.getPrimaryClipDescription();
-        if (currentClip != null && "BUILDER_KEYSTORE_BASE64".contentEquals(currentClip.getLabel())) {
-            clearClipboardButton.setEnabled(true);
-        }
     }
 
     private void buildUi() {
@@ -109,7 +104,7 @@ public final class MainActivity extends Activity {
 
         clearClipboardButton = new Button(this);
         clearClipboardButton.setText("Clear clipboard after saving the GitHub secret");
-        clearClipboardButton.setEnabled(false);
+        clearClipboardButton.setEnabled(true);
         clearClipboardButton.setOnClickListener(v -> clearClipboard());
         root.addView(clearClipboardButton);
 
@@ -235,9 +230,13 @@ public final class MainActivity extends Activity {
 
     private void clearClipboard() {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
-        clearClipboardButton.setEnabled(false);
-        status.setText("Clipboard cleared. The exported keystore backup remains in the location you selected.");
+        ClipDescription currentClip = clipboard.getPrimaryClipDescription();
+        if (currentClip != null && "BUILDER_KEYSTORE_BASE64".contentEquals(currentClip.getLabel())) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+            status.setText("Key Steward clipboard entry cleared. The exported keystore backup remains in the location you selected.");
+        } else {
+            status.setText("No Key Steward secret is currently on the clipboard; clipboard contents were left unchanged.");
+        }
     }
 
     private void clearPending() {
