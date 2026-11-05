@@ -260,6 +260,10 @@ test("dashboard token protects management endpoints", async () => {
   const address = await dashboard.listen();
   const base = `http://127.0.0.1:${address.port}`;
   try {
+    const page = await fetch(base + "/");
+    assert.equal(page.status, 200);
+    const script = await fetch(base + "/app.js");
+    assert.equal(script.status, 200);
     const denied = await fetch(base + "/api/tasks");
     assert.equal(denied.status, 401);
     const allowed = await fetch(base + "/api/tasks", {
