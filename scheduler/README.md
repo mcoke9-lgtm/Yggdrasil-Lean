@@ -214,6 +214,29 @@ endpoint/model label as proof of independent ownership or model weights. If the
 provider transport cannot abort a request, the executor must report that
 limitation and must not claim cancellation has stopped the external operation.
 
+## OpenAI-compatible host executor (reference adapter)
+
+The repository now includes `src/openai-compatible-executor.js`, a reference host adapter for providers that implement the OpenAI Chat Completions request/response shape. It is an optional executor module, not a configured provider account or a live model connection.
+
+Set these host-only environment variables when starting a dedicated Builder runner:
+
+- `BUILDER_EXECUTOR_MODULE`: absolute path to this module, for example `./src/openai-compatible-executor.js`.
+- `BUILDER_HOST_CONFIG_FILE`: absolute path to an operator-owned JSON route file.
+- `BUILDER_TASK_VAULT_MODULE`: absolute path to an operator-owned ES module exporting `getTask(taskReference)` and `appendBuilderResult(taskReference, record)`.
+- `BUILDER_CREDENTIALS_MODULE`: absolute path to an operator-owned ES module exporting `readSecret(secretRef)`.
+
+A secret-free route-file example is in `examples/builder-host-config.example.json`. Copy it outside the repository, replace the placeholder endpoints/model IDs with approved routes, and set the file to owner-only permissions (for example, `chmod 600`). The route file contains provider IDs, endpoints, model IDs, and secret references only; it must not contain API tokens or task prompts. On POSIX hosts, the adapter rejects a route file that is group/other-readable or writable, or is a symlink.
+
+The task-vault module owns task contents and result history. `getTask(taskReference)` must return an object containing a non-empty `prompt` and optional `history` array. `appendBuilderResult(taskReference, record)` must durably persist the role result and return `{ durable: true, checkpointId: "..." }`. The record includes a stable `runId:ROLE` idempotency key, requested provider/model, provider-reported model when present, response hash, validated reply, and completion time. Store this data in an operator-controlled protected location; do not put prompts or full responses in scheduler task payloads or the scheduler ledger.
+
+The credentials module resolves each `secretRef` from an OS keychain or another operator-managed secret store. It returns a short-lived token string; the adapter never writes the token to scheduler state or logs. If a route has no `secretRef`, the endpoint is treated as an unauthenticated local service. Use HTTPS for remote endpoints; HTTP is accepted only for loopback development.
+
+The adapter requires exactly nine role routes and unique model IDs. Baldr's endpoint and model ID must each differ from every other role. This is routing separation, not cryptographic proof of independent model weights, ownership, or infrastructure. Baldr is invoked only after the other eight roles have recorded outcomes and receives their outcome summaries for independent review.
+
+Provider calls use a 120-second default timeout, a 2,048-token output cap, a 1 MiB request/response limit, and redirect rejection. Cancellation is propagated through `AbortSignal`; the provider transport must honor it. Responses must be JSON chat-completion envelopes whose content is a valid Builder JSON reply. Results are persisted by the task vault before a non-resumable ledger checkpoint is written. An interrupted or uncertain call is not automatically replayed; manual reconciliation remains required.
+
+CI tests use mocked HTTP responses and fake task/credential vaults. They verify route validation, role separation, cancellation, output validation, durable-checkpoint acknowledgement, and Baldr's final review gate. They do **not** verify real provider routes, real credentials, model identity, or unattended host execution. The example configuration uses `.invalid` endpoints and cannot make live calls.
+
 ## Tests
 
 ```sh
