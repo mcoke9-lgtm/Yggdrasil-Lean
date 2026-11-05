@@ -1,0 +1,14 @@
+{
+  "name": "nine-builders-analysis-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable, dependency-free CSV/JSON analysis core with reproducible verification",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "analyze:sample": "node src/cli.js samples/materials.csv reports/materials-report.json"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
