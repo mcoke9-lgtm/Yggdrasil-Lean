@@ -204,3 +204,11 @@ The only permitted progression is:
 The coordinator rejects skipped or out-of-order milestones, mismatched correction/incident IDs, incorrect reply references, Builder-authored adoption, and verification by anyone other than an unaffected Baldr. Before recording adoption, the local ledger revalidates the VERIFIED milestone and its provenance. The Android screen offers a separate Adopt latest verified correction (record only) control with a confirmation dialog. Adoption records acceptance of the correction as project practice; it does not deploy code, change settings, contact services, or authorize external actions. All prior milestones remain in the journal.
 
 The lifecycle validator is deterministic, but the quality of the evidence still depends on the referenced artifact and test being real and appropriately scoped. A model-generated statement is not itself proof of implementation, testing, or verification. Device execution of the Android test suite remains pending.
+
+
+## CI verification checkpoint — 2026-11-05
+
+- Android JVM unit-test workflow run 42106686255 completed SUCCESS on PR head 0a2f4f53ca82b8185771437dfdcd4d1e1f0b427f. Both main Java compilation and test compilation succeeded, and Gradle task :app:testDebugUnitTest completed successfully.
+- The first Android run, 42106471812, failed during Java compilation on a double-escaped newline character literal in the review incident-reference parser. The compiler error was corrected before the successful rerun; the failure is retained in the PR discussion rather than hidden.
+- Lean build and analysis-engine workflow run 42106686481 completed SUCCESS, including the sample CSV acceptance check.
+- This establishes automated JVM/CI test evidence for the PR head. It does not establish device/emulator behavior, live provider behavior, or deployment.
