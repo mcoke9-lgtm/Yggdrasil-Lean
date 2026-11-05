@@ -110,6 +110,28 @@ and platform-specific service installation. The current service has no remote
 push notification channel and is not yet installed on a user's computer or
 Android device.
 
+## Nine Builders bounded-run ledger (prototype)
+
+The `src/run-ledger.js` module adds a durable metadata contract for a Nine Builders
+work window. It records all nine role identities, an eight-hour maximum deadline,
+per-role attempts and outcomes, bounded checkpoint metadata, interruption state,
+and explicit safe-to-resume declarations. Baldr is gated until the other eight
+roles have completed or been explicitly skipped, and a Baldr review outcome
+cannot be silently skipped.
+
+The ledger stores checkpoint metadata (maximum 16 KiB per checkpoint), not model
+prompts, credentials, or full conversation payloads. It uses the scheduler's
+existing store interface and writes a `builderRuns` collection alongside task
+and scheduler-run records.
+
+**Important limitation:** this is a tested state/ledger foundation, not yet a
+scheduled Builder executor. It does not invoke model routes, start or supervise
+a persistent host, send heartbeats, cancel provider requests, or prove that an
+interrupted external operation is safe to replay. A checkpoint is resumable only
+when the worker explicitly records `safeToResume: true`; otherwise recovery
+must stop for reconciliation. The current scheduler runner does not yet register
+a `nine-builders.run` handler.
+
 ## Tests
 
 ```sh
