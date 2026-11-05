@@ -63,7 +63,18 @@ public class BuilderRuntimeServiceTest {
                 BuilderRuntimeProtocol.KEY_CAPABILITIES);
         assertNotNull(capabilities);
         assertTrue(capabilities.contains("PERSISTENT_RUNTIME_IDENTITY"));
-        assertTrue(capabilities.contains("LOCAL_ANDROID_IPC"));\n        assertTrue(capabilities.contains("DEVICE_CAPABILITY_INVENTORY"));\n        org.json.JSONObject device = new org.json.JSONObject(\n                received[0].getString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON));\n        assertEquals(1, device.getInt("schema_version"));\n        assertTrue(device.getInt("api_level") > 0);\n        assertTrue(device.getLong("memory_total_bytes") > 0);\n        assertTrue(device.getLong("data_storage_total_bytes") > 0);\n        assertEquals("DEVICE_CAPABILITIES_ONLY_NO_PERSONAL_IDENTIFIERS",\n                device.getString("collection_scope"));\n        assertTrue(!device.has("android_id"));\n        assertTrue(!device.has("imei"));
+        assertTrue(capabilities.contains("LOCAL_ANDROID_IPC"));
+        assertTrue(capabilities.contains("DEVICE_CAPABILITY_INVENTORY"));
+        org.json.JSONObject device = new org.json.JSONObject(
+                received[0].getString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON));
+        assertEquals(1, device.getInt("schema_version"));
+        assertTrue(device.getInt("api_level") > 0);
+        assertTrue(device.getLong("memory_total_bytes") > 0);
+        assertTrue(device.getLong("data_storage_total_bytes") > 0);
+        assertEquals("DEVICE_CAPABILITIES_ONLY_NO_PERSONAL_IDENTIFIERS",
+                device.getString("collection_scope"));
+        assertTrue(!device.has("android_id"));
+        assertTrue(!device.has("imei"));
 
         controller.destroy();
         replyThread.quitSafely();
