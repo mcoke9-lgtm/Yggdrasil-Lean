@@ -3,6 +3,7 @@ package org.yggdrasil.scheduler.builder;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -133,6 +134,14 @@ public final class BuilderCorrectionLedger {
         }
         if (!"VERIFIED".equals(latestStage))
             throw new IllegalStateException("Only the latest VERIFIED correction can be adopted");
+        if (latest.speaker != BuilderConversationProtocol.Participant.BALDR)
+            throw new IllegalStateException("Only an independent Baldr verification can be adopted");
+        List<BuilderConversationProtocol.Turn> beforeVerification = new ArrayList<>();
+        for (BuilderConversationProtocol.Turn prior : context) {
+            if (prior.turnId.equals(latest.turnId)) break;
+            beforeVerification.add(prior);
+        }
+        validateUpdate(latest, beforeVerification);
         JSONObject verifiedBody = object(latest.body, "Verified correction update");
         JSONObject adoption = new JSONObject();
         try {
@@ -163,9 +172,15 @@ public final class BuilderCorrectionLedger {
         long candidateTime = 0L;
         for (BuilderConversationProtocol.Turn turn : context) {
             if (turn.type != BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
-                    || turn.evidenceStatus != BuilderConversationProtocol.EvidenceStatus.VERIFIED) continue;
+                    || turn.evidenceStatus != BuilderConversationProtocol.EvidenceStatus.VERIFIED
+                    || turn.speaker != BuilderConversationProtocol.Participant.BALDR) continue;
             JSONObject body = object(turn.body, "Correction update");
             String id = required(body, "correction_id");
+            BuilderConversationProtocol.Turn plan = findPlan(context, id);
+            if (plan == null) continue;
+            String incidentId = required(object(plan.body, "Correction plan"), "incident_turn_id");
+            BuilderConversationProtocol.Turn incident = findTurn(context, incidentId);
+            if (incident == null || incident.speaker == BuilderConversationProtocol.Participant.BALDR) continue;
             boolean adopted = false;
             for (BuilderConversationProtocol.Turn later : context) {
                 if (later.timestampEpochMillis <= turn.timestampEpochMillis
