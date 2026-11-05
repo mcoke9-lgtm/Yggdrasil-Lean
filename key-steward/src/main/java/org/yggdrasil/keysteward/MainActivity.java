@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
     private EditText confirmation;
     private TextView status;
     private Button copyButton;
+    private Button clearClipboardButton;
     private byte[] pendingBytes;
 
     @Override public void onCreate(Bundle state) {
@@ -90,6 +91,12 @@ public final class MainActivity extends Activity {
         copyButton.setEnabled(false);
         copyButton.setOnClickListener(v -> copyBase64());
         root.addView(copyButton);
+
+        clearClipboardButton = new Button(this);
+        clearClipboardButton.setText("Clear clipboard after saving the GitHub secret");
+        clearClipboardButton.setEnabled(false);
+        clearClipboardButton.setOnClickListener(v -> clearClipboard());
+        root.addView(clearClipboardButton);
 
         status = new TextView(this);
         status.setTextSize(14);
@@ -189,7 +196,15 @@ public final class MainActivity extends Activity {
         clipboard.setPrimaryClip(clip);
         clearPending();
         copyButton.setEnabled(false);
-        status.setText("Base64 copied to this phone's clipboard. Paste it directly into GitHub secret BUILDER_KEYSTORE_BASE64. Do not paste it into chat or a public location. The in-memory key copy has been cleared.");
+        clearClipboardButton.setEnabled(true);
+        status.setText("Base64 copied to this phone's clipboard. Paste it directly into GitHub secret BUILDER_KEYSTORE_BASE64. Do not paste it into chat or a public location. Then return here and clear the clipboard.");
+    }
+
+    private void clearClipboard() {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+        clearClipboardButton.setEnabled(false);
+        status.setText("Clipboard cleared. The exported keystore backup remains in the location you selected.");
     }
 
     private void clearPending() {
@@ -198,13 +213,8 @@ public final class MainActivity extends Activity {
         if (copyButton != null) copyButton.setEnabled(false);
     }
 
-    @Override protected void onSaveInstanceState(Bundle state) {
-        if (pendingBytes != null) state.putByteArray("pending_keystore", pendingBytes);
-        super.onSaveInstanceState(state);
-    }
-
     @Override protected void onDestroy() {
-        // Do not destroy the in-memory copy on configuration change; process death clears it.
+        clearPending();
         super.onDestroy();
     }
 
