@@ -12,6 +12,10 @@ on:
       - '.github/workflows/independent-builder-runtime.yml'
   workflow_dispatch:
 
+concurrency:
+  group: independent-builder-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
