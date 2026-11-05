@@ -43,7 +43,7 @@ jobs:
           python3 - <<'PY'
           import json, re, pathlib
           registry=json.loads(pathlib.Path('app-registry/registry.json').read_text())
-          ids=[a['package_id'] for a in registry['applications'] if a.get('package_id')]
+          ids=registry['device_inventory_scope']
           assert len(ids)==len(set(ids)), 'Duplicate package IDs in canonical registry'
           manifest=pathlib.Path('registry-dashboard/src/main/AndroidManifest.xml').read_text()
           declared=re.findall(r'<package android:name="([^"]+)"', manifest)
