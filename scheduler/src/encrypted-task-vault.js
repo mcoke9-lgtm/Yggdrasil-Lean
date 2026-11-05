@@ -188,3 +188,15 @@ export function createEncryptedTaskVault({
     }
   });
 }
+
+let defaultVault;
+function configuredVault() {
+  if (!defaultVault) defaultVault = createEncryptedTaskVault();
+  return defaultVault;
+}
+export async function getTask(taskReference, context) {
+  return configuredVault().getTask(taskReference, context);
+}
+export async function appendBuilderResult(taskReference, record) {
+  return configuredVault().appendBuilderResult(taskReference, record);
+}
