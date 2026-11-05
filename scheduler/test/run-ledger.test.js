@@ -146,3 +146,71 @@ test("does not consume the eight-hour budget while a scheduled run is queued", a
   assert.equal(started.startedAt, "2026-11-06T01:00:00.000Z");
   assert.equal(started.deadlineAt, "2026-11-06T02:00:00.000Z");
 });
+
+import { registerBuilderRunHandler, BUILDER_RUN_HANDLER_TYPE } from "../src/builder-run-handler.js";
+import { BuilderRunLedger, BUILDER_ROLES } from "../src/run-ledger.js";
+
+test("scheduler invokes all nine Builders through the injected executor and Baldr reviews last", async () => {
+  const store = new MemoryStore();
+  const scheduler = new Scheduler({ store, clock });
+  const ledger = new BuilderRunLedger({ store, clock });
+  const invoked = [];
+  const output = [];
+  registerBuilderRunHandler(scheduler, {
+    ledger,
+    executor: async (role, context) => {
+      invoked.push(role);
+      if (role === "BALDR") {
+        assert.equal(context.outcomes.length, 8);
+        assert.ok(context.outcomes.every(item => item.status === "succeeded"));
+      }
+      await context.checkpoint({
+        checkpointId: role.toLowerCase() + "-complete",
+        data: { role }, safeToResume: true
+      });
+      return { status: "succeeded", summary: role + " completed" };
+    },
+    output: line => output.push(JSON.parse(line))
+  });
+  await scheduler.addTask({
+    id: "nine-builder-task",
+    name: "Nine Builders scheduled run",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { durationMs: 60 * 60 * 1000 },
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.deepEqual(invoked, BUILDER_ROLES);
+  assert.equal(output[0].event, "nine_builders_run_completed");
+  const saved = await ledger.listRuns();
+  assert.equal(saved[0].status, "completed");
+  assert.equal(saved[0].builders.length, 9);
+  assert.ok(saved[0].builders.every(item => item.status === "succeeded" && item.checkpoint));
+});
+
+test("scheduler records a Builder failure and still gives Baldr the full outcome set", async () => {
+  const store = new MemoryStore();
+  const scheduler = new Scheduler({ store, clock });
+  const ledger = new BuilderRunLedger({ store, clock });
+  let baldrOutcomes;
+  registerBuilderRunHandler(scheduler, {
+    ledger,
+    executor: async (role, context) => {
+      if (role === "HODR") throw new Error("simulated implementation failure");
+      if (role === "BALDR") baldrOutcomes = context.outcomes;
+      return { status: "succeeded" };
+    },
+    output: () => {}
+  });
+  await scheduler.addTask({
+    id: "nine-builder-failure",
+    name: "Nine Builders failure run",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.equal(baldrOutcomes.find(item => item.role === "HODR").status, "failed");
+  assert.equal((await ledger.listRuns())[0].status, "completed_with_failures");
+});
