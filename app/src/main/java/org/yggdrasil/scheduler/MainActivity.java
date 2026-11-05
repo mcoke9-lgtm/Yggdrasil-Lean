@@ -74,6 +74,7 @@ public final class MainActivity extends Activity {
         root.addView(button("Check Builder journal integrity", this::refreshBuilderStatus));
         root.addView(button("Export Builder memory", this::beginContinuityExport));
         root.addView(button("Import Builder memory", this::beginContinuityImport));
+        root.addView(button("Test recovery safeguards (safe)", this::runRecoverySafetyTest));
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
@@ -115,6 +116,57 @@ public final class MainActivity extends Activity {
     }
     private static final int REQUEST_EXPORT_CONTINUITY = 7101;
     private static final int REQUEST_IMPORT_CONTINUITY = 7102;
+
+    /**
+     * Exercises tamper rejection against the live journal without intentionally
+     * replacing it. The altered snapshot exists only in memory. If a regression
+     * unexpectedly accepts it, restore the untouched in-memory snapshot before
+     * reporting failure.
+     */
+    private void runRecoverySafetyTest() {
+        try {
+            BuilderEventJournal journal = new BuilderEventJournal(this);
+            org.json.JSONObject original = journal.exportSnapshot();
+            org.json.JSONArray events = original.optJSONArray("events");
+            if (events == null || events.length() == 0) {
+                builderStatus.setText("Recovery safety test needs at least one journal event; record a note first.");
+                return;
+            }
+            long originalCount = journal.eventCount();
+            boolean originalIntegrity = journal.verifyChain();
+            org.json.JSONObject altered = new org.json.JSONObject(original.toString());
+            org.json.JSONObject firstEvent = altered.getJSONArray("events").getJSONObject(0);
+            firstEvent.put("payload", firstEvent.getString("payload") + " [intentional in-memory tamper test]");
+
+            boolean rejected = false;
+            String rejectionReason = "";
+            try {
+                journal.restoreSnapshot(altered);
+            } catch (Exception expected) {
+                rejected = true;
+                rejectionReason = expected.getMessage() == null ? expected.getClass().getSimpleName() : expected.getMessage();
+            }
+
+            if (!rejected) {
+                // Defensive recovery: never leave the live journal on the altered test snapshot.
+                journal.restoreSnapshot(original);
+            }
+
+            org.json.JSONObject after = journal.exportSnapshot();
+            boolean unchanged = original.toString().equals(after.toString());
+            boolean integrity = journal.verifyChain();
+            if (rejected && unchanged && originalCount == journal.eventCount()
+                    && originalIntegrity && integrity) {
+                builderStatus.setText("Recovery safety test PASSED · altered snapshot rejected · live journal unchanged · chain verified");
+            } else {
+                builderStatus.setText("Recovery safety test FAILED · "
+                        + (rejected ? "rejection occurred but journal comparison failed" : "altered snapshot was unexpectedly accepted and original snapshot was restored")
+                        + " · chain " + (integrity ? "verified" : "FAILED"));
+            }
+        } catch (Exception e) {
+            builderStatus.setText("Recovery safety test could not complete: " + e.getMessage());
+        }
+    }
 
     private void beginContinuityExport() {
         try {
