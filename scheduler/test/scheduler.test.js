@@ -288,3 +288,33 @@ test("process lock prevents a second scheduler instance and releases cleanly", a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("dashboard task changes are not lost while a scheduled handler is running", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let signalStarted;
+  let releaseHandler;
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  const gate = new Promise(resolve => { releaseHandler = resolve; });
+  scheduler.registerHandler("test.slow", async () => {
+    signalStarted();
+    await gate;
+  });
+  await scheduler.addTask({
+    id: "slow-running",
+    name: "Slow running task",
+    handlerType: "test.slow",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await started;
+  const added = await scheduler.addTask({
+    id: "added-during-run",
+    name: "Added during run",
+    handlerType: "test.slow",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:01:00Z" }
+  });
+  assert.equal(added.id, "added-during-run");
+  releaseHandler();
+  await execution;
+  assert.ok((await scheduler.listTasks()).some(task => task.id === "added-during-run"));
+});
