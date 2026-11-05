@@ -348,12 +348,12 @@ The later lifecycle manager must enforce these invariants:
 
 ### Machine-readable contracts
 
-Two versioned JSON artifacts now accompany this specification:
+Five versioned JSON artifacts now accompany this specification:
 - `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
 - `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (63 required capability tests total).
 - `schemas/model-reduction-study-v0.1.json` — a planned study for selecting, evaluating, and packaging a compact model; no candidate model has been selected or tested.
 
-The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
+All five machine-readable artifacts were fetched back from the repository and structurally checked: they parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
 A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All five machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
@@ -392,7 +392,7 @@ The study currently has **zero candidate models** and remains `planned`. It requ
 | Deliverable | Required evidence | State |
 |---|---|---|
 | Identity/assignment contract | Stable IDs, separate identity and model-instance records, assignment audit rules | Specified |
-| Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 54 capability tests specified; thresholds proposed, not adopted; model tests pending |
+| Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 63 capability tests specified; thresholds proposed, not adopted; model tests pending |
 | Model/artifact registry | Family, artifact, and instance records with provenance | JSON Schema definitions specified; live artifact inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | 23 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
