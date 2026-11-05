@@ -301,11 +301,11 @@ function unavailableOperationalLimitsSnapshot(reason) {
 function validateOperationalLimitsSnapshot(value) {
   if (value == null) return unavailableOperationalLimitsSnapshot("No host operational-limits snapshot was supplied.");
   if (!value || typeof value !== "object" || Array.isArray(value) ||
-      !Array.isArray(value.constraints) || value.unlisted_capability_decision !== "RECHECK_REQUIRED") {
+      !Array.isArray(value.constraints)) {
     return unavailableOperationalLimitsSnapshot("Operational-limits snapshot is malformed; availability remains unknown.");
   }
   if (value.register_status === "UNAVAILABLE") {
-    if (value.schema !== "yggdrasil.operational-capacity-runtime-snapshot" || value.live_telemetry !== false) {
+    if (value.schema !== "yggdrasil.operational-capacity-runtime-snapshot" || value.live_telemetry !== false || value.unlisted_capability_decision !== "RECHECK_REQUIRED") {
       return unavailableOperationalLimitsSnapshot("Unavailable snapshot failed schema checks; availability remains unknown.");
     }
     return value;
