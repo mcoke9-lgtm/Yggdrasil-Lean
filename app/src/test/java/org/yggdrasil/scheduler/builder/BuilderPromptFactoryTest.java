@@ -124,4 +124,18 @@ public class BuilderPromptFactoryTest {
         assertFalse(prompt.systemInstruction.contains("LOWER FIRA / THURISAZ"));
         assertFalse(prompt.userMessage.contains("operating_mode"));
     }
+
+    @Test public void promptExplainsInterruptionAndStructuredImprovementIncident() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review this method.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.KVASIR, Collections.singletonList(user), user);
+        assertTrue(prompt.systemInstruction.contains("Any Builder may interrupt"));
+        assertTrue(prompt.systemInstruction.contains("An INTERRUPTION halts remaining Builder calls"));
+        assertTrue(prompt.systemInstruction.contains("OPEN_DIAGNOSIS"));
+        assertTrue(prompt.userMessage.contains("IMPROVEMENT_INCIDENT"));
+        assertTrue(prompt.userMessage.contains("INTERRUPTION"));
+    }
+
 }
