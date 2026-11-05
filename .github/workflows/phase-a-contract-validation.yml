@@ -10,6 +10,7 @@ on:
       - "schemas/capability-evaluation-rubric-v0.1.json"
       - "schemas/model-reduction-study-v0.1.json"
       - "schemas/model-family-candidate-inventory-v0.1.json"
+      - "schemas/model-artifact-inventory-v0.1.json"
       - "schemas/capability-evaluation-rubric-v0.1.json"
       - "schemas/model-reduction-study-v0.1.json"
       - "schemas/model-family-candidate-inventory-v0.1.json"
