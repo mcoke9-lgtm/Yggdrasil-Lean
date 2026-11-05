@@ -99,6 +99,14 @@ public final class BuilderConversationProtocol {
                     throw new IllegalArgumentException("Replies must reference an earlier turn");
                 if (turn.type != TurnType.HANDOFF && turn.recipient != null && turn.recipient != referenced.speaker)
                     throw new IllegalArgumentException("Recipient must match the referenced speaker");
+                boolean answersDirectedTurn = turn.type == TurnType.RESPONSE
+                        || turn.type == TurnType.ACKNOWLEDGEMENT;
+                boolean referencedWasDirected = referenced.type == TurnType.QUESTION
+                        || referenced.type == TurnType.CHALLENGE
+                        || referenced.type == TurnType.HANDOFF;
+                if (answersDirectedTurn && referencedWasDirected
+                        && turn.speaker != referenced.recipient)
+                    throw new IllegalArgumentException("Only the addressed participant may answer or acknowledge this turn");
             }
             priorTurns.put(turn.turnId, turn);
             previousTimestamp = turn.timestampEpochMillis;
