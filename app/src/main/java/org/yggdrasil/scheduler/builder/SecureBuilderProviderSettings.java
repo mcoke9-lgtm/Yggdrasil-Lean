@@ -116,15 +116,12 @@ public final class SecureBuilderProviderSettings {
         }
     }
 
-    public synchronized void clear() {
-        preferences.edit().clear().commit();
-        try {
-            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
-            store.load(null);
-            if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS);
-        } catch (Exception ignored) {
-            // Preferences are cleared; a stale unused Keystore key contains no token.
-        }
+    public synchronized void clear() throws Exception {
+        if (!preferences.edit().clear().commit())
+            throw new IllegalStateException("Could not clear provider settings");
+        KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+        store.load(null);
+        if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS);
     }
 
     private static SecretKey getOrCreateKey() throws Exception {
