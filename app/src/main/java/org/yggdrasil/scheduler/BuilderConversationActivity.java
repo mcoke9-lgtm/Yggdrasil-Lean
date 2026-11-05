@@ -467,6 +467,12 @@ public final class BuilderConversationActivity extends Activity {
                 if (!result.failedRoles.isEmpty()) summary += " · failed: " + roleNames(result.failedRoles);
                 if (!result.unroutedRecipients.isEmpty())
                     summary += " · not routed: " + roleNames(result.unroutedRecipients);
+                if (result.interrupted) {
+                    summary += " · INTERRUPTED by " + result.interruptedBy.getDisplayName()
+                            + " (" + result.interruptionType.name() + ")";
+                    if (!result.notRunRoles.isEmpty())
+                        summary += " · paused before: " + roleNames(result.notRunRoles);
+                }
                 final String finalSummary = summary;
                 if (!destroyed) runOnUiThread(() -> {
                     busy = false;
