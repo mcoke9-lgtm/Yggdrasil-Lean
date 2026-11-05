@@ -74,3 +74,15 @@ test("rejects a host module without the required executor factory", async () => 
     loadModule: async () => ({})
   }), /must export createBuilderExecutor/);
 });
+
+
+test("rejects a shared scheduler and Builder ledger file", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore() });
+  const samePath = "/tmp/yggdrasil-test/shared.json";
+  await assert.rejects(() => registerOptionalBuilderRuntime({
+    scheduler,
+    schedulerStateFile: samePath,
+    executorModulePath: "/tmp/host-executor.mjs",
+    loadModule: async () => ({ createBuilderExecutor: async () => async () => ({ status: "succeeded" }) })
+  }), /separate state file/);
+});
