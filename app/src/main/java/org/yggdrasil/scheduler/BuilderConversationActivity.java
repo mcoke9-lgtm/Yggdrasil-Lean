@@ -276,7 +276,7 @@ public final class BuilderConversationActivity extends Activity {
                 .setPositiveButton("Allow and send", (dialog, which) -> {
                     getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                             .putString(KEY_DISCLOSURE, disclosureKey).apply();
-                    performSend(message, selected);
+                    performSend(preparedMessage, selected);
                 }).show();
     }
 
