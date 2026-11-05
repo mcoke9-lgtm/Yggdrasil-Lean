@@ -29,7 +29,7 @@ Each subject record contains:
 | `conversation_protocol_ref` | Link to the shared turn protocol |
 | `thread_refs` | Conversation threads associated with this subject |
 
-The machine-readable record is `subject-registry/registry.json`; its JSON Schema is `schemas/subject-registry-v1.schema.json`.
+The machine-readable record is `subject-registry/registry.json`; its JSON Schema is `schemas/subject-registry-v1.schema.json`. Each subheading includes deterministic recognition terms used by the first subject resolver.
 
 ## Builder stewardship
 
