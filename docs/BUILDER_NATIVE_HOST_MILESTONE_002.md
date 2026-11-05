@@ -40,7 +40,7 @@ The Android deployment is the first implementation of the Builder-native host, n
 
 ## NUC alternative-host plan
 
-The NUC is a future alternative physical host. It should run a supported operating system chosen after hardware inspection. A Linux distribution is the leading direction, not yet an adopted installation choice.
+The future device is an Intel NUC5i5RYH (published CPU: 2 cores / 4 threads; published maximum RAM: 16 GB). It currently has no operating system installed. Installed RAM, storage, and network hardware remain unknown. Debian 13 minimal server is the current candidate, not an adopted installation decision. The user previously chose to defer NUC/USB work and develop on the Galaxy S21 first.
 
 Before installing an OS:
 - identify exact NUC model, CPU generation, RAM, storage, network interfaces, and firmware/boot options;
