@@ -29,13 +29,26 @@ public final class BuilderRecoveryActivation {
         void sync(File directory) throws Exception;
     }
 
+    interface AtomicRename {
+        void rename(File source, File target) throws Exception;
+    }
+
     private static final DirectorySync PLATFORM_DIRECTORY_SYNC = BuilderRecoveryActivation::syncDirectoryWithOs;
+    private static final AtomicRename PLATFORM_ATOMIC_RENAME =
+            (source, target) -> Os.rename(source.getAbsolutePath(), target.getAbsolutePath());
+    private static volatile AtomicRename atomicRename = PLATFORM_ATOMIC_RENAME;
+    private static final long MAX_METADATA_FILE_BYTES = 1024L * 1024L;
     private static volatile DirectorySync directorySync = PLATFORM_DIRECTORY_SYNC;
 
     // Package-private seam: Robolectric's host filesystem does not reliably support
     // fsync on directory descriptors. Production always uses the platform implementation.
     static synchronized void setDirectorySyncForTests(DirectorySync sync) {
         directorySync = sync == null ? PLATFORM_DIRECTORY_SYNC : sync;
+    }
+
+    // Robolectric uses the host filesystem; production retains Android's POSIX rename.
+    static synchronized void setAtomicRenameForTests(AtomicRename rename) {
+        atomicRename = rename == null ? PLATFORM_ATOMIC_RENAME : rename;
     }
 
     public static final class ActivePair {
@@ -277,11 +290,10 @@ public final class BuilderRecoveryActivation {
         syncDirectory(target.getParentFile());
     }
 
-    private static void renameAtomically(File source, File target) throws java.io.IOException {
-        // Both files are siblings on the same filesystem. Android's File.renameTo
-        // delegates to the platform rename operation and preserves atomic visibility.
-        if (!source.renameTo(target))
-            throw new java.io.IOException("Atomic rename failed: " + source.getName());
+    private static void renameAtomically(File source, File target) throws Exception {
+        // Production uses android.system.Os.rename: same-directory POSIX rename
+        // atomically replaces an existing manifest. Tests inject host-filesystem rename.
+        atomicRename.rename(source, target);
     }
 
     private static void writeSynced(File file, String value) throws Exception {
@@ -303,7 +315,10 @@ public final class BuilderRecoveryActivation {
     }
 
     private static String readFile(File file) throws Exception {
-        byte[] bytes = new byte[(int) file.length()];
+        long length = file.length();
+        if (length < 0 || length > MAX_METADATA_FILE_BYTES)
+            throw new java.io.IOException("Recovery metadata file exceeds the 1 MiB safety limit");
+        byte[] bytes = new byte[(int) length];
         try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
             int offset = 0;
             while (offset < bytes.length) {
