@@ -84,6 +84,59 @@ public class BuilderConversationCoordinatorTest {
         assertEquals(BuilderConversationProtocol.Participant.BALDR, recovered.get(1).speaker);
     }
 
+    @Test public void routesBuilderQuestionToNamedPeerAndAllowsPeerResponse() {
+        BuilderConversationStore journal = openStore();
+        BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
+                journal,
+                (role, context, userTurn) -> {
+                    if (role == BuilderRole.HUGINN) {
+                        return new BuilderConversationCoordinator.Reply(
+                                "Kvasir, verify the source evidence.",
+                                BuilderConversationProtocol.EvidenceStatus.PROPOSED,
+                                BuilderConversationProtocol.TurnType.QUESTION,
+                                BuilderConversationProtocol.Participant.KVASIR,
+                                null);
+                    }
+                    if (role == BuilderRole.KVASIR) {
+                        BuilderConversationProtocol.Turn question = context.get(context.size() - 1);
+                        assertEquals(BuilderConversationProtocol.Participant.KVASIR,
+                                question.recipient);
+                        return new BuilderConversationCoordinator.Reply(
+                                "The source supports the claim, with one limitation.",
+                                BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                                BuilderConversationProtocol.TurnType.RESPONSE,
+                                BuilderConversationProtocol.Participant.HUGINN,
+                                question.turnId);
+                    }
+                    throw new IllegalArgumentException("Unexpected Builder role");
+                });
+
+        BuilderConversationCoordinator.Result result = coordinator.submit(
+                "peer-dialogue-thread", "Investigate this claim.",
+                Arrays.asList(BuilderRole.HUGINN, BuilderRole.KVASIR));
+
+        assertTrue(result.failedRoles.isEmpty());
+        assertEquals(3, result.appendedTurns.size());
+        BuilderConversationProtocol.Turn question = result.appendedTurns.get(1);
+        BuilderConversationProtocol.Turn response = result.appendedTurns.get(2);
+        assertEquals(BuilderConversationProtocol.TurnType.QUESTION, question.type);
+        assertEquals(BuilderConversationProtocol.Participant.KVASIR, question.recipient);
+        assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, response.type);
+        assertEquals(BuilderConversationProtocol.Participant.HUGINN, response.recipient);
+        assertEquals(question.turnId, response.replyToTurnId);
+        BuilderConversationProtocol.validateThread(journal.readThread("peer-dialogue-thread"));
+    }
+
+    @Test public void rejectsBuilderDecisionTurnsAtReplyConstruction() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new BuilderConversationCoordinator.Reply(
+                        "The project is approved.",
+                        BuilderConversationProtocol.EvidenceStatus.PROPOSED,
+                        BuilderConversationProtocol.TurnType.DECISION,
+                        BuilderConversationProtocol.Participant.USER,
+                        null));
+    }
+
     @Test public void rejectsDuplicateRolesBeforeRecordingUserTurn() {
         BuilderConversationStore journal = openStore();
         BuilderConversationCoordinator coordinator = new BuilderConversationCoordinator(
