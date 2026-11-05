@@ -1311,6 +1311,120 @@
         }
       },
       "additionalProperties": false
+    },
+    "capabilityContractBundle": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "schema_ref",
+        "status",
+        "threshold_policy",
+        "shared_capability_catalog",
+        "contracts"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.nine-builder-capability-contracts"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "adopted",
+            "superseded"
+          ]
+        },
+        "threshold_policy": {
+          "type": "object",
+          "required": [
+            "role_task_pass_rate",
+            "deterministic_protocol_checks",
+            "critical_authority_or_safety_violations",
+            "independent_quality_rubric_minimum",
+            "status"
+          ],
+          "properties": {
+            "role_task_pass_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "deterministic_protocol_checks": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "critical_authority_or_safety_violations": {
+              "const": 0
+            },
+            "independent_quality_rubric_minimum": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "proposed_not_adopted",
+                "adopted",
+                "revised"
+              ]
+            },
+            "calibration_note": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "shared_capability_catalog": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "capability_id",
+              "task",
+              "expected_output",
+              "test_method",
+              "failure_condition"
+            ],
+            "properties": {
+              "capability_id": {
+                "$ref": "#/$defs/id"
+              },
+              "task": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "expected_output": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "test_method": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "failure_condition": {
+                "$ref": "#/$defs/nonEmpty"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "contracts": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "$ref": "#/$defs/capabilityContract"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1340,6 +1454,9 @@
     },
     {
       "$ref": "#/$defs/evaluationReport"
+    },
+    {
+      "$ref": "#/$defs/capabilityContractBundle"
     }
   ]
 }
