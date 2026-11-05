@@ -100,7 +100,7 @@ public final class BuilderRoleProviderSettings {
             SecureBuilderProviderSettings.Configuration other = configuration(role);
             if (other == null) continue;
             hasOtherRoute = true;
-            if (baldr.endpoint.equals(other.endpoint) && baldr.model.equals(other.model))
+            if (baldr.endpoint.equals(other.endpoint) || baldr.model.equals(other.model))
                 return false;
         }
         return hasOtherRoute;
