@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { JsonFileStore } from "./store.js";
 import { Scheduler } from "./scheduler.js";
+import { registerGithubWatch } from "./github-watch.js";
 
 const stateFile = resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.json");
 const pollMs = Number(process.env.SCHEDULER_POLL_MS || 15000);
@@ -15,6 +16,8 @@ const scheduler = new Scheduler({
 
 // Only fixed, reviewed handlers are registered here. Add real integrations as
 // explicit modules with narrowly scoped credentials and approval requirements.
+registerGithubWatch(scheduler);
+
 scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
   process.stdout.write(JSON.stringify({
     event: "scheduled_heartbeat",
