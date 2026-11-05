@@ -37,6 +37,15 @@ public class BuilderSubjectThreadIndexTest {
         assertEquals("identity", index.readThread("thread-1").get(2).subjectId);
     }
 
+    @Test public void readOrderFollowsAppendSequenceNotClockOrdering() {
+        index.append(new BuilderSubjectThreadIndex.Event("e1", "thread-1", "cryptography",
+                BuilderSubjectThreadIndex.EventType.SUBJECT_ATTACHED, null, null, 3000));
+        index.append(new BuilderSubjectThreadIndex.Event("e2", "thread-1", "identity",
+                BuilderSubjectThreadIndex.EventType.SUBJECT_ATTACHED, null, null, 2000));
+        assertEquals("e1", index.readThread("thread-1").get(0).eventId);
+        assertEquals("e2", index.readThread("thread-1").get(1).eventId);
+    }
+
     @Test public void participantSelectionIsRecordedWithoutOwningConversationTurns() {
         index.append(new BuilderSubjectThreadIndex.Event("e1", "thread-1", "cryptography",
                 BuilderSubjectThreadIndex.EventType.PARTICIPANT_SELECTED, null, "BALDR", 1000));
