@@ -46,7 +46,7 @@ Each event carries a unique event ID, thread ID, subject ID, event type, optiona
 
 The index can export a metadata-only JSON snapshot with a SHA-256 content checksum. This checksum detects accidental content changes; it is not encryption, authentication, or proof of origin. The snapshot intentionally does not duplicate conversation turns or include provider credentials.
 
-The index uses a separate database file, so this milestone does not alter or migrate the existing conversation journal database. The current index implementation is a storage primitive: automatic wiring from the conversation screen/coordinator, import/restore, cross-device synchronization, and end-to-end export packaging remain future work.
+The index uses a separate database file, so this milestone does not alter or migrate the existing conversation journal database. The conversation screen now records a uniquely matched subject, its matched subheadings, and the selected Builders as one atomic metadata batch before submitting the conversation round. If this non-authoritative sidecar write fails, the conversation is allowed to proceed and the UI reports that continuity metadata was unavailable. This does not create a cross-database transaction with the canonical journal. Import/restore, cross-device synchronization, and end-to-end export packaging remain future work.
 
 ## Evidence and decision handling
 
@@ -71,13 +71,14 @@ The current coordinator remains single-process. The nine roles are coordinated p
 - The user remains a first-class participant and final authority.
 - Subject-thread events are append-only and uniquely identified.
 - A conversation thread can accumulate multiple subjects/subheadings.
+- The conversation screen records matched subject, subheadings, and selected participants atomically in the sidecar.
+- A sidecar write failure does not block or rewrite the canonical conversation journal.
 - Metadata export is checksummed and excludes canonical turn bodies and credentials.
 - Existing conversation journal schema and history remain unchanged.
 - No claim is made that nine independent model workers are operational.
 
 ## Remaining implementation
 
-1. Integrate index event writes with the conversation screen/coordinator.
-2. Add validated snapshot import/restore and include the index in the recovery export package.
-3. Test subject continuity, export/restore and journal integrity on the Galaxy S21+ using non-sensitive test content.
-4. Add cross-device synchronization only with explicit conflict and provenance rules.
+1. Add validated snapshot import/restore and include the index in the recovery export package.
+2. Test subject continuity, export/restore and journal integrity on the Galaxy S21+ using non-sensitive test content, after explicit approval for any installation or device change.
+3. Add cross-device synchronization only with explicit conflict and provenance rules.
