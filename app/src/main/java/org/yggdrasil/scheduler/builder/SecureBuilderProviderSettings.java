@@ -150,7 +150,7 @@ public final class SecureBuilderProviderSettings {
     private SecretKey getOrCreateKey() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
-        if (store.containsAlias(KEY_ALIAS))
+        if (store.containsAlias(keyAlias))
             return ((KeyStore.SecretKeyEntry) store.getEntry(keyAlias, null)).getSecretKey();
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(keyAlias,
