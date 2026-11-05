@@ -26,10 +26,12 @@ scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
 });
 
 let stopping = false;
+let tickActive = false;
 let activeTick = Promise.resolve();
 
 async function tick() {
-  if (stopping) return;
+  if (stopping || tickActive) return;
+  tickActive = true;
   activeTick = scheduler.runDue();
   try {
     const result = await activeTick;
