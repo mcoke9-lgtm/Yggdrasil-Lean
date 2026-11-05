@@ -16,7 +16,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * serializes threads before they attempt the OS lock; same-thread nested calls
  * reuse the already-held file lock rather than triggering OverlappingFileLockException.
  *
- * This class is intentionally not wired into startup, activation, or live stores.
+ * Activation, guarded selection, and the canonical conversation/subject writer adapters use this barrier.
+ * It does not itself activate a generation or trigger startup migration.
  */
 public final class BuilderRecoveryGenerationBarrier {
     private static final String LOCK_FILE_NAME = "builder-recovery-generation.lock";
