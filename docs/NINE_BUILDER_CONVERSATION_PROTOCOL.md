@@ -1,6 +1,6 @@
 # Nine Builder Conversation Protocol
 
-**Status:** Implemented as a versioned, typed validation contract; runtime orchestration and independent Builder workers remain pending.
+**Status:** Implemented as a versioned, typed validation contract with a local append-only SQLite journal; runtime orchestration and independent Builder workers remain pending.
 **Protocol version:** 1
 **Authority:** The user remains director and final authority for consequential commitments.
 
@@ -85,7 +85,7 @@ The BuilderConversationProtocol validator checks:
 - replies and handoffs reference earlier turns;
 - responses, challenges, and acknowledgements name the Builder who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
 
-The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, persist a conversation, call a model, or execute work.
+The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, call a model, or execute work. The local journal persists validated turns in a private SQLite database, preserving insertion order and thread provenance across store closure and reopening. Appends are transactional; invalid turns are rejected before commit. The public store API exposes reads and appends only, not update or delete operations. The journal is currently device-local: it does not synchronize across devices, encrypt records independently of Android's app-private storage protections, authenticate remote senders, or provide a backup/export format. Database schema changes require an explicit migration; the current upgrade path deliberately fails rather than silently discarding history.
 
 ## First conversation acceptance exercise
 
@@ -110,11 +110,17 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - No Builder may claim to be a separately running agent until separate worker processes and their identity/isolation are implemented and verified.
 - No changes are made to Builder Host production signing, Scheduler behavior, or production data.
 
+## Local conversation journal
+
+`BuilderConversationStore` is a SQLite-backed, append-only local journal. It stores the complete typed turn fields, including thread and turn IDs, speaker, recipient, reply reference, turn type, evidence status, timestamp, and body. A new append is validated against the existing thread inside a database transaction before insertion. Reads return immutable snapshots in insertion order. The journal has no public update/delete method. Its current schema is version 1; schema upgrades must be implemented as explicit migrations.
+
+The journal is not yet connected to a model coordinator, background workers, remote transport, cross-device synchronization, or an automatic backup mechanism. Those remain separate future capabilities and must not be inferred from local persistence.
+
 ## Integrity checkpoint
 
 - **Count:** eight turn types; seven evidence states; nine Builder roles.
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator and unit tests are implemented in this branch; actual multi-agent dialogue and independent workers remain pending.
+- **Evidence:** validator and journal source plus unit tests are committed in this branch; CI execution of the journal tests is pending. Actual model-coordinated dialogue and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
