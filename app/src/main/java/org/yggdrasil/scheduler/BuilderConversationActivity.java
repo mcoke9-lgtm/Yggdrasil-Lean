@@ -29,6 +29,7 @@ import org.yggdrasil.scheduler.builder.BuilderConversationJournal;
 import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderDisclosureFingerprint;
+import org.yggdrasil.scheduler.builder.BuilderDisclosurePolicy;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRoleProviderSettings;
@@ -108,6 +109,7 @@ public final class BuilderConversationActivity extends Activity {
     private TextView threadLabel;
     private Button sendButton;
     private CheckBox difficultSpacesMode;
+    private CheckBox sensitiveDisclosureCheck;
     private String activeThreadId;
     private volatile boolean destroyed;
     private boolean busy;
@@ -235,6 +237,11 @@ public final class BuilderConversationActivity extends Activity {
         messageInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
                 | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         root.addView(messageInput);
+        sensitiveDisclosureCheck = new CheckBox(this);
+        sensitiveDisclosureCheck.setText("This message OR saved thread history contains sensitive or confidential information — require one-time approval for this submission");
+        sensitiveDisclosureCheck.setChecked(false);
+        root.addView(sensitiveDisclosureCheck);
+        root.addView(text("This is a user-declared safeguard, not automatic content detection. Mark it if either the new message or any saved history sent with it is sensitive.", 12));
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
         root.addView(button("Review latest improvement incident", this::requestImprovementReview));
@@ -522,7 +529,11 @@ public final class BuilderConversationActivity extends Activity {
         String disclosureKey = BuilderDisclosureFingerprint.create(disclosureRoutes);
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
-        if (disclosureKey.equals(approved)) {
+        boolean sensitiveOrConfidential = sensitiveDisclosureCheck != null
+                && sensitiveDisclosureCheck.isChecked();
+        BuilderDisclosurePolicy.Decision consentDecision = BuilderDisclosurePolicy.decision(
+                sensitiveOrConfidential, disclosureKey.equals(approved));
+        if (consentDecision == BuilderDisclosurePolicy.Decision.NO_PROMPT) {
             performSend(preparedMessage, selected);
             return;
         }
@@ -532,14 +543,23 @@ public final class BuilderConversationActivity extends Activity {
                 + "will be sent to these configured routes:\n\n"
                 + routeNotice
                 + "Each listed provider may process or retain submitted content under its own terms. "
-                + "Do not include passwords, API keys, or information you do not want sent to these providers. "
+                + "Do not include passwords, API keys, or information you do not want sent to these providers.\n\n"
+                + (sensitiveOrConfidential
+                    ? "You marked this message or saved thread history as sensitive/confidential. This is a one-time approval for this submission and the routes listed above only. It does not create or change persistent consent. Cancel leaves all approval state unchanged. "
+                    : "This approval will be remembered for routine submissions within this route and disclosed-content scope. Mark the sensitive/confidential checkbox before sending whenever either the message or saved thread history contains sensitive information; that always requires fresh one-time approval. ")
                 + "No request has been made yet.";
-        new AlertDialog.Builder(this).setTitle("Allow these providers to receive the conversation?")
+        new AlertDialog.Builder(this)
+                .setTitle(sensitiveOrConfidential
+                        ? "Approve this sensitive submission once?"
+                        : "Remember approval for routine submissions?")
                 .setMessage(notice)
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Allow and send", (dialog, which) -> {
-                    getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
-                            .putString(KEY_DISCLOSURE, disclosureKey).apply();
+                .setPositiveButton(sensitiveOrConfidential ? "Allow once and send"
+                        : "Remember and send", (dialog, which) -> {
+                    if (consentDecision == BuilderDisclosurePolicy.Decision.PERSISTENT_CONSENT_REQUIRED) {
+                        getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
+                                .putString(KEY_DISCLOSURE, disclosureKey).apply();
+                    }
                     performSend(preparedMessage, selected);
                 }).show();
     }
