@@ -66,8 +66,10 @@ public final class SecureBuilderProviderSettings {
         if (!normalized.matches("[a-z0-9_-]{1,48}"))
             throw new IllegalArgumentException("Settings namespace contains unsupported characters");
         preferences = context.getApplicationContext().getSharedPreferences(
-                PREFS + "_" + normalized, Context.MODE_PRIVATE);
-        keyAlias = KEY_ALIAS_PREFIX + normalized;
+                "default".equals(normalized) ? PREFS : PREFS + "_" + normalized,
+                Context.MODE_PRIVATE);
+        keyAlias = "default".equals(normalized)
+                ? "yggdrasil_builder_provider_token_v1" : KEY_ALIAS_PREFIX + normalized;
     }
 
     public synchronized void save(String providerId, String endpoint, String model, String token)
