@@ -232,6 +232,8 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(messageInput);
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
+        root.addView(button("Review latest improvement incident", this::requestImprovementReview));
+        root.addView(button("Adopt latest verified correction (record only)", this::requestAdoptLatestCorrection));
         status = text("No model request has been sent from this screen.", 13);
         root.addView(status);
     }
@@ -430,6 +432,124 @@ public final class BuilderConversationActivity extends Activity {
                 }).show();
     }
 
+    /** Starts a review only after the user explicitly presses the review control. */
+    private void requestImprovementReview() {
+        if (busy) return;
+        status.setText("Finding the latest recorded improvement incident…");
+        final String threadId = activeThreadId;
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
+                BuilderConversationProtocol.Turn incident = null;
+                for (int i = turns.size() - 1; i >= 0; i--) {
+                    if (turns.get(i).type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                        incident = turns.get(i);
+                        break;
+                    }
+                }
+                final BuilderConversationProtocol.Turn found = incident;
+                if (!destroyed) runOnUiThread(() -> {
+                    if (!threadId.equals(activeThreadId)) {
+                        status.setText("The active thread changed while locating the incident. No review was sent.");
+                        return;
+                    }
+                    if (busy) {
+                        status.setText("Another Builder round started while locating the incident. No review was sent.");
+                        return;
+                    }
+                    if (found == null) {
+                        status.setText("No improvement incident is recorded in this thread. No review was sent.");
+                        return;
+                    }
+                    messageInput.setText("BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id="
+                            + found.turnId + "\nReview this incident independently. The affected Builder may explain, "
+                            + "but must not certify its own correction. Check evidence, alternatives, constraints, "
+                            + "implementation, recovery, provenance, and acceptance criteria. If Baldr is not selected, "
+                            + "state that independent verification is missing.");
+                    status.setText("Review prepared for incident " + found.turnId
+                            + ". Review begins only when you send and approve the provider disclosure.");
+                    requestSend();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Could not locate an improvement incident: " + failure.getMessage()));
+            } finally {
+                journal.close();
+            }
+        });
+    }
+
+    /** Records user acceptance of a correction; it does not deploy or execute it. */
+    private void requestAdoptLatestCorrection() {
+        if (busy) return;
+        final String threadId = activeThreadId;
+        status.setText("Checking for a verified correction that is not yet adopted…");
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
+                String correctionId = org.yggdrasil.scheduler.builder.BuilderCorrectionLedger
+                        .latestAdoptableCorrection(turns);
+                if (!destroyed) runOnUiThread(() -> {
+                    if (!threadId.equals(activeThreadId) || busy) {
+                        status.setText("Thread or activity state changed. No adoption was recorded.");
+                        return;
+                    }
+                    if (correctionId == null) {
+                        status.setText("No unadopted VERIFIED correction is available.");
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Adopt this correction?")
+                            .setMessage("Correction " + correctionId + " has a recorded VERIFIED milestone. "
+                                    + "This records your acceptance as project practice only. It does not deploy code, "
+                                    + "change settings, contact services, or authorize external actions.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Adopt correction", (dialog, which) -> {
+                                if (!threadId.equals(activeThreadId) || busy) {
+                                    status.setText("Thread or activity changed. No adoption was recorded.");
+                                    return;
+                                }
+                                busy = true;
+                                sendButton.setEnabled(false);
+                                messageInput.setEnabled(false);
+                                executor.execute(() -> {
+                                    BuilderConversationJournal adoptionJournal =
+                                            new BuilderRuntimeJournalClient(getApplicationContext());
+                                    try {
+                                        org.yggdrasil.scheduler.builder.BuilderCorrectionLedger
+                                                .recordUserAdoption(adoptionJournal, threadId, correctionId);
+                                        if (!destroyed) runOnUiThread(() -> {
+                                            busy = false;
+                                            sendButton.setEnabled(true);
+                                            messageInput.setEnabled(true);
+                                            status.setText("User adoption recorded for " + correctionId
+                                                    + ". No deployment or external action was performed.");
+                                            refreshHistory();
+                                        });
+                                    } catch (Exception failure) {
+                                        if (!destroyed) runOnUiThread(() -> {
+                                            busy = false;
+                                            sendButton.setEnabled(true);
+                                            messageInput.setEnabled(true);
+                                            status.setText("Adoption was not recorded: " + failure.getMessage());
+                                        });
+                                    } finally {
+                                        adoptionJournal.close();
+                                    }
+                                });
+                            }).show();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Could not inspect correction history: " + failure.getMessage()));
+            } finally {
+                journal.close();
+            }
+        });
+    }
+
     private void performSend(String message, List<BuilderRole> selectedRoles) {
         busy = true;
         sendButton.setEnabled(false);
@@ -467,6 +587,12 @@ public final class BuilderConversationActivity extends Activity {
                 if (!result.failedRoles.isEmpty()) summary += " · failed: " + roleNames(result.failedRoles);
                 if (!result.unroutedRecipients.isEmpty())
                     summary += " · not routed: " + roleNames(result.unroutedRecipients);
+                if (result.interrupted) {
+                    summary += " · INTERRUPTED by " + result.interruptedBy.getDisplayName()
+                            + " (" + result.interruptionType.name() + ")";
+                    if (!result.notRunRoles.isEmpty())
+                        summary += " · paused before: " + roleNames(result.notRunRoles);
+                }
                 final String finalSummary = summary;
                 if (!destroyed) runOnUiThread(() -> {
                     busy = false;

@@ -64,11 +64,18 @@ public final class BuilderConversationCoordinator {
         public final List<BuilderConversationProtocol.Turn> appendedTurns;
         public final List<BuilderRole> failedRoles;
         public final List<BuilderRole> unroutedRecipients;
+        public final boolean interrupted;
+        public final BuilderRole interruptedBy;
+        public final BuilderConversationProtocol.TurnType interruptionType;
+        public final List<BuilderRole> notRunRoles;
 
         private Result(String threadId, String userTurnId,
                        List<BuilderConversationProtocol.Turn> appendedTurns,
                        List<BuilderRole> failedRoles,
-                       List<BuilderRole> unroutedRecipients) {
+                       List<BuilderRole> unroutedRecipients,
+                       boolean interrupted, BuilderRole interruptedBy,
+                       BuilderConversationProtocol.TurnType interruptionType,
+                       List<BuilderRole> notRunRoles) {
             this.threadId = threadId;
             this.userTurnId = userTurnId;
             this.appendedTurns = Collections.unmodifiableList(
@@ -77,6 +84,10 @@ public final class BuilderConversationCoordinator {
                     new ArrayList<>(failedRoles));
             this.unroutedRecipients = Collections.unmodifiableList(
                     new ArrayList<>(unroutedRecipients));
+            this.interrupted = interrupted;
+            this.interruptedBy = interruptedBy;
+            this.interruptionType = interruptionType;
+            this.notRunRoles = Collections.unmodifiableList(new ArrayList<>(notRunRoles));
         }
     }
 
@@ -129,6 +140,9 @@ public final class BuilderConversationCoordinator {
         Set<BuilderRole> queued = new HashSet<>();
         Map<BuilderRole, Integer> turnCounts = new HashMap<>();
         List<BuilderRole> unrouted = new ArrayList<>();
+        boolean interrupted = false;
+        BuilderRole interruptedBy = null;
+        BuilderConversationProtocol.TurnType interruptionType = null;
         for (BuilderRole role : selectedRoles) {
             queue.addLast(role);
             queued.add(role);
@@ -145,6 +159,15 @@ public final class BuilderConversationCoordinator {
                 List<BuilderConversationProtocol.Turn> context = store.readThread(normalizedThreadId);
                 Reply reply = responder.respond(role, context, userTurn);
                 if (reply == null) throw new IllegalStateException("Responder returned no reply");
+                String reviewIncidentId = reviewIncidentId(userTurn, context);
+                BuilderRole incidentAuthor = reviewIncidentId == null
+                        ? null : reviewIncidentAuthor(reviewIncidentId, context);
+                if (incidentAuthor != null && reply.evidenceStatus == BuilderConversationProtocol.EvidenceStatus.VERIFIED) {
+                    if (role == incidentAuthor)
+                        throw new IllegalArgumentException("The Builder named in the incident cannot certify its own correction");
+                    if (role != BuilderRole.BALDR)
+                        throw new IllegalArgumentException("Only an unaffected Baldr review may mark an improvement correction VERIFIED");
+                }
 
                 long timestamp = nextTimestamp(context);
                 BuilderConversationProtocol.TurnType turnType = reply.type;
@@ -165,10 +188,27 @@ public final class BuilderConversationCoordinator {
                         reply.evidenceStatus,
                         timestamp,
                         reply.body);
+                if (turnType == BuilderConversationProtocol.TurnType.CORRECTION_PLAN) {
+                    if (reviewIncidentId == null)
+                        throw new IllegalArgumentException("Correction plans may only be proposed during an explicit improvement review");
+                    BuilderCorrectionLedger.validatePlan(response, context, reviewIncidentId);
+                } else if (turnType == BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) {
+                    if (reviewIncidentId == null)
+                        throw new IllegalArgumentException("Correction updates may only be recorded during an explicit improvement review");
+                    BuilderCorrectionLedger.validateUpdate(response, context);
+                }
                 store.append(response);
                 appended.add(response);
 
                 BuilderRole nextRole = builderRoleFor(recipient);
+                if (reply.type == BuilderConversationProtocol.TurnType.INTERRUPTION
+                        || reply.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                    interrupted = true;
+                    interruptedBy = role;
+                    interruptionType = reply.type;
+                    break;
+                }
+
                 if (nextRole != null) {
                     int nextCount = turnCounts.containsKey(nextRole) ? turnCounts.get(nextRole) : 0;
                     if (!selected.contains(nextRole) || nextCount >= MAX_TURNS_PER_BUILDER_PER_SUBMISSION) {
@@ -181,7 +221,47 @@ public final class BuilderConversationCoordinator {
                 failed.add(role);
             }
         }
-        return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted);
+        List<BuilderRole> notRun = new ArrayList<>();
+        if (interrupted) {
+            for (BuilderRole selectedRole : selectedRoles) {
+                if (!turnCounts.containsKey(selectedRole)) notRun.add(selectedRole);
+            }
+        }
+        return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted,
+                interrupted, interruptedBy, interruptionType, notRun);
+    }
+
+    /** Extracts and validates the incident reference for an explicit review round. */
+    private static String reviewIncidentId(
+            BuilderConversationProtocol.Turn userTurn,
+            List<BuilderConversationProtocol.Turn> context) {
+        String marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=";
+        int markerIndex = userTurn.body.indexOf(marker);
+        if (markerIndex < 0) return null;
+        int start = markerIndex + marker.length();
+        int end = userTurn.body.indexOf('\n', start);
+        if (end < 0) end = userTurn.body.length();
+        String incidentId = userTurn.body.substring(start, end).trim();
+        for (BuilderConversationProtocol.Turn turn : context) {
+            if (turn.turnId.equals(incidentId)
+                    && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                if (builderRoleFor(turn.speaker) == null)
+                    throw new IllegalArgumentException("Improvement incident author must be a Builder");
+                return incidentId;
+            }
+        }
+        throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
+    }
+
+    /** Returns the author of the referenced incident when this is a review round. */
+    private static BuilderRole reviewIncidentAuthor(
+            String incidentId, List<BuilderConversationProtocol.Turn> context) {
+        for (BuilderConversationProtocol.Turn turn : context) {
+            if (turn.turnId.equals(incidentId)
+                    && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT)
+                return builderRoleFor(turn.speaker);
+        }
+        throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
     }
 
     private static BuilderRole builderRoleFor(BuilderConversationProtocol.Participant participant) {

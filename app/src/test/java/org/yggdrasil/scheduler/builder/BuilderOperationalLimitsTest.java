@@ -120,4 +120,26 @@ public class BuilderOperationalLimitsTest {
             assertTrue(prompt.systemInstruction.contains("A capability absent from the snapshot is unknown"));
         }
     }
+
+    @Test public void bundledAssetKeepsIndependentSchedulerVisibleButUnverified() throws Exception {
+        JSONObject root = new JSONObject(BuilderOperationalLimits.load(
+                RuntimeEnvironment.getApplication()).toPromptJson());
+        JSONArray entries = root.getJSONArray("constraints");
+        JSONObject scheduler = null;
+        JSONObject chatgpt = null;
+        for (int i = 0; i < entries.length(); i++) {
+            JSONObject entry = entries.getJSONObject(i);
+            String capability = entry.getString("capability");
+            if (capability.startsWith("Independent scheduler")) scheduler = entry;
+            if (capability.equals("Create scheduled tasks / automations")) chatgpt = entry;
+        }
+        assertNotNull(scheduler);
+        assertEquals("unknown", scheduler.getString("state"));
+        assertEquals("RECHECK_REQUIRED", scheduler.getString("gate_decision"));
+        assertTrue(scheduler.getString("safe_alternative").contains("Do not substitute a ChatGPT scheduled task"));
+        assertNotNull(chatgpt);
+        assertTrue(chatgpt.getString("safe_alternative").contains("Prefer the project's independent scheduler"));
+        assertFalse(chatgpt.getString("safe_alternative").contains("free a slot"));
+    }
+
 }

@@ -89,3 +89,68 @@ Reopen or update this record when:
 | Date | Update | Evidence |
 |---|---|---|
 | 2026-11-05 | Initial incident captured; diagnosis left open; acceptance tests proposed | PR #21 comment 6668290778; PR #24 comments 6668288163 and 6668339484 |
+
+
+## H. Runtime implementation checkpoint — 2026-11-05
+
+A draft runtime implementation is now proposed in [PR #35](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/pull/35), stacked on the protocol documentation PR.
+
+Implemented in the PR branch (not yet merged or deployed):
+- Protocol version 3 adds typed `INTERRUPTION` and `IMPROVEMENT_INCIDENT` events; protocol version 4 adds correction-plan and lifecycle milestone records while retaining read compatibility for protocol versions 1–3.
+- Every Builder prompt permits a structured interruption; the coordinator appends the event to the existing journal and halts remaining Builder calls in that round.
+- The coordinator reports which Builder interrupted and which selected roles were not run.
+- Structured incident reports are validated and retained as append-only journal turns with status restricted to `OPEN_DIAGNOSIS` or `OPEN_REVIEW`.
+- Kvasir's prompt explicitly assigns operational-constraint stewardship and requires checking the independent scheduler before recommending a ChatGPT task-slot workaround.
+- The shared operational snapshot now records the independent scheduler as a first-class capability with state `unknown`, not available; deployment, credentials, GitHub access, and an actual monitor run still require verification.
+- The ChatGPT task-capacity alternative no longer recommends freeing a ChatGPT slot by default.
+
+### Verification state
+
+- **Implemented:** code and tests exist on PR #35's draft branch.
+- **Tested:** not yet established. Test cases have been added, but no CI run or local test execution is currently visible for the latest commit.
+- **Verified:** not yet.
+- **Adopted:** not yet; PR #35 remains draft and unmerged.
+- **Runtime/device behavior:** not tested on the Galaxy S21 or another device.
+- **Scheduler / PR #33 monitoring:** not activated or verified.
+
+### Remaining diagnosis
+
+The incident's root cause remains open. The runtime change reduces the chance of repeating the same omission by delivering the scheduler as a shared, explicit unknown capability and giving Kvasir direct stewardship instructions. It does not yet prove whether the original failure arose from context delivery, reasoning, or both.
+
+
+### CI evidence append — 2026-11-05
+
+- Latest PR #35 head at this check: `540be3d1c3032aecfe445567a82216572f95fe65`.
+- GitHub Actions run `42103861190` — Lean build and analysis engine checks: **success**.
+- Jobs verified: `build` and `analysis-engine`; the sample CSV acceptance check also passed.
+- This workflow did not execute Android Gradle/Robolectric tests. No Android instrumentation/device run is evidenced.
+- Consequently, Java runtime implementation remains **not yet tested/verified**; the successful Lean/analysis workflow is narrower evidence only.
+
+
+## I. Correction lifecycle implementation checkpoint — 2026-11-05
+
+PR #35 now adds a traceable, append-only correction lifecycle:
+- A structured CORRECTION_PLAN is linked to this incident and begins as PROPOSED.
+- CORRECTION_UPDATE records must advance one step at a time: IMPLEMENTED, TESTED, VERIFIED.
+- Each update carries the correction ID, incident ID, evidence, artifact reference, acceptance-criteria result, unresolved items, and a reply reference to the immediately preceding lifecycle record.
+- Only an unaffected Baldr may issue VERIFIED, and only after TESTED. If Baldr authored the incident, Baldr cannot verify its correction.
+- ADOPTED is reserved for a user-authored record. The journal validates the preceding VERIFIED milestone inside the append transaction; the Android screen requires a separate confirmation action.
+- Adoption means accepting the correction as project practice. It does not deploy code, change settings, contact services, or authorize external actions.
+
+### Current status
+- **Implemented:** lifecycle protocol v4, structured parser, coordinator sequencing, append-only ledger validation, journal-level adoption gate, Android adoption control, documentation, and regression tests are committed to the PR branch.
+- **Tested:** tests have been added, but no Android JVM test run is evidenced for the latest branch head.
+- **Verified:** not yet. The runtime has not been executed on a device or emulator.
+- **Adopted:** not adopted. PR #35 remains draft and unmerged.
+- **Original incident diagnosis:** still open; this correction mechanism does not itself establish whether the original cause was missing context, reasoning failure, or both.
+
+
+## J. CI correction and test result — 2026-11-05
+
+- Android workflow run 42106471812 initially failed at Java compilation because the review incident-reference parser used a double-escaped newline character literal.
+- The source was corrected in commit 0a2f4f53ca82b8185771437dfdcd4d1e1f0b427f.
+- Android JVM unit-test run 42106686255 then completed SUCCESS. Main Java compilation, test Java compilation, and :app:testDebugUnitTest all passed.
+- Lean build and analysis-engine run 42106686481 also completed SUCCESS, including the sample CSV acceptance check.
+- **Tested:** Android JVM unit suite and Lean/analysis CI passed for the recorded PR head.
+- **Verified:** CI results are verified from GitHub Actions job records; device/emulator behavior and live provider/scheduler behavior remain unverified.
+- **Adopted:** not adopted; PR #35 remains draft and unmerged.

@@ -137,9 +137,23 @@ public class BuilderConversationProtocolTest {
         assertEquals(BuilderConversationProtocol.EvidenceStatus.VERIFIED, verified.evidenceStatus);
     }
 
+    @Test public void reservesAdoptedEvidenceForUserCorrectionUpdate() {
+        assertThrows(IllegalArgumentException.class, () -> new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "thread-1", "builder-adoption",
+                BuilderConversationProtocol.Participant.BALDR,
+                BuilderConversationProtocol.Participant.USER, "verified",
+                BuilderConversationProtocol.TurnType.CORRECTION_UPDATE,
+                BuilderConversationProtocol.EvidenceStatus.ADOPTED, 200, "Forged adoption."));
+        assertThrows(IllegalArgumentException.class, () -> new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "thread-1", "user-not-adopted",
+                BuilderConversationProtocol.Participant.USER, null, "verified",
+                BuilderConversationProtocol.TurnType.CORRECTION_UPDATE,
+                BuilderConversationProtocol.EvidenceStatus.PROPOSED, 200, "Invalid user update."));
+    }
+
     @Test public void rejectsUnsupportedVersionAndOversizedBody() {
         assertThrows(IllegalArgumentException.class, () -> new BuilderConversationProtocol.Turn(
-                3, "thread-1", "t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
+                5, "thread-1", "t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION,
                 BuilderConversationProtocol.EvidenceStatus.PROPOSED, 100, "Body"));
         StringBuilder oversized = new StringBuilder();

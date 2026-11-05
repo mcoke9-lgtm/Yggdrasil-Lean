@@ -124,4 +124,89 @@ public class BuilderPromptFactoryTest {
         assertFalse(prompt.systemInstruction.contains("LOWER FIRA / THURISAZ"));
         assertFalse(prompt.userMessage.contains("operating_mode"));
     }
+
+    @Test public void promptExplainsInterruptionAndStructuredImprovementIncident() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review this method.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.KVASIR, Collections.singletonList(user), user);
+        assertTrue(prompt.systemInstruction.contains("Any Builder may interrupt"));
+        assertTrue(prompt.systemInstruction.contains("An INTERRUPTION halts remaining Builder calls"));
+        assertTrue(prompt.systemInstruction.contains("OPEN_DIAGNOSIS"));
+        assertTrue(prompt.userMessage.contains("IMPROVEMENT_INCIDENT"));
+        assertTrue(prompt.userMessage.contains("INTERRUPTION"));
+    }
+
+
+    @Test public void explicitImprovementReviewReachesEverySelectedRoleAndPreventsSelfCertification() {
+        BuilderConversationProtocol.Turn origin = turn("u0",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");
+        BuilderConversationProtocol.Turn incident = turn("incident-1",
+                BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.USER, "u0",
+                BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, 200,
+                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\","
+                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\","
+                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\","
+                        + "\"proposed_next_step\":\"peer review\",\"status\":\"OPEN_REVIEW\"}");
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
+        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(origin, incident, request);
+        for (BuilderRole role : BuilderRole.values()) {
+            BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, context, request);
+            assertTrue(prompt.userMessage.contains("\"operating_mode\": \"BUILDER_IMPROVEMENT_REVIEW\""));
+            assertTrue(prompt.userMessage.contains("\"review_incident_turn_id\": \"incident-1\""));
+            assertTrue(prompt.systemInstruction.contains("Baldr independently checks"));
+            assertTrue(prompt.systemInstruction.contains("MUST NOT evaluate, approve, or certify its own correction"));
+            assertTrue(prompt.systemInstruction.contains("independent verification MISSING"));
+        }
+    }
+
+    @Test public void reviewModeRejectsUnknownOrNonIncidentReference() {
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=missing\nReview.");
+        assertThrows(IllegalArgumentException.class, () -> BuilderPromptFactory.forTurn(
+                BuilderRole.BALDR, Collections.singletonList(request), request));
+    }
+    @Test public void improvementReviewDefinesEvidenceGatedCorrectionLifecycle() {
+        BuilderConversationProtocol.Turn origin = turn("u0",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");
+        BuilderConversationProtocol.Turn incident = turn("incident-1",
+                BuilderConversationProtocol.Participant.KVASIR,
+                BuilderConversationProtocol.Participant.USER, "u0",
+                BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT, 200,
+                "{\"incident_summary\":\"method failure\",\"observed_behavior\":\"bad route\","
+                        + "\"expected_behavior\":\"check project alternative\",\"evidence\":\"record\","
+                        + "\"unknowns\":\"deployment\",\"suspected_causes\":\"context\","
+                        + "\"proposed_next_step\":\"peer review\",\"status\":\"OPEN_REVIEW\"}");
+        BuilderConversationProtocol.Turn request = turn("review-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
+                "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.HODR, Arrays.asList(origin, incident, request), request);
+        assertTrue(prompt.systemInstruction.contains("PROPOSED (plan) -> IMPLEMENTED -> TESTED -> VERIFIED -> ADOPTED"));
+        assertTrue(prompt.systemInstruction.contains("Only an unaffected Baldr may issue VERIFIED"));
+        assertTrue(prompt.systemInstruction.contains("Never issue ADOPTED: only the user may record adoption"));
+        assertTrue(prompt.userMessage.contains("CORRECTION_PLAN"));
+        assertTrue(prompt.userMessage.contains("CORRECTION_UPDATE"));
+    }
+
+    @Test public void kvasirPromptNamesIndependentSchedulerAsFirstClassAlternative() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review scheduler capacity.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.KVASIR, Collections.singletonList(user), user);
+        assertTrue(prompt.systemInstruction.contains("independent scheduler is a first-class project alternative"));
+        assertTrue(prompt.systemInstruction.contains("Do not recommend freeing a ChatGPT task slot as the default route"));
+    }
+
 }

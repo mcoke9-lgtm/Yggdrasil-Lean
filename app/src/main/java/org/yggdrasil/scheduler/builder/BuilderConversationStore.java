@@ -74,6 +74,10 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
         db.beginTransaction();
         try {
             List<BuilderConversationProtocol.Turn> candidate = readThread(db, turn.threadId);
+            if (turn.type == BuilderConversationProtocol.TurnType.CORRECTION_UPDATE
+                    && turn.speaker == BuilderConversationProtocol.Participant.USER) {
+                BuilderCorrectionLedger.validateUserAdoption(turn, candidate);
+            }
             candidate.add(turn);
             BuilderConversationProtocol.validateThread(candidate);
             db.insertOrThrow(TABLE, null, toContentValues(turn));
