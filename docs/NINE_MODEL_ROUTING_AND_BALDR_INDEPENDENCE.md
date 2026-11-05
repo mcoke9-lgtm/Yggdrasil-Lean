@@ -1,0 +1,70 @@
+# Nine-Model Routing and Baldr Independence
+
+Status: implementation proposal on branch `nine-model-routing-001`; CI status must be checked against the current branch head; not device-tested, independently reviewed, or adopted.
+
+## Purpose
+
+Replace the previous one-provider-for-nine-roles wiring with explicit per-role model routes. Each selected Builder must have a configured route. Missing routes fail closed; the legacy shared provider is not silently reused.
+
+## Configuration
+
+- Each Builder role has its own private SharedPreferences namespace and Android Keystore AES-GCM key alias.
+- Existing legacy default-provider settings remain in their original preference file and Keystore alias. They are preserved but are not automatically assigned to any role.
+- Configure routes in the Nine Builder Conversation screen using **Configure role-specific model routes**.
+- Each role route stores provider ID, endpoint, model ID, and an encrypted token. Blank token retains that role's existing credential only when provider ID and endpoint remain unchanged.
+- HTTPS is required for hosted endpoints. HTTP is allowed only for localhost. Saving a route does not contact the endpoint.
+- Before a model request, the app requires a route for every selected role, rejects duplicate model IDs among selected roles, and displays all selected provider IDs, model IDs, and endpoints in the data-sharing approval notice.
+- Approval is bound to the selected role/provider/endpoint/model set. A changed route requires a new approval.
+- The approval fingerprint serializes each route as a structured JSON object, rather than joining user-entered values with delimiters. This prevents provider/model identifiers containing separator characters from colliding with a different route configuration. Existing delimiter-based approvals no longer match and therefore require renewed approval.
+- The data-sharing notice identifies the shared timestamped operational-limits snapshot as prompt content sent to each selected provider.
+- Approval fingerprints include a disclosure-scope version and the categories of prompt content sent (user message, saved thread history, selected role instructions, and timestamped operational-limits snapshot). A change to those categories or the disclosure version invalidates prior consent and requires a fresh approval.
+
+## Mari's complementarity reasoning
+
+Mari's role-specific prompt explicitly asks her to test whether apparently competing proposals are genuinely incompatible or can coexist. When both provide distinct compatible benefits, she should argue for preserving both, explain their contributions and interface, and propose layered or context-sensitive use where appropriate. Persistent consent and per-submission consent are included as an example of complementary layers: bounded persistent permission for routine in-scope submissions, with fresh approval when sensitivity, content, recipient, or scope crosses the boundary. When proposals truly conflict, Mari must identify the exact incompatibility and explain trade-offs and remaining alternatives rather than inventing compatibility or flattening meaningful distinctions.
+
+This is prompt guidance, not a hard runtime guarantee. The regression test verifies the guidance is specific to Mari's role; behavioral reliability still requires empirical evaluation across representative scenarios, including genuinely incompatible alternatives.
+
+## Baldr guard
+
+An explicit improvement review requires Baldr to be selected and configured. Baldr's canonical endpoint **and** model ID must both differ from every configured non-Baldr role, not merely the roles selected for one conversation. Endpoint comparison normalizes host case, default ports, dot segments (including percent-encoded dot characters, while preserving reserved path escapes), and trailing slashes to catch equivalent URL variations. Model IDs are compared case-insensitively. The check rejects a missing Baldr route, a shared canonical endpoint, or a shared model ID.
+
+This is a minimum configuration separation check, not proof of independent ownership, model lineage, weights, infrastructure, training data, or governance. Provider IDs and model IDs are user-entered labels; the remote provider's claims are not cryptographically attested. Different endpoint strings may still be operated by the same organization or route to the same underlying model. A Baldr reply must not be described as independently verified solely because this guard passes.
+
+## Provenance
+
+Each persisted Builder reply is prefixed with `MODEL_PROVENANCE` containing the role, role-scoped provider route ID, and provider-reported model ID. This is an audit hint from the local adapter and remote response, not cryptographic attestation.
+
+## Execution boundary
+
+The current coordinator still runs selected roles sequentially in one Android process. This change creates separate configured model routes and credential namespaces; it does not create nine isolated processes, independent schedulers, or autonomous workers. Provider endpoint reachability is only known after a real request succeeds.
+
+## Tests added
+
+- Role-specific provider identities remain distinct even when provider IDs are reused across roles.
+- Missing role routes are reported; no implicit shared-provider fallback is allowed.
+- Baldr route is rejected when its canonical endpoint or model ID is shared with any configured non-Baldr role.
+- Cosmetic URL variants (host case and trailing slash) cannot bypass the Baldr endpoint check.
+- A distinct endpoint and model pair passes the minimum configuration check.
+- Legacy default provider settings remain separate from role-scoped profiles.
+- Model responder persists route and provider-reported model provenance.
+
+## Outstanding verification
+
+1. Run Android unit tests and Lean analysis against the exact branch head.
+2. Inspect all call sites for bypasses of role-specific routing and disclosure.
+3. Test with independently administered provider accounts/models where available; verify endpoint and returned model identity.
+4. Obtain an independent reviewer. The implementation author cannot certify Baldr's independence.
+5. On-device testing requires explicit user authorization.
+6. Record actual provider ownership, model lineage, data-retention terms, and operational independence as unknown until supported by evidence.
+
+No credentials, endpoints, or paid services are provisioned by this change.
+
+## Layered disclosure consent
+
+Persistent consent is limited to routine submissions within the configured route set and the disclosed prompt-content categories/version. A user can mark the current message **or the saved thread history** as sensitive or confidential. That declaration is saved per conversation thread and forces a fresh, one-time approval for that submission even when persistent route consent already exists. Switching threads restores that thread's own declaration. The one-time approval does not create, replace, or broaden persistent consent; cancelling leaves approval state unchanged.
+
+This is a user-declared safeguard, not an automatic sensitivity classifier. The app does not inspect or transmit message content to classify it, and it cannot guarantee that all sensitive content will be recognized. The user must mark the checkbox whenever the new message or saved history contains sensitive/confidential material. The provider disclosure notice still lists the current routes and content categories.
+
+Regression coverage in `BuilderDisclosurePolicyTest` verifies that routine submissions reuse an existing persistent approval, routine submissions without one require persistent consent, and sensitive submissions always require fresh one-time approval regardless of persistent-consent state.
+

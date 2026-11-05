@@ -18,6 +18,7 @@ public class BuilderProviderRoutingTest {
     private static final class FakeProvider implements BuilderModelProvider {
         final String id;
         Request lastRequest;
+        String reportedModel = "fake-model";
         FakeProvider(String id) { this.id = id; }
         @Override public String providerId() { return id; }
         @Override public Completion complete(Request request) {
@@ -26,7 +27,7 @@ public class BuilderProviderRoutingTest {
             assertNotNull(request.userMessage);
             return new Completion("{\"body\":\"A bounded finding.\","
                     + "\"turn_type\":\"RESPONSE\",\"recipient\":\"USER\","
-                    + "\"reply_to_turn_id\":null,\"evidence_status\":\"PROPOSED\"}", "fake-model");
+                    + "\"reply_to_turn_id\":null,\"evidence_status\":\"PROPOSED\"}", reportedModel);
         }
     }
 
@@ -55,11 +56,12 @@ public class BuilderProviderRoutingTest {
     }
 
     @Test public void modelResponderUsesProviderAndStrictParser() throws Exception {
-        FakeProvider provider = new FakeProvider("local-model");
+        FakeProvider provider = new FakeProvider("vendor");
+        provider.reportedModel = "inference";
         BuilderProviderRegistry registry = new BuilderProviderRegistry(
                 Collections.<BuilderModelProvider>singletonList(provider));
         Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
-        routes.put(BuilderRole.HUGINN, "local-model");
+        routes.put(BuilderRole.HUGINN, "vendor");
         BuilderModelResponder responder = new BuilderModelResponder(
                 new BuilderProviderRouter(registry, routes), 2048);
         BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
@@ -69,10 +71,46 @@ public class BuilderProviderRoutingTest {
                 BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 1L, "Review this.");
         BuilderConversationCoordinator.Reply reply = responder.respond(
                 BuilderRole.HUGINN, Collections.singletonList(user), user);
-        assertEquals("A bounded finding.", reply.body);
+        assertTrue(reply.body.contains("A bounded finding."));
+        assertTrue(reply.body.startsWith("[MODEL_PROVENANCE role=HUGINN provider=vendor reported_model=inference]"));
         assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, reply.type);
     }
 
+
+    @Test public void provenanceSanitizesCarriageReturnAndLineFeedWithoutChangingOtherLetters() throws Exception {
+        FakeProvider provider = new FakeProvider("ven\ndor");
+        provider.reportedModel = "infer\rence";
+        BuilderProviderRegistry registry = new BuilderProviderRegistry(
+                Collections.<BuilderModelProvider>singletonList(provider));
+        Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
+        routes.put(BuilderRole.HUGINN, "ven\ndor");
+        BuilderModelResponder responder = new BuilderModelResponder(
+                new BuilderProviderRouter(registry, routes), 2048);
+        BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "provenance-sanitize", "turn-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 1L, "Review this.");
+        BuilderConversationCoordinator.Reply reply = responder.respond(
+                BuilderRole.HUGINN, Collections.singletonList(user), user);
+        assertTrue(reply.body.startsWith(
+                "[MODEL_PROVENANCE role=HUGINN provider=ven_dor reported_model=infer_ence]"));
+    }
+
+    @Test public void disclosureFingerprintDoesNotCollideAcrossDelimitedRouteFields() {
+        String first = BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a|https://x/v1|b", "https://y/v1", "c")));
+        String second = BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a", "https://x/v1", "b|https://y/v1|c")));
+        assertNotEquals(first, second);
+        assertTrue(first.contains("builder-prompt-scope-v2"));
+        assertTrue(first.contains("timestamped_operational_limits_snapshot"));
+        assertEquals(first, BuilderDisclosureFingerprint.create(Collections.singletonList(
+                new BuilderDisclosureFingerprint.Route(
+                        "HUGINN", "a|https://x/v1|b", "https://y/v1", "c"))));
+    }
 
     @Test public void laterBuilderReceivesAccumulatedPeerContext() throws Exception {
         FakeProvider provider = new FakeProvider("local-model");

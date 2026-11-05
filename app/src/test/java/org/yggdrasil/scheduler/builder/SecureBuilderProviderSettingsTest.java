@@ -58,6 +58,16 @@ public class SecureBuilderProviderSettingsTest {
         assertNotNull(settings.buildProvider());
     }
 
+    @Test public void legacyDefaultConfigurationRemainsSeparateFromRoleProfiles() throws Exception {
+        Application app = RuntimeEnvironment.getApplication();
+        SecureBuilderProviderSettings legacy = new SecureBuilderProviderSettings(app);
+        SecureBuilderProviderSettings role = new SecureBuilderProviderSettings(app, "role_huginn");
+        try { role.clear(); } catch (Exception ignored) { }
+        legacy.save("legacy-main", "http://localhost:8080/v1/chat/completions", "legacy-model", "");
+        assertEquals("legacy-main", legacy.readConfiguration().providerId);
+        assertNull(role.readConfiguration());
+    }
+
     @Test public void credentialCanBeReusedOnlyForSameProviderAndEndpoint() throws Exception {
         SecureBuilderProviderSettings.Configuration config =
                 new SecureBuilderProviderSettings.Configuration(

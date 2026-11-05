@@ -42,6 +42,16 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
                 prompt.systemInstruction, prompt.userMessage, maxOutputTokens);
         BuilderModelProvider.Completion completion = provider.complete(request);
         if (completion == null) throw new IllegalStateException("Model provider returned no completion");
-        return BuilderReplyParser.parse(completion.responseText);
+        BuilderConversationCoordinator.Reply parsed =
+                BuilderReplyParser.parse(completion.responseText);
+        // Persist route and provider-reported model provenance with the reply.
+        // This records what the adapter reports; it is not cryptographic attestation.
+        String providerId = provider.providerId().replaceAll("[\\r\\n]", "_");
+        String modelId = completion.modelId.replaceAll("[\\r\\n]", "_");
+        String provenance = "[MODEL_PROVENANCE role=" + role.name()
+                + " provider=" + providerId + " reported_model=" + modelId + "]\n";
+        return new BuilderConversationCoordinator.Reply(
+                provenance + parsed.body, parsed.evidenceStatus, parsed.type,
+                parsed.recipient, parsed.replyToTurnId);
     }
 }
