@@ -100,7 +100,7 @@ public final class BuilderRuntimeService extends Service {
                 } else {
                     throw new IllegalArgumentException("Unsupported runtime message type");
                 }
-                send(request.replyTo, BuilderRuntimeProtocol.MESSAGE_RESULT, output);
+                int responseType = request.what == BuilderRuntimeProtocol.MESSAGE_GET_HEALTH\n                        ? BuilderRuntimeProtocol.MESSAGE_HEALTH\n                        : BuilderRuntimeProtocol.MESSAGE_RESULT;\n                send(request.replyTo, responseType, output);
             } catch (Exception failure) {
                 String reason = failure.getMessage() == null
                         ? failure.getClass().getSimpleName() : failure.getMessage();
