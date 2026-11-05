@@ -82,7 +82,7 @@ public class BuilderRecoveryOverlayStoreTest {
         assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
         overlay.close();
 
-        overlay = createOverlay();
+        overlay = openOverlay();
         assertEquals(2, overlay.readThread("overlay-thread").size());
         assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
         assertEquals(GENERATION, overlay.identity().generationId);
@@ -95,7 +95,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void duplicateConversationIdentityAcrossLayersIsRejected() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         try {
             overlay.append(turn("base-turn", 2000L, null,
                     BuilderConversationProtocol.TurnType.CONTRIBUTION));
@@ -107,7 +107,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void duplicateSubjectIdentityAcrossLayersIsRejected() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         try {
             overlay.appendAll(java.util.Collections.singletonList(event("base-event", 2000L)));
             fail("baseline event identity must not be reused");
@@ -118,7 +118,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void invalidReplyToMissingTurnIsRejectedWithoutWriting() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         BuilderConversationProtocol.Turn invalid = new BuilderConversationProtocol.Turn(
                 BuilderConversationProtocol.CURRENT_VERSION, "overlay-thread", "bad-reply",
                 BuilderConversationProtocol.Participant.HUGINN,
@@ -135,7 +135,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void subjectBatchIsAllOrNothingWhenOneIdConflictsWithBaseline() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         java.util.List<BuilderSubjectThreadIndex.Event> batch = java.util.Arrays.asList(
                 event("new-event", 2000L), event("base-event", 3000L));
         try {
@@ -148,7 +148,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void anotherHelperInstanceSeesTheSameGenerationBoundOverlay() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         BuilderRecoveryOverlayStore second = openOverlay();
         try {
             overlay.appendAll(java.util.Collections.singletonList(event("from-first", 2000L)));
