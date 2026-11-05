@@ -72,6 +72,11 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         this.conversationBaselineName = requireDatabaseName(conversationBaselineName);
         this.subjectBaselineName = requireDatabaseName(subjectBaselineName);
         this.generationId = requireGenerationId(generationId);
+        if (!("builder-recovery-" + this.generationId + "-conversations.db")
+                    .equals(this.conversationBaselineName)
+                || !("builder-recovery-" + this.generationId + "-subjects.db")
+                    .equals(this.subjectBaselineName))
+            throw new IllegalArgumentException("Baseline database names do not match generation identity");
         this.conversationDigest = requireDigest(conversationBaselineSha256,
                 "conversation baseline digest");
         this.subjectDigest = requireDigest(subjectBaselineSha256,
