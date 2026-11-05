@@ -26,7 +26,7 @@ The gate fails closed:
 
 ## Android scheduler integration
 
-The Android app's existing project-owned scheduler uses WorkManager and `SchedulerWorker`. `BuilderActionBoundaries` provides named adapters that are called by the production code and directly exercised by JVM tests:
+The Android app's existing project-owned scheduler uses WorkManager and `SchedulerWorker`. `BuilderActionBoundaries` provides named adapters that are called by the production code, enforce the exact expected action ID, and are directly exercised by JVM tests:
 
 1. Startup registration of the periodic WorkManager poll passes through `installPeriodicPoll`. The app remains not-ready while the WorkManager enqueue Operation is pending. `schedulerReady` becomes true only in the asynchronous completion listener after the Operation succeeds; failure or interruption leaves it false. The listener does not block the UI thread.
 2. The “Add GitHub Actions monitor” dialog is not offered unless `offerMonitorRegistration` passes against a fresh local readiness observation.
@@ -45,4 +45,4 @@ A blocked/recheck result at monitor execution is recorded in scheduler activity 
 
 ## Verification
 
-`BuilderActionPreflightTest` covers the pure policy plus the named production adapters for periodic-poll installation, monitor-offer gating, monitor database registration, and GitHub monitor requests. Negative tests assert that blocked, stale, denied, or unknown evidence prevents the wrapped side effect; a positive GitHub-boundary test asserts one invocation after fresh authorization. These are JVM adapter tests, not Android instrumentation or on-device tests. Exact-head CI and on-device behavior must still be checked against the resulting commit before calling this implementation verified.
+`BuilderActionPreflightTest` covers the pure policy plus the named production adapters for periodic-poll installation, monitor-offer gating, monitor database registration, and GitHub monitor requests. Negative tests assert that blocked, stale, denied, or unknown evidence prevents the wrapped side effect; a positive GitHub-boundary test asserts one invocation after fresh authorization. The adapters also reject an observation whose action ID does not match the boundary. These are JVM adapter tests, not Android instrumentation or on-device tests. Exact-head CI and on-device behavior must still be checked against the resulting commit before calling this implementation verified.
