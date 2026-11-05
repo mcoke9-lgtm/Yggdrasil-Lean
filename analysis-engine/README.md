@@ -1,26 +1,46 @@
 # Nine Builders Analysis Engine 0.4
 
-A dependency-free JavaScript prototype. The calculation core is separate from the
-command-line interface so it can later be called by a browser UI or Android wrapper.
+A dependency-free JavaScript prototype. The calculation core is separate from its
+command-line and local browser interfaces.
 
 ## Requirements and execution
 
 - Node.js 20 or newer
 - No third-party packages
-- No third-party packages\n- The browser interface is served only on 127.0.0.1; analysis requests remain on the same device
+- No external network connection required for local analysis
 
 ```sh
 npm test
+npm start
+# Then open http://127.0.0.1:4173 on the same device.
+```
+
+The CLI is also available:
+
+```sh
 node src/cli.js samples/materials.csv reports/materials-report.json
 node src/cli.js samples/materials_with_evidence.csv reports/evidence-report.json
 ```
 
-The CLI refuses to overwrite an existing report or manifest. The browser interface does not write uploaded source files or reports to disk; use its report download control to save a JSON copy. Each report records
-accepted/rejected records, data-quality findings, calculations, evidence metadata,
-source-record references, a second-pass arithmetic check and source SHA-256.
-A separate manifest hashes the exact report and source text.
+## Local browser interface
 
-## Local browser interface\n\nRun `npm start`, then open `http://127.0.0.1:4173` on the same device. Choose a CSV or JSON file, analyze it, inspect the summary, evidence counts, material comparison, uncertainty status, quality findings and full report, then optionally save the report JSON. The server binds to the loopback interface only, accepts uploads up to 5 MB, exposes only the page assets and analysis endpoint, and does not enable cross-origin access. Stop it with Ctrl+C. This is a local development prototype, not an internet-facing service.\n\n## Analysis capabilities
+Choose a CSV or JSON file, analyze it, inspect the summary, evidence counts,
+material comparison, uncertainty status, quality findings and complete report,
+then optionally save a JSON copy. The browser interface does not write uploaded
+source files or reports to disk.
+
+The server binds to the loopback interface only (127.0.0.1), accepts request bodies
+up to 5 MB, serves only three fixed page assets and one analysis endpoint, checks
+the local Host header, and does not enable cross-origin access. Analysis requests
+remain on the same device. Stop the server with Ctrl+C. This is a local development
+prototype, not an internet-facing service.
+
+The CLI refuses to overwrite an existing report or manifest. Each CLI report
+records accepted/rejected records, data-quality findings, calculations, evidence
+metadata, source-record references, a second-pass arithmetic check and source
+SHA-256. A separate manifest hashes the exact report and source text.
+
+## Analysis capabilities
 
 - Overall inspected and reusable mass.
 - Mean, median, minimum, maximum and sample standard deviation.
