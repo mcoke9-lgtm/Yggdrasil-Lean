@@ -132,10 +132,10 @@ def main() -> int:
     if set(study.get("capability_contract_refs", [])) != expected_contract_refs:
         print("FAIL model reduction study must reference all nine Builder capability contracts")
         failures += 1
-    if study.get("evaluation_suite_ref") != "tests/model-capabilities/phase-a-suite-v0.1.json":
+    if study.get("evaluation_suite_ref") != "suite.nine_builder.v0_1":
         print("FAIL model reduction study must reference the current capability suite")
         failures += 1
-    if study.get("evaluation_rubric_ref") != "schemas/capability-evaluation-rubric-v0.1.json":
+    if study.get("evaluation_rubric_ref") != "rubric.capability.v0_1":
         print("FAIL model reduction study must reference the current evaluation rubric")
         failures += 1
     evaluation_design = study.get("evaluation_design", {})
