@@ -214,4 +214,34 @@ public class BuilderActionPreflightTest {
         assertFalse(result.executed);
         assertEquals(0, calls.get());
     }
+
+    @Test public void manualCheckBoundarySuppressesBlockedEnqueue() throws Exception {
+        AtomicInteger enqueues = new AtomicInteger();
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.enqueueManualCheck(observation("ENQUEUE_MANUAL_CHECK",
+                        BuilderActionPreflight.CapabilityState.BLOCKED,
+                        BuilderActionPreflight.Authorization.NOT_REQUIRED,
+                        null, null, null, NOW), NOW, () -> {
+                    enqueues.incrementAndGet();
+                    return null;
+                });
+        assertEquals(BuilderActionPreflight.Decision.BLOCKED, result.decision);
+        assertFalse(result.executed);
+        assertEquals(0, enqueues.get());
+    }
+
+    @Test public void manualCheckBoundaryRejectsWrongActionIdentity() throws Exception {
+        AtomicInteger enqueues = new AtomicInteger();
+        BuilderActionPreflight.Execution<Void> result =
+                BuilderActionBoundaries.enqueueManualCheck(observation(
+                        BuilderActionPreflight.CapabilityState.AVAILABLE,
+                        BuilderActionPreflight.Authorization.NOT_REQUIRED,
+                        null, null, null, NOW), NOW, () -> {
+                    enqueues.incrementAndGet();
+                    return null;
+                });
+        assertEquals(BuilderActionPreflight.Decision.RECHECK_REQUIRED, result.decision);
+        assertFalse(result.executed);
+        assertEquals(0, enqueues.get());
+    }
 }
