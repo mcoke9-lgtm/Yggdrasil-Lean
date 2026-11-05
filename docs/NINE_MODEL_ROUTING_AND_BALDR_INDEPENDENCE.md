@@ -17,6 +17,7 @@ Replace the previous one-provider-for-nine-roles wiring with explicit per-role m
 - Approval is bound to the selected role/provider/endpoint/model set. A changed route requires a new approval.
 - The approval fingerprint serializes each route as a structured JSON object, rather than joining user-entered values with delimiters. This prevents provider/model identifiers containing separator characters from colliding with a different route configuration. Existing delimiter-based approvals no longer match and therefore require renewed approval.
 - The data-sharing notice identifies the shared timestamped operational-limits snapshot as prompt content sent to each selected provider.
+- Approval fingerprints include a disclosure-scope version and the categories of prompt content sent (user message, saved thread history, selected role instructions, and timestamped operational-limits snapshot). A change to those categories or the disclosure version invalidates prior consent and requires a fresh approval.
 
 ## Baldr guard
 
