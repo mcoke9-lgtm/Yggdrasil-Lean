@@ -10,7 +10,7 @@ public final class BuilderRuntimeProtocol {
     public static final int MESSAGE_APPEND_TURN = 2;
     public static final int MESSAGE_READ_THREAD = 3;
     public static final int MESSAGE_LIST_THREADS = 4;
-    public static final int MESSAGE_EXPORT_SNAPSHOT = 5;
+    public static final int MESSAGE_EXPORT_SNAPSHOT = 5;\n    public static final int MESSAGE_GET_DEVICE_INVENTORY = 6;
 
     public static final String KEY_PROTOCOL_VERSION = "protocol_version";
     public static final String KEY_RUNTIME_ID = "runtime_id";
@@ -21,7 +21,7 @@ public final class BuilderRuntimeProtocol {
     public static final String KEY_BUILDERS = "builders";
     public static final String KEY_CAPABILITIES = "capabilities";
     public static final String KEY_ERROR = "error";
-    public static final String KEY_RESULT_JSON = "result_json";
+    public static final String KEY_RESULT_JSON = "result_json";\n    public static final String KEY_DEVICE_INVENTORY_JSON = "device_inventory_json";
     public static final String KEY_THREAD_ID = "thread_id";
     public static final String KEY_TURN_PROTOCOL = "turn_protocol";
     public static final String KEY_TURN_THREAD = "turn_thread";
