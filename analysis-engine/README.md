@@ -1,4 +1,4 @@
-# Nine Builders Analysis Engine 0.3
+# Nine Builders Analysis Engine 0.4
 
 A dependency-free JavaScript prototype. The calculation core is separate from the
 command-line interface so it can later be called by a browser UI or Android wrapper.
@@ -7,7 +7,7 @@ command-line interface so it can later be called by a browser UI or Android wrap
 
 - Node.js 20 or newer
 - No third-party packages
-- No network connection required for local execution
+- No third-party packages\n- The browser interface is served only on 127.0.0.1; analysis requests remain on the same device
 
 ```sh
 npm test
@@ -15,12 +15,12 @@ node src/cli.js samples/materials.csv reports/materials-report.json
 node src/cli.js samples/materials_with_evidence.csv reports/evidence-report.json
 ```
 
-The CLI refuses to overwrite an existing report or manifest. Each report records
+The CLI refuses to overwrite an existing report or manifest. The browser interface does not write uploaded source files or reports to disk; use its report download control to save a JSON copy. Each report records
 accepted/rejected records, data-quality findings, calculations, evidence metadata,
 source-record references, a second-pass arithmetic check and source SHA-256.
 A separate manifest hashes the exact report and source text.
 
-## Analysis capabilities
+## Local browser interface\n\nRun `npm start`, then open `http://127.0.0.1:4173` on the same device. Choose a CSV or JSON file, analyze it, inspect the summary, evidence counts, material comparison, uncertainty status, quality findings and full report, then optionally save the report JSON. The server binds to the loopback interface only, accepts uploads up to 5 MB, exposes only the page assets and analysis endpoint, and does not enable cross-origin access. Stop it with Ctrl+C. This is a local development prototype, not an internet-facing service.\n\n## Analysis capabilities
 
 - Overall inspected and reusable mass.
 - Mean, median, minimum, maximum and sample standard deviation.
