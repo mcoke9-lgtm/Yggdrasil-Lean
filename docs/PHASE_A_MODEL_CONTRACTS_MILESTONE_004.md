@@ -1,6 +1,6 @@
 # Phase A — Elastic Model Contracts and Inventory (Milestone 004)
 
-**Status:** Six contracts specified; nine Builder capability drafts, machine-readable schemas, and 22 proposed evaluation fixtures committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
+**Status:** Six contracts specified; nine Builder capability drafts, machine-readable schemas, and 23 proposed evaluation fixtures committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
 **Branch:** `independent-builder-runtime-foundation-001`
 **Architecture parent:** Recursive Model Morphogenesis — Milestone 003
 **Authority:** The user remains director and final authority.
@@ -350,13 +350,13 @@ The later lifecycle manager must enforce these invariants:
 
 Two versioned JSON artifacts now accompany this specification:
 - `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
-- `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and four shared tasks (54 required capability tests total).
+- `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (54 required capability tests total).
 
-The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has six required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
+The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
-A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 22 cases: two role-specific cases for each Builder plus four shared cases run against all nine identities. Every one of the 54 capability requirements references its corresponding fixture. All three JSON files parse, all nine Builder contracts and 22 fixtures are present, and every capability-to-fixture reference resolves.
+A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 22 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 54 capability requirements references its corresponding fixture. All three JSON files parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
-**Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 22 fixtures remain `proposed_not_executed`.
+**Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
 
 ### Evaluation rubric and automated validation
 
@@ -364,8 +364,8 @@ A proposed weighted scoring rubric is now defined in `schemas/capability-evaluat
 
 The repository now contains `scripts/validate_phase_a_contracts.py` and `.github/workflows/phase-a-contract-validation.yml`. The workflow uses a pinned JSON Schema validator and checks:
 - Draft 2020-12 schema validity and the bundle, fixture suite, and rubric against that schema;
-- nine unique Builder contracts and six required capabilities per Builder;
-- 22 unique fixtures, including 18 role-specific and four shared;
+- nine unique Builder contracts and seven required capabilities per Builder;
+- 22 unique fixtures, including 18 role-specific and five shared;
 - correct Builder and capability ownership for every role-specific fixture;
 - all four shared fixtures mapped to every Builder;
 - explicit proposed/not-adopted thresholds and not-yet-executed fixture status.
