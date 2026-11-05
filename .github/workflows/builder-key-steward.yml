@@ -50,13 +50,15 @@ jobs:
           fi
       - name: Create disposable PKCS12 key for CI signing test
         run: |
-          gradle --no-daemon :key-steward:createDisposableTestKeystore
+          echo "BUILDER_TEST_KEYSTORE_OUTPUT=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
           echo "BUILDER_KEYSTORE_PATH=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
           echo "BUILDER_KEYSTORE_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_ALIAS=builder-upload-key" >> "$GITHUB_ENV"
           echo "BUILDER_KEY_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
-      - name: Run tests and assemble APK signed with disposable PKCS12
-        run: gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:assembleDebug
+      - name: Run tests and create app-generated disposable PKCS12
+        run: gradle --no-daemon :key-steward:testDebugUnitTest
+      - name: Assemble APK signed with app-generated disposable PKCS12
+        run: gradle --no-daemon :key-steward:assembleDebug
       - name: Verify APK signature
         run: |
           APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
