@@ -8,6 +8,7 @@ on:
       - recovery-integrity-reconciliation-001
       - recovery-drill-preview-001
       - recovery-drill-interface-001
+      - chatgpt-yggdrasil-bridge-001
   pull_request:
     branches:
       - independent-builder-runtime-foundation-001
@@ -15,6 +16,7 @@ on:
       - recovery-export-provenance-002
       - recovery-integrity-reconciliation-001
       - recovery-drill-preview-001
+      - recovery-drill-interface-001
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
