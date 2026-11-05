@@ -142,7 +142,19 @@ def main() -> int:
     if set(evaluation_design.get("evaluator_builder_ids", [])) & set(evaluation_design.get("independent_verifier_builder_ids", [])):
         print("FAIL analytical evaluator and independent verifier roles must be distinct")
         failures += 1
-    if evaluation_design.get("evaluator_selection_status") != "not_selected" or evaluation_design.get("evaluator_model_artifact_refs") != []:
+    proposed_evaluators = set(evaluation_design.get("proposed_evaluator_model_family_refs", []))
+    if evaluation_design.get("evaluator_selection_status") != "family_shortlist" or proposed_evaluators != {"qwen3_5_2b", "smollm3_3b"}:
+        print("FAIL Qwen3.5-2B and SmolLM3-3B must remain a proposed evaluator-family shortlist")
+        failures += 1
+    if evaluation_design.get("evaluator_model_artifact_refs") != []:
+        print("FAIL no evaluator model artifact may be selected before exact artifact registration")
+        failures += 1
+    if evaluation_design.get("blind_candidate_identity_until_initial_scoring") is not True:
+        print("FAIL initial evaluator scoring must be blind to candidate identity")
+        failures += 1
+    if evaluation_design.get("evaluator_models_must_not_see_other_scores_before_submission") is not True:
+        print("FAIL evaluator models must submit independent scores before seeing other evaluator scores")
+        failures += 1
         print("FAIL no independent evaluator artifact may be implied before it is registered")
         failures += 1
     if evaluation_design.get("builder_roles_are_independent_model_artifacts") is not False:
