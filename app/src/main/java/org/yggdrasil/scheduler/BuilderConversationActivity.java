@@ -482,6 +482,9 @@ public final class BuilderConversationActivity extends Activity {
             return;
         }
 
+        if (difficultSpacesMode != null && difficultSpacesMode.isChecked())
+            message = "NAVIGATING_DIFFICULT_SPACES_MODE\\n" + message;
+        final String preparedMessage = message;
         BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
         try {
             settings.requireConfigured(selected);
