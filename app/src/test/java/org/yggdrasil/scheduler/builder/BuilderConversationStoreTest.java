@@ -151,4 +151,27 @@ public class BuilderConversationStoreTest {
         BuilderConversationStore journal = openStore();
         assertThrows(IllegalArgumentException.class, () -> journal.readThread("  "));
     }
+
+    @Test public void exportsAllThreadsWithVersionAndIntegrityChecksum() throws Exception {
+        BuilderConversationStore journal = openStore();
+        journal.append(turn("t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Preserve this conversation."));
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "thread-b", "b1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.QUESTION,
+                BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED,
+                200, "A second thread."));
+
+        org.json.JSONObject snapshot = journal.exportSnapshot();
+        assertEquals("yggdrasil-nine-builder-conversations", snapshot.getString("format"));
+        assertEquals(1, snapshot.getInt("format_version"));
+        assertEquals(2, snapshot.getInt("thread_count"));
+        assertEquals(2, snapshot.getInt("turn_count"));
+        assertEquals(2, snapshot.getJSONArray("threads").length());
+        assertEquals(64, snapshot.getString("content_sha256").length());
+        org.json.JSONObject firstThread = snapshot.getJSONArray("threads").getJSONObject(0);
+        assertTrue(firstThread.getJSONArray("turns").length() > 0);
+        assertEquals("thread-recovery-test", firstThread.getString("thread_id"));
+    }
 }
