@@ -68,7 +68,8 @@ public final class SchedulerWorker extends Worker {
             long id = run.optLong("id",0);
             if ("completed".equals(run.optString("status"))) {
                 if (id > maxId) maxId = id;
-                if (task.baseline && id > task.lastRunId) matches.add(run);
+                String updatedAt = run.optString("updated_at", "");
+                if (task.baseline && task.lastCheckedAt != null && updatedAt.compareTo(task.lastCheckedAt) > 0) matches.add(run);
             }
         }
         if (!task.baseline) {
