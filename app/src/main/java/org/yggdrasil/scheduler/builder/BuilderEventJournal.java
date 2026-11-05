@@ -83,6 +83,109 @@ public final class BuilderEventJournal extends SQLiteOpenHelper {
         } finally { db.endTransaction(); }
     }
 
+    /** Export a portable, versioned snapshot. The caller chooses where to store it. */
+    public synchronized org.json.JSONObject exportSnapshot() {
+        org.json.JSONObject root = new org.json.JSONObject();
+        org.json.JSONArray events = new org.json.JSONArray();
+        org.json.JSONArray receipts = new org.json.JSONArray();
+        try {
+            root.put("format", "yggdrasil-builder-continuity");
+            root.put("format_version", 1);
+            try (Cursor c = getReadableDatabase().rawQuery(
+                    "SELECT sequence,event_id,event_type,actor,timestamp_ms,payload,previous_hash,event_hash FROM events ORDER BY sequence ASC", null)) {
+                while (c.moveToNext()) {
+                    org.json.JSONObject e = new org.json.JSONObject();
+                    e.put("sequence", c.getLong(0)); e.put("event_id", c.getString(1));
+                    e.put("event_type", c.getString(2)); e.put("actor", c.getString(3));
+                    e.put("timestamp_ms", c.getLong(4)); e.put("payload", c.getString(5));
+                    e.put("previous_hash", c.getString(6)); e.put("event_hash", c.getString(7));
+                    events.put(e);
+                }
+            }
+            try (Cursor c = getReadableDatabase().rawQuery(
+                    "SELECT message_id,processed_at_ms,result_event_id FROM processed_messages ORDER BY processed_at_ms,message_id", null)) {
+                while (c.moveToNext()) {
+                    org.json.JSONObject r = new org.json.JSONObject();
+                    r.put("message_id", c.getString(0)); r.put("processed_at_ms", c.getLong(1));
+                    r.put("result_event_id", c.getString(2)); receipts.put(r);
+                }
+            }
+            root.put("events", events); root.put("processed_messages", receipts);
+            root.put("chain_verified", verifyChain());
+            return root;
+        } catch (org.json.JSONException e) { throw new IllegalStateException("Could not encode continuity snapshot", e); }
+    }
+
+    /**
+     * Restore a validated snapshot atomically. Existing local continuity is replaced only
+     * after every event hash/link and every receipt reference has been checked.
+     */
+    public synchronized void restoreSnapshot(org.json.JSONObject root) {
+        if (root == null) throw new IllegalArgumentException("Snapshot is required");
+        if (!"yggdrasil-builder-continuity".equals(root.optString("format"))
+                || root.optInt("format_version", -1) != 1)
+            throw new IllegalArgumentException("Unsupported continuity snapshot format");
+        org.json.JSONArray events = root.optJSONArray("events");
+        org.json.JSONArray receipts = root.optJSONArray("processed_messages");
+        if (events == null || receipts == null || events.length() > 100000 || receipts.length() > 100000)
+            throw new IllegalArgumentException("Snapshot collections are missing or exceed limits");
+
+        java.util.HashSet<String> eventIds = new java.util.HashSet<>();
+        java.util.HashSet<String> messageIds = new java.util.HashSet<>();
+        java.util.HashSet<String> eventHashes = new java.util.HashSet<>();
+        String previous = "";
+        long expectedSequence = 1;
+        java.util.ArrayList<ContentValues> eventRows = new java.util.ArrayList<>();
+        java.util.ArrayList<ContentValues> receiptRows = new java.util.ArrayList<>();
+        try {
+            for (int i = 0; i < events.length(); i++) {
+                org.json.JSONObject e = events.getJSONObject(i);
+                long sequence = e.getLong("sequence");
+                String id = e.getString("event_id"), type = e.getString("event_type");
+                String actor = e.getString("actor"), payload = e.getString("payload");
+                long time = e.getLong("timestamp_ms");
+                String storedPrevious = e.getString("previous_hash");
+                String storedHash = e.getString("event_hash");
+                if (sequence != expectedSequence++ || time <= 0 || id.trim().isEmpty()
+                        || type.trim().isEmpty() || actor.trim().isEmpty() || payload.length() > 65536
+                        || !eventIds.add(id) || !storedPrevious.equals(previous))
+                    throw new IllegalArgumentException("Invalid event ordering, identity, or hash link at item " + i);
+                String computed = hash(id, type, actor, time, payload, previous);
+                if (!computed.equals(storedHash) || !eventHashes.add(storedHash))
+                    throw new IllegalArgumentException("Event hash verification failed at item " + i);
+                ContentValues row = new ContentValues();
+                row.put("sequence", sequence); row.put("event_id", id); row.put("event_type", type);
+                row.put("actor", actor); row.put("timestamp_ms", time); row.put("payload", payload);
+                row.put("previous_hash", storedPrevious); row.put("event_hash", storedHash);
+                eventRows.add(row); previous = storedHash;
+            }
+            for (int i = 0; i < receipts.length(); i++) {
+                org.json.JSONObject r = receipts.getJSONObject(i);
+                String messageId = r.getString("message_id"), resultId = r.getString("result_event_id");
+                long processedAt = r.getLong("processed_at_ms");
+                if (messageId.trim().isEmpty() || processedAt <= 0 || !messageIds.add(messageId)
+                        || !eventIds.contains(resultId))
+                    throw new IllegalArgumentException("Invalid or duplicate processed-message receipt at item " + i);
+                ContentValues row = new ContentValues();
+                row.put("message_id", messageId); row.put("processed_at_ms", processedAt);
+                row.put("result_event_id", resultId); receiptRows.add(row);
+            }
+        } catch (org.json.JSONException e) {
+            throw new IllegalArgumentException("Malformed continuity snapshot", e);
+        }
+
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete("processed_messages", null, null);
+            db.delete("events", null, null);
+            for (ContentValues row : eventRows) db.insertOrThrow("events", null, row);
+            for (ContentValues row : receiptRows) db.insertOrThrow("processed_messages", null, row);
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
+        if (!verifyChain()) throw new IllegalStateException("Restored journal failed post-restore integrity verification");
+    }
+
     public synchronized long eventCount() {
         try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM events", null)) {
             return c.moveToFirst() ? c.getLong(0) : 0;
