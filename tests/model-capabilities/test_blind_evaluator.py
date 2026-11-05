@@ -59,7 +59,7 @@ class BlindEvaluatorTests(unittest.TestCase):
     def test_plan_contains_63_blind_evaluations(self):
         plan = evaluator.build_evaluation_plan(self.execution_report, self.bundle, self.suite, self.rubric)
         self.assertEqual(63, len(plan))
-        self.assertEqual(9, sum("receiving_builder_output" in item["evaluator_prompt"] for item in plan))
+        self.assertEqual(9, sum("Receiver confirms handoff state." in item["evaluator_prompt"] for item in plan))
         self.assertNotIn("qwen3", plan[0]["evaluator_prompt"].lower())
         self.assertNotIn("candidate-artifact-secret", plan[0]["evaluator_prompt"])
 
