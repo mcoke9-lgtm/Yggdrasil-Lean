@@ -1584,6 +1584,228 @@
         }
       },
       "additionalProperties": false
+    },
+    "capabilityEvaluationRubric": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "status",
+        "scoring_scale",
+        "dimensions",
+        "hard_failures",
+        "aggregation",
+        "resource_measurement",
+        "evaluator_independence",
+        "minimum_model_seed_gate"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.capability-evaluation-rubric"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "adopted",
+            "retired"
+          ]
+        },
+        "scoring_scale": {
+          "type": "object",
+          "required": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "properties": {
+            "0": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "1": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "2": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "3": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "4": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "5": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "additionalProperties": false
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "weight",
+              "definition"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "definition": {
+                "$ref": "#/$defs/nonEmpty"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "hard_failures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "aggregation": {
+          "type": "object",
+          "required": [
+            "method",
+            "per_case_minimum",
+            "per_builder_suite_minimum",
+            "role_specific_cases_per_builder",
+            "shared_cases_per_builder",
+            "minimum_independent_evaluators",
+            "disagreement_rule",
+            "threshold_status",
+            "calibration"
+          ],
+          "properties": {
+            "method": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "per_case_minimum": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "per_builder_suite_minimum": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "role_specific_cases_per_builder": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "shared_cases_per_builder": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minimum_independent_evaluators": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "disagreement_rule": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "threshold_status": {
+              "type": "string",
+              "enum": [
+                "proposed_not_adopted",
+                "adopted",
+                "revised"
+              ]
+            },
+            "calibration": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "additionalProperties": false
+        },
+        "resource_measurement": {
+          "type": "object",
+          "required": [
+            "record",
+            "comparison_rule",
+            "size_is_not_quality"
+          ],
+          "properties": {
+            "record": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/nonEmpty"
+              }
+            },
+            "comparison_rule": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "size_is_not_quality": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "additionalProperties": false
+        },
+        "evaluator_independence": {
+          "type": "object",
+          "required": [
+            "authorship",
+            "blind_review",
+            "model_judges",
+            "retention"
+          ],
+          "properties": {
+            "authorship": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "blind_review": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "model_judges": {
+              "$ref": "#/$defs/nonEmpty"
+            },
+            "retention": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "additionalProperties": false
+        },
+        "minimum_model_seed_gate": {
+          "type": "object",
+          "required": [
+            "requirements",
+            "non_claim"
+          ],
+          "properties": {
+            "requirements": {
+              "type": "array",
+              "minItems": 6,
+              "items": {
+                "$ref": "#/$defs/nonEmpty"
+              }
+            },
+            "non_claim": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1619,6 +1841,9 @@
     },
     {
       "$ref": "#/$defs/capabilityEvaluationSuite"
+    },
+    {
+      "$ref": "#/$defs/capabilityEvaluationRubric"
     }
   ]
 }
