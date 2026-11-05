@@ -3,7 +3,7 @@
 **Research date:** 2026-11-05  
 **Status:** Research shortlist only. No model is selected, downloaded, licensed for a particular deployment, or tested against the Nine Builder contracts.
 
-The purpose of this watchlist is to identify useful comparison points for the planned compact-seed study. The study's formal `source_candidates` array remains empty until exact model artifacts, license terms, provenance, and baseline evidence have been registered.
+The purpose of this watchlist is to identify useful comparison points for the planned compact-seed study. The study's formal `source_candidates` array now records five research-stage model families. Their exact artifact revisions/digests, deployment-specific license review, and baseline evidence remain pending.
 
 ## Candidate comparison
 
