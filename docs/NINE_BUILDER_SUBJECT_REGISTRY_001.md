@@ -87,8 +87,10 @@ Independent Builder workers, cross-device synchronization, and live subject-base
 - Any Builder may join; primary stewardship is explicitly nonexclusive.
 - The conversation protocol reference resolves to protocol version 2.
 - No thread history, credentials, private keys, or secrets are embedded in the registry.
-- No claim is made that subject-based runtime routing or independent workers are already operational.
+- Deterministic subject-based routing is implemented and covered by Android unit tests; no claim is made that nine independent model workers are operational.
+- User-invited additional Builders are unioned with primary stewards without duplicates.
+- Ambiguous matches stop before any model request is sent.
 
 ## Next implementation step
 
-Add a subject resolver that accepts a subject ID or recognized heading, returns matched subheadings and their primary stewards, allows user-selected additions or all-nine participation, and passes the selected roles into the existing conversation coordinator. Test deterministic matching, ambiguity, unknown subjects, missing stewards, Builder failure, and graceful continuation when one or more providers are unavailable.
+Persist subject and matched-subheading identifiers alongside the conversation thread without duplicating the canonical turn journal. Then exercise the routing flow on the Galaxy S21+ using a non-sensitive test question, verify the displayed participant set and journal entries, and record failures or provider unavailability without losing successful turns.
