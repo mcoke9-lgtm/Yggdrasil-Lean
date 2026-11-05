@@ -158,7 +158,7 @@ public class BuilderRecoveryOverlayStoreTest {
         overlay.close();
         overlay = new BuilderRecoveryOverlayStore(context,
                 staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
-                "0".repeat(64), staged.subjectDataSha256);
+                "0000000000000000000000000000000000000000000000000000000000000000", staged.subjectDataSha256);
         try {
             overlay.getReadableDatabase();
             fail("overlay metadata must reject a different baseline digest");
