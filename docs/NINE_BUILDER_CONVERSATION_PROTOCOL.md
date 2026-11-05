@@ -53,14 +53,18 @@ Turn types:
 - **RECONCILIATION** — explain what is resolved, still disputed, or awaiting evidence, referencing the relevant turn.
 - **INTERRUPTION** — pause the current Builder round when a method is blocked, circular, stale, unauthorized, or materially unsuitable. It is directed to the user, references an earlier turn, and must state evidence, impact, unknowns, a feasible alternative, required recheck/authorization, and resume conditions. The coordinator stops remaining Builder calls in that round and preserves the interruption as an append-only journal turn.
 - **IMPROVEMENT_INCIDENT** — create a structured, append-only incident record for a failure or near miss. Its JSON body records summary, observed and expected behavior, evidence, unknowns, suspected causes, next step, and an open status (`OPEN_DIAGNOSIS` or `OPEN_REVIEW`). The coordinator stops remaining Builder calls in that round. This is a journal event, not proof that the six-stage review has completed.
+- **CORRECTION_PLAN** — record a structured proposed correction linked directly to an improvement incident. It begins as PROPOSED and includes an objective, acceptance criteria, steps, owner, and rollback condition.
+- **CORRECTION_UPDATE** — append a structured lifecycle milestone for the same correction: IMPLEMENTED, TESTED, VERIFIED, or user-authored ADOPTED. Each update links to the immediately preceding lifecycle record. Builders cannot create ADOPTED.
 - **DECISION** — record a proposed or user-authorized conclusion. A DECISION turn is a record, not an execution command.
 
 ## Evidence vocabulary
 
 - **PROPOSED** — suggested, not yet exercised.
 - **OBSERVED** — directly observed, with the observation context recorded.
+- **IMPLEMENTED** — implementation work is recorded with an artifact reference; this does not mean it has passed tests.
 - **TESTED** — a specified test was run; its scope and result must be stated.
-- **VERIFIED** — supporting evidence has been checked against the relevant acceptance criteria.
+- **VERIFIED** — supporting evidence has been checked against the relevant acceptance criteria by an authorized independent reviewer.
+- **ADOPTED** — the user explicitly accepts a verified correction as project practice; it does not authorize deployment or external action.
 - **USER_CONFIRMED** — the user reports the result; it is not described as independently observed.
 - **DISPUTED** — a material disagreement or contradictory evidence remains.
 - **UNKNOWN** — not established.
@@ -91,13 +95,13 @@ The BuilderConversationProtocol validator checks:
 - replies and handoffs reference earlier turns;
 - responses, challenges, and acknowledgements name the participant who authored the referenced turn; responses and acknowledgements to a directed question, challenge, or handoff must come from the participant originally addressed; a handoff names its new recipient while retaining a reference to its source turn.
 
-Protocol version 2 added `USER` as a first-class participant. Version 3 adds `INTERRUPTION` and `IMPROVEMENT_INCIDENT` turn types and coordinator stop behavior. Versions 1 and 2 remain readable so existing local history can be recovered; new turns use version 3. This is an additive turn-contract change; no SQLite column migration is required.
+Protocol version 2 added USER as a first-class participant. Version 3 adds INTERRUPTION and IMPROVEMENT_INCIDENT turn types and coordinator stop behavior. Version 4 adds CORRECTION_PLAN, CORRECTION_UPDATE, and the IMPLEMENTED / ADOPTED evidence states. Versions 1 through 3 remain readable so existing local history can be recovered; new turns use version 4. This is an additive turn-contract change; no SQLite column migration is required.
 
 The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, call a model, or execute work. The local journal persists validated turns in a private SQLite database, preserving insertion order and thread provenance across store closure and reopening. Appends are transactional; invalid turns are rejected before commit. The public store API exposes reads and appends only, not update or delete operations. The journal is currently device-local: it does not synchronize across devices, encrypt records independently of Android's app-private storage protections, authenticate remote senders, or provide a backup/export format. Database schema changes require an explicit migration; the current upgrade path deliberately fails rather than silently discarding history.
 
 ## Single-process coordinator
 
-`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful typed contributions against their referenced turns. It invokes selected roles sequentially; later roles receive earlier successful replies in their context. Typed replies can address another Builder, ask a question, challenge a cited turn, answer a peer, or hand off work. The coordinator routes addressed turns to selected recipients, including a bounded follow-up to an already-run Builder. Each Builder is limited to two turns per submission to prevent unbounded loops. Any Builder may issue an `INTERRUPTION` or `IMPROVEMENT_INCIDENT` addressed to the user and referencing an earlier turn. Either event immediately halts the remaining Builder calls in that submission; the result reports the interrupting Builder, event type, and selected roles not run. The event remains in the append-only journal and is displayed in conversation history. This is prompt-guided model behavior plus a deterministic coordinator stop gate: it does not guarantee a model will recognize every unsuitable method, automatically initiate a peer-review round, or enforce interruption outside this coordinator. A recipient not selected for the round, or one that reaches its turn limit, is reported in `unroutedRecipients`; it is not silently treated as having received the handoff. The coordinator preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. `BuilderPromptFactory` creates separate role-specific system instructions and JSON-serialized conversation context for each Builder, preserving turn metadata and treating historical bodies as data rather than higher-priority instructions. The prompt factory and parser do not call a model. The current routing is bounded and single-process; it is not evidence of independent agents.
+`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful typed contributions against their referenced turns. It invokes selected roles sequentially; later roles receive earlier successful replies in their context. Typed replies can address another Builder, ask a question, challenge a cited turn, answer a peer, or hand off work. The coordinator routes addressed turns to selected recipients, including a bounded follow-up to an already-run Builder. Each Builder is limited to two turns per submission to prevent unbounded loops. Any Builder may issue an INTERRUPTION or IMPROVEMENT_INCIDENT addressed to the user and referencing an earlier turn. Either event immediately halts the remaining Builder calls in that submission. CORRECTION_PLAN and CORRECTION_UPDATE turns are validated and appended without halting the review round; the result reports the interrupting Builder, event type, and selected roles not run. The event remains in the append-only journal and is displayed in conversation history. This is prompt-guided model behavior plus a deterministic coordinator stop gate: it does not guarantee a model will recognize every unsuitable method, automatically initiate a peer-review round, or enforce interruption outside this coordinator. A recipient not selected for the round, or one that reaches its turn limit, is reported in `unroutedRecipients`; it is not silently treated as having received the handoff. The coordinator preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. `BuilderPromptFactory` creates separate role-specific system instructions and JSON-serialized conversation context for each Builder, preserving turn metadata and treating historical bodies as data rather than higher-priority instructions. The prompt factory and parser do not call a model. The current routing is bounded and single-process; it is not evidence of independent agents.
 
 ## Methodology interruption and improvement incidents
 
@@ -162,10 +166,10 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 
 ## Integrity checkpoint
 
-- **Count:** ten turn types, including `INTERRUPTION` and `IMPROVEMENT_INCIDENT`; seven evidence states; nine Builder roles plus the user as director (ten participants).
+- **Count:** twelve turn types, including interruption, incident, and correction lifecycle events; nine evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 59 unit tests plus the compatible hosted/local HTTP adapter, Android Keystore-backed credential storage, localhost-only cleartext network policy, provider setup UI, and consent-gated conversation/history screen are committed in this branch; CI execution and on-device acceptance testing remain pending. Independent Builder workers remain pending.
+- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and the Android JVM unit-test suite plus the compatible hosted/local HTTP adapter, Android Keystore-backed credential storage, localhost-only cleartext network policy, provider setup UI, and consent-gated conversation/history screen are committed in this branch; CI execution and on-device acceptance testing remain pending. Independent Builder workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
 
@@ -183,3 +187,20 @@ An Android JVM unit-test workflow has also been added at .github/workflows/andro
 
 
 The coordinator also enforces a narrow verification authority boundary during improvement review: the incident author cannot return a VERIFIED review claim, and only an unaffected Baldr may do so. If Baldr authored the incident, no Builder in that review round may mark the correction VERIFIED; an independent external check or a separately designed alternate verifier is required. Rejected self-certification or non-Baldr verification attempts are recorded as failed-role outcomes rather than appended as accepted VERIFIED turns. This is a deterministic role gate, not proof that Baldr's own evidence assessment is correct.
+
+
+## Traceable correction lifecycle
+
+A correction is not considered complete merely because a review agrees with it. A review may create a CORRECTION_PLAN linked to the original IMPROVEMENT_INCIDENT. The plan contains a stable correction ID, objective, acceptance criteria, steps, owner, rollback condition, and PROPOSED status. Each subsequent CORRECTION_UPDATE is append-only, retains the same correction and incident IDs, and replies to the immediately preceding lifecycle record.
+
+The only permitted progression is:
+
+1. PROPOSED — a plan exists; no implementation is implied.
+2. IMPLEMENTED — a concrete artifact reference is recorded; tests are not implied.
+3. TESTED — an actual test name, run/result, and artifact reference are recorded.
+4. VERIFIED — an unaffected Baldr checks evidence against the plan's acceptance criteria after testing. If Baldr authored the incident, Baldr cannot verify that correction.
+5. ADOPTED — only an explicit user action may append this milestone, after the latest milestone is independently verified.
+
+The coordinator rejects skipped or out-of-order milestones, mismatched correction/incident IDs, incorrect reply references, Builder-authored adoption, and verification by anyone other than an unaffected Baldr. Before recording adoption, the local ledger revalidates the VERIFIED milestone and its provenance. The Android screen offers a separate Adopt latest verified correction (record only) control with a confirmation dialog. Adoption records acceptance of the correction as project practice; it does not deploy code, change settings, contact services, or authorize external actions. All prior milestones remain in the journal.
+
+The lifecycle validator is deterministic, but the quality of the evidence still depends on the referenced artifact and test being real and appropriately scoped. A model-generated statement is not itself proof of implementation, testing, or verification. Device execution of the Android test suite remains pending.
