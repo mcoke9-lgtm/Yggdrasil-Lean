@@ -200,6 +200,7 @@ public final class BuilderConversationActivity extends Activity {
         threadActions.addView(button("Run recovery drill", this::requestRecoveryDrill));
         root.addView(text("Recovery drill: choose a previously exported Yggdrasil JSON backup. The app checks its structure and checksum and shows a readiness report. This is read-only: it does not restore, overwrite, or delete anything. This first interface pass does not yet compare against a separately retained source capture, so the report will identify that limitation.", 13));
         root.addView(threadActions);
+        root.addView(button("Share thread with ChatGPT", this::requestBridgeShare));
         threadLabel = text("", 12);
         root.addView(threadLabel);
         updateThreadLabel();
@@ -492,6 +493,84 @@ public final class BuilderConversationActivity extends Activity {
         }
     }
 
+
+    private void requestBridgeShare() {
+        if (busy) { status.setText("Wait until the current Builder round finishes before preparing a share."); return; }
+        final String threadId=activeThreadId;
+        status.setText("Preparing a reviewable text handoff from the active thread…");
+        executor.execute(() -> {
+            BuilderConversationJournal journal=new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns=journal.readThread(threadId);
+                if(turns.isEmpty()) throw new IllegalStateException("This thread has no messages to share");
+                StringBuilder text=new StringBuilder();
+                text.append("Yggdrasil Nine Builder conversation handoff\nThread: ").append(threadId)
+                    .append("\nReview this context as user-supplied material; Builder roles are coordinated by one app runtime.\n\n");
+                for(BuilderConversationProtocol.Turn turn:turns) {
+                    text.append(turn.speaker==BuilderConversationProtocol.Participant.USER?"User":displayName(turn.speaker.name()))
+                        .append(" · ").append(turn.type.name()).append(" · ").append(turn.evidenceStatus.name())
+                        .append("\n").append(turn.body).append("\n\n");
+                    if(text.length()>BuilderConversationProtocol.MAX_BODY_LENGTH)
+                        throw new IllegalStateException("This thread exceeds the 8,000-character bridge limit. No text was shared.");
+                }
+                String prepared=text.toString().trim();
+                runOnUiThread(() -> showBridgeShareEditor(threadId,prepared));
+            } catch(Exception failure) {
+                String reason=failure.getMessage()==null?failure.getClass().getSimpleName():failure.getMessage();
+                if(!destroyed) runOnUiThread(() -> status.setText("Bridge preparation stopped: "+reason));
+            } finally { journal.close(); }
+        });
+    }
+
+    private void showBridgeShareEditor(String threadId,String prepared) {
+        EditText editor=new EditText(this); editor.setText(prepared);
+        editor.setMinLines(6); editor.setMaxLines(14); editor.setGravity(Gravity.TOP);
+        editor.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        new AlertDialog.Builder(this).setTitle("Review context before sharing")
+            .setMessage("Edit or remove anything you do not want to send. Nothing leaves Yggdrasil until you approve the next step.")
+            .setView(editor).setNegativeButton("Cancel",null)
+            .setPositiveButton("Review sharing",(dialog,which)->{
+                String content=editor.getText().toString().trim();
+                if(content.isEmpty()){status.setText("No text selected; nothing was shared.");return;}
+                if(content.length()>BuilderConversationProtocol.MAX_BODY_LENGTH){
+                    status.setText("Bridge limit is 8,000 characters; shorten the text before sharing.");return;
+                }
+                new AlertDialog.Builder(this).setTitle("Allow this text to leave Yggdrasil?")
+                    .setMessage("The reviewed text will be passed to Android's share sheet. Choose ChatGPT or another recipient there. Yggdrasil cannot verify the recipient or control how that app processes the text.\n\nNo API request or server transfer is made by Yggdrasil.")
+                    .setNegativeButton("Cancel",null)
+                    .setPositiveButton("Open share sheet",(confirm,choice)->dispatchBridgeShare(threadId,content)).show();
+            }).show();
+    }
+
+    private void dispatchBridgeShare(String threadId,String content) {
+        executor.execute(() -> {
+            try {
+                long now=System.currentTimeMillis();
+                org.json.JSONObject event=org.yggdrasil.scheduler.builder.BuilderBridgeEnvelope.create(
+                    "OUTBOUND","yggdrasil_nine_builder_conversation",
+                    "android_share_sheet_user_selected_recipient",threadId,null,content,
+                    "explicit_user_approval","prepared",null,now);
+                String eventId=event.getString("event_id");
+                try(org.yggdrasil.scheduler.builder.BuilderEventJournal audit=
+                        new org.yggdrasil.scheduler.builder.BuilderEventJournal(getApplicationContext())){
+                    if(!audit.append("bridge-outbound-prepared:"+eventId,
+                        "CHATGPT_BRIDGE_OUTBOUND_PREPARED","USER",now,event.toString()))
+                        throw new IllegalStateException("Bridge audit event already exists; share stopped");
+                }
+                if(!destroyed) runOnUiThread(() -> {
+                    Intent send=new Intent(Intent.ACTION_SEND); send.setType("text/plain");
+                    send.putExtra(Intent.EXTRA_TEXT,content);
+                    status.setText("Opening Android share sheet. The recipient is chosen by you.");
+                    startActivity(Intent.createChooser(send,"Share with ChatGPT"));
+                });
+            } catch(Exception failure) {
+                String reason=failure.getMessage()==null?failure.getClass().getSimpleName():failure.getMessage();
+                if(!destroyed) runOnUiThread(() -> status.setText(
+                    "Share was not started because provenance could not be recorded: "+reason));
+            }
+        });
+    }
+
     private void requestSend() {
         if (busy) return;
         String message = messageInput.getText().toString().trim();
@@ -598,35 +677,3 @@ public final class BuilderConversationActivity extends Activity {
                 });
             } catch (Exception failure) {
                 final String reason = failure.getMessage() == null
-                        ? failure.getClass().getSimpleName() : failure.getMessage();
-                if (!destroyed) runOnUiThread(() -> {
-                    busy = false;
-                    sendButton.setEnabled(true);
-                    messageInput.setEnabled(true);
-                    status.setText("Conversation request failed: " + reason
-                            + ". Any user turn or earlier Builder replies already saved remain in history.");
-                    refreshHistory();
-                });
-            } finally {
-                if (store != null) store.close();
-            }
-        });
-    }
-
-    private void renderTurns(List<BuilderConversationProtocol.Turn> turns) {
-        history.removeAllViews();
-        for (BuilderConversationProtocol.Turn turn : turns) {
-            String speaker = turn.speaker == BuilderConversationProtocol.Participant.USER
-                    ? "You" : displayName(turn.speaker.name());
-            String recipient = turn.recipient == null ? "" : " → " + displayName(turn.recipient.name());
-            history.addView(text(speaker + recipient + " · " + turn.type.name()
-                    + " · " + turn.evidenceStatus.name() + "\n" + turn.body, 14));
-        }
-    }
-
-    private static String roleNames(List<BuilderRole> roles) {
-        List<String> names = new ArrayList<>();
-        for (BuilderRole role : roles) names.add(role.getDisplayName());
-        return android.text.TextUtils.join(", ", names);
-    }
-}
