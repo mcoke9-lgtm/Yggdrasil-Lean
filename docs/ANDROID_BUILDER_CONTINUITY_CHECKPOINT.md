@@ -1,12 +1,14 @@
 # Android Builder Runtime — Phone-First Checkpoint
 
 **Branch:** `independent-builder-runtime-foundation-001`
-**Current source commit:** `0a23267dc51deba4d5fab814b39bd3af51177e19` (safe in-app recovery test added; Android CI pending)
+**Latest signing-support code commit:** `0e9cc14ac2c4144c2d21c6c184747582ca3c9222`
+**Latest CI workflow commit:** `067d7273f16fa9ba2ff25e41d37228057e8d7a08`
+**Cross-chat handoff commit:** `459c34ef02dd90e83cb0bad26ff1d78479a1380e`
 **Android application ID:** `org.yggdrasil.builderhost`
 **Display name:** Yggdrasil Builder Host
-**Device:** Samsung Galaxy S21 / Android 15 (user-reported). User confirmed successful installation of Yggdrasil Builder Host.
+**Device:** Samsung Galaxy S21 / Android 15 (user-reported).
 
-## Implemented
+## Implemented runtime foundation
 
 - Nine stable Builder role identifiers and immutable registry.
 - Versioned, transport-neutral Builder message envelope.
@@ -15,45 +17,59 @@
 - Transactional idempotent message receipts.
 - Versioned JSON snapshot export and validated restore.
 - Restore checks format/version, event ordering, event IDs, hash links, duplicate IDs and receipt references before transactionally replacing local records.
-- Android document-picker export to user-selected JSON file.
-- Android document-picker import with 10 MB input limit, preview and explicit confirmation before replacement; invalid snapshots are rejected without replacing existing records.
-- In-app **Test recovery safeguards (safe)** control: creates a deliberately altered snapshot in memory, attempts restore, checks that the live journal remains byte-for-byte equivalent at the exported JSON level and chain-valid, and defensively restores the original snapshot if an unexpected mutation is detected. It does not edit or overwrite the user's backup file.
-- Robolectric recovery tests: snapshot round-trip, duplicate receipt protection, tamper rejection without mutation, unsupported version rejection.
-- Deterministic local command router:
-  - “remember that …”, “record note …”, “save note …”, “tell Muninn …”
-  - “check memory”, “verify memory”, “memory status”
-  - unsupported requests are identified rather than falsely reported as completed.
-- Android Builder Console connected to this router.
-- Pending snapshot export survives Android activity recreation while the document picker is open.
-- Independent runtime now has a distinct Android application ID and display name, so it can be installed alongside the existing scheduler app without replacing it or sharing its private app data.
+- Android document-picker export and import; import has a 10 MB input limit, validation and confirmation before replacement.
+- In-app **Test recovery safeguards (safe)** control: creates a deliberately altered snapshot in memory, attempts restore, checks that the live journal remains unchanged and chain-valid, and defensively restores the original snapshot if unexpected mutation is detected. It does not edit the user's external backup.
+- Robolectric recovery tests: snapshot round-trip, duplicate receipt protection, tamper rejection without mutation, unsupported version rejection without mutation.
+- Deterministic local command router for bounded note capture and journal checks; unsupported requests are identified rather than falsely reported as completed.
+- Local Mari-to-Muninn handoff demonstration inside one app process, not nine independent agents.
 
-## Verified and pending
+## Physical-device verification — user-reported
 
-- Final Android CI passed for source commit `a85b18155c3c8f12739104d5ddc8b8bc12e3f4f9`: unit tests, Android compilation and debug APK upload all succeeded. Run `42003024625`:
-  https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42003024625
-- Uploaded artifact `13403960642` (`yggdrasil-builder-runtime-debug-apk`, 2,374,793 bytes; not expired at verification).
-- User confirmed successful installation on the physical Samsung Galaxy S21.
-- User confirmed the first on-device note command was sent and the journal verification reported success. This is user-reported physical-device verification of basic note capture and journal integrity check.
-- User confirmed the exported snapshot file was visible in the phone's Downloads folder.
-- User completed the app's import/validation action. The user observed a single action button and reasonably noted that validation and import appear combined in the current interface; this UX ambiguity is recorded rather than assuming a distinct two-stage confirmation.
-- After the import action, the app's Journal Integrity control reported that the chain was verified.
-- User then completely closed and reopened the app; Journal Integrity again reported that the chain was verified. This is user-reported physical-device verification of post-import integrity and application-restart persistence.
-- User then restarted the Samsung Galaxy S21, reopened Yggdrasil Builder Host and ran Journal Integrity; the chain was again reported verified. This is user-reported physical-device verification of journal persistence across a full device reboot.
-- New in-app recovery safety control is committed in source at `0a23267dc51deba4d5fab814b39bd3af51177e19`; Android CI run `42005258590` is pending, so no updated APK is available yet.
-- Not yet physically verified: the new in-app tamper-safety control, cancellation behavior, tampered-file rejection using a separately selected external file, offline operation, or independent agent execution.
+On the Samsung Galaxy S21, Android 15:
 
-## Scope boundaries
+1. Original Builder Host Journal Integrity reported chain verified.
+2. User exported a fresh snapshot and confirmed it was present in Downloads.
+3. Android rejected update installation with a package-conflict message. User uninstalled the original Builder Host (not the separate Scheduler app) and installed the new APK.
+4. New app opened and displayed **Test recovery safeguards (safe)**.
+5. User ran the recovery-safety test and reported **PASS**.
+6. User restored the fresh snapshot.
+7. User ran Journal Integrity after restore and reported **chain verified**.
 
-The command router is deterministic and intentionally limited. It is not yet a general conversational model. The Mari-to-Muninn exchange is a local demonstration inside one app process, not nine independent agents. No arbitrary app control, external messaging, purchasing, destructive operations, local inference, offline speech or timed background Builder execution is claimed.
+This establishes user-reported successful snapshot recovery and journal-chain verification after reinstall. It is not independent inspection of the phone.
 
-The journal hash chain is tamper-evident, not cryptographic authentication against an attacker able to rewrite the database. Snapshot JSON is not encrypted; encrypted backup and key management remain future work.
+Detailed record: `docs/ANDROID_BUILDER_GALAXY_S21_RECOVERY_VERIFICATION.md`.
+
+## APK signing issue and current changes
+
+The previous CI workflow built debug APKs without a persistent keystore. Ephemeral GitHub runners can generate different default debug signing keys. This is the leading explanation for the package conflict; a direct certificate comparison has not yet been completed.
+
+Committed support:
+- Gradle commit `0e9cc14ac2c4144c2d21c6c184747582ca3c9222`: uses a persistent signing configuration when all required environment variables are supplied.
+- Workflow commit `067d7273f16fa9ba2ff25e41d37228057e8d7a08`: reads four GitHub Actions repository secrets, warns when none are configured, fails if only some are configured, and prints signer certificate information using `apksigner`.
+- Required repository secrets:
+  - `BUILDER_KEYSTORE_BASE64`
+  - `BUILDER_KEYSTORE_PASSWORD`
+  - `BUILDER_KEY_ALIAS`
+  - `BUILDER_KEY_PASSWORD`
+
+**Not yet completed:** creating the long-lived keystore, configuring repository secrets, and verifying CI with the persistent key. No claim that the new signing workflow has passed CI.
+
+**Migration warning:** the private key used to sign the APK currently installed on the phone cannot be recovered from that APK. Switching to a new permanent key may require one final uninstall-and-restore. Do not ask the user to uninstall again until the permanent-key APK is built, verified, and backed up. Preserve the keystore and secrets for all future builds.
 
 ## Next gates
 
-1. Complete CI and install the updated APK; run the new in-app recovery safety test on the phone.
-2. Clarify import preview/confirmation UX; the user observed one action button.
-3. Test offline behavior and capability boundaries before selecting local inference or voice components.
+1. Create and securely retain the long-lived signing keystore; add the four repository secrets without sharing private key material or passwords in chat.
+2. Run CI; verify the signer SHA-256 digest. Build again and compare the digest to prove signing stability.
+3. Plan one final phone migration only after CI and signing verification, with a fresh snapshot and pre-uninstall integrity check.
+4. Clarify import preview/confirmation UX; user previously observed a single action button.
+5. Test offline behavior and capability boundaries before selecting local inference or voice components.
 
-## Integrity check
+## Scope and integrity boundaries
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery is now user-verified; the new in-app tamper test remains pending until the updated APK passes CI and is exercised on the phone.
+- Protected `main` and `android-scheduler-host-prototype-001` remain untouched.
+- Separate Scheduler app must remain untouched.
+- Journal hash chain is tamper-evident, not cryptographic authentication against an attacker able to rewrite the database.
+- No arbitrary app control, external messaging, purchasing, local inference, offline speech, timed background Builder execution or nine independently running agents is claimed.
+- User is director and decision authority.
+- Code-production-rate analysis remains parked until meaningful new code accumulates or user reopens it.
+- For new chats, read `docs/ACTIVE_HANDOFF.md` first; it is the concise cross-chat entry point.
