@@ -576,11 +576,45 @@
                 "type": "string",
                 "enum": [
                   "not_retrieved",
-                  "verified"
+                  "publisher_reported",
+                  "locally_verified"
                 ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[A-Fa-f0-9]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "artifact_id": {
+                "$ref": "#/$defs/id"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "sha256_status": {
+                      "enum": [
+                        "publisher_reported",
+                        "locally_verified"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "sha256_status"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "sha256"
+                  ]
+                }
+              }
+            ]
           }
         }
       },
@@ -3387,6 +3421,39 @@
         }
       },
       "additionalProperties": false
+    },
+    "modelArtifactInventory": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "status",
+        "artifacts"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.model-artifact-inventory"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "publisher_metadata_registered",
+            "locally_verified",
+            "retired"
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/modelArtifact"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -3440,6 +3507,9 @@
     },
     {
       "$ref": "#/$defs/evaluatorReconciliationRun"
+    },
+    {
+      "$ref": "#/$defs/modelArtifactInventory"
     }
   ]
 }
