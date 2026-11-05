@@ -114,6 +114,42 @@ The contracts must preserve these distinctions:
 
 The responsibility map is **adopted as the initial role definition**, but it is not yet a measurable capability contract. Phase A must now translate each work product into observable tasks, input/output schemas, test cases, quality thresholds, failure conditions, and resource budgets. Do not claim any model has passed those tests merely because the responsibility has been assigned.
 
+The responsibility map is **adopted as the initial role definition**. The following first-pass capability tests translate the specializations into observable work. They are proposed contract content, not evidence that any current model passes.
+
+| Builder | Minimum role-specific capability test | Required output/evidence |
+|---|---|---|
+| Huginn | Given a project goal and constraints, produce a component map, dependency order, acceptance boundaries, and unresolved design questions | Versioned architecture/work breakdown; every dependency linked to a requirement or evidence source |
+| Muninn | Given a sequence of project events and artifacts, create a chronological checkpoint, identify changed state, and restore a selected prior checkpoint without altering the source history | Append-only history, provenance links, integrity results, explicit restored-vs-current state |
+| Kvasir | Given mixed source material, extract claims, distinguish source statements from inference, and convert supported content into a requested structured format | Claim/source crosswalk, uncertainty labels, parse/transform output, validation report |
+| Mari | Given two components with different interfaces, define an interoperable message contract and handle valid, invalid, delayed, and unavailable responses | Input/output schema, error semantics, compatibility map, communication test cases |
+| Höðr | Given an accepted specification, implement a bounded prototype and create tests that demonstrate expected and failure behavior | Reproducible implementation, build/test results, performance/resource measurements, known defects |
+| Týr | Given an artifact, permission policy, and proposed change, verify integrity and authority constraints and detect corruption or unauthorized overwrite | Hash/signature checks, permission decision, discrepancy report, audit trail; no self-granted authority |
+| Loki | Given a failed or constrained design, generate distinct alternatives, identify trade-offs, and produce a safe degraded/recovery path | Alternatives matrix, experiment plan, failure-mode analysis, reversible repair proposal |
+| Odin | Given conflicting component contracts and dependencies, identify incompatibilities and produce a reconciled integration candidate without deleting unresolved disagreement | Dependency graph, conflict register, compatibility changes, release candidate and unresolved items |
+| Baldr | Given requirements, claims, artifacts, and test results, independently determine which acceptance criteria are met and which remain unverified | Independent test report, evidence-to-claim links, failed/untested criteria, release recommendation; no reliance solely on the author's self-report |
+
+### Shared minimum capabilities
+
+Every Builder's MFM must also demonstrate the shared ability to:
+- understand a task, identify missing inputs, and ask a focused clarification when necessary;
+- explain and preserve relevant role boundaries and dependencies;
+- produce a structured handoff to another Builder;
+- distinguish observed facts, inference, proposals, and unknowns;
+- identify errors, propose a correction, and preserve the previous known-good state;
+- maintain and repair its own work products under the substrate's permissions.
+
+These shared abilities do not erase specialization. They ensure a Builder can cooperate outside its primary responsibility and continue in a reduced or unfamiliar environment.
+
+### Provisional acceptance thresholds (proposed, not yet adopted)
+
+- **100%** pass for deterministic schema, identity-attribution, provenance-required, and permission-boundary checks.
+- **Zero** critical safety, privacy, authority, or destructive-integrity violations in the acceptance suite.
+- **At least 90%** pass rate on the role-specific held-out task suite, with every failure recorded and no critical task failure hidden by an average.
+- **At least 4/5** on a published rubric for quality, completeness, evidence discipline, and useful handoff, scored by more than one evaluator where practical.
+- Resource ceilings and latency limits must be declared per target host before a candidate is accepted; do not infer a model-size target from a parameter count alone.
+
+These thresholds are starting proposals for calibration against baseline models and representative tasks. They are not marked adopted until the user approves them or the project governance process records adoption. Baldr may coordinate an independent verification report, but must not be the only evaluator; Týr checks authority/integrity, and Odin reconciles the evidence without suppressing disagreement.
+
 ## 4. Contract C — Model and artifact registry
 
 The substrate maintains separate records for model families, concrete artifacts, and running instances.
@@ -251,7 +287,30 @@ No fixed model count per Builder is required. The nine identities may be served 
 
 ## 8. Inventory plan and evidence boundaries
 
-The known project architecture includes an OpenAI-compatible HTTP provider adapter and a provider-independent conversation coordinator. The available repository and current runtime must be inspected to produce an exact adapter inventory; this document does not claim that the adapter exposes downloadable weights or that hosted models can be compressed.
+### Observed repository inventory (source inspection)
+
+The following source files were fetched from the active development branch and inspected:
+
+| Component | Observed implementation | Evidence boundary |
+|---|---|---|
+| Provider-neutral interface | `BuilderModelProvider` exposes `providerId()` and `complete(Request)`; request carries system instruction, user message, and max output tokens; completion carries response text and returned model ID | Interface is implemented; it does not expose weights, tokenizer files, parameter count, training access, or distillation controls |
+| Provider adapter | `OpenAiCompatibleModelProvider` serializes Chat Completions-style JSON, requests JSON-object output, applies timeouts and a 1 MB request bound, validates HTTPS or localhost HTTP endpoints, and accepts an injected credential source and HTTP transport | One protocol adapter is observed. This is not evidence of a particular hosted provider's support for export, fine-tuning, or weight access |
+| Provider registry | `BuilderProviderRegistry` holds explicitly configured adapters in an immutable ID map | Registry is a provider-adapter registry, not yet a model-family/artifact/instance registry |
+| Role routing | `BuilderProviderRouter` maps each Builder role explicitly to a configured provider ID; no implicit fallback | All nine roles can be routed, but the current abstraction does not itself allocate variable-sized models or measure capability |
+| Model responder | `BuilderModelResponder` builds a role-specific prompt, sends accumulated thread context through the selected provider, and parses the returned response | Conversation execution is present; model lifecycle, model-to-model evaluation, and reconstruction are not |
+| Role definitions | `BuilderRole` defines all nine stable identities and short responsibility descriptions | Role identities are implemented; the full measurable capability contracts are specified above but not yet encoded or evaluated |
+
+Source files:
+- `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderModelProvider.java`
+- `app/src/main/java/org/yggdrasil/scheduler/builder/OpenAiCompatibleModelProvider.java`
+- `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderProviderRegistry.java`
+- `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderProviderRouter.java`
+- `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderModelResponder.java`
+- `app/src/main/java/org/yggdrasil/scheduler/builder/BuilderRole.java`
+
+**Inventory conclusion:** the inspected implementation has one OpenAI-compatible API adapter behind a provider-neutral interface, explicit per-role routing, and no separate local-model adapter or model-artifact access layer observed in these files. The adapter can be configured for a localhost endpoint, but that only means a local server speaking the same API can be addressed; it does not mean the app includes a local model, downloads weights, or has verified a local model exchange. Actual provider IDs, endpoint/model configuration, credentials, and live model access are not assumed or enumerated here.
+
+The available repository and current runtime still require a separate configuration and provider-terms inventory. Do not transmit user data or test live endpoints merely to populate metadata.
 
 Inventory columns:
 - provider/adapter and endpoint type;
@@ -291,14 +350,14 @@ The later lifecycle manager must enforce these invariants:
 | Deliverable | Required evidence | State |
 |---|---|---|
 | Identity/assignment contract | Stable IDs, separate identity and model-instance records, assignment audit rules | Specified |
-| Capability contract | Versioned measurable requirements and acceptance suite | Specified; measurable tests and thresholds pending |
+| Capability contract | Versioned measurable requirements and acceptance suite | Specified; provisional thresholds proposed, not adopted; model tests pending |
 | Model/artifact registry | Family, artifact, and instance records with provenance | Specified; live inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | Specified |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | Specified |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Specified |
-| Provider/model inventory | Verified adapter/configuration/access table | Pending inspection |
+| Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Adapter inspected; configuration and live access pending |
 
-Phase A is complete only after the nine adopted responsibility maps have been translated into measurable capability contracts, the actual provider/adapter inventory has been inspected, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
+Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
 
 ## 11. Integrity checkpoint
 
