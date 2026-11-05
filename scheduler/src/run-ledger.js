@@ -205,6 +205,37 @@ export class BuilderRunLedger {
     });
   }
 
+  async recoverAbandonedRuns(reason = "Host restarted before the run outcome was recorded") {
+    return this.withLock(async () => {
+      const state = await this.store.load();
+      state.builderRuns ??= [];
+      const recovered = [];
+      const now = this.clock();
+      const nowIso = now.toISOString();
+      for (const run of state.builderRuns) {
+        if (run.status !== "running") continue;
+        const expired = !run.deadlineAt || now.getTime() >= new Date(run.deadlineAt).getTime();
+        run.status = expired ? "expired" : "interrupted";
+        run.interruptedAt = nowIso;
+        run.updatedAt = nowIso;
+        run.interruptionReason = expired
+          ? "Eight-hour maximum work window elapsed before recovery"
+          : String(reason).slice(0, 1000);
+        if (expired) run.finishedAt = nowIso;
+        for (const builder of run.builders) {
+          if (builder.status === "running") {
+            builder.status = "interrupted";
+            builder.finishedAt = nowIso;
+            builder.error = "Host interruption; inspect checkpoint before any retry.";
+          }
+        }
+        recovered.push(run.runId);
+      }
+      if (recovered.length) await this.store.save(state);
+      return recovered;
+    });
+  }
+
   async mutate(runId, change) {
     return this.withLock(async () => {
       const state = await this.store.load();
