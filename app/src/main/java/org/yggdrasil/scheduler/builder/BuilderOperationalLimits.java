@@ -9,6 +9,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Loads the shared, timestamped operational limits snapshot and evaluates its freshness.
@@ -61,9 +64,24 @@ public final class BuilderOperationalLimits {
             JSONArray sourceConstraints = register.optJSONArray("constraints");
             if (sourceConstraints == null) return unavailable("Constraints collection is missing");
             JSONArray evaluated = new JSONArray();
+            Map<String, JSONObject> seenCapabilities = new HashMap<>();
             for (int i = 0; i < sourceConstraints.length(); i++) {
                 JSONObject entry = new JSONObject(sourceConstraints.getJSONObject(i).toString());
                 evaluateEntry(entry, today);
+                String capability = entry.optString("capability", "").trim()
+                        .toLowerCase(Locale.ROOT);
+                if (capability.isEmpty()) {
+                    entry.put("gate_decision", "RECHECK_REQUIRED");
+                    entry.put("gate_reason", "Capability name is missing; the record cannot be matched safely.");
+                } else if (seenCapabilities.containsKey(capability)) {
+                    JSONObject first = seenCapabilities.get(capability);
+                    first.put("gate_decision", "RECHECK_REQUIRED");
+                    first.put("gate_reason", "Duplicate capability records exist; reconcile them before relying on either record.");
+                    entry.put("gate_decision", "RECHECK_REQUIRED");
+                    entry.put("gate_reason", "Duplicate capability records exist; reconcile them before relying on either record.");
+                } else {
+                    seenCapabilities.put(capability, entry);
+                }
                 evaluated.put(entry);
             }
             register.put("constraints", evaluated);
