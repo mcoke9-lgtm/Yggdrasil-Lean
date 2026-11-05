@@ -26,8 +26,8 @@
     "contract.odin.v0_1",
     "contract.baldr.v0_1"
   ],
-  "evaluation_suite_ref": "suite.nine_builder.v0_1",
-  "evaluation_rubric_ref": "rubric.capability.v0_1",
+  "evaluation_suite_ref": "tests/model-capabilities/phase-a-suite-v0.1.json",
+  "evaluation_rubric_ref": "schemas/capability-evaluation-rubric-v0.1.json",
   "source_candidates": [],
   "target_resource_profile_id": "profile.seed_compact.provisional",
   "reduction_method": "not_selected",
@@ -50,7 +50,10 @@
     "minimum_independent_reviewers": 2,
     "model_self_evaluation_is_sufficient": false,
     "third_review_on_disagreement": true,
-    "raw_evidence_retention": true
+    "raw_evidence_retention": true,
+    "candidate_must_not_self_evaluate": true,
+    "evaluator_artifacts_must_be_distinct_from_candidate": true,
+    "human_or_deterministic_verification_required": true
   },
   "reconstruction_seed_policy": {
     "seed_type": "not_selected",
