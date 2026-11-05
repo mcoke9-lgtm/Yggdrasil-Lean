@@ -677,3 +677,35 @@ public final class BuilderConversationActivity extends Activity {
                 });
             } catch (Exception failure) {
                 final String reason = failure.getMessage() == null
+                        ? failure.getClass().getSimpleName() : failure.getMessage();
+                if (!destroyed) runOnUiThread(() -> {
+                    busy = false;
+                    sendButton.setEnabled(true);
+                    messageInput.setEnabled(true);
+                    status.setText("Conversation request failed: " + reason
+                            + ". Any user turn or earlier Builder replies already saved remain in history.");
+                    refreshHistory();
+                });
+            } finally {
+                if (store != null) store.close();
+            }
+        });
+    }
+
+    private void renderTurns(List<BuilderConversationProtocol.Turn> turns) {
+        history.removeAllViews();
+        for (BuilderConversationProtocol.Turn turn : turns) {
+            String speaker = turn.speaker == BuilderConversationProtocol.Participant.USER
+                    ? "You" : displayName(turn.speaker.name());
+            String recipient = turn.recipient == null ? "" : " → " + displayName(turn.recipient.name());
+            history.addView(text(speaker + recipient + " · " + turn.type.name()
+                    + " · " + turn.evidenceStatus.name() + "\n" + turn.body, 14));
+        }
+    }
+
+    private static String roleNames(List<BuilderRole> roles) {
+        List<String> names = new ArrayList<>();
+        for (BuilderRole role : roles) names.add(role.getDisplayName());
+        return android.text.TextUtils.join(", ", names);
+    }
+}
