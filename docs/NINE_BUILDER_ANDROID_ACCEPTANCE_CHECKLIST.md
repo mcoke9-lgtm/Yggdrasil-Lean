@@ -43,3 +43,7 @@ A passing Gradle unit-test job does not establish that the APK installs, Android
 - Distribution: `https://services.gradle.org/distributions/gradle-8.9-bin.zip`.
 - Distribution SHA-256: `d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab`.
 - Wrapper JAR is sourced from the official Gradle `v8.9.0` release tag and is validated by the Gradle setup action.
+
+## JVM test environment
+- Unit tests use the standalone JSON-java implementation for JVM execution rather than Android's unmocked framework stubs.
+- Credential-destination matching is tested as a pure configuration rule; Android Keystore encryption/decryption remains a device/runtime acceptance check.
