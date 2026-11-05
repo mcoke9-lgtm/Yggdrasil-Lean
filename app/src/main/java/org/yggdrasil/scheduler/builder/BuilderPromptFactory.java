@@ -73,8 +73,17 @@ public final class BuilderPromptFactory {
             }
             payload.put("turns_oldest_first", turns);
             payload.put("task", "Contribute from the " + role.getDisplayName()
-                    + " perspective. If another participant should respond, identify them and explain why. "
+                    + " perspective. You may contribute, ask a named peer a question, challenge a specific earlier turn, "
+                    + "answer a directed turn, hand off a bounded task, acknowledge a handoff, or reconcile cited turns. "
+                    + "Use the matching turn_type and reference fields. Never create a DECISION turn. "
                     + "Do not invent a recipient or claim agreement.");
+            JSONObject responseSchema = new JSONObject();
+            responseSchema.put("body", "string: concise contribution");
+            responseSchema.put("turn_type", "one of CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
+            responseSchema.put("recipient", "participant enum or null; required for directed turn types");
+            responseSchema.put("reply_to_turn_id", "earlier turn ID or null; required for CHALLENGE, RESPONSE, HANDOFF, ACKNOWLEDGEMENT, RECONCILIATION");
+            responseSchema.put("evidence_status", "one of PROPOSED, OBSERVED, TESTED, VERIFIED, USER_CONFIRMED, DISPUTED, UNKNOWN");
+            payload.put("response_schema", responseSchema);
             message = payload.toString(2);
         } catch (JSONException impossibleForValidatedValues) {
             throw new IllegalStateException("Could not serialize conversation prompt",
