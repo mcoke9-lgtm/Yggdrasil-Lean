@@ -22,8 +22,8 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
         this.router = router;
         this.maxOutputTokens = maxOutputTokens;
         this.operationalLimitsJson = operationalLimitsJson == null || operationalLimitsJson.trim().isEmpty()
-                ? "{\\"register_status\\":\\"UNAVAILABLE\\",\\"live_telemetry\\":false,"
-                        + "\\"unlisted_capability_decision\\":\\"RECHECK_REQUIRED\\"}"
+                ? "{\"register_status\":\"UNAVAILABLE\",\"live_telemetry\":false,"
+                        + "\"unlisted_capability_decision\":\"RECHECK_REQUIRED\""
                 : operationalLimitsJson;
     }
 
