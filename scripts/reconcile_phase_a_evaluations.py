@@ -42,10 +42,26 @@ def validate_evaluator_run(report: dict) -> dict[str, dict]:
         raise ValueError("Evaluator report must preserve blind review and human-review requirements.")
     if report.get("evaluator_is_sole_authority") is not False:
         raise ValueError("A model evaluator cannot be the sole authority.")
+    if report.get("candidate_artifact_id_status") != "operator_supplied_unverified":
+        raise ValueError("Candidate artifact provenance must remain explicitly unverified.")
+    if report.get("evaluator_artifact_id_status") != "operator_supplied_unverified":
+        raise ValueError("Evaluator artifact provenance must remain explicitly unverified.")
+    if report.get("evaluator_model_revision_status") != "operator_supplied_unverified":
+        raise ValueError("Evaluator revision provenance must remain explicitly unverified.")
+    if report.get("evaluator_artifact_distinct_from_candidate") is not True:
+        raise ValueError("Evaluator artifact must be distinct from the candidate artifact.")
+    if report.get("evaluator_artifact_id") == report.get("candidate_artifact_id"):
+        raise ValueError("Evaluator artifact must not be the candidate artifact.")
     indexed = {}
     for item in report.get("evaluations", []):
         if item.get("status") != "success":
             raise ValueError("Every evaluation must have a valid structured score.")
+        if not isinstance(item.get("hard_failure_detected"), bool):
+            raise ValueError("Hard-failure flag must be boolean.")
+        if not isinstance(item.get("hard_failure_ids"), list) or any(not isinstance(x, str) for x in item["hard_failure_ids"]):
+            raise ValueError("Hard-failure IDs must be an array of strings.")
+        if item["hard_failure_detected"] != bool(item["hard_failure_ids"]):
+            raise ValueError("Hard-failure flag and IDs must agree.")
         scores = item.get("scores", {})
         if set(scores) != set(DIMENSIONS):
             raise ValueError("Evaluator report is missing one or more registered score dimensions.")
