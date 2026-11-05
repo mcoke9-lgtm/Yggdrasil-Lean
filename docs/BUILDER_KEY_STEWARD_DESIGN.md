@@ -75,3 +75,11 @@ The disposable CI signing gate is complete. This does not authorize production-k
 - Disposable keystore creation and saved-file reopening on Galaxy S21 / Android 15: **user-reported**; not independently observed by CI.
 - Production-key creation, two independently retained encrypted backups, and production migration: **not done; gated**.
 - Static review of the current Android source found no reason to expand this PR into production signing or host/scheduler changes. This is not a formal security audit or a substitute for the device rehearsal above.
+
+
+## CI APK installation compatibility
+
+- Debug/CI APKs use the application ID `org.yggdrasil.keysteward.ci` via the debug build-type suffix. The production/reserved application ID remains `org.yggdrasil.keysteward`.
+- This permits the disposable-CI-signed debug APK to be installed alongside an existing production installation instead of attempting an in-place update with a different signing certificate.
+- The CI/debug package is a separate test installation. It does not update, migrate, replace, or validate the signing identity of the production installation. Keep the production app and its data untouched during this rehearsal.
+- Verify the artifact's final package ID and signing certificate in CI before asking the user to install it. Do not claim the side-by-side installation is validated until the user confirms it on-device.
