@@ -284,6 +284,8 @@ def run(args) -> dict:
         "run_id": str(uuid.uuid4()),
         "status": status,
         "candidate_model_id": args.model,
+        "candidate_artifact_id": args.artifact_id,
+        "candidate_artifact_id_status": "operator_supplied_unverified",
         "candidate_revision": args.revision,
         "candidate_revision_status": "operator_supplied_unverified",
         "scope": "full_suite" if args.limit is None else "smoke_test",
@@ -315,6 +317,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1/chat/completions")
     parser.add_argument("--model", required=True)
+    parser.add_argument("--artifact-id", required=True)
     parser.add_argument("--revision", default="unlocked")
     parser.add_argument("--output", required=True, type=pathlib.Path)
     parser.add_argument("--timeout", type=int, default=90)
