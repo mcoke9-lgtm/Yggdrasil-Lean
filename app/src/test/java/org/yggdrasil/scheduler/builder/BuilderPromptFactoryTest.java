@@ -230,6 +230,17 @@ public class BuilderPromptFactoryTest {
                     role, Collections.singletonList(user), user);
             assertFalse(other.systemInstruction.contains("persistent consent and per-submission consent can be complementary layers"));
         }
+
+        BuilderConversationProtocol.Turn conflict = turn("u2",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 200,
+                "Option A requires the service to retain the data; Option B requires that the service never retain the same data. Assess whether both requirements can be satisfied simultaneously.");
+        BuilderPromptFactory.Prompt conflictPrompt = BuilderPromptFactory.forTurn(
+                BuilderRole.MARI, Collections.singletonList(conflict), conflict);
+        assertTrue(conflictPrompt.userMessage.contains("Option A requires the service to retain the data"));
+        assertTrue(conflictPrompt.userMessage.contains("never retain the same data"));
+        assertTrue(conflictPrompt.systemInstruction.contains("identify the exact incompatibility"));
+        assertTrue(conflictPrompt.systemInstruction.contains("explain the trade-offs"));
     }
 
 }
