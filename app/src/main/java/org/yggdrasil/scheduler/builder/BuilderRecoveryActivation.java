@@ -33,6 +33,8 @@ public final class BuilderRecoveryActivation {
         public final int threadCount;
         public final int turnCount;
         public final int subjectEventCount;
+        public final String conversationDataSha256;
+        public final String subjectDataSha256;
 
         private ActivePair(JSONObject descriptor, String previous) throws org.json.JSONException {
             generationId = descriptor.getString("generation_id");
@@ -42,6 +44,8 @@ public final class BuilderRecoveryActivation {
             threadCount = descriptor.getInt("thread_count");
             turnCount = descriptor.getInt("turn_count");
             subjectEventCount = descriptor.getInt("subject_event_count");
+            conversationDataSha256 = descriptor.getString("conversation_data_sha256");
+            subjectDataSha256 = descriptor.getString("subject_data_sha256");
         }
     }
 
@@ -59,7 +63,8 @@ public final class BuilderRecoveryActivation {
 
         Context app = context.getApplicationContext();
         verifyPair(app, staged.conversationDatabaseName, staged.subjectDatabaseName,
-                staged.threadCount, staged.turnCount, staged.subjectEventCount);
+                staged.threadCount, staged.turnCount, staged.subjectEventCount,
+                staged.conversationDataSha256, staged.subjectDataSha256);
 
         File descriptorFile = descriptorFile(app, staged.stagingId);
         if (descriptorFile.exists()) throw new IllegalStateException("Generation descriptor already exists");
@@ -76,6 +81,8 @@ public final class BuilderRecoveryActivation {
             descriptor.put("thread_count", staged.threadCount);
             descriptor.put("turn_count", staged.turnCount);
             descriptor.put("subject_event_count", staged.subjectEventCount);
+            descriptor.put("conversation_data_sha256", staged.conversationDataSha256);
+            descriptor.put("subject_data_sha256", staged.subjectDataSha256);
             descriptor.put("descriptor_sha256", checksum(descriptor));
             writeNewAtomic(descriptorFile, descriptor.toString());
 
@@ -108,7 +115,8 @@ public final class BuilderRecoveryActivation {
         try {
             pair = new ActivePair(descriptor, previous);
             verifyPair(app, pair.conversationDatabaseName, pair.subjectDatabaseName,
-                    pair.threadCount, pair.turnCount, pair.subjectEventCount);
+                    pair.threadCount, pair.turnCount, pair.subjectEventCount,
+                    pair.conversationDataSha256, pair.subjectDataSha256);
             return pair;
         } catch (org.json.JSONException e) {
             throw new IllegalStateException("Invalid active recovery descriptor", e);
@@ -129,7 +137,8 @@ public final class BuilderRecoveryActivation {
         try {
             ActivePair validated = new ActivePair(target, active);
             verifyPair(app, validated.conversationDatabaseName, validated.subjectDatabaseName,
-                    validated.threadCount, validated.turnCount, validated.subjectEventCount);
+                    validated.threadCount, validated.turnCount, validated.subjectEventCount,
+                    validated.conversationDataSha256, validated.subjectDataSha256);
             JSONObject next = new JSONObject();
             next.put("format", FORMAT);
             next.put("format_version", VERSION);
@@ -145,7 +154,8 @@ public final class BuilderRecoveryActivation {
     }
 
     private static void verifyPair(Context app, String conversationName, String subjectName,
-                                   int expectedThreads, int expectedTurns, int expectedEvents) {
+                                   int expectedThreads, int expectedTurns, int expectedEvents,
+                                   String expectedConversationDigest, String expectedSubjectDigest) {
         requireDatabaseName(conversationName);
         requireDatabaseName(subjectName);
         if (!app.getDatabasePath(conversationName).isFile()
@@ -158,8 +168,10 @@ public final class BuilderRecoveryActivation {
             JSONObject subject = subjects.exportSnapshot();
             if (conversation.getInt("thread_count") != expectedThreads
                     || conversation.getInt("turn_count") != expectedTurns
-                    || subject.getInt("event_count") != expectedEvents)
-                throw new IllegalStateException("Staged database counts no longer match the verified stage");
+                    || subject.getInt("event_count") != expectedEvents
+                    || !expectedConversationDigest.equals(sha256(conversation.getJSONArray("threads").toString()))
+                    || !expectedSubjectDigest.equals(sha256(subject.getJSONArray("events").toString())))
+                throw new IllegalStateException("Staged database contents no longer match the verified stage");
         } catch (org.json.JSONException e) {
             throw new IllegalStateException("Could not verify staged database contents", e);
         } finally {
@@ -208,6 +220,14 @@ public final class BuilderRecoveryActivation {
         copy.remove(field);
         if (!claimed.matches("[0-9a-f]{64}") || !claimed.equals(checksum(copy)))
             throw new IllegalArgumentException("Checksum mismatch: " + field);
+    }
+
+    private static String sha256(String value) throws Exception {
+        byte[] bytes = MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8));
+        StringBuilder out = new StringBuilder();
+        for (byte b : bytes) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
+        return out.toString();
     }
 
     private static String checksum(JSONObject value) throws Exception {
