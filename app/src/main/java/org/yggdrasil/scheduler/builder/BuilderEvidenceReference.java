@@ -2,9 +2,6 @@ package org.yggdrasil.scheduler.builder;
 
 import java.net.URI;
 import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -177,8 +174,15 @@ public final class BuilderEvidenceReference {
         if (raw == null || raw.isEmpty()) return values;
         for (String pair : raw.split("&")) {
             String[] parts = pair.split("=", 2);
-            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
-            String value = parts.length == 2 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
+            String key;
+            String value;
+            try {
+                key = URLDecoder.decode(parts[0].replace("+", "%2B"), "UTF-8");
+                value = parts.length == 2
+                        ? URLDecoder.decode(parts[1].replace("+", "%2B"), "UTF-8") : "";
+            } catch (java.io.UnsupportedEncodingException impossible) {
+                throw new IllegalStateException("UTF-8 is unavailable", impossible);
+            }
             if (values.put(key, value) != null)
                 throw new IllegalArgumentException("Duplicate evidence query parameter: " + key);
         }
