@@ -2350,7 +2350,9 @@
         "model_call_count",
         "candidate_revision_status",
         "scope",
-        "planned_execution_count"
+        "planned_execution_count",
+        "candidate_artifact_id",
+        "candidate_artifact_id_status"
       ],
       "properties": {
         "format_id": {
@@ -2572,6 +2574,12 @@
         },
         "planned_execution_count": {
           "const": 63
+        },
+        "candidate_artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_artifact_id_status": {
+          "const": "operator_supplied_unverified"
         }
       },
       "additionalProperties": false
