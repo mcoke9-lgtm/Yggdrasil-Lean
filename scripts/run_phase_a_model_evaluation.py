@@ -26,6 +26,7 @@ import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUNDLE_PATH = ROOT / "schemas/nine-builder-capability-contracts-v0.1.json"
+ARTIFACT_INVENTORY_PATH = ROOT / "schemas/model-artifact-inventory-v0.1.json"
 SUITE_PATH = ROOT / "tests/model-capabilities/phase-a-suite-v0.1.json"
 BUILDERS = ["HUGINN", "MUNINN", "KVASIR", "MARI", "HODR", "TYR", "LOKI", "ODIN", "BALDR"]
 
@@ -202,6 +203,15 @@ def request_model(endpoint: str, model: str, system_prompt: str, user_prompt: st
 def run(args) -> dict:
     endpoint = validate_endpoint(args.endpoint, args.allow_remote)
     bundle = load_json(BUNDLE_PATH)
+    artifact_inventory = load_json(ARTIFACT_INVENTORY_PATH)
+    registered_artifacts = {item["artifact_id"]: item for item in artifact_inventory["artifacts"]}
+    candidate_artifact = registered_artifacts.get(args.artifact_id)
+    if candidate_artifact is None:
+        raise ValueError("Candidate artifact ID must exist in the registered model-artifact inventory.")
+    if candidate_artifact["version"] != args.revision:
+        raise ValueError("Candidate revision must match the registered artifact version.")
+    if candidate_artifact["validation_state"] == "rejected":
+        raise ValueError("A rejected candidate artifact cannot be evaluated.")
     suite = load_json(SUITE_PATH)
     plan = build_evaluation_plan(bundle, suite)
     if args.limit is not None:
@@ -286,6 +296,7 @@ def run(args) -> dict:
         "candidate_model_id": args.model,
         "candidate_artifact_id": args.artifact_id,
         "candidate_artifact_id_status": "operator_supplied_unverified",
+        "candidate_artifact_validation_state": candidate_artifact["validation_state"],
         "candidate_revision": args.revision,
         "candidate_revision_status": "operator_supplied_unverified",
         "scope": "full_suite" if args.limit is None else "smoke_test",
