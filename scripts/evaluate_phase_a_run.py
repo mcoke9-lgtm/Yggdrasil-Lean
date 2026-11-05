@@ -259,6 +259,8 @@ def run(args) -> dict:
         raise ValueError("Candidate artifact identity must remain explicitly unverified until independently checked.")
     if report.get("candidate_revision_status") != "operator_supplied_unverified":
         raise ValueError("Candidate revision must remain explicitly unverified until independently checked.")
+    if report.get("candidate_artifact_validation_state") not in ("unverified", "checksum_verified", "signature_verified", "compatibility_verified"):
+        raise ValueError("Candidate artifact is rejected or has an invalid validation state.")
     if report.get("candidate_model_id") != args.candidate_model_id:
         raise ValueError("Candidate model ID must match the source execution report.")
     bundle = load_json(BUNDLE_PATH)
@@ -332,6 +334,7 @@ def run(args) -> dict:
         "source_execution_run_id": report["run_id"],
         "candidate_artifact_id": args.candidate_artifact_id,
         "candidate_artifact_id_status": "operator_supplied_unverified",
+        "candidate_artifact_validation_state": report["candidate_artifact_validation_state"],
         "evaluator_artifact_id": args.evaluator_artifact_id,
         "evaluator_artifact_id_status": "operator_supplied_unverified",
         "evaluator_model_id": args.evaluator_model,
