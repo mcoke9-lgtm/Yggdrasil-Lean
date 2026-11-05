@@ -143,3 +143,14 @@ PR #35 now adds a traceable, append-only correction lifecycle:
 - **Verified:** not yet. The runtime has not been executed on a device or emulator.
 - **Adopted:** not adopted. PR #35 remains draft and unmerged.
 - **Original incident diagnosis:** still open; this correction mechanism does not itself establish whether the original cause was missing context, reasoning failure, or both.
+
+
+## J. CI correction and test result — 2026-11-05
+
+- Android workflow run 42106471812 initially failed at Java compilation because the review incident-reference parser used a double-escaped newline character literal.
+- The source was corrected in commit 0a2f4f53ca82b8185771437dfdcd4d1e1f0b427f.
+- Android JVM unit-test run 42106686255 then completed SUCCESS. Main Java compilation, test Java compilation, and :app:testDebugUnitTest all passed.
+- Lean build and analysis-engine run 42106686481 also completed SUCCESS, including the sample CSV acceptance check.
+- **Tested:** Android JVM unit suite and Lean/analysis CI passed for the recorded PR head.
+- **Verified:** CI results are verified from GitHub Actions job records; device/emulator behavior and live provider/scheduler behavior remain unverified.
+- **Adopted:** not adopted; PR #35 remains draft and unmerged.
