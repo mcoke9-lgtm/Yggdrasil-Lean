@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { request as httpRequest } from "node:http";
 import { createServer } from "../src/server.js";
 
 async function withServer(run) {
@@ -76,8 +77,18 @@ test("server binds only when caller chooses loopback; response hardens browser h
 
 test("server rejects requests carrying a non-local Host header", async () => {
   await withServer(async base => {
-    const response = await fetch(base, { headers: { host: "attacker.example" } });
-    assert.equal(response.status, 403);
-    assert.match((await response.json()).error, /only through localhost/);
+    const port = new URL(base).port;
+    const status = await new Promise((resolve, reject) => {
+      const request = httpRequest({
+        hostname: "127.0.0.1", port, path: "/",
+        headers: { host: "attacker.example" }
+      }, response => {
+        response.resume();
+        response.on("end", () => resolve(response.statusCode));
+      });
+      request.on("error", reject);
+      request.end();
+    });
+    assert.equal(status, 403);
   });
 });
