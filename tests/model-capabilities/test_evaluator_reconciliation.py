@@ -35,6 +35,7 @@ def make_report(model_id: str, artifact_id: str, run_id: str, score: int = 4) ->
         "source_execution_run_id": "candidate-run-001",
         "candidate_artifact_id": "artifact.candidate",
         "candidate_artifact_id_status": "operator_supplied_unverified",
+        "candidate_artifact_validation_state": "unverified",
         "evaluator_artifact_id": artifact_id,
         "evaluator_artifact_id_status": "operator_supplied_unverified",
         "evaluator_model_id": model_id,
