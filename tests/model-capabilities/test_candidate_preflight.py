@@ -1,6 +1,7 @@
 """Read-only tests for the explicit Qwen candidate acquisition preflight."""
 from __future__ import annotations
 
+import hashlib
 import pathlib
 import sys
 import tempfile
@@ -36,7 +37,7 @@ class CandidatePreflightTests(unittest.TestCase):
             self.assertEqual(
                 "5e3f4f0a6d4b0e9a8c8d3f8f3d4c8d9e",
                 candidate.sha256_file(path)
-            ) if False else self.assertEqual(64, len(candidate.sha256_file(path)))
+            ) if False else self.assertEqual(hashlib.sha256(b"builder-test").hexdigest(), candidate.sha256_file(path))
 
 
 if __name__ == "__main__":
