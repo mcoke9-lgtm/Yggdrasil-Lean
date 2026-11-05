@@ -14,13 +14,13 @@ public class BuilderRecoveryExportTest {
         root.put("turn_count", 2);
         root.put("threads", new JSONArray().put(new JSONObject()
                 .put("thread_id", "thread-a").put("turns", new JSONArray())));
-        root.put("content_sha256", "a".repeat(64));
+        root.put("content_sha256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         return root;
     }
 
     @Test public void completeExportIncludesEventsAndChecksumsCombinedContent() throws Exception {
         JSONArray events = new JSONArray().put(new JSONObject()
-                .put("event_id", "event-1").put("snapshot_sha256", "b".repeat(64)));
+                .put("event_id", "event-1").put("snapshot_sha256", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         JSONObject result = BuilderRecoveryExport.compose(conversation(), events, "available", null);
         assertEquals(2, result.getInt("format_version"));
         assertEquals(1, result.getInt("thread_count"));
