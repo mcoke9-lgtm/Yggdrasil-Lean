@@ -4,6 +4,7 @@ import { Scheduler } from "./scheduler.js";
 import { registerGithubWatch } from "./github-watch.js";
 import { createDashboardServer } from "./dashboard-server.js";
 import { acquireProcessLock } from "./process-lock.js";
+import { registerOptionalBuilderRuntime } from "./builder-runtime.js";
 
 const stateFile = resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.json");
 const pollMs = Number(process.env.SCHEDULER_POLL_MS || 15000);
@@ -19,6 +20,12 @@ const scheduler = new Scheduler({
   maxRunsPerTick: 5
 });
 registerGithubWatch(scheduler);
+const builderRuntime = await registerOptionalBuilderRuntime({ scheduler, schedulerStateFile: stateFile });
+process.stdout.write(JSON.stringify({
+  event: builderRuntime.configured ? "nine_builders_executor_registered" : "nine_builders_executor_unconfigured",
+  reason: builderRuntime.reason ?? null,
+  builderStateFile: builderRuntime.builderStateFile ?? null
+}) + "\\n");
 scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
   process.stdout.write(JSON.stringify({
     event: "scheduled_heartbeat",
