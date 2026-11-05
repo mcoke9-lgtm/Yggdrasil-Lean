@@ -1,0 +1,144 @@
+name: Builder Key Steward Android
+
+on:
+  push:
+    branches: [builder-key-steward-foundation-001]
+    paths:
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/builder-key-steward.yml'
+  pull_request:
+    branches: [independent-builder-runtime-foundation-001]
+    paths:
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/builder-key-steward.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  key-steward-build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Check Key Steward has no network permission
+        run: |
+          if grep -q 'android.permission.INTERNET' key-steward/src/main/AndroidManifest.xml; then
+            echo "::error::Key Steward must remain offline."
+            exit 1
+          fi
+      - name: Create disposable PKCS12 key for CI signing test
+        run: |
+          echo "BUILDER_TEST_KEYSTORE_OUTPUT=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
+          echo "BUILDER_KEYSTORE_PATH=$GITHUB_WORKSPACE/key-steward/build/disposable-test-key.p12" >> "$GITHUB_ENV"
+          echo "BUILDER_KEYSTORE_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
+          echo "BUILDER_KEY_ALIAS=builder-upload-key" >> "$GITHUB_ENV"
+          echo "BUILDER_KEY_PASSWORD=disposable-test-password" >> "$GITHUB_ENV"
+      - name: Run unit tests for CI and Development variants
+        run: |
+          gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:testDevelopmentUnitTest
+      - name: Assemble Production identity plus separately installable CI and Development APKs
+        run: |
+          # Release is assembled unsigned only to inspect its reserved Production identity.
+          # No production signing key or secret is used.
+          gradle --no-daemon :key-steward:assembleRelease :key-steward:assembleDebug :key-steward:assembleDevelopment
+      - name: Verify three distinct application IDs, labels, and manifest collision surface
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          PROD_APK="key-steward/build/outputs/apk/release/key-steward-release-unsigned.apk"
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          test -x "$AAPT"
+          test -f "$PROD_APK"
+          test -f "$CI_APK"
+          test -f "$DEV_APK"
+          for VARIANT in production ci development; do
+            case "$VARIANT" in
+              production) APK="$PROD_APK" ;;
+              ci) APK="$CI_APK" ;;
+              development) APK="$DEV_APK" ;;
+            esac
+            "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/$VARIANT-badging.txt"
+            "$AAPT" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/$VARIANT-manifest.txt"
+            # New providers or custom permissions require explicit per-variant identity review.
+            if grep -Eq 'E: (provider|permission)( |$)' "$RUNNER_TEMP/$VARIANT-manifest.txt"; then
+              echo "::error::A provider or custom permission was added; define and verify unique per-variant identifiers."
+              exit 1
+            fi
+          done
+          PROD_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/production-badging.txt")"
+          CI_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/ci-badging.txt")"
+          DEV_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/development-badging.txt")"
+          test "$PROD_ID" = "org.yggdrasil.keysteward"
+          test "$CI_ID" = "org.yggdrasil.keysteward.ci"
+          test "$DEV_ID" = "org.yggdrasil.keysteward.dev"
+          test "$PROD_ID" != "$CI_ID"
+          test "$PROD_ID" != "$DEV_ID"
+          test "$CI_ID" != "$DEV_ID"
+          grep -F "application-label:'Builder Key Steward'" "$RUNNER_TEMP/production-badging.txt"
+          grep -F "application-label:'Builder Key Steward CI'" "$RUNNER_TEMP/ci-badging.txt"
+          grep -F "application-label:'Builder Key Steward Development'" "$RUNNER_TEMP/development-badging.txt"
+          echo "Three APK manifests have distinct package IDs and labels; no provider or custom permission collision surface is currently declared."
+          echo "Production APK is unsigned and is not an installable release artifact."
+      - name: Repeat both APK assemblies with the same disposable signing identity
+        run: |
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          cp "$CI_APK" "$RUNNER_TEMP/first-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/first-development.apk"
+          rm "$CI_APK" "$DEV_APK"
+          gradle --no-daemon :key-steward:assembleDebug :key-steward:assembleDevelopment
+          cp "$CI_APK" "$RUNNER_TEMP/second-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/second-development.apk"
+      - name: Verify all four APK signatures and stable signer fingerprint
+        run: |
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$APKSIGNER"
+          for APK in "$RUNNER_TEMP/first-ci.apk" "$RUNNER_TEMP/second-ci.apk" \
+                     "$RUNNER_TEMP/first-development.apk" "$RUNNER_TEMP/second-development.apk"; do
+            "$APKSIGNER" verify --verbose --print-certs "$APK"
+          done
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-ci.apk" > "$RUNNER_TEMP/first-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-ci.apk" > "$RUNNER_TEMP/second-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/first-development.apk" > "$RUNNER_TEMP/first-dev-signer.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/second-development.apk" > "$RUNNER_TEMP/second-dev-signer.txt"
+          KEY_DIGEST="$(keytool -list -v -keystore "$BUILDER_KEYSTORE_PATH" -storetype PKCS12 \
+            -storepass "$BUILDER_KEYSTORE_PASSWORD" | sed -n 's/.*SHA256: //p' | head -n 1 \
+            | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          for REPORT in "$RUNNER_TEMP/first-signer.txt" "$RUNNER_TEMP/second-signer.txt" \
+                        "$RUNNER_TEMP/first-dev-signer.txt" "$RUNNER_TEMP/second-dev-signer.txt"; do
+            DIGEST="$(sed -n 's/.*SHA-256 digest: //p' "$REPORT" | head -n 1 \
+              | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+            test -n "$DIGEST"
+            test "$KEY_DIGEST" = "$DIGEST"
+          done
+          echo "Both CI assemblies and both Development assemblies use the same disposable PKCS12 certificate."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: builder-key-steward-ci-and-development-apks
+          path: |
+            key-steward/build/outputs/apk/debug/key-steward-debug.apk
+            key-steward/build/outputs/apk/development/key-steward-development.apk
+          if-no-files-found: error
+          retention-days: 14
