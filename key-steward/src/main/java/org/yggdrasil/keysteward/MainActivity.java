@@ -7,6 +7,7 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.util.Base64;
 import android.view.View;
 import android.view.WindowManager;
@@ -221,7 +222,7 @@ public final class MainActivity extends Activity {
         String encoded = Base64.encodeToString(pendingBytes, Base64.NO_WRAP);
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
-        Bundle extras = new Bundle();
+        PersistableBundle extras = new PersistableBundle();
         extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
         clip.getDescription().setExtras(extras);
         clipboard.setPrimaryClip(clip);
