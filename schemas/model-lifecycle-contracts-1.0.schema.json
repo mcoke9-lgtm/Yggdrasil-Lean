@@ -2131,6 +2131,39 @@
         }
       },
       "additionalProperties": false
+    },
+    "modelFamilyInventory": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "status",
+        "candidates"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.model-family-inventory"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "research_shortlist",
+            "verified_inventory",
+            "retired"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/modelFamily"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -2172,6 +2205,9 @@
     },
     {
       "$ref": "#/$defs/modelReductionStudy"
+    },
+    {
+      "$ref": "#/$defs/modelFamilyInventory"
     }
   ]
 }
