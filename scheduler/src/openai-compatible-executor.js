@@ -354,6 +354,11 @@ function validateTask(task, routes, runId) {
     if (!turn || turn.runId !== runId || turn.threadId !== threadId) {
       throw new Error("Task history contains data outside this scheduled run's dedicated thread");
     }
+    const speaker = requiredText(turn.speaker, "Run history speaker", 32);
+    if (speaker !== "USER" && !BUILDER_ROLES.includes(speaker)) {
+      throw new Error("Task history contains an unknown speaker");
+    }
+    requiredText(turn.body, "Run history body", 16000);
   }
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
@@ -402,6 +407,14 @@ export function createOpenAiCompatibleExecutor({
     }
     runThreads.set(runId, task.threadId);
     const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
+    if (role === "BALDR") {
+      const successfulRoles = outcomes.filter(item => item.status === "succeeded").map(item => item.role);
+      const historySpeakers = new Set(task.history.map(turn => turn.speaker));
+      const missingHistory = successfulRoles.filter(value => !historySpeakers.has(value));
+      if (missingHistory.length) {
+        throw new Error("Baldr cannot review until successful Builder results are present in the run thread: " + missingHistory.join(","));
+      }
+    }
     const userMessage = JSON.stringify({
       task_prompt: task.prompt,
       prior_turns_oldest_first: task.history,
