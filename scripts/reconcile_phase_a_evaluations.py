@@ -52,6 +52,10 @@ def validate_evaluator_run(report: dict) -> dict[str, dict]:
         raise ValueError("Evaluator artifact must be distinct from the candidate artifact.")
     if report.get("evaluator_artifact_id") == report.get("candidate_artifact_id"):
         raise ValueError("Evaluator artifact must not be the candidate artifact.")
+    if report.get("evaluator_artifact_id_status") != "operator_supplied_unverified":
+        raise ValueError("Evaluator artifact identity must remain explicitly unverified.")
+    if report.get("evaluator_model_revision_status") != "operator_supplied_unverified":
+        raise ValueError("Evaluator model revision must remain explicitly unverified.")
     indexed = {}
     for item in report.get("evaluations", []):
         if item.get("status") != "success":
