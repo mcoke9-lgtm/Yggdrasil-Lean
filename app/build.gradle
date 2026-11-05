@@ -24,6 +24,7 @@ android {
         signingConfigs {
             builderCi {
                 storeFile file(System.getenv('BUILDER_KEYSTORE_PATH'))
+                storeType 'PKCS12'
                 storePassword System.getenv('BUILDER_KEYSTORE_PASSWORD')
                 keyAlias System.getenv('BUILDER_KEY_ALIAS')
                 keyPassword System.getenv('BUILDER_KEY_PASSWORD')
