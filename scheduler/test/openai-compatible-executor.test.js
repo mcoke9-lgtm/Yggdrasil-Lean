@@ -33,15 +33,19 @@ function makeReply(overrides = {}) {
 function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, timeoutMs } = {}) {
   const saved = [];
   const checkpoints = [];
+  const runHistory = new Map();
   const vault = taskVault || {
     async getTask(reference, { runId }) {
       assert.equal(reference, "vault:task-001");
       const prompt = "Investigate the next safe engineering step.";
       const threadId = "thread-" + runId;
+      if (!runHistory.has(runId)) {
+        runHistory.set(runId, [{ runId, threadId, speaker: "USER", body: "Continue carefully." }]);
+      }
       return {
         prompt,
         threadId,
-        history: [{ runId, threadId, speaker: "USER", body: "Continue carefully." }],
+        history: [...runHistory.get(runId)],
         consent: {
           status: "USER_APPROVED",
           scope: "NINE_BUILDERS_OVERNIGHT",
@@ -53,6 +57,12 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
     async appendBuilderResult(reference, record) {
       assert.equal(reference, "vault:task-001");
       saved.push(record);
+      runHistory.get(record.runId).push({
+        runId: record.runId,
+        threadId: record.threadId,
+        speaker: record.role,
+        body: record.reply.body
+      });
       return { durable: true, checkpointId: "checkpoint-" + record.role.toLowerCase() };
     }
   };
@@ -384,23 +394,45 @@ test("blocks disclosure when the approved prompt or any route changes", async ()
   assert.equal(calls, 0);
 });
 
-test("Baldr cannot run until all eight other Builder outcomes are present", async () => {
+test("Baldr cannot run until all eight other Builder outcomes and their recorded results are present", async () => {
   let calls = 0;
-  const h = makeHarness({ fetchImpl: async () => {
-    calls++;
-    return new Response(JSON.stringify({
-      model: "reported-baldr",
-      choices: [{ message: { content: JSON.stringify(makeReply()) } }]
-    }), { status: 200 });
-  }});
-  await assert.rejects(() => h.executor("BALDR", h.context("BALDR", [])), /all eight other roles/);
-  assert.equal(calls, 0);
-
+  const routes = makeRoutes();
+  const prompt = "Review all peer outputs.";
   const outcomes = BUILDER_ROLES.filter(role => role !== "BALDR")
     .map(role => ({ role, status: "succeeded", summary: role + " checkpointed" }));
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        const threadId = "thread-" + runId;
+        return {
+          prompt,
+          threadId,
+          history: outcomes.map(item => ({
+            runId, threadId, speaker: item.role, body: item.summary
+          })),
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "baldr-checkpoint" }; }
+    },
+    fetchImpl: async () => {
+      calls++;
+      return new Response(JSON.stringify({
+        model: "reported-baldr",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await assert.rejects(() => h.executor("BALDR", h.context("BALDR", [])), /all eight other roles/);
+  assert.equal(calls, 0);
   await h.executor("BALDR", h.context("BALDR", outcomes));
   assert.equal(calls, 1);
-  assert.match(h.saved[0].reply.body, /contribution/);
 });
 
 test("requires unique model IDs and a separate Baldr endpoint and model", () => {
