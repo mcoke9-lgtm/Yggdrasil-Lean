@@ -386,7 +386,7 @@ test("service runner handles SIGTERM immediately at readiness and releases its l
       child.once("exit", code => { clearTimeout(timeout); resolveExit(code); });
     });
     assert.equal(exitCode, 0);
-    assert.ok(output.split("\\n").some(value => {
+    assert.ok(output.split("\n").some(value => {
       try {
         const event = JSON.parse(value);
         return event.event === "scheduler_stopping" && event.signal === "SIGTERM";
