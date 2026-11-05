@@ -11,8 +11,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -46,10 +44,13 @@ public final class MainActivity extends Activity {
     }
 
     private JSONObject loadRegistry() {
-        try (InputStream in = getAssets().open("registry.json"); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] b = new byte[4096]; int n;
-            while ((n = in.read(b)) != -1) out.write(b, 0, n);
-            return new JSONObject(out.toString("UTF-8"));
+        try {
+            return new JSONObject("{\"applications\":["
+                + "{\"display_name\":\"Yggdrasil Builder Host\",\"purpose\":\"Android Builder runtime host and conversation interface.\",\"package_id\":\"org.yggdrasil.builderhost\"},"
+                + "{\"display_name\":\"Builder Key Steward\",\"purpose\":\"Key and signing material stewardship.\",\"package_id\":\"org.yggdrasil.keysteward\"},"
+                + "{\"display_name\":\"Yggdrasil Scheduler\",\"purpose\":\"Independent scheduling prototype; package identity not yet verified.\",\"package_id\":null},"
+                + "{\"display_name\":\"Installed Signer Diagnostic\",\"purpose\":\"Read-only installed signing-certificate inspection.\",\"package_id\":\"org.yggdrasil.signingdiagnostic\"}"
+                + "]}");
         } catch (Exception e) { return new JSONObject(); }
     }
 
