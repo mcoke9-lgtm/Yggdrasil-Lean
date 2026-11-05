@@ -1,8 +1,8 @@
 # Recovery Drill Interface 001
 
 ## User flow
-1. From the Nine Builder Conversation screen, select **Run recovery drill**.
-2. Android's system document picker opens. The user selects an existing Yggdrasil JSON recovery export.
+1. From the Nine Builder Conversation screen, select **Export backup**. Android's system save dialog asks where to save `yggdrasil-nine-builder-conversations.json`.
+2. Select **Run recovery drill**. Android's system document picker opens; select the JSON file saved in step 1.
 3. The app reads the selected document without modifying it and assesses the in-memory JSON.
 4. A report dialog displays readiness, integrity, checksum, provenance state, source-comparison state, findings, and an explicit no-restore/no-overwrite/no-delete statement.
 
