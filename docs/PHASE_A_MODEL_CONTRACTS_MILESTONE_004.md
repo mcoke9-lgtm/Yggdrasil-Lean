@@ -372,6 +372,10 @@ The repository now contains `scripts/validate_phase_a_contracts.py` and `.github
 
 The validator has been committed, but **its GitHub Actions result has not yet been observed**. A committed workflow is not evidence of a passing run.
 
+### Provider inventory
+
+`docs/PHASE_A_PROVIDER_INVENTORY_001.md` records a source-verified inventory of the provider-neutral interface, immutable provider registry, explicit per-role router, OpenAI-compatible HTTP adapter, and device-local encrypted credential settings. The source confirms that the current route is static per Builder role and that no elastic allocator or local inference engine is implemented. Actual device-saved provider/model metadata and endpoint availability remain unknown; no credential values were accessed.
+
 ### Elastic lifecycle and reconstruction
 
 `docs/ELASTIC_BUILDER_MODEL_LIFECYCLE_001.md` specifies compact, standard, specialist, ensemble, degraded, suspended, and recovery states. It makes the non-model runtime responsible for identity, memory, communication, coordination, permissions, assignment, and recovery. It distinguishes a self-contained compact seed from an expandable manifest and a trainable recipe. It explicitly rejects the assumption that a small model can regenerate arbitrary missing large-model weights or recover information lost through compression.
@@ -386,7 +390,7 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | 22 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Lifecycle states and transition criteria specified; runtime implementation pending |
-| Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Adapter/settings source inspected; device configuration and provider access pending |
+| Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Source inventory documented; device-saved provider/model metadata and endpoint availability pending |
 
 Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, the formal schema-validation workflow has passed, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed without exposing credentials, and the contracts have been reviewed for consistency. Model-level testing and resource measurements must also be completed for at least one lawful candidate compact model. Documentation alone does not complete those evidence tasks.
 
