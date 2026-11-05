@@ -94,6 +94,24 @@ public class BuilderRecoveryOverlayStoreTest {
         assertEquals(2, overlay.exportSubjectSnapshot().getInt("event_count"));
     }
 
+
+    @Test public void mergedRecoveryExportCarriesOneGenerationAndBothStreams() throws Exception {
+        overlay = createOverlay();
+        overlay.append(turn("overlay-turn", 2000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
+        JSONObject exported = overlay.exportMergedSnapshots();
+        assertEquals("yggdrasil-recovery-overlay-export", exported.getString("format"));
+        assertEquals(GENERATION, exported.getString("generation_id"));
+        assertEquals(staged.conversationDataSha256,
+                exported.getString("conversation_baseline_sha256"));
+        assertEquals(staged.subjectDataSha256,
+                exported.getString("subject_baseline_sha256"));
+        assertEquals(2, exported.getJSONObject("conversation_snapshot").getInt("turn_count"));
+        assertEquals(2, exported.getJSONObject("subject_thread_snapshot").getInt("event_count"));
+        assertTrue(exported.getString("content_sha256").matches("[0-9a-f]{64}"));
+    }
+
     @Test public void duplicateConversationIdentityAcrossLayersIsRejected() {
         overlay = createOverlay();
         try {
