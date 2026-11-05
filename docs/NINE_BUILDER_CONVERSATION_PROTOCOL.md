@@ -180,3 +180,6 @@ The review is still prompt-guided and runs through the existing single-process c
 
 
 An Android JVM unit-test workflow has also been added at .github/workflows/android-unit-tests.yml. It runs :app:testDebugUnitTest on push, pull request, or manual dispatch. The workflow definition is present in this branch, but no corresponding run has yet been returned by the GitHub run lookup; therefore Android tests remain NOT RUN / NOT VERIFIED.
+
+
+The coordinator also enforces a narrow verification authority boundary during improvement review: the incident author cannot return a VERIFIED review claim, and only an unaffected Baldr may do so. If Baldr authored the incident, no Builder in that review round may mark the correction VERIFIED; an independent external check or a separately designed alternate verifier is required. Rejected self-certification or non-Baldr verification attempts are recorded as failed-role outcomes rather than appended as accepted VERIFIED turns. This is a deterministic role gate, not proof that Baldr's own evidence assessment is correct.
