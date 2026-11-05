@@ -22,6 +22,7 @@ public class BuilderRecoveryActivationTest {
     @Before public void setUp() {
         context = RuntimeEnvironment.getApplication();
         BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
+        useHostRename();
         clearAll();
         sourceConversations = new BuilderConversationStore(context, "activation-source.db");
         sourceSubjects = new BuilderSubjectThreadIndex(context, "activation-source-subjects.db");
@@ -42,6 +43,14 @@ public class BuilderRecoveryActivationTest {
         sourceSubjects.close();
         clearAll();
         BuilderRecoveryActivation.setDirectorySyncForTests(null);
+        BuilderRecoveryActivation.setAtomicRenameForTests(null);
+    }
+
+    private void useHostRename() {
+        BuilderRecoveryActivation.setAtomicRenameForTests((source, target) -> {
+            if (!source.renameTo(target))
+                throw new java.io.IOException("Host test rename failed: " + source.getName());
+        });
     }
 
     private void clearAll() {
@@ -188,6 +197,71 @@ public class BuilderRecoveryActivationTest {
         assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
         BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
         assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+    }
+
+    @Test public void failedDescriptorRenameLeavesNoActivePairAndRetryClearsStaleTemp() {
+        BuilderRecoveryStager.StageResult staged = stage(ONE);
+        BuilderRecoveryActivation.setAtomicRenameForTests((source, target) -> {
+            if (target.getName().startsWith("builder-recovery-generation-"))
+                throw new java.io.IOException("injected descriptor rename failure");
+            if (!source.renameTo(target)) throw new java.io.IOException("host rename failed");
+        });
+        try {
+            BuilderRecoveryActivation.activate(context, staged);
+            fail("descriptor rename failure must stop activation");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not activate"));
+        }
+        assertNull(BuilderRecoveryActivation.getActive(context));
+        File descriptor = new File(context.getFilesDir(),
+                "builder-recovery-generation-" + ONE + ".json");
+        File temp = new File(context.getFilesDir(),
+                "builder-recovery-generation-" + ONE + ".json.tmp");
+        assertFalse(descriptor.exists());
+        assertTrue(temp.isFile());
+
+        useHostRename();
+        assertEquals(ONE, BuilderRecoveryActivation.activate(context, staged).generationId);
+        assertTrue(descriptor.isFile());
+        assertFalse(temp.exists());
+    }
+
+    @Test public void failedManifestRenamePreservesOldPairAndRetryReplacesPointer() {
+        BuilderRecoveryActivation.activate(context, stage(ONE));
+        BuilderRecoveryStager.StageResult second = stage(TWO);
+        BuilderRecoveryActivation.setAtomicRenameForTests((source, target) -> {
+            if (target.getName().equals("builder-recovery-active.json"))
+                throw new java.io.IOException("injected manifest rename failure");
+            if (!source.renameTo(target)) throw new java.io.IOException("host rename failed");
+        });
+        try {
+            BuilderRecoveryActivation.activate(context, second);
+            fail("manifest rename failure must stop activation");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not activate"));
+        }
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+        assertTrue(new File(context.getFilesDir(), "builder-recovery-active.json.tmp").isFile());
+        assertTrue(new File(context.getFilesDir(),
+                "builder-recovery-generation-" + TWO + ".json").isFile());
+
+        useHostRename();
+        assertEquals(TWO, BuilderRecoveryActivation.activate(context, second).generationId);
+        assertEquals(TWO, BuilderRecoveryActivation.getActive(context).generationId);
+        assertFalse(new File(context.getFilesDir(), "builder-recovery-active.json.tmp").exists());
+    }
+
+    @Test public void rejectsOversizedActiveManifestBeforeAllocatingItsContents() throws Exception {
+        File manifest = new File(context.getFilesDir(), "builder-recovery-active.json");
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(manifest)) {
+            out.write(new byte[1024 * 1024 + 1]);
+        }
+        try {
+            BuilderRecoveryActivation.getActive(context);
+            fail("oversized manifest must be rejected");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("manifest is invalid"));
+        }
     }
 
     @Test public void refusesActivationIfStagedContentChangesAfterReadBack() {
