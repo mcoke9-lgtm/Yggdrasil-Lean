@@ -26,8 +26,8 @@
     "contract.odin.v0_1",
     "contract.baldr.v0_1"
   ],
-  "evaluation_suite_ref": "tests/model-capabilities/phase-a-suite-v0.1.json",
-  "evaluation_rubric_ref": "schemas/capability-evaluation-rubric-v0.1.json",
+  "evaluation_suite_ref": "suite.nine_builder.v0_1",
+  "evaluation_rubric_ref": "rubric.capability.v0_1",
   "source_candidates": [
     {
       "model_family_ref": "qwen3_5_0_8b",
@@ -43,7 +43,7 @@
           "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
         }
       ],
-      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+      "notes": "Research shortlist entry; repository revision 2fc06364715b967f1860aea9cf38778875588b17 is pinned, but the selected weight-file digest, complete artifact lock, and baseline test are not registered."
     },
     {
       "model_family_ref": "lfm3_1_7b",
