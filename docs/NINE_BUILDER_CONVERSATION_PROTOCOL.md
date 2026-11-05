@@ -1,6 +1,6 @@
 # Nine Builder Conversation Protocol
 
-**Status:** Implemented as a versioned, typed validation contract with a local append-only SQLite journal; runtime orchestration and independent Builder workers remain pending.
+**Status:** Implemented as a versioned, typed contract, local append-only SQLite journal, and single-process coordinator with an injectable responder; a real model adapter, app conversation UI, and independent Builder workers remain pending.
 **Protocol version:** 2 (reads legacy version 1 Builder-only turns)
 **Authority:** The user remains director and final authority for consequential commitments.
 
@@ -93,6 +93,10 @@ Protocol version 2 adds `USER` as a first-class participant. Version 1 Builder-o
 
 The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, call a model, or execute work. The local journal persists validated turns in a private SQLite database, preserving insertion order and thread provenance across store closure and reopening. Appends are transactional; invalid turns are rejected before commit. The public store API exposes reads and appends only, not update or delete operations. The journal is currently device-local: it does not synchronize across devices, encrypt records independently of Android's app-private storage protections, authenticate remote senders, or provide a backup/export format. Database schema changes require an explicit migration; the current upgrade path deliberately fails rather than silently discarding history.
 
+## Single-process coordinator
+
+`BuilderConversationCoordinator` accepts a user message and a selected set of Builder roles. It records the user as `USER`, passes the current immutable thread context to each selected role through the `Responder` interface, and stores successful replies as directed responses to the user turn. It preserves successful work if another role fails and reports the failed roles. The responder is deliberately injectable: tests use a deterministic fake, while a real model adapter has not yet been selected or implemented. This coordinator is not evidence of independent agents.
+
 ## First conversation acceptance exercise
 
 Run a scripted conversation with all nine voices represented and these observable stages:
@@ -120,13 +124,13 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 
 `BuilderConversationStore` is a SQLite-backed, append-only local journal. It stores the complete typed turn fields, including thread and turn IDs, speaker (user or Builder), recipient, reply reference, turn type, evidence status, timestamp, and body. A new append is validated against the existing thread inside a database transaction before insertion. Reads return immutable snapshots in insertion order. The journal has no public update/delete method. Its current schema is version 1; schema upgrades must be implemented as explicit migrations.
 
-The journal is not yet connected to a model coordinator, background workers, remote transport, cross-device synchronization, or an automatic backup mechanism. Those remain separate future capabilities and must not be inferred from local persistence.
+`BuilderConversationCoordinator` records a user turn, routes the thread context to selected Builder roles through an injectable responder, and appends each successful response separately. A failed responder does not erase the user turn or other successful responses. The coordinator currently runs in one process and has no concrete model-provider adapter. Background workers, remote transport, cross-device synchronization, and an automatic backup mechanism remain future capabilities and must not be inferred from local persistence.
 
 ## Integrity checkpoint
 
 - **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator and journal source plus unit tests are committed in this branch; CI execution of the journal tests is pending. Actual model-coordinated dialogue and independent workers remain pending.
+- **Evidence:** validator, journal, coordinator, and unit tests are committed in this branch; CI execution of these tests is pending. A real model adapter, app-level conversation UI, and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
