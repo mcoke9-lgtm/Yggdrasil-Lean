@@ -116,3 +116,12 @@ Implemented in the PR branch (not yet merged or deployed):
 ### Remaining diagnosis
 
 The incident's root cause remains open. The runtime change reduces the chance of repeating the same omission by delivering the scheduler as a shared, explicit unknown capability and giving Kvasir direct stewardship instructions. It does not yet prove whether the original failure arose from context delivery, reasoning, or both.
+
+
+### CI evidence append — 2026-11-05
+
+- Latest PR #35 head at this check: `540be3d1c3032aecfe445567a82216572f95fe65`.
+- GitHub Actions run `42103861190` — Lean build and analysis engine checks: **success**.
+- Jobs verified: `build` and `analysis-engine`; the sample CSV acceptance check also passed.
+- This workflow did not execute Android Gradle/Robolectric tests. No Android instrumentation/device run is evidenced.
+- Consequently, Java runtime implementation remains **not yet tested/verified**; the successful Lean/analysis workflow is narrower evidence only.
