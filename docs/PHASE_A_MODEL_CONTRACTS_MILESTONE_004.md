@@ -358,6 +358,24 @@ A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1
 
 **Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 22 fixtures remain `proposed_not_executed`.
 
+### Evaluation rubric and automated validation
+
+A proposed weighted scoring rubric is now defined in `schemas/capability-evaluation-rubric-v0.1.json`. It scores task completion, evidence integrity, role-boundary judgment, failure handling, handoff/recovery, and clarity. It includes hard-failure conditions, independent evaluator requirements, resource measurements, and a minimum compact-seed acceptance gate. Its thresholds remain proposed, not adopted.
+
+The repository now contains `scripts/validate_phase_a_contracts.py` and `.github/workflows/phase-a-contract-validation.yml`. The workflow uses a pinned JSON Schema validator and checks:
+- Draft 2020-12 schema validity and the bundle, fixture suite, and rubric against that schema;
+- nine unique Builder contracts and six required capabilities per Builder;
+- 22 unique fixtures, including 18 role-specific and four shared;
+- correct Builder and capability ownership for every role-specific fixture;
+- all four shared fixtures mapped to every Builder;
+- explicit proposed/not-adopted thresholds and not-yet-executed fixture status.
+
+The validator has been committed, but **its GitHub Actions result has not yet been observed**. A committed workflow is not evidence of a passing run.
+
+### Elastic lifecycle and reconstruction
+
+`docs/ELASTIC_BUILDER_MODEL_LIFECYCLE_001.md` specifies compact, standard, specialist, ensemble, degraded, suspended, and recovery states. It makes the non-model runtime responsible for identity, memory, communication, coordination, permissions, assignment, and recovery. It distinguishes a self-contained compact seed from an expandable manifest and a trainable recipe. It explicitly rejects the assumption that a small model can regenerate arbitrary missing large-model weights or recover information lost through compression.
+
 ## 10. Phase A deliverables and completion gates
 
 | Deliverable | Required evidence | State |
@@ -366,11 +384,11 @@ A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1
 | Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 54 capability tests specified; thresholds proposed, not adopted; model tests pending |
 | Model/artifact registry | Family, artifact, and instance records with provenance | JSON Schema definitions specified; live artifact inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
-| Evaluation contract | Independent tests, safety, resource and recovery gates | Specified |
-| Resource profiles | Measurable elastic sizing and degraded-mode rules | Specified |
+| Evaluation contract | Independent tests, safety, resource and recovery gates | 22 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
+| Resource profiles | Measurable elastic sizing and degraded-mode rules | Lifecycle states and transition criteria specified; runtime implementation pending |
 | Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Adapter/settings source inspected; device configuration and provider access pending |
 
-Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
+Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, the formal schema-validation workflow has passed, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed without exposing credentials, and the contracts have been reviewed for consistency. Model-level testing and resource measurements must also be completed for at least one lawful candidate compact model. Documentation alone does not complete those evidence tasks.
 
 ## 11. Integrity checkpoint
 
@@ -379,5 +397,5 @@ Phase A is complete only after the nine adopted responsibility maps and shared c
 - **Ownership:** the non-model substrate owns identity, memory, communication, coordination, permissions, lifecycle, and recovery.
 - **Minimum model:** defined by a tested capability contract, not by an arbitrary parameter count.
 - **Reconstruction:** seed manifest distinguishes embedded resources from external dependencies and unavailable information.
-- **Evidence:** this document specifies contracts; implementation, exact provider inventory, and model-level tests remain pending.
+- **Evidence:** contracts, schemas, fixtures, rubric, validation script, and lifecycle design are committed; GitHub validation run, exact device provider inventory, and model-level tests remain pending.
 - **Authority:** user remains director and final authority; no NUC installation or modification is authorized.
