@@ -65,8 +65,10 @@ public final class SchedulerWorker extends Worker {
             String name = run.optString("name");
             if (!task.workflow.equals(name)) continue;
             long id = run.optLong("id",0);
-            if (id > maxId) maxId = id;
-            if (task.baseline && id > task.lastRunId && "completed".equals(run.optString("status"))) matches.add(run);
+            if ("completed".equals(run.optString("status"))) {
+                if (id > maxId) maxId = id;
+                if (task.baseline && id > task.lastRunId) matches.add(run);
+            }
         }
         if (!task.baseline) {
             db.updateCheck(task, today, maxId, true, "Baseline established");
