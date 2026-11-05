@@ -158,6 +158,7 @@ def main() -> int:
     if evaluation_design.get("evaluator_models_must_not_see_other_scores_before_submission") is not True:
         print("FAIL evaluator models must submit independent scores before seeing other evaluator scores")
         failures += 1
+    if evaluation_design.get("evaluator_model_artifact_refs") != []:
         print("FAIL no independent evaluator artifact may be implied before it is registered")
         failures += 1
     if evaluation_design.get("builder_roles_are_independent_model_artifacts") is not False:
