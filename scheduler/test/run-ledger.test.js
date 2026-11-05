@@ -270,3 +270,45 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
   assert.equal(saved[0].status, "interrupted");
   assert.equal(saved[0].builders.find(item => item.role === "ODIN").status, "interrupted");
 });
+
+test("scheduled handler resumes an interrupted run only from safe checkpoints", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const prior = await ledger.createRun({
+    runId: "resumable-builder-run",
+    scheduledFor: "2026-11-04T12:00:00Z",
+    durationMs: 60 * 60 * 1000
+  });
+  await ledger.startRun(prior.runId);
+  await ledger.startBuilder(prior.runId, "ODIN");
+  await ledger.checkpointBuilder(prior.runId, "ODIN", {
+    checkpointId: "odin-resume-point", data: { completedWorkUnits: 3 },
+    safeToResume: true
+  });
+  await ledger.interruptRun(prior.runId, "simulated host restart");
+
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  registerBuilderRunHandler(scheduler, {
+    ledger, clock,
+    executor: async role => {
+      invoked.push(role);
+      return { status: "succeeded", summary: "resumed or continued" };
+    },
+    output: () => {}
+  });
+  await scheduler.addTask({
+    id: "resume-existing-builder-run",
+    name: "Resume existing Builder run",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { resumeRunId: prior.runId },
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.equal(invoked[0], "ODIN");
+  assert.equal(invoked[8], "BALDR");
+  const saved = await ledger.getRun(prior.runId);
+  assert.equal(saved.status, "completed");
+  assert.equal(saved.builders.find(item => item.role === "ODIN").attempt, 2);
+});
