@@ -20,9 +20,9 @@ import java.util.Set;
  * Generation-bound append-only overlay for an immutable recovery baseline.
  *
  * One SQLite file stores both post-baseline conversation turns and subject events.
- * It is deliberately not wired into application startup. The two baseline files
- * are opened read-only and their canonical record-array digests are rechecked
- * against the supplied generation identity before data is read or written.
+ * It is used only through the callback-scoped access facade by generation-aware
+ * canonical writer adapters. The two baseline files are opened read-only and their
+ * canonical record-array digests are rechecked before data is read or written.
  *
  * SQLite transactions provide cross-process write serialization; Java monitors
  * are not used as a correctness boundary.
