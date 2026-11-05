@@ -13,6 +13,7 @@ SCHEMA_PATH = ROOT / "schemas/model-lifecycle-contracts-1.0.schema.json"
 BUNDLE_PATH = ROOT / "schemas/nine-builder-capability-contracts-v0.1.json"
 SUITE_PATH = ROOT / "tests/model-capabilities/phase-a-suite-v0.1.json"
 RUBRIC_PATH = ROOT / "schemas/capability-evaluation-rubric-v0.1.json"
+STUDY_PATH = ROOT / "schemas/model-reduction-study-v0.1.json"
 
 EXPECTED_BUILDERS = {
     "HUGINN", "MUNINN", "KVASIR", "MARI", "HODR",
@@ -42,6 +43,7 @@ def main() -> int:
     bundle = load(BUNDLE_PATH)
     suite = load(SUITE_PATH)
     rubric = load(RUBRIC_PATH)
+    study = load(STUDY_PATH)
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)
@@ -50,6 +52,7 @@ def main() -> int:
     failures += schema_errors(validator, bundle, "capability bundle")
     failures += schema_errors(validator, suite, "evaluation suite")
     failures += schema_errors(validator, rubric, "evaluation rubric")
+    failures += schema_errors(validator, study, "model reduction study")
 
     contracts = bundle.get("contracts", [])
     cases = suite.get("cases", [])
@@ -115,6 +118,9 @@ def main() -> int:
             print(f"FAIL role-specific fixture {fixture.get('case_id')} has an unknown Builder")
             failures += 1
 
+    if study.get("status") != "planned" or study.get("source_candidates") != [] or study.get("decision") != "not_decided":
+        print("FAIL model reduction study must remain planned with no unverified candidates or decision")
+        failures += 1
     if rubric.get("aggregation", {}).get("threshold_status") != "proposed_not_adopted":
         print("FAIL evaluation thresholds must remain explicitly unadopted")
         failures += 1
@@ -134,7 +140,7 @@ def main() -> int:
         return 1
 
     print("PASS: Draft 2020-12 schema is valid.")
-    print("PASS: Capability bundle, evaluation suite, and scoring rubric satisfy the JSON Schema.")
+    print("PASS: Capability bundle, evaluation suite, rubric, and model reduction study satisfy the JSON Schema.")
     print("PASS: Six evaluation dimensions have normalized weights.")
     print("PASS: Nine unique Builder contracts; seven capability tests each.")
     print("PASS: 23 unique fixtures (18 role-specific, five shared).")
