@@ -1807,6 +1807,318 @@
         }
       },
       "additionalProperties": false
+    },
+    "modelReductionStudy": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "study_id",
+        "status",
+        "goal",
+        "builder_identity_refs",
+        "capability_contract_refs",
+        "evaluation_suite_ref",
+        "evaluation_rubric_ref",
+        "source_candidates",
+        "target_resource_profile_id",
+        "reduction_method",
+        "capability_preservation_policy",
+        "evaluation_design",
+        "reconstruction_seed_policy",
+        "acceptance_gates",
+        "known_losses",
+        "known_unknowns",
+        "decision"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.model-reduction-study"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "study_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "planned",
+            "inventory_in_progress",
+            "baseline_evaluation",
+            "candidate_selection",
+            "reduction_in_progress",
+            "post_evaluation",
+            "independent_review",
+            "accepted",
+            "rejected",
+            "blocked"
+          ]
+        },
+        "goal": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "builder_identity_refs": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/builderId"
+          }
+        },
+        "capability_contract_refs": {
+          "type": "array",
+          "minItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "evaluation_suite_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "evaluation_rubric_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "source_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "model_family_ref",
+              "artifact_refs",
+              "license_status",
+              "weight_access_status",
+              "baseline_evaluation_status",
+              "provenance_refs"
+            ],
+            "properties": {
+              "model_family_ref": {
+                "$ref": "#/$defs/id"
+              },
+              "artifact_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/id"
+                }
+              },
+              "license_status": {
+                "type": "string",
+                "enum": [
+                  "verified_permitted",
+                  "verified_restricted",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "weight_access_status": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "downloadable",
+                  "hosted_only",
+                  "restricted",
+                  "unknown",
+                  "unavailable"
+                ]
+              },
+              "baseline_evaluation_status": {
+                "type": "string",
+                "enum": [
+                  "not_evaluated",
+                  "in_progress",
+                  "complete",
+                  "blocked"
+                ]
+              },
+              "baseline_report_ref": {
+                "type": "string"
+              },
+              "provenance_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                }
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "target_resource_profile_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reduction_method": {
+          "type": "string",
+          "enum": [
+            "not_selected",
+            "quantization",
+            "distillation",
+            "pruning",
+            "adapter_training",
+            "adapter_merge",
+            "fine_tuning",
+            "weight_sharing",
+            "other"
+          ]
+        },
+        "candidate_compact_artifact_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capability_preservation_policy": {
+          "type": "object",
+          "required": [
+            "mandatory_capabilities_must_pass",
+            "degraded_capabilities_must_be_named",
+            "lost_capabilities_must_be_recorded",
+            "cross_role_separation_required"
+          ],
+          "properties": {
+            "mandatory_capabilities_must_pass": {
+              "const": true
+            },
+            "degraded_capabilities_must_be_named": {
+              "const": true
+            },
+            "lost_capabilities_must_be_recorded": {
+              "const": true
+            },
+            "cross_role_separation_required": {
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "evaluation_design": {
+          "type": "object",
+          "required": [
+            "evaluator_builder_ids",
+            "independent_verifier_builder_ids",
+            "minimum_independent_reviewers",
+            "model_self_evaluation_is_sufficient",
+            "third_review_on_disagreement",
+            "raw_evidence_retention"
+          ],
+          "properties": {
+            "evaluator_builder_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/builderId"
+              }
+            },
+            "independent_verifier_builder_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/builderId"
+              }
+            },
+            "minimum_independent_reviewers": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "model_self_evaluation_is_sufficient": {
+              "const": false
+            },
+            "third_review_on_disagreement": {
+              "const": true
+            },
+            "raw_evidence_retention": {
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "reconstruction_seed_policy": {
+          "type": "object",
+          "required": [
+            "seed_type",
+            "includes_compact_weights",
+            "includes_larger_weights",
+            "requires_external_dependencies_manifest",
+            "requires_training_recipe_if_retraining",
+            "requires_license_and_provenance",
+            "must_disclose_lossy_compression"
+          ],
+          "properties": {
+            "seed_type": {
+              "type": "string",
+              "enum": [
+                "self_contained_compact",
+                "expandable_manifest",
+                "trainable_recipe",
+                "not_selected"
+              ]
+            },
+            "includes_compact_weights": {
+              "type": "boolean"
+            },
+            "includes_larger_weights": {
+              "type": "boolean"
+            },
+            "requires_external_dependencies_manifest": {
+              "const": true
+            },
+            "requires_training_recipe_if_retraining": {
+              "const": true
+            },
+            "requires_license_and_provenance": {
+              "const": true
+            },
+            "must_disclose_lossy_compression": {
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "acceptance_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "known_losses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "known_unknowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "not_decided",
+            "accept",
+            "accept_with_limitations",
+            "reject",
+            "blocked"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1845,6 +2157,9 @@
     },
     {
       "$ref": "#/$defs/capabilityEvaluationRubric"
+    },
+    {
+      "$ref": "#/$defs/modelReductionStudy"
     }
   ]
 }
