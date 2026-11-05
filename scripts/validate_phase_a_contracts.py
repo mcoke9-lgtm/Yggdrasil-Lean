@@ -14,6 +14,7 @@ BUNDLE_PATH = ROOT / "schemas/nine-builder-capability-contracts-v0.1.json"
 SUITE_PATH = ROOT / "tests/model-capabilities/phase-a-suite-v0.1.json"
 RUBRIC_PATH = ROOT / "schemas/capability-evaluation-rubric-v0.1.json"
 STUDY_PATH = ROOT / "schemas/model-reduction-study-v0.1.json"
+INVENTORY_PATH = ROOT / "schemas/model-family-candidate-inventory-v0.1.json"
 
 EXPECTED_BUILDERS = {
     "HUGINN", "MUNINN", "KVASIR", "MARI", "HODR",
@@ -44,6 +45,7 @@ def main() -> int:
     suite = load(SUITE_PATH)
     rubric = load(RUBRIC_PATH)
     study = load(STUDY_PATH)
+    inventory = load(INVENTORY_PATH)
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)
@@ -53,6 +55,7 @@ def main() -> int:
     failures += schema_errors(validator, suite, "evaluation suite")
     failures += schema_errors(validator, rubric, "evaluation rubric")
     failures += schema_errors(validator, study, "model reduction study")
+    failures += schema_errors(validator, inventory, "model family inventory")
 
     contracts = bundle.get("contracts", [])
     cases = suite.get("cases", [])
@@ -138,8 +141,16 @@ def main() -> int:
     if evaluation_design.get("model_self_evaluation_is_sufficient") is not False:
         print("FAIL candidate model must not be its own sole evaluator")
         failures += 1
-    if study.get("status") != "planned" or study.get("source_candidates") != [] or study.get("decision") != "not_decided":
-        print("FAIL model reduction study must remain planned with no unverified candidates or decision")
+    if study.get("status") != "planned" or study.get("decision") != "not_decided":
+        print("FAIL model reduction study must remain planned without an acceptance decision")
+        failures += 1
+    inventory_ids = {candidate.get("model_family_id") for candidate in inventory.get("candidates", [])}
+    study_ids = {candidate.get("model_family_ref") for candidate in study.get("source_candidates", [])}
+    if len(inventory_ids) != 5 or study_ids != inventory_ids:
+        print("FAIL the five research-stage model families must match the study candidate shortlist")
+        failures += 1
+    if any(candidate.get("baseline_evaluation_status") != "not_evaluated" or candidate.get("artifact_refs") for candidate in study.get("source_candidates", [])):
+        print("FAIL research candidates must not imply registered artifacts or completed baseline evaluation")
         failures += 1
     if rubric.get("aggregation", {}).get("threshold_status") != "proposed_not_adopted":
         print("FAIL evaluation thresholds must remain explicitly unadopted")
@@ -160,7 +171,8 @@ def main() -> int:
         return 1
 
     print("PASS: Draft 2020-12 schema is valid.")
-    print("PASS: Capability bundle, evaluation suite, rubric, and model reduction study satisfy the JSON Schema.")
+    print("PASS: Capability bundle, evaluation suite, rubric, model reduction study, and model-family inventory satisfy the JSON Schema.")
+    print("PASS: Five model families are research candidates only; no artifacts or baseline results are claimed.")
     print("PASS: Six evaluation dimensions have normalized weights.")
     print("PASS: Nine unique Builder contracts; seven capability tests each.")
     print("PASS: 23 unique fixtures (18 role-specific, five shared).")
