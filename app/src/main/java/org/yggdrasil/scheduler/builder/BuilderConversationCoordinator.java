@@ -159,7 +159,9 @@ public final class BuilderConversationCoordinator {
                 List<BuilderConversationProtocol.Turn> context = store.readThread(normalizedThreadId);
                 Reply reply = responder.respond(role, context, userTurn);
                 if (reply == null) throw new IllegalStateException("Responder returned no reply");
-                BuilderRole incidentAuthor = reviewIncidentAuthor(userTurn, context);
+                String reviewIncidentId = reviewIncidentId(userTurn, context);
+                BuilderRole incidentAuthor = reviewIncidentId == null
+                        ? null : reviewIncidentAuthor(reviewIncidentId, context);
                 if (incidentAuthor != null && reply.evidenceStatus == BuilderConversationProtocol.EvidenceStatus.VERIFIED) {
                     if (role == incidentAuthor)
                         throw new IllegalArgumentException("The Builder named in the incident cannot certify its own correction");
@@ -186,6 +188,15 @@ public final class BuilderConversationCoordinator {
                         reply.evidenceStatus,
                         timestamp,
                         reply.body);
+                if (turnType == BuilderConversationProtocol.TurnType.CORRECTION_PLAN) {
+                    if (reviewIncidentId == null)
+                        throw new IllegalArgumentException("Correction plans may only be proposed during an explicit improvement review");
+                    BuilderCorrectionLedger.validatePlan(response, context, reviewIncidentId);
+                } else if (turnType == BuilderConversationProtocol.TurnType.CORRECTION_UPDATE) {
+                    if (reviewIncidentId == null)
+                        throw new IllegalArgumentException("Correction updates may only be recorded during an explicit improvement review");
+                    BuilderCorrectionLedger.validateUpdate(response, context);
+                }
                 store.append(response);
                 appended.add(response);
 
@@ -220,8 +231,8 @@ public final class BuilderConversationCoordinator {
                 interrupted, interruptedBy, interruptionType, notRun);
     }
 
-    /** Returns the author of the referenced incident when this is a review round. */
-    private static BuilderRole reviewIncidentAuthor(
+    /** Extracts and validates the incident reference for an explicit review round. */
+    private static String reviewIncidentId(
             BuilderConversationProtocol.Turn userTurn,
             List<BuilderConversationProtocol.Turn> context) {
         String marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=";
@@ -234,11 +245,21 @@ public final class BuilderConversationCoordinator {
         for (BuilderConversationProtocol.Turn turn : context) {
             if (turn.turnId.equals(incidentId)
                     && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
-                BuilderRole author = builderRoleFor(turn.speaker);
-                if (author == null)
+                if (builderRoleFor(turn.speaker) == null)
                     throw new IllegalArgumentException("Improvement incident author must be a Builder");
-                return author;
+                return incidentId;
             }
+        }
+        throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
+    }
+
+    /** Returns the author of the referenced incident when this is a review round. */
+    private static BuilderRole reviewIncidentAuthor(
+            String incidentId, List<BuilderConversationProtocol.Turn> context) {
+        for (BuilderConversationProtocol.Turn turn : context) {
+            if (turn.turnId.equals(incidentId)
+                    && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT)
+                return builderRoleFor(turn.speaker);
         }
         throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
     }
