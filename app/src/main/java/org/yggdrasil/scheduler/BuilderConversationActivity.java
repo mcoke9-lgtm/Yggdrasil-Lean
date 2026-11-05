@@ -190,6 +190,8 @@ public final class BuilderConversationActivity extends Activity {
                     + " · " + config.endpoint, 12));
         }
 
+        root.addView(text("Recovery and backup", 18));
+        root.addView(text("Step 1 — Export backup: save a Yggdrasil recovery JSON file using Android's save dialog. Step 2 — Run recovery drill: choose that saved file in Android's file picker. The app reads it and displays a report; it does not restore or change anything.", 13));
         LinearLayout threadActions = new LinearLayout(this);
         threadActions.setOrientation(LinearLayout.HORIZONTAL);
         threadActions.addView(button("New thread", this::newThread));
