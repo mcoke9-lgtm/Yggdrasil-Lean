@@ -39,10 +39,9 @@ dependencies {
 }
 
 
-tasks.register("createDisposableTestKeystore", JavaExec) {
-    dependsOn testClasses
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = "org.yggdrasil.keysteward.DisposableKeystoreGenerator"
-    args layout.buildDirectory.file("disposable-test-key.p12").get().asFile.absolutePath,
-            "disposable-test-password"
+tasks.withType(Test).configureEach {
+    def disposableOutput = System.getenv("BUILDER_TEST_KEYSTORE_OUTPUT")
+    if (disposableOutput != null && !disposableOutput.isEmpty()) {
+        systemProperty "builder.test.keystore.output", disposableOutput
+    }
 }
