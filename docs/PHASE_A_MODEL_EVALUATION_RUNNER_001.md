@@ -11,6 +11,7 @@ From the repository root:
 ```bash
 python scripts/run_phase_a_model_evaluation.py \
   --model MODEL_ID \
+  --artifact-id CANDIDATE_ARTIFACT_ID \
   --revision MODEL_REVISION \
   --output evaluation-runs/run-001.json
 ```
