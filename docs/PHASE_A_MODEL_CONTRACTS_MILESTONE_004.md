@@ -364,12 +364,12 @@ A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1
 A proposed weighted scoring rubric is now defined in `schemas/capability-evaluation-rubric-v0.1.json`. It scores task completion, evidence integrity, role-boundary judgment, failure handling, handoff/recovery, and clarity. It includes hard-failure conditions, independent evaluator requirements, resource measurements, and a minimum compact-seed acceptance gate. Its thresholds remain proposed, not adopted.
 
 The repository now contains `scripts/validate_phase_a_contracts.py` and `.github/workflows/phase-a-contract-validation.yml`. The workflow uses a pinned JSON Schema validator and checks:
-- Draft 2020-12 schema validity and the bundle, fixture suite, rubric, and model-reduction study against that schema;
+- Draft 2020-12 schema validity and the bundle, fixture suite, rubric, model-reduction study, and model-family inventory against that schema;
 - nine unique Builder contracts and seven required capabilities per Builder;
 - 23 unique fixtures, including 18 role-specific and five shared;
 - correct Builder and capability ownership for every role-specific fixture;
 - all five shared fixtures mapped to every Builder;
-- explicit proposed/not-adopted thresholds, a planned study with no invented candidate, and not-yet-executed fixture status.
+- explicit proposed/not-adopted thresholds, a planned study with five untested research candidates and no selected model, and not-yet-executed fixture status.
 
 The validator has been committed, but **its GitHub Actions result has not yet been observed**. A committed workflow is not evidence of a passing run.
 
@@ -385,7 +385,7 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 `schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluators; Baldr and Týr are proposed independent verification roles. The evaluator artifact must be distinct from the candidate artifact, and model self-evaluation alone is insufficient.
 
-The study currently has **zero candidate models** and remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
+The study currently has **five research-stage model families**, but no exact artifact revisions or digests, no baseline evaluations, and no selected candidate; it remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
 ### Elastic lifecycle and reconstruction
 
