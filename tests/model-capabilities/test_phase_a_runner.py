@@ -90,7 +90,7 @@ class PhaseARunnerTests(unittest.TestCase):
         self.assertEqual("Bearer not-logged", request.get_header("Authorization"))
         self.assertNotIn("not-logged", request.full_url)
 
-    @patch("run_phase_a_model_evaluation.urllib.request.urlopen")
+    @patch("run_phase_a_model_evaluation.open_without_redirect")
     def test_http_error_body_is_not_recorded(self, mock_urlopen):
         mock_urlopen.side_effect = runner.urllib.error.HTTPError(
             "http://127.0.0.1", 401, "Unauthorized", {}, None
