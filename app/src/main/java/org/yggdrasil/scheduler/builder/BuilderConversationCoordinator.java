@@ -235,11 +235,11 @@ public final class BuilderConversationCoordinator {
     private static String reviewIncidentId(
             BuilderConversationProtocol.Turn userTurn,
             List<BuilderConversationProtocol.Turn> context) {
-        String marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=";
+        String marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=";
         int markerIndex = userTurn.body.indexOf(marker);
         if (markerIndex < 0) return null;
         int start = markerIndex + marker.length();
-        int end = userTurn.body.indexOf('\\n', start);
+        int end = userTurn.body.indexOf('\n', start);
         if (end < 0) end = userTurn.body.length();
         String incidentId = userTurn.body.substring(start, end).trim();
         for (BuilderConversationProtocol.Turn turn : context) {
