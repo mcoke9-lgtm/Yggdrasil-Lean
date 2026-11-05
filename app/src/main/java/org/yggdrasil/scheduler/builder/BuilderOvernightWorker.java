@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit;
 public final class BuilderOvernightWorker extends Worker {
     static final String KEY_RUN_ID = "builder_run_id";
     static final String KEY_THREAD_ID = "builder_thread_id";
-    static final String KEY_TASK_PROMPT = "builder_task_prompt";
+    static final String KEY_TASK_PROMPT_CIPHERTEXT = "builder_task_prompt_ciphertext";
+    static final String KEY_TASK_PROMPT_IV = "builder_task_prompt_iv";
     static final String KEY_DISCLOSURE_HASH = "builder_disclosure_hash";
     static final String KEY_CYCLE_INTERVAL = "builder_cycle_interval_ms";
     private static final String CHANNEL_ID = "nine_builders_overnight";
@@ -37,7 +38,12 @@ public final class BuilderOvernightWorker extends Worker {
     @Override public Result doWork() {
         String runId = getInputData().getString(KEY_RUN_ID);
         String threadId = getInputData().getString(KEY_THREAD_ID);
-        String taskPrompt = getInputData().getString(KEY_TASK_PROMPT);
+        String taskPrompt;
+        try {
+            taskPrompt = BuilderOvernightPayloadCipher.decrypt(
+                    getInputData().getString(KEY_TASK_PROMPT_CIPHERTEXT),
+                    getInputData().getString(KEY_TASK_PROMPT_IV));
+        } catch (Exception failure) { return Result.failure(); }
         String expectedDisclosure = getInputData().getString(KEY_DISCLOSURE_HASH);
         long interval = getInputData().getLong(KEY_CYCLE_INTERVAL,
                 BuilderOvernightScheduler.DEFAULT_CYCLE_INTERVAL_MILLIS);
