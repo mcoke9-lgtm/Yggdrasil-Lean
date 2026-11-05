@@ -69,7 +69,8 @@ Subject events remain independent metadata. An orphan subject association is ret
 - Thread reads return baseline turns followed by overlay turns, preserving each layer's append order.
 - Thread listing is the union of baseline and overlay thread IDs, ordered by most recent activity across both layers.
 - Subject-event reads return baseline events followed by overlay events in append order.
-- Recovery export materializes the merged logical conversation snapshot and merged subject snapshot, then validates the resulting recovery package using the existing package validator.
+- `exportMergedSnapshots()` materializes both merged streams while holding one SQLite transaction on the shared overlay. A concurrent writer cannot commit between the conversation and subject snapshots.
+- The merged export carries the generation ID and both baseline digests as provenance metadata. It is an overlay-export envelope, not recovery-package format version 1; a versioned recovery-package validator/reader is still required before it can be used as a portable restore package.
 - The source baseline databases and overlay database are not mutated by reads or exports.
 - The merged export records its generation ID and baseline digests as provenance metadata in the outer recovery envelope (a versioned format change is required; do not silently add fields to version 1).
 
@@ -127,7 +128,7 @@ No automatic fallback to canonical databases, no automatic overlay reset, and no
 
 ## 9. Explicit non-actions and remaining gates
 
-The current isolated implementation provides the generation-bound SQLite overlay API and unit tests, but those tests still require CI execution before the implementation can be called tested or verified. The overlay rows do not yet have a cryptographic append chain or signed provenance; the SQLite triggers are defense against ordinary accidental mutation, not an adversarial integrity guarantee.
+The current isolated implementation provides the generation-bound SQLite overlay API, one-transaction merged export, and unit tests, but those tests still require CI execution before the implementation can be called tested or verified. The overlay rows do not yet have a cryptographic append chain or signed provenance; the SQLite triggers are defense against ordinary accidental mutation, not an adversarial integrity guarantee.
 
 This design does **not**:
 - wire the selector into `BuilderRuntimeService`, `BuilderConversationActivity`, or application startup;
