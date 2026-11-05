@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Dependency-free persistent scheduler core with bounded registered handlers",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "start": "node src/runner.js"
   },
   "engines": {
     "node": ">=20"
