@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
 export const REQUIRED_FIELDS = ["material", "quantity_kg", "reusable_kg"];
+export const EVIDENCE_TYPES = ["directly_measured", "reported_by_source", "estimated", "modeled", "unknown"];
+const BOUND_PAIRS = [
+  ["quantity_min_kg", "quantity_max_kg", "quantity_kg"],
+  ["reusable_min_kg", "reusable_max_kg", "reusable_kg"]
+];
 
 export function sha256(text) {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -62,7 +67,6 @@ export function summarize(values) {
   const median = values.length % 2
     ? sorted[(values.length - 1) / 2]
     : (sorted[values.length / 2 - 1] + sorted[values.length / 2]) / 2;
-  // Welford's stable one-pass variance calculation.
   let n = 0, runningMean = 0, squaredDifference = 0;
   for (const value of values) {
     n++;
@@ -76,6 +80,23 @@ export function summarize(values) {
     min: sorted[0], max: sorted[sorted.length - 1],
     sample_standard_deviation: standardDeviation
   };
+}
+
+function readBounds(record, field, rowNumber, findings) {
+  const [minKey, maxKey, valueKey] = field;
+  const hasMin = Object.hasOwn(record, minKey) && record[minKey] !== "" && record[minKey] !== null && record[minKey] !== undefined;
+  const hasMax = Object.hasOwn(record, maxKey) && record[maxKey] !== "" && record[maxKey] !== null && record[maxKey] !== undefined;
+  if (!hasMin && !hasMax) return null;
+  if (!hasMin || !hasMax) {
+    findings.push(`record ${rowNumber}: both ${minKey} and ${maxKey} are required when specifying bounds`);
+    return false;
+  }
+  const min = Number(record[minKey]), max = Number(record[maxKey]), value = Number(record[valueKey]);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min || value < min || value > max) {
+    findings.push(`record ${rowNumber}: ${minKey} and ${maxKey} must be finite, non-negative, ordered, and contain ${valueKey}`);
+    return false;
+  }
+  return { min, max };
 }
 
 export function analyze(records, { sourceName = "input", sourceText = "" } = {}) {
@@ -113,7 +134,31 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
       findings.push(`record ${rowNumber}: material name is blank`);
       return;
     }
-    accepted.push({ material, quantity_kg: quantity, reusable_kg: reusable, source_record_number: rowNumber });
+    const quantityBounds = readBounds(record, BOUND_PAIRS[0], rowNumber, findings);
+    const reusableBounds = readBounds(record, BOUND_PAIRS[1], rowNumber, findings);
+    if (quantityBounds === false || reusableBounds === false) return;
+    if (quantityBounds && reusableBounds && reusableBounds.max > quantityBounds.max) {
+      findings.push(`record ${rowNumber}: reusable_max_kg cannot exceed quantity_max_kg`);
+      return;
+    }
+    if (quantityBounds && reusableBounds && reusableBounds.min > quantityBounds.max) {
+      findings.push(`record ${rowNumber}: reusable_min_kg cannot exceed quantity_max_kg`);
+      return;
+    }
+    const evidenceType = record.evidence_type === undefined || record.evidence_type === ""
+      ? "unknown" : String(record.evidence_type).trim();
+    if (!EVIDENCE_TYPES.includes(evidenceType)) {
+      findings.push(`record ${rowNumber}: evidence_type must be one of: ${EVIDENCE_TYPES.join(", ")}`);
+      return;
+    }
+    const sourceReference = record.source_reference === undefined || record.source_reference === null
+      ? "" : String(record.source_reference).trim();
+    accepted.push({
+      material, quantity_kg: quantity, reusable_kg: reusable,
+      quantity_bounds: quantityBounds, reusable_bounds: reusableBounds,
+      evidence_type: evidenceType, source_reference: sourceReference,
+      source_record_number: rowNumber
+    });
   });
 
   const totalInspected = accepted.reduce((total, row) => total + row.quantity_kg, 0);
@@ -130,6 +175,7 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
   }
   const close = (a, b) => Math.abs(a - b) <= 1e-10 * Math.max(1, Math.abs(a), Math.abs(b));
   const verificationPassed = close(totalInspected, checkInspected) && close(totalReusable, checkReusable);
+
   const byMaterial = Object.create(null);
   for (const row of accepted) {
     byMaterial[row.material] ??= {
@@ -144,6 +190,7 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
     group.reusable_observations.push(row.reusable_kg);
     group.source_record_numbers.push(row.source_record_number);
   }
+
   const fraction = totalInspected === 0 ? null : totalReusable / totalInspected;
   const materialComparison = Object.entries(byMaterial).map(([material, group]) => ({
     material,
@@ -157,9 +204,54 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
     source_record_numbers: group.source_record_numbers
   })).sort((a, b) => b.inspected_kg - a.inspected_kg || a.material.localeCompare(b.material));
 
+  const evidenceCounts = Object.fromEntries(EVIDENCE_TYPES.map(type => [type, 0]));
+  const evidenceReferences = [];
+  for (const row of accepted) {
+    evidenceCounts[row.evidence_type]++;
+    if (row.source_reference) evidenceReferences.push({
+      source_record_number: row.source_record_number,
+      evidence_type: row.evidence_type,
+      source_reference: row.source_reference
+    });
+  }
+
+  const boundedRecords = accepted.filter(row => row.quantity_bounds && row.reusable_bounds);
+  const completeBounds = accepted.length > 0 && boundedRecords.length === accepted.length;
+  let uncertainty = {
+    status: completeBounds ? "complete_record_bounds" : "incomplete_record_bounds",
+    records_with_bounds: boundedRecords.length,
+    accepted_records: accepted.length,
+    inspected_kg: null,
+    reusable_kg: null,
+    recovery_fraction: null,
+    interpretation: completeBounds
+      ? "Conservative arithmetic interval from supplied per-record minimum and maximum values; not a probability interval or confidence interval."
+      : "No complete aggregate interval reported because at least one accepted record lacks both quantity and reusable bounds."
+  };
+  if (completeBounds) {
+    const inspectedMin = boundedRecords.reduce((sum, row) => sum + row.quantity_bounds.min, 0);
+    const inspectedMax = boundedRecords.reduce((sum, row) => sum + row.quantity_bounds.max, 0);
+    const reusableMin = boundedRecords.reduce((sum, row) => sum + row.reusable_bounds.min, 0);
+    const reusableMax = boundedRecords.reduce((sum, row) => sum + row.reusable_bounds.max, 0);
+    const recoveryMin = inspectedMax === 0 ? null : reusableMin / inspectedMax;
+    const recoveryMax = inspectedMin === 0 ? (reusableMax === 0 ? null : 1) : Math.min(1, reusableMax / inspectedMin);
+    uncertainty = {
+      ...uncertainty,
+      inspected_kg: { min: inspectedMin, max: inspectedMax },
+      reusable_kg: { min: reusableMin, max: reusableMax },
+      recovery_fraction: { min: recoveryMin, max: recoveryMax },
+      assumptions: [
+        "Every accepted record has explicit lower and upper measurement bounds.",
+        "Bounds are treated as hard limits supplied by the source, not as standard deviations.",
+        "Ratio bounds use conservative interval arithmetic; dependencies between numerator and denominator are not modeled.",
+        "No confidence level or probability is implied."
+      ]
+    };
+  }
+
   return {
     engine: "Nine Builders Analysis Engine",
-    version: "0.2.0",
+    version: "0.3.0",
     source: { filename: sourceName, sha256: sha256(sourceText) },
     units: { quantity: "kg", reusable: "kg" },
     quality: {
@@ -167,6 +259,11 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
       accepted_records: accepted.length,
       rejected_records: records.length - accepted.length,
       findings
+    },
+    evidence: {
+      classification_counts: evidenceCounts,
+      references: evidenceReferences,
+      note: "Evidence classifications and references are supplied metadata; the engine does not authenticate them."
     },
     results: {
       total_inspected_kg: totalInspected,
@@ -182,6 +279,7 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
       }])),
       material_comparison: materialComparison
     },
+    uncertainty,
     verification: {
       method: "independent second-pass accumulation",
       recomputed_inspected_kg: checkInspected,
@@ -191,9 +289,11 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
     },
     limitations: [
       "Input provenance is hashed but not independently authenticated.",
+      "Evidence labels and source references are supplied metadata, not verified source claims.",
       "The second pass checks arithmetic consistency, not measurement truth.",
       "Descriptive statistics describe supplied records; they do not establish population representativeness.",
       "Sample standard deviation is descriptive and is not a confidence interval.",
+      "Measurement bounds are reported only when every accepted record supplies complete bounds.",
       "Invalid records are excluded and listed in quality findings."
     ]
   };
