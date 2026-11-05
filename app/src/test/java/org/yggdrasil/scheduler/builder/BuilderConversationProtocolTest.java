@@ -139,7 +139,7 @@ public class BuilderConversationProtocolTest {
 
     @Test public void rejectsUnsupportedVersionAndOversizedBody() {
         assertThrows(IllegalArgumentException.class, () -> new BuilderConversationProtocol.Turn(
-                3, "thread-1", "t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
+                5, "thread-1", "t1", BuilderConversationProtocol.Participant.HUGINN, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION,
                 BuilderConversationProtocol.EvidenceStatus.PROPOSED, 100, "Body"));
         StringBuilder oversized = new StringBuilder();
