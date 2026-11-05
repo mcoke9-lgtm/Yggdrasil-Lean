@@ -62,8 +62,12 @@ export function registerGithubWatch(scheduler, {
       run.id !== undefined && run.id !== null
     );
     const prior = await loadCursor(cursorPath);
-    const seen = new Set(prior?.seenCompletedRunIds || []);
-    if (!prior) {
+    const sameConfiguration = prior &&
+      prior.repository === repo &&
+      prior.branch === branch &&
+      JSON.stringify([...(prior.workflowNames || [])].sort()) === JSON.stringify([...names].sort());
+    const seen = new Set(sameConfiguration ? prior.seenCompletedRunIds : []);
+    if (!sameConfiguration) {
       await saveCursor(cursorPath, {
         repository: repo,
         branch,
