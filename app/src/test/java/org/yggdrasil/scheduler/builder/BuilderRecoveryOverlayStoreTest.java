@@ -162,11 +162,11 @@ public class BuilderRecoveryOverlayStoreTest {
     @Test public void overlayCannotBeOpenedWithDifferentBaselineDigest() {
         overlay = createOverlay();
         overlay.close();
-        overlay = BuilderRecoveryOverlayStore.openExisting(context,
-                staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
-                "0000000000000000000000000000000000000000000000000000000000000000", staged.subjectDataSha256);
         try {
-            overlay.getReadableDatabase();
+            BuilderRecoveryOverlayStore.openExisting(context,
+                    staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                    staged.subjectDataSha256);
             fail("overlay metadata must reject a different baseline digest");
         } catch (IllegalStateException expected) {
             assertTrue(expected.getMessage().contains("identity does not match"));
