@@ -21,7 +21,8 @@ import javax.crypto.spec.GCMParameterSpec;
  */
 public final class SecureBuilderProviderSettings {
     private static final String PREFS = "builder_provider_settings";
-    private static final String KEY_ALIAS = "yggdrasil_builder_provider_token_v1";
+    private static final String KEY_ALIAS_PREFIX = "yggdrasil_builder_provider_token_";
+    private final String keyAlias;
     private static final String K_PROVIDER = "provider_id";
     private static final String K_ENDPOINT = "endpoint";
     private static final String K_MODEL = "model";
@@ -50,8 +51,23 @@ public final class SecureBuilderProviderSettings {
     }
 
     public SecureBuilderProviderSettings(Context context) {
+        this(context, "default");
+    }
+
+    /**
+     * Isolated credential namespace for one Builder role. Namespace is part of
+     * the local Keystore alias and private preference file; tokens are never
+     * copied between roles.
+     */
+    public SecureBuilderProviderSettings(Context context, String namespace) {
         if (context == null) throw new IllegalArgumentException("Context is required");
-        preferences = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String normalized = requireText(namespace, "Settings namespace")
+                .toLowerCase(java.util.Locale.ROOT);
+        if (!normalized.matches("[a-z0-9_-]{1,48}"))
+            throw new IllegalArgumentException("Settings namespace contains unsupported characters");
+        preferences = context.getApplicationContext().getSharedPreferences(
+                PREFS + "_" + normalized, Context.MODE_PRIVATE);
+        keyAlias = KEY_ALIAS_PREFIX + normalized;
     }
 
     public synchronized void save(String providerId, String endpoint, String model, String token)
@@ -128,16 +144,16 @@ public final class SecureBuilderProviderSettings {
             throw new IllegalStateException("Could not clear provider settings");
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
-        if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS);
+        if (store.containsAlias(keyAlias)) store.deleteEntry(keyAlias);
     }
 
-    private static SecretKey getOrCreateKey() throws Exception {
+    private SecretKey getOrCreateKey() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
         if (store.containsAlias(KEY_ALIAS))
-            return ((KeyStore.SecretKeyEntry) store.getEntry(KEY_ALIAS, null)).getSecretKey();
+            return ((KeyStore.SecretKeyEntry) store.getEntry(keyAlias, null)).getSecretKey();
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        generator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS,
+        generator.init(new KeyGenParameterSpec.Builder(keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
