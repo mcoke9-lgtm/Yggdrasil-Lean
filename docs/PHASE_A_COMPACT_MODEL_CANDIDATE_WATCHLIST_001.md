@@ -15,7 +15,7 @@ The purpose of this watchlist is to identify useful comparison points for the pl
 | SmolLM3-3B | 3B; trained at 64K context, up to 128K with YaRN | Apache 2.0 | Useful reconstruction-recipe comparison because the publisher describes public training-data mixture and training configurations | Text-only, six native languages; published recipe/data mixture is not equivalent to possessing every original training datum or being able to recreate the exact checkpoint |
 | Gemma 4 E2B | 2.3B effective parameters, 5.1B total including embeddings; 128K context; text, image, audio; Google lists an approximately 1.1 GB mobile inference memory figure | Apache 2.0 | Useful multimodal edge comparison and a reminder that effective parameters are not the same as total stored weights | Total parameter count is materially larger than the E2B effective figure; memory fit must be measured, not inferred from the name |
 
-The displayed weight-file sizes above are repository UI values, rounded for presentation. They are not runtime RAM measurements, and no individual SHA-256 digest has been retrieved for these files. The separate safetensors tensor counts and publisher-reported language-model parameter counts are retained distinctly in the machine-readable inventory.
+The inventory records exact file byte counts and SHA-256 values from the publishers' Git LFS pointer files. Those hashes are publisher-reported only: the files have not been downloaded and locally hashed. File size is not runtime RAM. The separate safetensors tensor counts and publisher-reported language-model parameter counts are retained distinctly in the machine-readable inventory.
 
 ## Initial testing order (proposed)
 
