@@ -35,7 +35,7 @@ export function registerBuilderRunHandler(
       });
     }
     const runId = run.runId;
-    await ledger.startRun(runId);
+    const startedRun = await ledger.startRun(runId);
 
     const controller = new AbortController();
     const abortFromScheduler = () => controller.abort(
@@ -44,7 +44,7 @@ export function registerBuilderRunHandler(
     if (context.signal?.aborted) abortFromScheduler();
     else context.signal?.addEventListener("abort", abortFromScheduler, { once: true });
 
-    const remainingMs = Math.max(0, new Date(run.deadlineAt).getTime() - clock().getTime());
+    const remainingMs = Math.max(0, new Date(startedRun.deadlineAt).getTime() - clock().getTime());
     const deadlineTimer = setTimeout(
       () => controller.abort(new Error("Eight-hour maximum work window reached")),
       remainingMs
