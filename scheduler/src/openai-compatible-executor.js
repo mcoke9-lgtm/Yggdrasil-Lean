@@ -5,14 +5,14 @@ import { pathToFileURL } from "node:url";
 import { BUILDER_ROLES } from "./run-ledger.js";
 
 const ROLE_DETAILS = Object.freeze({
-  ODIN: ["Odin", "integration, reconciliation, and dependencies"],
-  HODR: ["Höðr", "implementation, execution, and testing"],
-  LOKI: ["Loki", "alternatives, innovation, interruption, and failure recovery"],
-  MUNINN: ["Muninn", "memory, continuity, provenance, and recovery"],
-  HUGINN: ["Huginn", "source verification, objectives, and scope"],
-  KVASIR: ["Kvasir", "research, evidence, and operational constraints"],
-  MARI: ["Mari", "relationships, interfaces, integration, and complementary alternatives"],
-  TYR: ["Týr", "integrity, permissions, authorization, and security"],
+  ODIN: ["Odin", "coordination, orchestration, and integration"],
+  HODR: ["Höðr", "service runner, GitHub monitoring, and execution operations"],
+  LOKI: ["Loki", "interruption, recovery, time-zone and daylight-saving handling, and duplicate suppression"],
+  MUNINN: ["Muninn", "persistence, history, continuity, provenance, and recovery"],
+  HUGINN: ["Huginn", "evidence, source verification, and research"],
+  KVASIR: ["Kvasir", "operational constraints, capability limits, and unsuitable-method detection"],
+  MARI: ["Mari", "complementary alternatives, relationships, interfaces, and integration"],
+  TYR: ["Týr", "authorization, permissions, and security"],
   BALDR: ["Baldr", "independent verification against requirements and evidence"]
 });
 
