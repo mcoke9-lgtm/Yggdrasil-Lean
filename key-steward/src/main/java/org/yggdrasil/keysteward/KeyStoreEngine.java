@@ -31,10 +31,17 @@ final class KeyStoreEngine {
     private static final int RSA_BITS = 3072;
     private static final long VALIDITY_DAYS = 10000L;
     static final int MAX_EXPORT_BYTES = 36 * 1024;
+    static final int MAX_BASE64_CHARS = 48 * 1024;
 
     static void validateExportSize(int byteCount) {
         if (byteCount < 0 || byteCount > MAX_EXPORT_BYTES) {
             throw new IllegalArgumentException("Keystore is too large for a GitHub secret");
+        }
+    }
+
+    static void validateBase64ExportSize(int characterCount) {
+        if (characterCount < 0 || characterCount > MAX_BASE64_CHARS) {
+            throw new IllegalArgumentException("Base64 value exceeds GitHub's 48 KB secret limit");
         }
     }
 
