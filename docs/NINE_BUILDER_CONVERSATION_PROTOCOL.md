@@ -1,7 +1,7 @@
 # Nine Builder Conversation Protocol
 
 **Status:** Implemented as a versioned, typed validation contract with a local append-only SQLite journal; runtime orchestration and independent Builder workers remain pending.
-**Protocol version:** 1
+**Protocol version:** 2 (reads legacy version 1 Builder-only turns)
 **Authority:** The user remains director and final authority for consequential commitments.
 
 ## Purpose
@@ -9,6 +9,10 @@
 Give the Nine Builders a shared way to contribute, question, challenge, answer, hand work to one another, acknowledge receipt, reconcile differences, and record decisions without flattening their distinct responsibilities.
 
 This protocol is transport-neutral. It can be used by the current single-process prototype and later by separate workers or machines without changing the meaning of a conversation turn.
+
+## Participants
+
+The conversation has ten possible participants: the user (`USER`) and the Nine Builders. The user is a first-class speaker and recipient in the protocol, not an out-of-band annotation. User-authored directions, questions, corrections, and decisions can therefore be preserved in the same thread as Builder contributions and responses. The user remains the director and final authority for consequential commitments.
 
 ## The Nine Builder voices
 
@@ -85,6 +89,8 @@ The BuilderConversationProtocol validator checks:
 - replies and handoffs reference earlier turns;
 - responses, challenges, and acknowledgements name the Builder who authored the referenced turn; a handoff names its new recipient while retaining a reference to its source turn.
 
+Protocol version 2 adds `USER` as a first-class participant. Version 1 Builder-only turns remain readable so existing local history can be recovered; new turns use version 2. This compatibility is limited to the unchanged turn fields and existing Builder participant names.
+
 The validator is structural. It does not prove the truth of a claim, authenticate a remote sender, call a model, or execute work. The local journal persists validated turns in a private SQLite database, preserving insertion order and thread provenance across store closure and reopening. Appends are transactional; invalid turns are rejected before commit. The public store API exposes reads and appends only, not update or delete operations. The journal is currently device-local: it does not synchronize across devices, encrypt records independently of Android's app-private storage protections, authenticate remote senders, or provide a backup/export format. Database schema changes require an explicit migration; the current upgrade path deliberately fails rather than silently discarding history.
 
 ## First conversation acceptance exercise
@@ -112,15 +118,15 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 
 ## Local conversation journal
 
-`BuilderConversationStore` is a SQLite-backed, append-only local journal. It stores the complete typed turn fields, including thread and turn IDs, speaker, recipient, reply reference, turn type, evidence status, timestamp, and body. A new append is validated against the existing thread inside a database transaction before insertion. Reads return immutable snapshots in insertion order. The journal has no public update/delete method. Its current schema is version 1; schema upgrades must be implemented as explicit migrations.
+`BuilderConversationStore` is a SQLite-backed, append-only local journal. It stores the complete typed turn fields, including thread and turn IDs, speaker (user or Builder), recipient, reply reference, turn type, evidence status, timestamp, and body. A new append is validated against the existing thread inside a database transaction before insertion. Reads return immutable snapshots in insertion order. The journal has no public update/delete method. Its current schema is version 1; schema upgrades must be implemented as explicit migrations.
 
 The journal is not yet connected to a model coordinator, background workers, remote transport, cross-device synchronization, or an automatic backup mechanism. Those remain separate future capabilities and must not be inferred from local persistence.
 
 ## Integrity checkpoint
 
-- **Count:** eight turn types; seven evidence states; nine Builder roles.
+- **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
-- **Omissions/duplicates:** receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
+- **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
 - **Evidence:** validator and journal source plus unit tests are committed in this branch; CI execution of the journal tests is pending. Actual model-coordinated dialogue and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
