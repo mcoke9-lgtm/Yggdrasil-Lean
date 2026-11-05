@@ -37,7 +37,8 @@
 - User completed the app's import/validation action. The user observed a single action button and reasonably noted that validation and import appear combined in the current interface; this UX ambiguity is recorded rather than assuming a distinct two-stage confirmation.
 - After the import action, the app's Journal Integrity control reported that the chain was verified.
 - User then completely closed and reopened the app; Journal Integrity again reported that the chain was verified. This is user-reported physical-device verification of post-import integrity and application-restart persistence.
-- Not yet physically verified: reboot recovery, cancellation behavior, tampered-file rejection without loss of existing records, offline operation, or independent agent execution.
+- User then restarted the Samsung Galaxy S21, reopened Yggdrasil Builder Host and ran Journal Integrity; the chain was again reported verified. This is user-reported physical-device verification of journal persistence across a full device reboot.
+- Not yet physically verified: cancellation behavior, tampered-file rejection without loss of existing records, offline operation, or independent agent execution.
 
 ## Scope boundaries
 
@@ -47,11 +48,10 @@ The journal hash chain is tamper-evident, not cryptographic authentication again
 
 ## Next gates
 
-1. Test device-reboot continuity while preserving the current journal.
-2. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
-3. Clarify whether import preview and final replacement are separate UI actions; user observed one action button.
-4. Only after these foundations, benchmark local inference, thermal/battery/memory limits and offline voice.
+1. Test invalid/tampered snapshot rejection without losing existing notes; do not clear app data.
+2. Clarify whether import preview and final replacement are separate UI actions; user observed one action button.
+3. Test offline behavior and capability boundaries before selecting local inference or voice components.
 
 ## Integrity check
 
-One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery and tampered-file rejection remain pending.
+One active independent runtime branch; protected `main` and scheduler branch untouched; distinct app ID is set in source and the user successfully installed the app; scheduler and Builder databases remain separate by design; nine role identities; import requires confirmation and validation; automated CI success is distinguished from user-reported physical-device checks. Export, import action, post-import chain verification and app-restart persistence are user-reported as completed; device-reboot recovery is now user-verified; tampered-file rejection remains pending.
