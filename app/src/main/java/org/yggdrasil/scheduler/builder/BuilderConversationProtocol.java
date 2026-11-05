@@ -8,7 +8,7 @@ import java.util.Set;
 
 /** Typed, transport-neutral Nine Builder conversation contract. */
 public final class BuilderConversationProtocol {
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
     public static final int LEGACY_VERSION = 1;
     public static final int MAX_BODY_LENGTH = 8000;
 
@@ -44,7 +44,7 @@ public final class BuilderConversationProtocol {
                     Participant speaker, Participant recipient, String replyToTurnId,
                     TurnType type, EvidenceStatus evidenceStatus,
                     long timestampEpochMillis, String body) {
-            if (protocolVersion != CURRENT_VERSION && protocolVersion != LEGACY_VERSION)
+            if (protocolVersion < LEGACY_VERSION || protocolVersion > CURRENT_VERSION)
                 throw new IllegalArgumentException("Unsupported conversation protocol version");
             this.protocolVersion = protocolVersion;
             this.threadId = required(threadId, "threadId");
@@ -102,9 +102,7 @@ public final class BuilderConversationProtocol {
                         && turn.recipient != null && turn.recipient != referenced.speaker)
                     throw new IllegalArgumentException("Recipient must match the referenced speaker");
                 boolean answersDirectedTurn = turn.type == TurnType.RESPONSE
-                        || turn.type == TurnType.ACKNOWLEDGEMENT
-                || turn.type == TurnType.INTERRUPTION
-                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
+                        || turn.type == TurnType.ACKNOWLEDGEMENT;
                 boolean referencedWasDirected = referenced.type == TurnType.QUESTION
                         || referenced.type == TurnType.CHALLENGE
                         || referenced.type == TurnType.HANDOFF;
@@ -122,7 +120,9 @@ public final class BuilderConversationProtocol {
                 || turn.type == TurnType.CHALLENGE
                 || turn.type == TurnType.RESPONSE
                 || turn.type == TurnType.HANDOFF
-                || turn.type == TurnType.ACKNOWLEDGEMENT;
+                || turn.type == TurnType.ACKNOWLEDGEMENT
+                || turn.type == TurnType.INTERRUPTION
+                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
         boolean needsReply = turn.type == TurnType.CHALLENGE
                 || turn.type == TurnType.RESPONSE
                 || turn.type == TurnType.HANDOFF
@@ -133,6 +133,9 @@ public final class BuilderConversationProtocol {
 
         if (needsRecipient && turn.recipient == null)
             throw new IllegalArgumentException(turn.type + " requires a recipient");
+        if ((turn.type == TurnType.INTERRUPTION || turn.type == TurnType.IMPROVEMENT_INCIDENT)
+                && turn.recipient != Participant.USER)
+            throw new IllegalArgumentException(turn.type + " must be addressed to USER");
         if (turn.recipient == turn.speaker)
             throw new IllegalArgumentException("A participant cannot address a turn to itself");
         if (needsReply && turn.replyToTurnId == null)
