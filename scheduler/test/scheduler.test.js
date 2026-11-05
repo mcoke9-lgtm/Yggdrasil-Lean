@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { registerGithubWatch } from "../src/github-watch.js";
 import { MemoryStore } from "../src/store.js";
 import { Scheduler } from "../src/scheduler.js";
 
@@ -94,4 +98,50 @@ test("supports weekly schedules on selected local weekdays", async () => {
     schedule: { kind: "calendar", frequency: "weekly", daysOfWeek: [1], hour: 9, minute: 0, timeZone: "America/New_York", startAt: "2026-11-04T12:00:00Z" }
   });
   assert.equal(task.nextRunAt, "2026-11-09T14:00:00.000Z");
+});
+
+test("GitHub watch baselines existing runs and reports only new failures", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "github-watch-"));
+  const cursorPath = join(directory, "cursor.json");
+  const output = [];
+  let responseRuns = [
+    { id: 10, name: "Analysis Engine", head_branch: "prototype", status: "completed", conclusion: "success" }
+  ];
+  const fakeFetch = async () => ({
+    ok: true,
+    json: async () => ({ workflow_runs: responseRuns })
+  });
+  try {
+    const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+    registerGithubWatch(scheduler, { fetchImpl: fakeFetch, output: line => output.push(JSON.parse(line)), cursorPath });
+    await scheduler.addTask({
+      id: "github-watch",
+      name: "GitHub watch",
+      handlerType: "github.workflow-check",
+      payload: { repository: "owner/repo", branch: "prototype", workflowNames: ["Analysis Engine"] },
+      schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+    });
+    await scheduler.runDue();
+    assert.equal(output[0].event, "github_watch_baseline_created");
+
+    responseRuns = [
+      ...responseRuns,
+      { id: 11, name: "Analysis Engine", head_branch: "prototype", status: "completed", conclusion: "failure", head_sha: "abc123", html_url: "https://github.com/owner/repo/actions/runs/11" }
+    ];
+    await scheduler.setEnabled("github-watch", false);
+    const second = new Scheduler({ store: new MemoryStore(), clock });
+    registerGithubWatch(second, { fetchImpl: fakeFetch, output: line => output.push(JSON.parse(line)), cursorPath });
+    await second.addTask({
+      id: "github-watch-next",
+      name: "GitHub watch next",
+      handlerType: "github.workflow-check",
+      payload: { repository: "owner/repo", branch: "prototype", workflowNames: ["Analysis Engine"] },
+      schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+    });
+    await second.runDue();
+    assert.equal(output.filter(item => item.event === "github_build_failure").length, 1);
+    assert.equal(output.find(item => item.event === "github_build_failure").runId, 11);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
