@@ -74,6 +74,16 @@ export function createDashboardServer({ scheduler, host = "127.0.0.1", port = 41
       }
       if (request.method === "POST" && url.pathname === "/api/tasks") {
         const body = await readJson(request);
+        if (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(body.repository)) {
+          return send(response, 400, { error: "Repository must use owner/name format" });
+        }
+        if (typeof body.branch !== "string" || !body.branch.trim() || body.branch.length > 250) {
+          return send(response, 400, { error: "A valid branch name is required" });
+        }
+        if (!Array.isArray(body.workflowNames) || body.workflowNames.length < 1 || body.workflowNames.length > 10 ||
+            body.workflowNames.some(name => typeof name !== "string" || !name.trim() || name.length > 150)) {
+          return send(response, 400, { error: "Provide 1–10 exact workflow names" });
+        }
         const task = await scheduler.addTask({
           id: body.id,
           name: body.name,
