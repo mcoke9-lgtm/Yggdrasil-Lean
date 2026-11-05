@@ -71,7 +71,7 @@ try {
     stateFile,
     pollMs,
     taskCount: tasks.length,
-    dashboard: `http://127.0.0.1:${dashboardPort}`,
+    dashboard: `http://127.0.0.1:${address.port}`,
     note: "Single process, loopback-only dashboard, registered handlers only."
   }) + "\n");
   await tick();
