@@ -59,9 +59,9 @@ public class SecureBuilderProviderSettingsTest {
     }
 
     @Test public void credentialCanBeReusedOnlyForSameProviderAndEndpoint() throws Exception {
-        SecureBuilderProviderSettings settings = settings();
-        settings.save("hosted-main", "https://api.example.test/v1/chat/completions", "model-a", "test-token");
-        SecureBuilderProviderSettings.Configuration config = settings.readConfiguration();
+        SecureBuilderProviderSettings.Configuration config =
+                new SecureBuilderProviderSettings.Configuration(
+                        "hosted-main", "https://api.example.test/v1/chat/completions", "model-a", true);
         assertTrue(SecureBuilderProviderSettings.canReuseCredential(
                 config, "hosted-main", "https://api.example.test/v1/chat/completions"));
         assertFalse(SecureBuilderProviderSettings.canReuseCredential(
