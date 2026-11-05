@@ -16,8 +16,15 @@ test("leaves the persistent scheduler honest when no host executor is configured
   });
   assert.equal(result.configured, false);
   assert.match(result.reason, /not configured/);
-  assert.throws(() => scheduler.registerHandler("nine-builders.run", async () => {}),
-    /registered|already registered|/);
+  await scheduler.addTask({
+    id: "unconfigured",
+    name: "No executor configured",
+    handlerType: "nine-builders.run",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-05T19:00:00Z" }
+  });
+  const execution = await scheduler.runDue();
+  assert.equal(execution.runs[0].status, "failed");
+  assert.match(execution.runs[0].error, /No handler registered/);
 });
 
 test("registers a host executor and keeps its Builder ledger in a separate durable file", async () => {
