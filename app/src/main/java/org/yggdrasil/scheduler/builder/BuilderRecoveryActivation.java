@@ -76,8 +76,16 @@ public final class BuilderRecoveryActivation {
     }
 
     /** Verifies the staged pair, persists an immutable descriptor, then atomically switches one pointer. */
-    public static synchronized ActivePair activate(Context context,
+    public static ActivePair activate(Context context,
                                                      BuilderRecoveryStager.StageResult staged) {
+        if (context == null) throw new IllegalArgumentException("context is required");
+        Context app = context.getApplicationContext();
+        return BuilderRecoveryGenerationBarrier.withLock(app,
+                () -> activateLocked(app, staged));
+    }
+
+    private static ActivePair activateLocked(Context context,
+                                              BuilderRecoveryStager.StageResult staged) {
         if (context == null || staged == null) throw new IllegalArgumentException("context and staged pair are required");
         if (!staged.readBackVerified) throw new IllegalArgumentException("Staged pair has not passed read-back verification");
         validateId(staged.stagingId);
@@ -91,11 +99,15 @@ public final class BuilderRecoveryActivation {
         verifyPair(app, staged.conversationDatabaseName, staged.subjectDatabaseName,
                 staged.threadCount, staged.turnCount, staged.subjectEventCount,
                 staged.conversationDataSha256, staged.subjectDataSha256);
+        // The overlay is part of the generation, not an optional post-activation add-on.
+        // Create it (or validate an existing retry) before publishing the active pointer.
+        ensureOverlayReady(app, staged.conversationDatabaseName, staged.subjectDatabaseName,
+                staged.stagingId, staged.conversationDataSha256, staged.subjectDataSha256);
 
         File descriptorFile = descriptorFile(app, staged.stagingId);
         JSONObject currentPointer = readPointer(app);
         String currentActive = currentPointer.optString("active_generation_id", "");
-        if (staged.stagingId.equals(currentActive)) return getActive(app);
+        if (staged.stagingId.equals(currentActive)) return getActiveLocked(app);
         String previous = currentActive.isEmpty() ? null : currentActive;
 
         try {
@@ -136,7 +148,13 @@ public final class BuilderRecoveryActivation {
     }
 
     /** Returns the active pair only after validating pointer, descriptor, files, and database contents. */
-    public static synchronized ActivePair getActive(Context context) {
+    public static ActivePair getActive(Context context) {
+        if (context == null) throw new IllegalArgumentException("context is required");
+        Context app = context.getApplicationContext();
+        return BuilderRecoveryGenerationBarrier.withLock(app, () -> getActiveLocked(app));
+    }
+
+    private static ActivePair getActiveLocked(Context context) {
         if (context == null) throw new IllegalArgumentException("context is required");
         Context app = context.getApplicationContext();
         JSONObject pointer = readPointer(app);
@@ -151,6 +169,8 @@ public final class BuilderRecoveryActivation {
             verifyPair(app, pair.conversationDatabaseName, pair.subjectDatabaseName,
                     pair.threadCount, pair.turnCount, pair.subjectEventCount,
                     pair.conversationDataSha256, pair.subjectDataSha256);
+            verifyOverlayReady(app, pair.conversationDatabaseName, pair.subjectDatabaseName,
+                    pair.generationId, pair.conversationDataSha256, pair.subjectDataSha256);
             return pair;
         } catch (org.json.JSONException e) {
             throw new IllegalStateException("Invalid active recovery descriptor", e);
@@ -158,7 +178,13 @@ public final class BuilderRecoveryActivation {
     }
 
     /** Atomically swaps active and previous generation IDs; no database file is modified. */
-    public static synchronized ActivePair rollback(Context context) {
+    public static ActivePair rollback(Context context) {
+        if (context == null) throw new IllegalArgumentException("context is required");
+        Context app = context.getApplicationContext();
+        return BuilderRecoveryGenerationBarrier.withLock(app, () -> rollbackLocked(app));
+    }
+
+    private static ActivePair rollbackLocked(Context context) {
         if (context == null) throw new IllegalArgumentException("context is required");
         Context app = context.getApplicationContext();
         JSONObject pointer = readPointer(app);
@@ -173,6 +199,9 @@ public final class BuilderRecoveryActivation {
             verifyPair(app, validated.conversationDatabaseName, validated.subjectDatabaseName,
                     validated.threadCount, validated.turnCount, validated.subjectEventCount,
                     validated.conversationDataSha256, validated.subjectDataSha256);
+            // Rollback is permitted only to a generation with its own matching overlay.
+            verifyOverlayReady(app, validated.conversationDatabaseName, validated.subjectDatabaseName,
+                    validated.generationId, validated.conversationDataSha256, validated.subjectDataSha256);
             JSONObject next = new JSONObject();
             next.put("format", FORMAT);
             next.put("format_version", VERSION);
@@ -185,6 +214,45 @@ public final class BuilderRecoveryActivation {
         } catch (Exception e) {
             throw new IllegalStateException("Could not roll back recovery activation", e);
         }
+    }
+
+    private static void ensureOverlayReady(Context app, String conversationName,
+                                           String subjectName, String generationId,
+                                           String conversationDigest, String subjectDigest) {
+        File overlay = app.getDatabasePath(BuilderRecoveryOverlayStore.databaseNameForGeneration(generationId));
+        if (overlay.exists()) {
+            verifyOverlayReady(app, conversationName, subjectName, generationId,
+                    conversationDigest, subjectDigest);
+            return;
+        }
+        BuilderRecoveryOverlayStore store = BuilderRecoveryOverlayStore.create(app,
+                conversationName, subjectName, generationId, conversationDigest, subjectDigest);
+        try {
+            verifyOverlayIdentity(store.identity(), generationId, conversationDigest, subjectDigest);
+        } finally {
+            store.close();
+        }
+    }
+
+    private static void verifyOverlayReady(Context app, String conversationName,
+                                           String subjectName, String generationId,
+                                           String conversationDigest, String subjectDigest) {
+        BuilderRecoveryOverlayStore store = BuilderRecoveryOverlayStore.openExisting(app,
+                conversationName, subjectName, generationId, conversationDigest, subjectDigest);
+        try {
+            verifyOverlayIdentity(store.identity(), generationId, conversationDigest, subjectDigest);
+        } finally {
+            store.close();
+        }
+    }
+
+    private static void verifyOverlayIdentity(BuilderRecoveryOverlayStore.Identity identity,
+                                              String generationId, String conversationDigest,
+                                              String subjectDigest) {
+        if (!generationId.equals(identity.generationId)
+                || !conversationDigest.equals(identity.conversationBaselineSha256)
+                || !subjectDigest.equals(identity.subjectBaselineSha256))
+            throw new IllegalStateException("Recovery overlay identity does not match its generation descriptor");
     }
 
     private static void verifyPair(Context app, String conversationName, String subjectName,
