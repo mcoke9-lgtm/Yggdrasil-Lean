@@ -82,3 +82,15 @@ The current coordinator remains single-process. The nine roles are coordinated p
 1. Add validated snapshot import/restore and include the index in the recovery export package.
 2. Test subject continuity, export/restore and journal integrity on the Galaxy S21+ using non-sensitive test content, after explicit approval for any installation or device change.
 3. Add cross-device synchronization only with explicit conflict and provenance rules.
+
+
+## Recovery package envelope — version 1
+
+The next recovery milestone adds `BuilderRecoveryPackage`, which packages two independently checksummed snapshots into one versioned envelope:
+
+- `conversation_snapshot`: canonical turns exported by the existing conversation journal.
+- `subject_thread_snapshot`: append-only subject/subheading/participant events exported by the sidecar index.
+
+The package has its own SHA-256 checksum in addition to each nested snapshot's checksum. Validation checks format versions, all three checksums, declared counts, unique thread/event identities, conversation turn shape and ordering, and subject event shape/Builder participant identities. It reports subject metadata whose thread ID is absent from the canonical conversation snapshot as an orphan rather than silently dropping it; this can happen when routing metadata is recorded but a subsequent conversation submission fails.
+
+**Important boundary:** this milestone builds and validates the package only. Validation is read-only and does not restore or merge data into either live database. SHA-256 detects accidental changes; it does not encrypt the backup, authenticate its source, or protect against a party able to replace both data and checksums. A safe restore writer still needs staged target databases, explicit activation, duplicate/conflict handling, and failure recovery before it can be enabled.
