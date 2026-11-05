@@ -346,17 +346,27 @@ The later lifecycle manager must enforce these invariants:
 7. Allow reduced-capability operation when larger forms or external services are unavailable.
 8. Do not call a migration complete until identity, memory integrity, required capability, and recovery are tested.
 
+### Machine-readable contracts
+
+Two versioned JSON artifacts now accompany this specification:
+- `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
+- `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and four shared tasks (54 required capability tests total).
+
+The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has six required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
+
+**Validation boundary:** this was a structural consistency check, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption.
+
 ## 10. Phase A deliverables and completion gates
 
 | Deliverable | Required evidence | State |
 |---|---|---|
 | Identity/assignment contract | Stable IDs, separate identity and model-instance records, assignment audit rules | Specified |
-| Capability contract | Versioned measurable requirements and acceptance suite | Specified; provisional thresholds proposed, not adopted; model tests pending |
-| Model/artifact registry | Family, artifact, and instance records with provenance | Specified; live inventory pending |
-| Reconstruction Seed | Versioned manifest and explicit dependency closure | Specified |
+| Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 54 capability tests specified; thresholds proposed, not adopted; model tests pending |
+| Model/artifact registry | Family, artifact, and instance records with provenance | JSON Schema definitions specified; live artifact inventory pending |
+| Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | Specified |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Specified |
-| Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Adapter inspected; configuration and live access pending |
+| Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Adapter/settings source inspected; device configuration and provider access pending |
 
 Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed, and the contract schemas have been reviewed for consistency. Documentation alone does not complete those evidence tasks.
 
