@@ -1,48 +1,46 @@
 # Android Builder Continuity Foundation — Implementation Checkpoint
 
 **Branch:** `independent-builder-runtime-foundation-001`
-**Status:** Source implementation committed; latest Android CI run pending at checkpoint update.
-**Device:** Samsung Galaxy S21 / Android 15 (user-reported). No new APK has been installed or tested on the physical phone in this phase.
+**Latest implementation commit:** `071e7c7a0572fa54ccb3125d5c484ee95da25807`
+**Device target:** Samsung Galaxy S21 / Android 15 (user-reported). No new APK has been installed or tested on the physical phone in this phase.
 
-## Implemented source
+## Implemented
 
-- `BuilderRole`: nine stable role identifiers and responsibilities.
-- `BuilderRegistry`: immutable role listing and name lookup.
-- `BuilderMessage`: versioned, transport-neutral message envelope with required-field validation.
-- `BuilderEventJournal`: Android SQLite-backed event journal in a separate database from scheduler data.
-  - append-only event rows with unique event IDs;
-  - SHA-256 hash chain linking each event to the preceding event;
-  - transactionally recorded message receipts;
-  - duplicate message IDs rejected;
-  - complete-chain verification routine;
-  - versioned JSON snapshot export;
-  - snapshot restore that validates ordering, identities, hash links, duplicate IDs, and receipt references before atomically replacing local records.
-- `BuilderLocalExchange`: bounded local demonstration of a Mari-to-Muninn continuity handoff.
-- `MainActivity`: a first phone UI for entering a continuity note, sending it through the local Mari-to-Muninn handoff, and checking journal integrity.
+- Nine stable Builder role identifiers and an immutable registry.
+- Versioned, transport-neutral Builder message envelope.
+- Separate SQLite continuity journal, independent of the scheduler database.
+- Unique event IDs, append-only event rows, SHA-256 hash chain and complete-chain verification.
+- Transactional, idempotent message receipt handling.
+- Versioned JSON snapshot export.
+- Snapshot restore validates schema, sequence ordering, event identity, hash links, duplicate IDs and receipt references before replacing the local journal in a database transaction.
+- First local Mari-to-Muninn handoff screen with journal integrity check.
+- Android document-picker export to a user-selected JSON file.
+- Android document-picker import with file-size and format checks, an explicit replacement preview/confirmation, and full validation before database replacement.
+- Robolectric-based journal recovery tests added for round-trip restore, duplicate receipt prevention, tamper rejection without mutation, and unsupported format rejection.
 
-## Important scope boundary
+## Verification
 
-The local exchange is currently a demonstration within the Android app process. It does not yet run nine separate AI agents, does not perform model inference, and does not connect to external apps or services. The phone UI is a local handoff test, not yet a general natural-language conversational control layer.
+- Android build and unit tests passed at commit `bd88ba10879019155d9137ec4ab7ec38ce781d4b`; debug APK artifact uploaded.
+  - Workflow: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002030262
+  - Artifact: `yggdrasil-builder-runtime-debug-apk` (artifact ID `13402164639`).
+- Robolectric test/build run for commit `bff98a4d59f7b4e33df282ae90c5ac7e9d5b2742` was still running at checkpoint preparation: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002287123
+- A later Android run for commit `884abd4b2e576d9117b8e3db5729869508e45382` was also running: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002316561
+- The document-picker changes in `071e7c7` have not yet been CI-verified.
+- Lean analysis-engine checks passed on the continuity test commit.
+- No physical phone installation, on-device import/export drill, offline inference, voice operation, or timed background execution has been verified.
 
-The hash chain is tamper-evident, not cryptographic authentication; it does not protect against an attacker who can rewrite the entire database and recompute the chain. Snapshot export/restore is implemented in source, but file-picker integration, encrypted backup policy, external signatures, and a full recovery drill remain future work.
+## Scope and limitations
 
-## Verification state
-
-- Android workflow passed at commit `0f7270271666b6ab674bc9979ba2e07410586f3a`, including unit tests and Android compilation for the initial journal/local exchange implementation.
-- Android workflow passed at commit `37ee442356586ae0128cef43a5c087838f4381be`, including unit tests and Android compilation.
-- Latest Android workflow for snapshot export/restore and the phone UI is running at: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42002030262
-- Lean analysis-engine checks passed at commit `93ee298cbaf3d240d8cdf8a57533095eb8ff058c`.
-- Latest source changes are not yet fully CI-verified.
-- No phone installation, on-device execution, offline operation, or background persistence test has occurred.
+The current Mari-to-Muninn handoff is a local demonstration within one Android app process. It is not yet nine independent AI agents, a general natural-language assistant, or a system that can operate arbitrary apps. The hash chain is tamper-evident, not authenticated against an attacker able to rewrite the entire database. Snapshot files are plain JSON; encryption and secure backup policy remain future work.
 
 ## Next gates
 
-1. Confirm the latest Android build and unit tests pass.
-2. Add automated tests for snapshot validation and recovery behavior, preferably with an Android test environment.
-3. Add user-controlled export/import through Android's document picker, with an explicit preview before replacing existing records.
-4. Build a general conversational command interface that can invoke only implemented local capabilities.
-5. Test on the Galaxy S21 before selecting local inference or voice components.
+1. Complete CI for Robolectric recovery tests and document-picker changes.
+2. Add further edge-case tests for interrupted writes, oversized/malformed imports and duplicate or missing receipt references.
+3. Install the verified debug APK on the Galaxy S21 and test note handoff, export, clear/re-import, and integrity check.
+4. Develop the conversational command layer over a strict registry of implemented capabilities.
+5. Only then benchmark on-device inference and offline voice on the actual phone.
 
-## Integrity check
+## Integrity
 
-One phone target; nine role identities; scheduler database kept separate; snapshot import validates before replacement; proposed, implemented, CI-pending, and physically verified states distinguished; no changes to `main` or the original scheduler branch.
+One active runtime branch; protected `main` and original scheduler branch untouched; scheduler and Builder continuity databases separate; nine roles present; user confirmation required before destructive import; implementation, CI and physical-device verification clearly distinguished.
