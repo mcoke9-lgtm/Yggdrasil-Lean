@@ -37,6 +37,8 @@ async function readBody(request) {
 export function createServer() {
   return createHttpServer(async (request, response) => {
     try {
+      const host = request.headers.host || "";
+      if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) return send(response, 403, { error: "This local service accepts requests only through localhost" });
       const url = new URL(request.url, "http://127.0.0.1");
       if (request.method === "GET" && ASSETS.has(url.pathname)) {
         const [filename, type] = ASSETS.get(url.pathname);
