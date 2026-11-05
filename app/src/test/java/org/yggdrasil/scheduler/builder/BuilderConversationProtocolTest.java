@@ -69,6 +69,19 @@ public class BuilderConversationProtocolTest {
         BuilderConversationProtocol.validateThread(Arrays.asList(request, handoff, receipt));
     }
 
+    @Test public void rejectsResponseFromBuilderWhoWasNotAddressed() {
+        BuilderConversationProtocol.Turn question = turn("t1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.KVASIR, null,
+                BuilderConversationProtocol.TurnType.QUESTION, 100);
+        BuilderConversationProtocol.Turn wrongResponder = turn("t2",
+                BuilderConversationProtocol.Participant.MARI,
+                BuilderConversationProtocol.Participant.HUGINN, "t1",
+                BuilderConversationProtocol.TurnType.RESPONSE, 200);
+        assertThrows(IllegalArgumentException.class, () ->
+                BuilderConversationProtocol.validateThread(Arrays.asList(question, wrongResponder)));
+    }
+
     @Test public void rejectsChallengeWithoutRecipientOrReplyTarget() {
         assertThrows(IllegalArgumentException.class, () -> turn("t1", BuilderConversationProtocol.Participant.LOKI,
                 null, null, BuilderConversationProtocol.TurnType.CHALLENGE, 100));
