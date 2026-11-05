@@ -2037,7 +2037,10 @@
             "human_or_deterministic_verification_required",
             "evaluator_selection_status",
             "evaluator_model_artifact_refs",
-            "builder_roles_are_independent_model_artifacts"
+            "builder_roles_are_independent_model_artifacts",
+            "proposed_evaluator_model_family_refs",
+            "blind_candidate_identity_until_initial_scoring",
+            "evaluator_models_must_not_see_other_scores_before_submission"
           ],
           "properties": {
             "evaluator_builder_ids": {
@@ -2082,6 +2085,7 @@
               "type": "string",
               "enum": [
                 "not_selected",
+                "family_shortlist",
                 "selected",
                 "blocked"
               ]
@@ -2095,6 +2099,19 @@
             },
             "builder_roles_are_independent_model_artifacts": {
               "const": false
+            },
+            "proposed_evaluator_model_family_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "blind_candidate_identity_until_initial_scoring": {
+              "const": true
+            },
+            "evaluator_models_must_not_see_other_scores_before_submission": {
+              "const": true
             }
           },
           "additionalProperties": false
