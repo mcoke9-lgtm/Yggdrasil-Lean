@@ -159,6 +159,13 @@ public final class BuilderConversationCoordinator {
                 List<BuilderConversationProtocol.Turn> context = store.readThread(normalizedThreadId);
                 Reply reply = responder.respond(role, context, userTurn);
                 if (reply == null) throw new IllegalStateException("Responder returned no reply");
+                BuilderRole incidentAuthor = reviewIncidentAuthor(userTurn, context);
+                if (incidentAuthor != null && reply.evidenceStatus == BuilderConversationProtocol.EvidenceStatus.VERIFIED) {
+                    if (role == incidentAuthor)
+                        throw new IllegalArgumentException("The Builder named in the incident cannot certify its own correction");
+                    if (role != BuilderRole.BALDR)
+                        throw new IllegalArgumentException("Only an unaffected Baldr review may mark an improvement correction VERIFIED");
+                }
 
                 long timestamp = nextTimestamp(context);
                 BuilderConversationProtocol.TurnType turnType = reply.type;
@@ -211,6 +218,26 @@ public final class BuilderConversationCoordinator {
         }
         return new Result(normalizedThreadId, userTurnId, appended, failed, unrouted,
                 interrupted, interruptedBy, interruptionType, notRun);
+    }
+
+    /** Returns the author of the referenced incident when this is a review round. */
+    private static BuilderRole reviewIncidentAuthor(
+            BuilderConversationProtocol.Turn userTurn,
+            List<BuilderConversationProtocol.Turn> context) {
+        String marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=";
+        int markerIndex = userTurn.body.indexOf(marker);
+        if (markerIndex < 0) return null;
+        int start = markerIndex + marker.length();
+        int end = userTurn.body.indexOf('\\n', start);
+        if (end < 0) end = userTurn.body.length();
+        String incidentId = userTurn.body.substring(start, end).trim();
+        for (BuilderConversationProtocol.Turn turn : context) {
+            if (turn.turnId.equals(incidentId)
+                    && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                return builderRoleFor(turn.speaker);
+            }
+        }
+        throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
     }
 
     private static BuilderRole builderRoleFor(BuilderConversationProtocol.Participant participant) {
