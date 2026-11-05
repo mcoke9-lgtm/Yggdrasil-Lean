@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Nine Builders · Analysis Engine</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <p class="eyebrow">NINE BUILDERS · LOCAL TOOL</p>
+      <h1>Analysis Engine</h1>
+      <p class="intro">Explore a dataset while keeping its contents on this device.</p>
+      <p class="local-note"><span aria-hidden="true">●</span> Local connection · No external upload</p>
+    </header>
+
+    <section class="panel" aria-labelledby="input-heading">
+      <div class="section-heading">
+        <div><p class="eyebrow">01 / SOURCE</p><h2 id="input-heading">Choose a data file</h2></div>
+      </div>
+      <p class="help">Use a CSV or JSON file with material, quantity_kg and reusable_kg fields. Optional evidence labels and measurement bounds are preserved.</p>
+      <label class="file-picker" for="file-input">
+        <span class="file-icon" aria-hidden="true">↑</span>
+        <span><strong id="file-label">Choose CSV or JSON</strong><small>Maximum file size: 5 MB</small></span>
+        <input id="file-input" type="file" accept=".csv,.json,text/csv,application/json">
+      </label>
+      <button id="analyze-button" class="primary" disabled>Analyze locally</button>
+      <p id="status" class="status" role="status" aria-live="polite">Choose a file to begin.</p>
+    </section>
+
+    <section id="results" class="results" hidden aria-labelledby="results-heading">
+      <div class="section-heading result-title">
+        <div><p class="eyebrow">02 / FINDINGS</p><h2 id="results-heading">Analysis report</h2></div>
+        <button id="download-button" class="secondary">Save report JSON</button>
+      </div>
+      <div id="summary" class="metric-grid"></div>
+      <section class="subpanel">
+        <h3>Evidence record</h3>
+        <div id="evidence"></div>
+      </section>
+      <section class="subpanel">
+        <h3>Material comparison</h3>
+        <div class="table-wrap"><table><thead><tr><th>Material</th><th>Inspected</th><th>Reusable</th><th>Recovery</th><th>Source rows</th></tr></thead><tbody id="materials"></tbody></table></div>
+      </section>
+      <section class="subpanel">
+        <h3>Measurement uncertainty</h3>
+        <div id="uncertainty"></div>
+      </section>
+      <section class="subpanel">
+        <h3>Data quality and verification</h3>
+        <div id="quality"></div>
+      </section>
+      <details class="subpanel raw-report">
+        <summary>Inspect complete report</summary>
+        <pre id="raw-report"></pre>
+      </details>
+    </section>
+    <footer><p>Prototype 0.4 · Analysis runs on the local machine. Source labels and references are retained, not authenticated. Statistical and uncertainty limits are described in the report.</p></footer>
+  </main>
+</body>
+</html>
