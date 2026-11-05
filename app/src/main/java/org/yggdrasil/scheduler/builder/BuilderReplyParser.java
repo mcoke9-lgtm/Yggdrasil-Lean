@@ -41,10 +41,27 @@ public final class BuilderReplyParser {
             if (object.has("reply_to_turn_id") && !object.isNull("reply_to_turn_id")) {
                 replyTo = requiredString(object, "reply_to_turn_id");
             }
+            if (type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
+                validateIncidentBody(body);
+            }
             return new BuilderConversationCoordinator.Reply(
                     body, evidence, type, recipient, replyTo);
         } catch (JSONException malformed) {
             throw new IllegalArgumentException("Builder response is not valid JSON", malformed);
+        }
+    }
+
+    private static void validateIncidentBody(String body) {
+        try {
+            JSONObject incident = new JSONObject(body);
+            String[] required = {"incident_summary", "observed_behavior", "expected_behavior",
+                    "evidence", "unknowns", "suspected_causes", "proposed_next_step", "status"};
+            for (String field : required) requiredString(incident, field);
+            String status = requiredString(incident, "status");
+            if (!"OPEN_DIAGNOSIS".equals(status) && !"OPEN_REVIEW".equals(status))
+                throw new IllegalArgumentException("Improvement incident status must remain OPEN_DIAGNOSIS or OPEN_REVIEW");
+        } catch (JSONException malformed) {
+            throw new IllegalArgumentException("Improvement incident body must be a JSON object", malformed);
         }
     }
 
