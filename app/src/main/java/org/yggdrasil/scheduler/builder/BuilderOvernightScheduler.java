@@ -74,14 +74,15 @@ public final class BuilderOvernightScheduler {
         String runId = app.getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
                 .getString("last_scheduled_run_id", null);
         if (runId == null || runId.trim().isEmpty()) return false;
-        WorkManager.getInstance(app).cancelUniqueWork(workName(runId));
         BuilderOvernightRunStore store = new BuilderOvernightRunStore(app);
         org.json.JSONObject state = store.read(runId);
-        if (state != null && "RUNNING".equals(state.optString("status"))) {
+        if (state != null) {
+            if (!"RUNNING".equals(state.optString("status"))) return false;
             store.setStatus(runId, "CANCELLED",
                     "Cancelled by the user from the Builder Conversation screen.",
                     System.currentTimeMillis());
         }
+        WorkManager.getInstance(app).cancelUniqueWork(workName(runId));
         return true;
     }
 
