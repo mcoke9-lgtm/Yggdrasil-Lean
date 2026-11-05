@@ -350,11 +350,12 @@ The later lifecycle manager must enforce these invariants:
 
 Two versioned JSON artifacts now accompany this specification:
 - `schemas/model-lifecycle-contracts-1.0.schema.json` — JSON Schema 2020-12 definitions for Builder identity, capability contracts, model families, artifacts, assignments, model instances, resource profiles, reconstruction seeds, evaluation reports, and the capability-contract bundle.
-- `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (54 required capability tests total).
+- `schemas/nine-builder-capability-contracts-v0.1.json` — nine proposed Builder capability contracts, each with two role-specific tasks and five shared tasks (63 required capability tests total).
+- `schemas/model-reduction-study-v0.1.json` — a planned study for selecting, evaluating, and packaging a compact model; no candidate model has been selected or tested.
 
 The schema and bundle were fetched back from the repository and structurally checked: both parse as JSON; all nine expected Builder IDs occur exactly once; every contract contains the schema's required fields; each Builder has seven required capability tests; and the threshold policy is explicitly marked proposed/not adopted.
 
-A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 22 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 54 capability requirements references its corresponding fixture. All three JSON files parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
+A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All five machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
 **Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
 
@@ -363,18 +364,24 @@ A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1
 A proposed weighted scoring rubric is now defined in `schemas/capability-evaluation-rubric-v0.1.json`. It scores task completion, evidence integrity, role-boundary judgment, failure handling, handoff/recovery, and clarity. It includes hard-failure conditions, independent evaluator requirements, resource measurements, and a minimum compact-seed acceptance gate. Its thresholds remain proposed, not adopted.
 
 The repository now contains `scripts/validate_phase_a_contracts.py` and `.github/workflows/phase-a-contract-validation.yml`. The workflow uses a pinned JSON Schema validator and checks:
-- Draft 2020-12 schema validity and the bundle, fixture suite, and rubric against that schema;
+- Draft 2020-12 schema validity and the bundle, fixture suite, rubric, and model-reduction study against that schema;
 - nine unique Builder contracts and seven required capabilities per Builder;
-- 22 unique fixtures, including 18 role-specific and five shared;
+- 23 unique fixtures, including 18 role-specific and five shared;
 - correct Builder and capability ownership for every role-specific fixture;
-- all four shared fixtures mapped to every Builder;
-- explicit proposed/not-adopted thresholds and not-yet-executed fixture status.
+- all five shared fixtures mapped to every Builder;
+- explicit proposed/not-adopted thresholds, a planned study with no invented candidate, and not-yet-executed fixture status.
 
 The validator has been committed, but **its GitHub Actions result has not yet been observed**. A committed workflow is not evidence of a passing run.
 
 ### Provider inventory
 
 `docs/PHASE_A_PROVIDER_INVENTORY_001.md` records a source-verified inventory of the provider-neutral interface, immutable provider registry, explicit per-role router, OpenAI-compatible HTTP adapter, and device-local encrypted credential settings. The source confirms that the current route is static per Builder role and that no elastic allocator or local inference engine is implemented. Actual device-saved provider/model metadata and endpoint availability remain unknown; no credential values were accessed.
+
+### Compact model reduction study
+
+`schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluators; Baldr and Týr are proposed independent verification roles. The evaluator artifact must be distinct from the candidate artifact, and model self-evaluation alone is insufficient.
+
+The study currently has **zero candidate models** and remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
 ### Elastic lifecycle and reconstruction
 
@@ -388,7 +395,7 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 | Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 54 capability tests specified; thresholds proposed, not adopted; model tests pending |
 | Model/artifact registry | Family, artifact, and instance records with provenance | JSON Schema definitions specified; live artifact inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
-| Evaluation contract | Independent tests, safety, resource and recovery gates | 22 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
+| Evaluation contract | Independent tests, safety, resource and recovery gates | 23 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Lifecycle states and transition criteria specified; runtime implementation pending |
 | Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Source inventory documented; device-saved provider/model metadata and endpoint availability pending |
 
