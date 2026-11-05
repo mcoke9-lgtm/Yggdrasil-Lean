@@ -1,6 +1,8 @@
 package org.yggdrasil.scheduler;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.InputType;
@@ -20,6 +22,8 @@ import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -105,6 +109,7 @@ public final class BuilderConversationActivity extends Activity {
         threadActions.setOrientation(LinearLayout.HORIZONTAL);
         threadActions.addView(button("New thread", this::newThread));
         threadActions.addView(button("Open saved thread", this::chooseThread));
+        threadActions.addView(button("Export backup", this::requestExport));
         root.addView(threadActions);
         threadLabel = text("", 12);
         root.addView(threadLabel);
@@ -185,6 +190,42 @@ public final class BuilderConversationActivity extends Activity {
                         refreshHistory();
                         status.setText("Loaded saved conversation history.");
                     }).setNegativeButton("Cancel", null).show();
+        } finally {
+            store.close();
+        }
+    }
+
+    private static final int REQUEST_EXPORT_BACKUP = 901;
+
+    private void requestExport() {
+        if (busy) {
+            status.setText("Wait until the current Builder round finishes before exporting.");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "yggdrasil-nine-builder-conversations.json");
+        startActivityForResult(intent, REQUEST_EXPORT_BACKUP);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_EXPORT_BACKUP || resultCode != RESULT_OK
+                || data == null || data.getData() == null) return;
+        Uri destination = data.getData();
+        BuilderConversationStore store = new BuilderConversationStore(getApplicationContext());
+        try {
+            String snapshot = store.exportSnapshot().toString(2);
+            try (OutputStream output = getContentResolver().openOutputStream(destination)) {
+                if (output == null) throw new java.io.IOException("Could not open selected backup destination");
+                output.write(snapshot.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+            }
+            status.setText("Conversation backup exported. Keep the JSON file somewhere safe before replacing this app.");
+        } catch (Exception e) {
+            status.setText("Backup export failed: " + e.getClass().getSimpleName()
+                    + ". Existing conversation history remains on this device.");
         } finally {
             store.close();
         }
