@@ -101,4 +101,27 @@ public class BuilderPromptFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> BuilderPromptFactory.forTurn(
                 BuilderRole.BALDR, Arrays.asList(first, second), second));
     }
+
+    @Test public void enablesProtectionNavigationOnlyWhenExplicitlySelected() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100,
+                "NAVIGATING_DIFFICULT_SPACES_MODE\nInvestigate the GitHub credential boundary.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.TYR, Collections.singletonList(user), user);
+        assertTrue(prompt.systemInstruction.contains("LOWER FIRA / THURISAZ"));
+        assertTrue(prompt.systemInstruction.contains("UPPER FIRA / ALGIZ"));
+        assertTrue(prompt.systemInstruction.contains("Never evade access controls"));
+        assertTrue(prompt.userMessage.contains("\"operating_mode\": \"NAVIGATING_DIFFICULT_SPACES\""));
+    }
+
+    @Test public void ordinaryConversationDoesNotImplicitlyEnableProtectionMode() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review this issue.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.HUGINN, Collections.singletonList(user), user);
+        assertFalse(prompt.systemInstruction.contains("LOWER FIRA / THURISAZ"));
+        assertFalse(prompt.userMessage.contains("operating_mode"));
+    }
 }
