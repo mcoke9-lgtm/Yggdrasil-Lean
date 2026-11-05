@@ -278,7 +278,11 @@ public final class MainActivity extends Activity {
                 if (clipboard.hasPrimaryClip()
                         && clipboard.getPrimaryClipDescription() != null
                         && label.contentEquals(clipboard.getPrimaryClipDescription().getLabel())) {
-                    clipboard.clearPrimaryClip();
+                    if (Build.VERSION.SDK_INT >= 28) {
+                        clipboard.clearPrimaryClip();
+                    } else {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+                    }
                 }
             }, 60_000L);
             status.setText("Verified keystore copied. Fingerprint: " + fingerprint
