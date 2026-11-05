@@ -86,6 +86,7 @@ async function shutdown(signal) {
   stopping = true;
   if (timer) clearInterval(timer);
   process.stdout.write(JSON.stringify({ event: "scheduler_stopping", signal }) + "\n");
+  scheduler.abortActiveRuns("Scheduler received " + signal);
   try {
     await activeTick;
     await dashboard.close();
