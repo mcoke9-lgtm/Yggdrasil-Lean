@@ -87,6 +87,18 @@ export class Scheduler {
     return clone(task);
   }
 
+  async deleteTask(taskId) {
+    const state = await this.store.load();
+    const task = state.tasks.find(item => item.id === taskId);
+    if (!task) throw new Error(`Task not found: ${taskId}`);
+    if (state.runs.some(run => run.taskId === taskId && run.status === "running")) {
+      throw new Error("Cannot delete a task while its handler is running");
+    }
+    state.tasks = state.tasks.filter(item => item.id !== taskId);
+    await this.store.save(state);
+    return clone(task);
+  }
+
   async listTasks() {
     const state = await this.store.load();
     return clone(state.tasks);
