@@ -140,7 +140,7 @@ public final class BuilderPromptFactory {
             payload.put("task", "Contribute from the " + role.getDisplayName()
                     + " perspective. You may contribute, ask a named peer a question, challenge a specific earlier turn, "
                     + "answer a directed turn, hand off a bounded task, acknowledge a handoff, or reconcile cited turns. "
-                    + "Use the matching turn_type and reference fields. You may issue INTERRUPTION or IMPROVEMENT_INCIDENT as defined in the system instructions. Never create a DECISION turn. "
+                    + "Use the matching turn_type and reference fields. You may issue INTERRUPTION or IMPROVEMENT_INCIDENT as defined in the system instructions. During an explicit improvement review, you may create a CORRECTION_PLAN or CORRECTION_UPDATE only when its evidence requirements are met. Never create a DECISION turn. "
                     + "Do not invent a recipient or claim agreement.");
             JSONObject responseSchema = new JSONObject();
             responseSchema.put("body", "string: concise contribution");
