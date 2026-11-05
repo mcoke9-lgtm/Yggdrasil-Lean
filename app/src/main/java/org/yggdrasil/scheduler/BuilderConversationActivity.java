@@ -171,7 +171,7 @@ public final class BuilderConversationActivity extends Activity {
         setContentView(scroll);
 
         root.addView(text("Nine Builder Conversation", 24));
-        root.addView(text("Nine distinct AI roles sharing one recorded thread. They are coordinated by this app, not nine independent AI workers.", 14));
+        root.addView(text("Nine Builder roles share one recorded thread. Each selected role uses its own configured model route; this app orchestrates replies sequentially, not as nine independent processes.", 14));
         runtimeStatus = text("Builder-native host: waiting for connection", 13);
         root.addView(runtimeStatus);
         root.addView(text("Shared operational limits are included in every Builder prompt. Snapshot evidence is timestamped, not live telemetry.", 12));
