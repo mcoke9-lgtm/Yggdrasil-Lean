@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerGithubWatch } from "../src/github-watch.js";
-import { MemoryStore } from "../src/store.js";
+import { JsonFileStore, MemoryStore } from "../src/store.js";
 import { Scheduler } from "../src/scheduler.js";
 
 const clock = () => new Date("2026-11-04T12:00:00.000Z");
@@ -144,4 +144,61 @@ test("GitHub watch baselines existing runs and reports only new failures", async
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("persists task definitions and run history across store instances", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-store-"));
+  const filePath = join(directory, "state.json");
+  try {
+    const first = new Scheduler({ store: new JsonFileStore(filePath), clock });
+    await first.addTask({
+      id: "persistent-task",
+      name: "Persistent task",
+      handlerType: "test.check",
+      schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+    });
+    const disk = JSON.parse(await readFile(filePath, "utf8"));
+    assert.equal(disk.tasks[0].id, "persistent-task");
+    const second = new Scheduler({ store: new JsonFileStore(filePath), clock });
+    assert.equal((await second.listTasks())[0].id, "persistent-task");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pause and resume preserve the next scheduled time", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  await scheduler.addTask({
+    id: "pause-test",
+    name: "Pause test",
+    handlerType: "test.check",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const paused = await scheduler.setEnabled("pause-test", false);
+  assert.equal(paused.enabled, false);
+  const resumed = await scheduler.setEnabled("pause-test", true);
+  assert.equal(resumed.enabled, true);
+  assert.equal(resumed.nextRunAt, "2026-11-04T12:00:00.000Z");
+});
+
+test("marks in-flight runs interrupted after restart without replay", async () => {
+  const store = new MemoryStore({
+    version: 1,
+    tasks: [],
+    runs: [{
+      id: "task:2026-11-04T11:00:00.000Z",
+      taskId: "task",
+      handlerType: "test.check",
+      scheduledFor: "2026-11-04T11:00:00.000Z",
+      startedAt: "2026-11-04T11:00:00.000Z",
+      finishedAt: null,
+      status: "running",
+      error: null
+    }]
+  });
+  const scheduler = new Scheduler({ store, clock });
+  await scheduler.runDue();
+  const runs = await scheduler.listRuns();
+  assert.equal(runs[0].status, "interrupted");
+  assert.match(runs[0].error, /automatic replay is disabled/);
 });
