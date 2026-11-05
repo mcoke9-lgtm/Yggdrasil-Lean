@@ -1,7 +1,7 @@
 import { createServer as createHttpServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { dirname, join, extname } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join, extname, resolve } from "node:path";
 import { analyze, parseInput } from "./engine.js";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -67,7 +67,7 @@ export function createServer() {
   });
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const port = Number(process.env.PORT || 4173);
   const server = createServer();
   server.listen(port, "127.0.0.1", () => {
