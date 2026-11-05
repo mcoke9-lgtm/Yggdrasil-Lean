@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "routes": {
+    "ODIN": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "odin-model-placeholder",
+      "secretRef": "nine-builders/odin"
+    },
+    "HODR": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "hodr-model-placeholder",
+      "secretRef": "nine-builders/hodr"
+    },
+    "LOKI": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "loki-model-placeholder",
+      "secretRef": "nine-builders/loki"
+    },
+    "MUNINN": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "muninn-model-placeholder",
+      "secretRef": "nine-builders/muninn"
+    },
+    "HUGINN": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "huginn-model-placeholder",
+      "secretRef": "nine-builders/huginn"
+    },
+    "KVASIR": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "kvasir-model-placeholder",
+      "secretRef": "nine-builders/kvasir"
+    },
+    "MARI": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "mari-model-placeholder",
+      "secretRef": "nine-builders/mari"
+    },
+    "TYR": {
+      "providerId": "example-provider",
+      "endpoint": "https://api.example.invalid/v1/chat/completions",
+      "model": "tyr-model-placeholder",
+      "secretRef": "nine-builders/tyr"
+    },
+    "BALDR": {
+      "providerId": "independent-review-provider",
+      "endpoint": "https://review.example.invalid/v1/chat/completions",
+      "model": "baldr-review-model-placeholder",
+      "secretRef": "nine-builders/baldr"
+    }
+  }
+}
