@@ -47,6 +47,8 @@ def validate_registry(root: Path = ROOT) -> list[str]:
         if len(subheading_ids) != len(set(subheading_ids)):
             errors.append(f"{label}: subheading IDs must be unique")
         for subheading in subheadings:
+            if not subheading.get("recognition_terms"):
+                errors.append(f"{label}/{subheading.get('subheading_id')}: recognition terms are required")
             unknown = set(subheading.get("primary_stewards", [])) - EXPECTED_BUILDERS
             if unknown:
                 errors.append(
