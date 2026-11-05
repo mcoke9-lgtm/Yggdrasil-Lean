@@ -77,6 +77,8 @@ public final class BuilderOvernightRunStore {
 
     public synchronized JSONObject finishCycle(String runId, String summary, long nowMillis) {
         JSONObject state = requireRun(runId);
+        if (!"RUNNING".equals(state.optString("status")))
+            throw new IllegalStateException("A cancelled or terminal run cannot complete another cycle");
         if (!state.optBoolean("cycle_in_progress", false))
             throw new IllegalStateException("No Builder cycle is marked in progress");
         try {
@@ -92,6 +94,9 @@ public final class BuilderOvernightRunStore {
 
     public synchronized JSONObject setStatus(String runId, String status, String reason, long nowMillis) {
         JSONObject state = requireRun(runId);
+        String current = state.optString("status");
+        if (!"RUNNING".equals(current) && !current.equals(status))
+            throw new IllegalStateException("Terminal run state " + current + " cannot be overwritten by " + status);
         state = status(state, status, nowMillis, reason);
         write(runId, state);
         return state;
