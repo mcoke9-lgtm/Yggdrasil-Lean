@@ -38,3 +38,18 @@ The initial records deliberately preserve uncertainty. Builder Host and Key Stew
 ## Update protocol
 
 Every change should identify the record changed, prior value, new value, evidence, timestamp, and responsible source. Automated device reports may propose updates, but must not silently overwrite conflicting evidence. Retain prior observations as audit history when the registry evolves.
+
+
+## Installation gate and device bridge
+
+- `device_inventory_scope` is the exact allowlist of package IDs the Android dashboard may inspect.
+- The dashboard uses Android package visibility declarations for those IDs only. It does not request permissions, use the network, or enumerate all installed apps.
+- It displays installed version and current/history signer SHA-256 fingerprints where Android exposes them. Fingerprint text is selectable for copying.
+- `NOT FOUND / NOT VISIBLE` is intentionally not treated as proof that a package is absent.
+- The dashboard is read-only. It cannot install, update, uninstall, clear data, or silently change registry status.
+- Before any new installation, compare package ID, version code, artifact SHA-256, and signing certificate. A package-ID collision or signer mismatch blocks replacement pending human review.
+- A device observation is evidence for review; it does not automatically overwrite conflicting registry history.
+
+## Current unresolved installation incident
+
+On 2026-11-05 the user reported that Android displayed an existing-package conflict while attempting to install the Installed Signer Diagnostic APK. The identity and signer of the existing package are unknown. No app should be uninstalled or replaced until the dashboard inventory and signer evidence are reviewed.
