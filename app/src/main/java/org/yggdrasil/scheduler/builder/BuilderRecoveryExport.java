@@ -34,7 +34,8 @@ public final class BuilderRecoveryExport {
             JSONObject provenance = new JSONObject();
             provenance.put("status", provenanceStatus);
             provenance.put("event_count", provenanceEvents == null ? JSONObject.NULL : provenanceEvents.length());
-            provenance.put("events", provenanceEvents == null ? JSONObject.NULL : provenanceEvents);
+            JSONArray detachedEvents = provenanceEvents == null ? null : new JSONArray(provenanceEvents.toString());
+            provenance.put("events", detachedEvents == null ? JSONObject.NULL : detachedEvents);
             provenance.put("error_class", provenanceErrorClass == null
                     ? JSONObject.NULL : provenanceErrorClass);
             root.put("operational_snapshot_provenance", provenance);

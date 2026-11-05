@@ -31,6 +31,7 @@ import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderOperationalSnapshotJournal;
 import org.yggdrasil.scheduler.builder.BuilderRecoveryExport;
+import org.yggdrasil.scheduler.builder.BuilderRecoveryIntegrity;
 import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
@@ -325,14 +326,26 @@ public final class BuilderConversationActivity extends Activity {
                 org.json.JSONObject combined = BuilderRecoveryExport.compose(
                         conversationSnapshot, provenanceEvents, provenanceStatus,
                         provenanceErrorClass);
+                BuilderRecoveryIntegrity.Report integrity = BuilderRecoveryIntegrity.validate(combined);
+                if (!integrity.valid) {
+                    throw new IllegalStateException("Recovery integrity validation failed: "
+                            + integrity.errors.toString());
+                }
+                if (integrity.provenanceAvailable
+                        && !BuilderRecoveryIntegrity.reconcileProvenance(provenanceEvents, combined)) {
+                    throw new IllegalStateException("Operational provenance did not reconcile with the source capture");
+                }
                 String snapshot = combined.toString(2);
+                String provenanceResult = integrity.provenanceAvailable
+                        ? "source events reconciled" : "source journal unavailable; limitation preserved";
                 try (OutputStream output = getContentResolver().openOutputStream(destination)) {
                     if (output == null) throw new java.io.IOException("Could not open selected backup destination");
                     output.write(snapshot.getBytes(StandardCharsets.UTF_8));
                     output.flush();
                 }
                 if (!destroyed) runOnUiThread(() -> status.setText(
-                        "Conversation backup exported from Builder-native host. Keep the JSON file somewhere safe."));
+                        "Recovery export validated; provenance: " + provenanceResult
+                                + ". Keep the JSON file somewhere safe."));
             } catch (Exception e) {
                 if (!destroyed) runOnUiThread(() -> status.setText(
                         "Backup export failed: " + e.getClass().getSimpleName()
