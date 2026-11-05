@@ -413,7 +413,7 @@ The selection policy defines the compact model as the smallest measured resource
 
 The expansion blueprint separately records architecture/configuration, tokenizer, source weights, training-data manifests, training recipes, runtime toolchains, license/provenance, and required compute. It explicitly forbids treating student weights alone as sufficient to reconstruct a larger model. The blueprint is planned, with no dependencies or reconstruction claim registered.
 
-The study currently has **five research-stage model families**, but repository revisions are pinned for Qwen3.5-0.8B and Qwen3.5-2B, but no individual weight-file digests or complete artifact locks are registered; no baseline evaluations or selected candidate exist, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
+The study currently has **five research-stage model families**, but repository revisions are pinned for Qwen3.5-0.8B, Qwen3.5-2B, and LFM3-1.7B, but no individual weight-file digests or complete artifact locks are registered; no baseline evaluations or selected candidate exist, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
 ### Elastic lifecycle and reconstruction
 
