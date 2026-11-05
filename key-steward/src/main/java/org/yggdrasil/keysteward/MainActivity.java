@@ -182,15 +182,13 @@ public final class MainActivity extends Activity {
                 }
                 status.setText(formatResult("Keystore created, reopened, and verified.",
                         reopened));
-            } else if ((requestCode == OPEN_FILE || requestCode == EXPORT_BASE64) && !creating) {
+            } else if (requestCode == EXPORT_BASE64 && exporting && !creating) {
+                copyVerifiedKeystore(uri, password);
+            } else if (requestCode == OPEN_FILE && !creating) {
                 try (InputStream input = getContentResolver().openInputStream(uri)) {
                     result = KeyStoreEngine.verify(input, password);
                 }
-                if (requestCode == EXPORT_BASE64 && exporting) {
-                    copyVerifiedKeystore(uri, password, result);
-                } else {
-                    status.setText(formatResult("Keystore verified.", result));
-                }
+                status.setText(formatResult("Keystore verified.", result));
             }
         } catch (Exception error) {
             status.setText("Operation failed safely: " + safeMessage(error));
