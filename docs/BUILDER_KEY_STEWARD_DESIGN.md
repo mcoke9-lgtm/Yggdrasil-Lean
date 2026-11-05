@@ -57,3 +57,21 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 ## Explicit non-goals
 
 No remote key management, cloud upload, password recovery, private-key display, general password manager, or replacement of the Builder Host/Scheduler apps.
+
+## Next phase — phone and backup readiness
+
+The disposable CI signing gate is complete. This does not authorize production-key creation or migration. Keep the permanent-key gate closed until the following evidence is recorded:
+
+1. **Device rehearsal (disposable identity only):** on the Galaxy S21 / Android 15, create a disposable encrypted PKCS#12, save it through the Storage Access Framework, reopen it, and confirm the certificate SHA-256 fingerprint matches the creation result.
+2. **Negative-path rehearsal (disposable identity only):** verify that a wrong password and a modified copy are rejected. Confirm cancellation of Base64 export does not leave pending data available for a later copy.
+3. **Clipboard rehearsal (disposable identity only):** explicitly confirm export, verify the copied value is intended for the GitHub secret field, and observe the scheduled clear while the app remains alive. If the app is stopped or killed, clear the clipboard manually; the in-app timer is not a durable background guarantee.
+4. **Independent encrypted backups:** before any production migration, make at least two encrypted PKCS#12 backups in independently retained locations. Reopen and verify each backup separately; record that both certificate fingerprints match the source. Keep the password separate from the backup files. Two filenames or two folders on the same device do not count as independent backups.
+5. **Production change review:** only after the previous gates are confirmed should a separate, explicitly reviewed change configure production signing secrets. Never put passwords or keystore contents in repository files, issue comments, chat, logs, or commit history.
+6. **Migration boundary:** do not uninstall or disable Builder Host/Scheduler, rotate existing production identities, or change production signing configuration as part of this foundation PR. Treat migration as a separate, reversible plan with a verified recovery path.
+
+### Evidence status
+
+- CI disposable signing, repeat assembly, APK signature verification, and stable fingerprint: **verified** by run 42017725787 on commit 4139407a05a6ab216bb44350915e5de78533d0eb.
+- Disposable keystore creation and saved-file reopening on Galaxy S21 / Android 15: **user-reported**; not independently observed by CI.
+- Production-key creation, two independently retained encrypted backups, and production migration: **not done; gated**.
+- Static review of the current Android source found no reason to expand this PR into production signing or host/scheduler changes. This is not a formal security audit or a substitute for the device rehearsal above.
