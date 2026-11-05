@@ -113,6 +113,10 @@ public final class BuilderOvernightWorker extends Worker {
                     + "was performed unless it was actually completed.\n\nTASK:\n" + taskPrompt;
             BuilderConversationCoordinator.Result result = coordinator.submit(threadId, cyclePrompt, roles);
             if (isStopped()) return Result.failure();
+            if (result.interrupted || result.failedRoles.contains(BuilderRole.BALDR)) {
+                runStore.setStatus(runId, "INTERRUPTED", "Baldr review incomplete; manual inspection required.", System.currentTimeMillis());
+                return Result.failure();
+            }
             String summary = "cycle=" + cycle + "; replies=" + (result.appendedTurns.size() - 1)
                     + "; failed_roles=" + result.failedRoles
                     + "; unrouted_recipients=" + result.unroutedRecipients
