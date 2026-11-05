@@ -105,7 +105,15 @@ export function createEncryptedTaskVault({
       const reference = required(taskReference, "taskReference", 256);
       const taskPrompt = required(prompt, "task prompt", 32000);
       const state = await readState();
-      if (state.tasks[reference]) throw new Error("Task reference already exists");
+      if (state.tasks[reference]) {
+        if (state.tasks[reference].prompt !== taskPrompt) {
+          throw new Error("Task reference already exists with a different prompt; use a new reference");
+        }
+        return {
+          taskReference: reference,
+          approvalRequired: !state.tasks[reference].consent
+        };
+      }
       state.tasks[reference] = { prompt: taskPrompt, consent: null, runs: {} };
       await writeState(state);
       return { taskReference: reference, approvalRequired: true };
