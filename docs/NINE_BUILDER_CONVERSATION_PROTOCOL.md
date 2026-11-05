@@ -109,6 +109,7 @@ The model integration is split into four replaceable parts:
 - `BuilderProviderRegistry` holds only explicitly installed adapters.
 - `BuilderProviderRouter` maps each Builder role to an explicitly selected provider. There is no silent fallback: a missing route fails visibly rather than sending conversation data to an unintended service.
 - `BuilderModelResponder` connects the coordinator to the role-specific prompt factory, selected provider, and strict reply parser.
+- `OpenAiCompatibleModelProvider` supports hosted HTTPS endpoints and local loopback endpoints using the common Chat Completions format. `UrlConnectionModelTransport` bounds response size, uses timeouts, and disables redirects.
 
 Provider requests carry the system instruction, structured conversation payload, and a bounded output-token limit. Provider completions return raw response text, which must pass the same typed parser before the coordinator can persist a turn. Provider identity and model ID are adapter metadata; credentials, endpoint configuration, and transport are deliberately not part of conversation turns or the journal.
 
