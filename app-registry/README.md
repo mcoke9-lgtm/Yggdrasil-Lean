@@ -66,4 +66,6 @@ On 2026-11-05 the user reported that Android displayed an existing-package confl
 - Default evidence freshness is seven days; use a stricter threshold for rapidly changing limits. Recheck dynamic account or provider capacity through the authoritative connected service before relying on it.
 - Exit codes: 0 proceed/conditioned; 2 blocked; 3 recheck required; 4 authorization required.
 - CI runs unit tests and confirms that the current scheduled-task capacity observation is blocked. This is a regression test of the recorded evidence, not live account telemetry.
-- The Nine Builders must treat the gate as a required pre-action check in their orchestration. CI passing alone does not prove that every runtime or conversation path invokes it.
+- The tested reference adapter is `tools/nine_builders_orchestrator.py`; it gives all nine Builder roles one shared gate decision and prevents dispatch when blocked or unknown.
+- See `docs/NINE_BUILDERS_ORCHESTRATION.md` for the required sequence and role responsibilities.
+- This repository does not yet contain a deployed Nine Builders agent runtime or ChatGPT conversation hook. The adapter is a reference integration boundary; conversational use must apply the protocol explicitly until a runtime is connected.
