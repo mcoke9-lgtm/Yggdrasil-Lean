@@ -16,7 +16,7 @@ import java.util.List;
  * This store preserves conversation history on the device. It does not authenticate
  * remote senders, invoke models, synchronize devices, or authorize execution.
  */
-public final class BuilderConversationStore extends SQLiteOpenHelper {
+public final class BuilderConversationStore extends SQLiteOpenHelper implements BuilderConversationJournal {
     private static final int DATABASE_VERSION = 1;
     private static final String DEFAULT_DATABASE_NAME = "builder-conversations.db";
     private static final String TABLE = "conversation_turns";
