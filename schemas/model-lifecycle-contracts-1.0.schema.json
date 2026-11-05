@@ -2337,7 +2337,10 @@
         "evaluator_status",
         "executions",
         "limitations",
-        "model_call_count"
+        "model_call_count",
+        "candidate_revision_status",
+        "scope",
+        "planned_execution_count"
       ],
       "properties": {
         "format_id": {
@@ -2546,6 +2549,19 @@
         "model_call_count": {
           "type": "integer",
           "minimum": 1
+        },
+        "candidate_revision_status": {
+          "const": "operator_supplied_unverified"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "full_suite",
+            "smoke_test"
+          ]
+        },
+        "planned_execution_count": {
+          "const": 63
         }
       },
       "additionalProperties": false
