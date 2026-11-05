@@ -110,6 +110,28 @@ public final class BuilderSubjectResolver {
                 matchedSubheadings, ordered);
     }
 
+    /**
+     * Adds user-invited Builders to the matched stewards without duplicates.
+     * The result always follows the canonical BuilderRole order.
+     */
+    public static List<BuilderRole> withAdditionalRoles(Resolution resolution,
+                                                        List<BuilderRole> additionalRoles) {
+        if (resolution == null || !resolution.matched || resolution.ambiguous)
+            throw new IllegalArgumentException("A unique matched subject resolution is required");
+        Set<BuilderRole> combined = new HashSet<>(resolution.selectedRoles);
+        if (additionalRoles != null) {
+            for (BuilderRole role : additionalRoles) {
+                if (role == null) throw new IllegalArgumentException("Additional Builder role must not be null");
+                combined.add(role);
+            }
+        }
+        List<BuilderRole> ordered = new ArrayList<>();
+        for (BuilderRole role : BuilderRole.values()) {
+            if (combined.contains(role)) ordered.add(role);
+        }
+        return Collections.unmodifiableList(ordered);
+    }
+
     private boolean matchesSubject(JSONObject subject, String query) throws JSONException {
         if (contains(query, subject.optString("heading", ""))
                 || contains(query, subject.optString("subject_id", "").replace('.', ' '))) return true;
