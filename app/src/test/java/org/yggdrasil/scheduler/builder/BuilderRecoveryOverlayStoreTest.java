@@ -82,7 +82,7 @@ public class BuilderRecoveryOverlayStoreTest {
         assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
         overlay.close();
 
-        overlay = openOverlay();
+        overlay = createOverlay();
         assertEquals(2, overlay.readThread("overlay-thread").size());
         assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
         assertEquals(GENERATION, overlay.identity().generationId);
@@ -160,7 +160,7 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
     @Test public void overlayCannotBeOpenedWithDifferentBaselineDigest() {
-        overlay = openOverlay();
+        overlay = createOverlay();
         overlay.close();
         overlay = BuilderRecoveryOverlayStore.openExisting(context,
                 staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
