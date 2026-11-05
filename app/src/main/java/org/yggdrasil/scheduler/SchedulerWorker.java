@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import org.json.JSONArray;
+import org.yggdrasil.scheduler.builder.BuilderActionPreflight;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -33,7 +34,37 @@ public final class SchedulerWorker extends Worker {
                 ZonedDateTime now = ZonedDateTime.now(zone);
                 String today = now.toLocalDate().toString();
                 if (!SchedulePolicy.shouldRun(task.days, task.hour, task.minute, task.lastDate, now, forced)) continue;
-                checkGithub(task, today, forced);
+                boolean taskConfigurationValid = task.repo != null
+                        && task.repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
+                        && task.branch != null && !task.branch.trim().isEmpty()
+                        && task.workflow != null && !task.workflow.trim().isEmpty();
+                BuilderActionPreflight.Observation observation =
+                        new BuilderActionPreflight.Observation(
+                                "yggdrasil-android-workmanager",
+                                "CHECK_GITHUB_ACTIONS",
+                                taskConfigurationValid
+                                        ? BuilderActionPreflight.CapabilityState.AVAILABLE
+                                        : BuilderActionPreflight.CapabilityState.UNKNOWN,
+                                Instant.now(), java.time.Duration.ofSeconds(15),
+                                null, null, null,
+                                task.enabled ? BuilderActionPreflight.Authorization.GRANTED
+                                        : BuilderActionPreflight.Authorization.DENIED,
+                                "runtime-check:enabled-persisted-monitor+WorkManager-CONNECTED-constraint+INTERNET-permission");
+                BuilderActionPreflight.Execution<Void> execution =
+                        org.yggdrasil.scheduler.builder.BuilderActionBoundaries.checkGithubMonitor(
+                                observation, Instant.now(), () -> {
+                                    checkGithub(task, today, forced);
+                                    return null;
+                                });
+                if (!execution.executed) {
+                    String detail = "Action preflight " + execution.decision + ": " + execution.reason;
+                    db.record(task.id, 0,
+                            execution.decision == BuilderActionPreflight.Decision.BLOCKED
+                                    ? "blocked" : "recheck_required", detail);
+                    db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline,
+                            detail, task.lastCheckedAt);
+                    continue;
+                }
             } catch (Exception e) {
                 db.record(task.id, 0, "error", (forced ? "[manual] " : "[scheduled] ") + "Check failed: " + safe(e.getMessage()));
                 db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline, "Error: " + safe(e.getMessage()), task.lastCheckedAt);
