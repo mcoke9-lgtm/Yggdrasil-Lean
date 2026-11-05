@@ -1,6 +1,6 @@
 # Recovery Generation Barrier Design — 001
 
-Status: barrier, scoped overlay facade, and barrier-protected activation/rollback/selection implemented; Android unit tests passed on commit `ff777fb3e3d9e1e3f11ce864ac35f83460111ab3`; instrumentation APK compilation pending on the latest branch head; no live writer or startup-service wiring.
+Status: barrier, scoped overlay facade, and barrier-protected activation/rollback/selection implemented; Android unit tests passed on commit `ff777fb3e3d9e1e3f11ce864ac35f83460111ab3`; the first instrumentation APK compile exposed the unavailable legacy `android.test` package; the harness has been migrated to AndroidX and its corrected compile is pending; no live writer or startup-service wiring.
 
 ## Purpose
 
@@ -103,7 +103,7 @@ Added `BuilderRecoveryOverlayAccess` and focused tests. The facade resolves the 
 
 ## Real-device cross-process test
 
-Added a debug-only service in `app/src/debug` running under `:recovery_lock_probe` and an Android instrumentation test in `app/src/androidTest`. The test acquires the barrier in the instrumentation/target process, asks the separate service process to acquire the same lock, verifies that the second process remains blocked, releases the first, and verifies that the second then acquires and releases it. CI is configured to compile the instrumentation APK. The unit-test phase passed on run [42098162418](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42098162418); its instrumentation APK compilation phase was still in progress at the last check. A newer branch-head run is also in progress. The test is not executed by the hosted unit-test runner. It must be run on a physical Android device (Galaxy S21 is the first planned host) or a suitable emulator before accepting cross-process runtime behavior. The debug probe is excluded from release source sets.
+Added a debug-only service in `app/src/debug` running under `:recovery_lock_probe` and an Android instrumentation test in `app/src/androidTest`. The test acquires the barrier in the instrumentation/target process, asks the separate service process to acquire the same lock, verifies that the second process remains blocked, releases the first, and verifies that the second then acquires and releases it. CI is configured to compile the instrumentation APK. The unit-test phase passed on run [42098162418](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42098162418), but that run failed at instrumentation compilation because `android.test.InstrumentationTestCase` is not present in this compile environment. The harness now uses `AndroidJUnit4` and `InstrumentationRegistry`, with AndroidX runner/core/ext-junit dependencies and `AndroidJUnitRunner`. Corrected validation runs [42098458464](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42098458464) and subsequent branch-head runs are pending. The test is not executed by the hosted unit-test runner. It must be run on a physical Android device (Galaxy S21 is the first planned host) or a suitable emulator before accepting cross-process runtime behavior. The debug probe is excluded from release source sets.
 
 ## Explicit non-actions
 
