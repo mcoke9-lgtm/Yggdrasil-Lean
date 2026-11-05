@@ -178,6 +178,9 @@ def main() -> int:
     if len(inventory_ids) != 5 or study_ids != inventory_ids:
         print("FAIL the five research-stage model families must match the study candidate shortlist")
         failures += 1
+    if not set(evaluation_design.get("proposed_evaluator_model_family_refs", [])).issubset(inventory_ids):
+        print("FAIL proposed evaluator families must resolve to the model-family inventory")
+        failures += 1
     if any(candidate.get("baseline_evaluation_status") != "not_evaluated" or candidate.get("artifact_refs") for candidate in study.get("source_candidates", [])):
         print("FAIL research candidates must not imply registered artifacts or completed baseline evaluation")
         failures += 1
