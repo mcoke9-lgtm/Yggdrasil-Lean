@@ -13,6 +13,8 @@ A Lean 4 project for formalizing the TERA/FIRA/WATA/AIRA representation model.
 - `.github/workflows/lean.yml` — automated build.
 - `docs/DECISIONS.md` — current assumptions and open questions.
 - `docs/VERIFICATION.md` — build evidence log.
+- `docs/NINE_BUILDERS_ORCHESTRATION.md` — shared pre-action gate and nine-role orchestration contract.
+- `tools/nine_builders_orchestrator.py` — tested reference adapter that gives all nine roles one shared gate decision before action dispatch.
 
 ## Build
 

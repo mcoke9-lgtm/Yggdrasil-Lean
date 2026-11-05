@@ -29,3 +29,21 @@ jobs:
         run: |
           node src/cli.js samples/materials.csv /tmp/materials-report.json
           node --input-type=module -e "import fs from 'node:fs'; const r=JSON.parse(fs.readFileSync('/tmp/materials-report.json','utf8')); if (r.results.total_inspected_kg !== 230 || r.results.total_reusable_kg !== 162 || !r.verification.passed) process.exit(1);"
+
+  operational-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test Nine Builders operational gate and shared orchestration
+        run: python3 -m unittest discover -s tools/tests -v
+      - name: Confirm current scheduled-task capacity remains blocked in the recorded snapshot
+        run: |
+          set +e
+          python3 tools/check_operational_limits.py --capability "Create scheduled tasks / automations" > gate-result.json
+          status=$?
+          set -e
+          test "$status" -eq 2
+          grep -q '"decision": "blocked"' gate-result.json
