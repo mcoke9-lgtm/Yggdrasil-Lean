@@ -1,5 +1,13 @@
 plugins { id 'com.android.application' }
 
+def builderSigningEnv = [
+    'BUILDER_KEYSTORE_PATH',
+    'BUILDER_KEYSTORE_PASSWORD',
+    'BUILDER_KEY_ALIAS',
+    'BUILDER_KEY_PASSWORD'
+]
+def builderSigningConfigured = builderSigningEnv.every { System.getenv(it)?.trim() }
+
 android {
     namespace 'org.yggdrasil.scheduler'
     compileSdk 35
@@ -10,6 +18,21 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0'
+    }
+    if (builderSigningConfigured) {
+        signingConfigs {
+            builderCi {
+                storeFile file(System.getenv('BUILDER_KEYSTORE_PATH'))
+                storePassword System.getenv('BUILDER_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('BUILDER_KEY_ALIAS')
+                keyPassword System.getenv('BUILDER_KEY_PASSWORD')
+            }
+        }
+        buildTypes {
+            debug {
+                signingConfig signingConfigs.builderCi
+            }
+        }
     }
 }
 
