@@ -152,7 +152,7 @@ public class BuilderPromptFactoryTest {
                 BuilderConversationProtocol.Participant.USER, null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION, 300,
                 "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview.");
-        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(incident, request);
+        BuilderConversationProtocol.Turn origin = turn("u0",\n                BuilderConversationProtocol.Participant.USER, null, null,\n                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Original task.");\n        java.util.List<BuilderConversationProtocol.Turn> context = Arrays.asList(origin, incident, request);
         for (BuilderRole role : BuilderRole.values()) {
             BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(role, context, request);
             assertTrue(prompt.userMessage.contains("\"operating_mode\": \"BUILDER_IMPROVEMENT_REVIEW\""));
