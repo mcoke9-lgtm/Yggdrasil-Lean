@@ -1,6 +1,6 @@
 # Phase A — Elastic Model Contracts and Inventory (Milestone 004)
 
-**Status:** Six contracts specified; nine Builder capability drafts, machine-readable schemas, and 23 proposed evaluation fixtures committed; structural consistency checked. Threshold calibration, device configuration inventory, full schema validation, and model-level testing remain pending.
+**Status:** Nine Builder capability contracts are encoded, each with seven required capabilities; 23 proposed evaluation fixtures and seven machine-readable JSON artifacts are committed. Four model-weight artifacts have publisher-reported SHA-256 values and exact sizes; local verification, license review, real-model evaluation, and threshold adoption remain pending.
 **Branch:** `independent-builder-runtime-foundation-001`
 **Architecture parent:** Recursive Model Morphogenesis — Milestone 003
 **Authority:** The user remains director and final authority.
@@ -112,7 +112,7 @@ The contracts must preserve these distinctions:
 - Huginn defines architecture and direction; Mari defines communication/interface behavior between parts.
 - Höðr builds and tests deliverables; Kvasir discovers, extracts, and transforms source knowledge into usable structures.
 
-The responsibility map is **adopted as the initial role definition**, but it is not yet a measurable capability contract. Phase A must now translate each work product into observable tasks, input/output schemas, test cases, quality thresholds, failure conditions, and resource budgets. Do not claim any model has passed those tests merely because the responsibility has been assigned.
+The responsibility map is **adopted as the initial role definition** and has now been translated into measurable capability contracts, input/output expectations, test cases, failure conditions, and resource measurements. The fixtures remain proposed and unexecuted against real models; assigning a capability does not mean a model has passed it.
 
 The responsibility map is **adopted as the initial role definition**. The following first-pass capability tests translate the specializations into observable work. They are proposed contract content, not evidence that any current model passes.
 
@@ -298,7 +298,7 @@ The following source files were fetched from the active development branch and i
 | Provider registry | `BuilderProviderRegistry` holds explicitly configured adapters in an immutable ID map | Registry is a provider-adapter registry, not yet a model-family/artifact/instance registry |
 | Role routing | `BuilderProviderRouter` maps each Builder role explicitly to a configured provider ID; no implicit fallback | All nine roles can be routed, but the current abstraction does not itself allocate variable-sized models or measure capability |
 | Model responder | `BuilderModelResponder` builds a role-specific prompt, sends accumulated thread context through the selected provider, and parses the returned response | Conversation execution is present; model lifecycle, model-to-model evaluation, and reconstruction are not |
-| Role definitions | `BuilderRole` defines all nine stable identities and short responsibility descriptions | Role identities are implemented; the full measurable capability contracts are specified above but not yet encoded or evaluated |
+| Role definitions | `BuilderRole` defines all nine stable identities and short responsibility descriptions | Role identities and nine machine-readable capability contracts are encoded; model-level execution remains pending |
 | Device-local provider settings | `SecureBuilderProviderSettings` stores provider ID, endpoint, and model ID in private SharedPreferences; encrypts bearer tokens with AES-GCM using a non-exportable Android Keystore key; `buildProvider()` creates the adapter without making a network request | Configuration is device-local, not a portable model registry; no provider ID/model ID values were inspected from the user's device; token values are not collected |
 
 Source files:
@@ -359,7 +359,7 @@ All seven machine-readable artifacts were fetched back from the repository and s
 
 A proposed evaluation fixture file, `tests/model-capabilities/phase-a-suite-v0.1.json`, now contains 23 cases: two role-specific cases for each Builder plus five shared cases run against all nine identities. Every one of the 63 capability requirements references its corresponding fixture. All seven machine-readable JSON artifacts parse, all nine Builder contracts and 23 fixtures are present, and every capability-to-fixture reference resolves.
 
-**Validation boundary:** these were structural consistency checks, not yet a full JSON Schema validator run, execution of the capability tests, or model evaluation. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
+**Validation boundary:** structural consistency checks and Draft 2020-12 JSON Schema validation have passed in GitHub Actions. The unit tests use mocked endpoints and do not execute a real model. The threshold values (90% role-task pass rate, 100% deterministic protocol checks, zero critical authority/safety violations, and 4/5 independent rubric) remain proposals requiring calibration and adoption. All 23 fixtures remain `proposed_not_executed`.
 
 ### Evaluation rubric and automated validation
 
@@ -373,7 +373,7 @@ The repository now contains `scripts/validate_phase_a_contracts.py` and `.github
 - all five shared fixtures mapped to every Builder;
 - explicit proposed/not-adopted thresholds, a planned study with five untested research candidates and no selected model, and not-yet-executed fixture status.
 
-The validator has been committed, but **its GitHub Actions result has not yet been observed**. A committed workflow is not evidence of a passing run.
+The validator and artifact cross-reference checks passed in GitHub Actions run `42044925848`; the latest candidate-runner artifact-registry enforcement and matching-revision tests are awaiting their own run.
 
 ### Provider inventory
 
@@ -426,7 +426,7 @@ The study currently has **five research-stage model families** and **four publis
 |---|---|---|
 | Identity/assignment contract | Stable IDs, separate identity and model-instance records, assignment audit rules | Specified |
 | Capability contract | Versioned measurable requirements and acceptance suite | Nine v0.1 drafts and 63 capability tests specified; thresholds proposed, not adopted; model tests pending |
-| Model/artifact registry | Family, artifact, and instance records with provenance | JSON Schema definitions specified; live artifact inventory pending |
+| Model/artifact registry | Family, artifact, and instance records with provenance | Five model families and four source-pinned weight artifacts registered; local hash verification and live instance inventory pending |
 | Reconstruction Seed | Versioned manifest and explicit dependency closure | JSON Schema definition specified; package implementation pending |
 | Evaluation contract | Independent tests, safety, resource and recovery gates | 23 proposed fixtures and six-dimension rubric specified; model execution and threshold calibration pending |
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Lifecycle states and transition criteria specified; runtime implementation pending |
@@ -441,5 +441,5 @@ Phase A is complete only after the nine adopted responsibility maps and shared c
 - **Ownership:** the non-model substrate owns identity, memory, communication, coordination, permissions, lifecycle, and recovery.
 - **Minimum model:** defined by a tested capability contract, not by an arbitrary parameter count.
 - **Reconstruction:** seed manifest distinguishes embedded resources from external dependencies and unavailable information.
-- **Evidence:** contracts, schemas, fixtures, rubric, validation script, and lifecycle design are committed; GitHub validation run, exact device provider inventory, and model-level tests remain pending.
+- **Evidence:** contracts, schemas, fixtures, rubric, artifact inventory, and lifecycle design are committed; candidate-runner registry binding is pending CI, exact device provider inventory is unknown, and real-model tests remain unexecuted.
 - **Authority:** user remains director and final authority; no NUC installation or modification is authorized.
