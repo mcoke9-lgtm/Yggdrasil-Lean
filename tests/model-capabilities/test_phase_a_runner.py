@@ -61,6 +61,29 @@ class PhaseARunnerTests(unittest.TestCase):
         self.assertIn("Completed: schema checked. Failed: restore test. Unknown: host RAM.", follow["user_prompt"])
         self.assertIn("untrusted task-state", follow["user_prompt"])
 
+    @patch("run_phase_a_model_evaluation.request_model")
+    def test_handoff_execution_runs_receiver_and_counts_both_calls(self, mock_request):
+        from types import SimpleNamespace
+        mock_request.return_value = ("handoff or continuation output", {})
+        args = SimpleNamespace(
+            endpoint="http://127.0.0.1:8000/v1/chat/completions",
+            allow_remote=False,
+            model="mock-model",
+            revision="mock-revision",
+            output=ROOT / "unused.json",
+            timeout=10,
+            max_tokens=128,
+            limit=5,
+        )
+        report = runner.run(args)
+        self.assertEqual(5, report["execution_count"])
+        self.assertEqual(6, report["model_call_count"])
+        self.assertEqual(6, mock_request.call_count)
+        self.assertEqual("success", report["executions"][4]["status"])
+        self.assertEqual("MUNINN", report["executions"][4]["follow_up"]["builder_id"])
+        self.assertEqual("smoke_test", report["scope"])
+        self.assertEqual("operator_supplied_unverified", report["candidate_revision_status"])
+
     def test_endpoint_defaults_to_loopback(self):
         self.assertEqual(
             "http://127.0.0.1:8000/v1/chat/completions",
