@@ -310,4 +310,21 @@ public class BuilderRecoveryActivationTest {
         assertEquals(TWO, BuilderRecoveryActivation.getActive(context).generationId);
     }
 
+
+    @Test public void refusesToPublishPointerWhenOverlayPathCannotBeOpened() {
+        BuilderRecoveryStager.StageResult staged = stage(ONE);
+        File overlayPath = context.getDatabasePath(
+                BuilderRecoveryOverlayStore.databaseNameForGeneration(ONE));
+        assertTrue(overlayPath.mkdir());
+        try {
+            BuilderRecoveryActivation.activate(context, staged);
+            fail("generation without a usable overlay must not be published");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("overlay is missing"));
+        } finally {
+            assertTrue(overlayPath.delete());
+        }
+        assertNull(BuilderRecoveryActivation.getActive(context));
+    }
+
 }
