@@ -45,7 +45,7 @@ Set `GITHUB_TOKEN` (or `GH_TOKEN`) in the service environment for authenticated
 read access; the token is never written to task data or logs. The token needs only
 Actions read access. The first successful check records a baseline without alerting
 on old runs. Later checks report newly completed non-success runs and suppress
-already-seen run IDs. It examines at most the latest 100 runs per check.
+already-seen run IDs. It examines up to 1,000 recent runs per check and fails visibly rather than advancing its cursor if more history is present.
 
 ## Scheduling behavior
 
