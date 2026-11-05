@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MemoryStore } from "../src/store.js";
+import { Scheduler } from "../src/scheduler.js";
+import { registerBuilderRunHandler, BUILDER_RUN_HANDLER_TYPE } from "../src/builder-run-handler.js";
 import {
   BuilderRunLedger, BUILDER_ROLES, MAX_BUILDER_RUN_DURATION_MS
 } from "../src/run-ledger.js";
+
+const clock = () => new Date("2026-11-04T12:00:00.000Z");
 
 function clockAt(value) {
   let current = new Date(value);
@@ -147,7 +151,7 @@ test("does not consume the eight-hour budget while a scheduled run is queued", a
   assert.equal(started.deadlineAt, "2026-11-06T02:00:00.000Z");
 });
 
-import { registerBuilderRunHandler, BUILDER_RUN_HANDLER_TYPE } from "../src/builder-run-handler.js";
+
 
 test("scheduler invokes all nine Builders through the injected executor and Baldr reviews last", async () => {
   const store = new MemoryStore();
