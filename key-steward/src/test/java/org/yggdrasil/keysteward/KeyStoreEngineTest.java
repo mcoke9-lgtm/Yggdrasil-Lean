@@ -6,6 +6,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.security.KeyStore;
+import java.io.ByteArrayInputStream;
 
 import org.junit.Test;
 
@@ -23,7 +25,12 @@ public class KeyStoreEngineTest {
                 new ByteArrayInputStream(encoded), PASSWORD);
         assertEquals(created.fingerprint, reopened.fingerprint);
         assertEquals("RSA", reopened.algorithm);
-        assertEquals(KeyStoreEngine.ALIAS, "builder-upload-key");
+        assertEquals("builder-upload-key", KeyStoreEngine.ALIAS);
+
+        // Gradle's signing task uses the JDK provider, not the app's BC provider.
+        KeyStore jdkStore = KeyStore.getInstance("PKCS12");
+        jdkStore.load(new ByteArrayInputStream(encoded), PASSWORD);
+        assertTrue(jdkStore.isKeyEntry(KeyStoreEngine.ALIAS));
     }
 
     @Test
