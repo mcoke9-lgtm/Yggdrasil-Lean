@@ -17,6 +17,7 @@ import json
 import os
 import pathlib
 import sys
+import socket
 import time
 import urllib.error
 import urllib.parse
@@ -120,6 +121,17 @@ def build_evaluation_plan(bundle: dict, suite: dict) -> list[dict]:
     return plan
 
 
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevent an endpoint from redirecting requests outside the explicitly approved origin."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def open_without_redirect(request, timeout: int):
+    opener = urllib.request.build_opener(NoRedirectHandler)
+    return opener.open(request, timeout=timeout)
+
+
 def request_model(endpoint: str, model: str, system_prompt: str, user_prompt: str,
                   timeout: int, api_key: str | None, max_tokens: int) -> tuple[str, dict]:
     payload = {
@@ -138,7 +150,7 @@ def request_model(endpoint: str, model: str, system_prompt: str, user_prompt: st
         headers["Authorization"] = f"Bearer {api_key}"
     request = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with open_without_redirect(request, timeout=timeout) as response:
             raw = response.read(8 * 1024 * 1024 + 1)
             if len(raw) > 8 * 1024 * 1024:
                 raise ValueError("Model response exceeded the 8 MiB response limit.")
@@ -146,6 +158,8 @@ def request_model(endpoint: str, model: str, system_prompt: str, user_prompt: st
         raise RuntimeError(f"HTTP status {exc.code}; response body intentionally omitted.") from None
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Endpoint connection failed: {type(exc.reason).__name__}.") from None
+    except (TimeoutError, socket.timeout, OSError) as exc:
+        raise RuntimeError(f"Endpoint request failed: {type(exc).__name__}.") from None
     try:
         decoded = json.loads(raw.decode("utf-8"))
         content = decoded["choices"][0]["message"]["content"]
