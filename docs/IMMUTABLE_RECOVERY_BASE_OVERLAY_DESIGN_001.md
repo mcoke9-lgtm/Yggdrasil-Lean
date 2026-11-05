@@ -33,9 +33,9 @@ The overlay database contains:
 2. An append-only conversation-turn table using the canonical turn fields and constraints.
 3. An append-only subject-event table using the canonical subject-event fields and constraints.
 
-The metadata row is immutable after creation. Opening an existing overlay with a different generation ID, either different baseline digest, unsupported format, or schema version must fail closed. Never silently rebind or reset an existing overlay.
+The metadata row is immutable after creation. The implementation exposes separate explicit `create(...)` and fail-closed `openExisting(...)` entry points; a missing overlay is never implicitly recreated. Opening an existing overlay with a different generation ID, either different baseline digest, unsupported format, or schema version must fail closed. Never silently rebind or reset an existing overlay. SQLite triggers reject UPDATE and DELETE operations on both event tables and the identity row.
 
-The baseline databases are opened read-only by the overlay reader. The selector/activation layer continues to verify their exact record digests against the generation descriptor. No write API is exposed for either baseline.
+The baseline databases are opened read-only by the overlay reader. The selector/activation layer continues to verify their exact record digests against the generation descriptor; the overlay also recomputes both canonical record-array digests when its SQLite connection is first opened. No write API is exposed for either baseline.
 
 ## 3. Append semantics
 
@@ -79,7 +79,7 @@ A merged logical snapshot is a view, not a third writable source of truth.
 
 The conversation runtime service currently runs in `:builder_runtime`; subject-event recording currently runs in the UI process. Both must open the same generation-specific overlay file and validate the same immutable metadata row.
 
-SQLite's file locking and transactions—not Java `synchronized`—serialize writes across processes. The implementation must not depend on a process-local singleton, in-memory cache, or shared Java lock for correctness.
+SQLite's file locking and transactions—not Java `synchronized`—serialize writes across processes. The implementation must not depend on a process-local singleton, in-memory cache, or shared Java lock for correctness. The overlay schema installs database triggers to reject ordinary UPDATE/DELETE statements; this is an application-level append-only guard, not a cryptographic tamper-proof boundary.
 
 The generation ID and both baseline digests are checked on every overlay open. A process with stale or different generation arguments must fail closed before appending. A future startup integration must also establish a process-wide generation-switch barrier; this overlay alone does not make a manifest switch safe while writers are active.
 
@@ -126,6 +126,8 @@ No automatic fallback to canonical databases, no automatic overlay reset, and no
 14. Verify the overlay cannot modify either baseline database through its exposed API.
 
 ## 9. Explicit non-actions and remaining gates
+
+The current isolated implementation provides the generation-bound SQLite overlay API and unit tests, but those tests still require CI execution before the implementation can be called tested or verified. The overlay rows do not yet have a cryptographic append chain or signed provenance; the SQLite triggers are defense against ordinary accidental mutation, not an adversarial integrity guarantee.
 
 This design does **not**:
 - wire the selector into `BuilderRuntimeService`, `BuilderConversationActivity`, or application startup;
