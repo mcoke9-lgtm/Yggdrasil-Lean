@@ -84,7 +84,7 @@ public class BuilderRecoveryConversationJournalTest {
         }
     }
 
-    @Test public void routesCanonicalConversationWritesAndReadsThroughActiveOverlay() {
+    @Test public void routesCanonicalConversationWritesAndReadsThroughActiveOverlay() throws Exception {
         activateFixture();
         BuilderRecoveryConversationJournal journal = new BuilderRecoveryConversationJournal(context);
         try {
@@ -105,7 +105,7 @@ public class BuilderRecoveryConversationJournalTest {
         }
     }
 
-    @Test public void routesSubjectRecorderWritesThroughActiveOverlay() {
+    @Test public void routesSubjectRecorderWritesThroughActiveOverlay() throws Exception {
         activateFixture();
         BuilderSubjectThreadRecorder.record(context, "routing-thread", "subject.after-activation",
                 Collections.singletonList("ROUTING-01"),
