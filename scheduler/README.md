@@ -38,9 +38,14 @@ npm run scheduler -- resume morning-check
 npm run scheduler -- runs morning-check
 ```
 
-Weekly days use 0=Sunday through 6=Saturday. The service currently registers only
-the safe demonstration handler `system.heartbeat`. Real integrations must be
-added as reviewed, explicitly registered handlers.
+Weekly days use 0=Sunday through 6=Saturday. The service registers a demonstration handler (`system.heartbeat`) and a scoped
+GitHub Actions monitor (`github.workflow-check`). The GitHub monitor reads workflow
+runs for the exact repository, branch and workflow names supplied in its task.
+Set `GITHUB_TOKEN` (or `GH_TOKEN`) in the service environment for authenticated
+read access; the token is never written to task data or logs. The token needs only
+Actions read access. The first successful check records a baseline without alerting
+on old runs. Later checks report newly completed non-success runs and suppress
+already-seen run IDs. It examines at most the latest 100 runs per check.
 
 ## Scheduling behavior
 
@@ -70,4 +75,5 @@ added as reviewed, explicitly registered handlers.
 Before unattended use, add a single-instance lock, backup/restore checks, bounded
 history retention, authenticated management, notifications, operational metrics,
 and independently reviewed handlers with least-privilege credentials and approval
-gates. GitHub build monitoring is the next integration, not yet active.
+gates. GitHub monitoring code is implemented, but no watch task has been installed or run
+in a persistent host environment. The task command above is an example only.
