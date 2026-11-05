@@ -28,6 +28,7 @@ import org.yggdrasil.scheduler.builder.BuilderConversationProtocol;
 import org.yggdrasil.scheduler.builder.BuilderConversationJournal;
 import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
+import org.yggdrasil.scheduler.builder.BuilderDisclosureFingerprint;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRoleProviderSettings;
@@ -507,18 +508,18 @@ public final class BuilderConversationActivity extends Activity {
             }
         }
 
-        StringBuilder disclosure = new StringBuilder();
+        List<BuilderDisclosureFingerprint.Route> disclosureRoutes = new ArrayList<>();
         StringBuilder routeNotice = new StringBuilder();
         for (BuilderRole role : selected) {
             org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings.Configuration config =
                     settings.configuration(role);
-            disclosure.append(role.name()).append('|').append(config.providerId).append('|')
-                    .append(config.endpoint).append('|').append(config.model).append('\n');
+            disclosureRoutes.add(new BuilderDisclosureFingerprint.Route(
+                    role.name(), config.providerId, config.endpoint, config.model));
             routeNotice.append(role.getDisplayName()).append(" → ")
                     .append(config.providerId).append(" / ").append(config.model).append("\n")
                     .append(config.endpoint).append("\n\n");
         }
-        String disclosureKey = disclosure.toString();
+        String disclosureKey = BuilderDisclosureFingerprint.create(disclosureRoutes);
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
