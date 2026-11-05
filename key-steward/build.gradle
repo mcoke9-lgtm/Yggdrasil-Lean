@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'org.yggdrasil.keysteward'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'org.yggdrasil.keysteward'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+}
+
+dependencies {
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.80'
+    testImplementation 'junit:junit:4.13.2'
+}
