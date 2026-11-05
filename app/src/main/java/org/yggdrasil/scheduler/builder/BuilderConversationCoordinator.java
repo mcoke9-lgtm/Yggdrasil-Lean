@@ -234,7 +234,10 @@ public final class BuilderConversationCoordinator {
         for (BuilderConversationProtocol.Turn turn : context) {
             if (turn.turnId.equals(incidentId)
                     && turn.type == BuilderConversationProtocol.TurnType.IMPROVEMENT_INCIDENT) {
-                return builderRoleFor(turn.speaker);
+                BuilderRole author = builderRoleFor(turn.speaker);
+                if (author == null)
+                    throw new IllegalArgumentException("Improvement incident author must be a Builder");
+                return author;
             }
         }
         throw new IllegalArgumentException("Improvement review references no recorded incident in this thread");
