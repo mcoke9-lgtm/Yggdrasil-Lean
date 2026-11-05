@@ -101,6 +101,19 @@ The validator is structural. It does not prove the truth of a claim, authenticat
 
 `BuilderPromptFactory` creates a model-neutral prompt for any of the nine roles. It includes the Builder's display identity and primary responsibility in the system instruction, states the user's director authority, prohibits fabricated work/verification, and serializes the thread as JSON with turn IDs, speaker, recipient, type, evidence status, reply reference, and body. It validates that the triggering turn is the latest turn in a valid single-thread context. Historical message bodies are data, not instructions that can override the role and authority rules. This is a prompt-construction boundary only: it does not choose a provider, store API credentials, make network requests, or guarantee that a model will follow the instructions. `BuilderReplyParser` validates the required JSON response fields and the protocol's known participant, turn-type, and evidence-status values; the coordinator then validates each constructed turn against the full thread before it is persisted.
 
+## Provider-independent model boundary
+
+The model integration is split into four replaceable parts:
+
+- `BuilderModelProvider` is the transport/model adapter contract. A hosted API adapter and a local-model adapter can implement the same request/completion interface.
+- `BuilderProviderRegistry` holds only explicitly installed adapters.
+- `BuilderProviderRouter` maps each Builder role to an explicitly selected provider. There is no silent fallback: a missing route fails visibly rather than sending conversation data to an unintended service.
+- `BuilderModelResponder` connects the coordinator to the role-specific prompt factory, selected provider, and strict reply parser.
+
+Provider requests carry the system instruction, structured conversation payload, and a bounded output-token limit. Provider completions return raw response text, which must pass the same typed parser before the coordinator can persist a turn. Provider identity and model ID are adapter metadata; credentials, endpoint configuration, and transport are deliberately not part of conversation turns or the journal.
+
+This is an architecture seam, not a live integration. No hosted API adapter, local HTTP adapter, endpoint, network request, credential store, or API key has been added. The design permits a hosted provider, a local provider, or a mixed per-role arrangement, but each route must be configured explicitly. A later Android integration must add secure credential handling, transport timeouts/cancellation, endpoint validation, privacy disclosure, and tests before enabling network access.
+
 ## First conversation acceptance exercise
 
 Run a scripted conversation with all nine voices represented and these observable stages:
@@ -135,6 +148,6 @@ The exercise is a protocol test, not evidence of nine independently executing ag
 - **Count:** eight turn types; seven evidence states; nine Builder roles plus the user as director (ten participants).
 - **Role mapping:** all nine primary responsibilities are represented once.
 - **Omissions/duplicates:** the user is a first-class participant; receipt is distinct from agreement; reconciliation is distinct from decision; a decision record is not an execution permission.
-- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, and 41 unit tests are committed in this branch; CI execution of these tests is pending. A concrete model adapter, app-level conversation UI, and independent workers remain pending.
+- **Evidence:** validator, journal, coordinator, role-specific prompt factory, typed response parser, bounded peer routing, provider registry/router/responder boundary, and 46 unit tests are committed in this branch; CI execution of these tests is pending. Concrete hosted/local adapters, app-level conversation UI, and independent workers remain pending.
 - **Correction:** malformed references, duplicate IDs, cross-thread turns, invalid recipient links, and out-of-order timestamps are rejected.
 - **Persistence:** source and tests are committed to the development branch only; no deployment or production change.
