@@ -62,7 +62,7 @@ No credentials, endpoints, or paid services are provisioned by this change.
 
 ## Layered disclosure consent
 
-Persistent consent is limited to routine submissions within the configured route set and the disclosed prompt-content categories/version. A user can mark the current message **or the saved thread history** as sensitive or confidential. That declaration forces a fresh, one-time approval for that submission even when persistent route consent already exists. The one-time approval does not create, replace, or broaden persistent consent; cancelling leaves approval state unchanged.
+Persistent consent is limited to routine submissions within the configured route set and the disclosed prompt-content categories/version. A user can mark the current message **or the saved thread history** as sensitive or confidential. That declaration is saved per conversation thread and forces a fresh, one-time approval for that submission even when persistent route consent already exists. Switching threads restores that thread's own declaration. The one-time approval does not create, replace, or broaden persistent consent; cancelling leaves approval state unchanged.
 
 This is a user-declared safeguard, not an automatic sensitivity classifier. The app does not inspect or transmit message content to classify it, and it cannot guarantee that all sensitive content will be recognized. The user must mark the checkbox whenever the new message or saved history contains sensitive/confidential material. The provider disclosure notice still lists the current routes and content categories.
 
