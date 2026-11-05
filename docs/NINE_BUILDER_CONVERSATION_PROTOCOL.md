@@ -113,7 +113,7 @@ The model integration is split into four replaceable parts:
 
 Provider requests carry the system instruction, structured conversation payload, and a bounded output-token limit. Provider completions return raw response text, which must pass the same typed parser before the coordinator can persist a turn. Provider identity and model ID are adapter metadata; credentials, endpoint configuration, and transport are deliberately not part of conversation turns or the journal.
 
-This is an architecture seam, not a live integration. A compatible HTTP adapter is implemented but remains unconfigured: no endpoint, network request, credential store, or API key has been added. The design permits a hosted provider, a local provider, or a mixed per-role arrangement, but each route must be configured explicitly. A later Android integration must add secure credential handling, transport timeouts/cancellation, endpoint validation, privacy disclosure, and tests before enabling network access.
+The compatible HTTP adapter is implemented but deliberately unconfigured: no endpoint, credential store, or API key has been added, and no network request has been made. HTTPS is required except for loopback HTTP for a local model. URLs containing user information or query parameters are rejected. Redirects are disabled, responses are size-limited, timeouts are explicit, and HTTP error messages do not echo provider response bodies. The adapter requests JSON-mode output and the strict parser validates every response. Secure Android credential storage, provider setup UI, cancellation, privacy disclosure, and device acceptance tests remain required before enabling a real connection.
 
 ## First conversation acceptance exercise
 
