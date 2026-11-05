@@ -233,6 +233,7 @@ public final class BuilderConversationActivity extends Activity {
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
         root.addView(button("Review latest improvement incident", this::requestImprovementReview));
+        root.addView(button("Adopt latest verified correction (record only)", this::requestAdoptLatestCorrection));
         status = text("No model request has been sent from this screen.", 13);
         root.addView(status);
     }
@@ -473,6 +474,72 @@ public final class BuilderConversationActivity extends Activity {
             } catch (Exception failure) {
                 if (!destroyed) runOnUiThread(() -> status.setText(
                         "Could not locate an improvement incident: " + failure.getMessage()));
+            } finally {
+                journal.close();
+            }
+        });
+    }
+
+    /** Records user acceptance of a correction; it does not deploy or execute it. */
+    private void requestAdoptLatestCorrection() {
+        if (busy) return;
+        final String threadId = activeThreadId;
+        status.setText("Checking for a verified correction that is not yet adopted…");
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
+                String correctionId = org.yggdrasil.scheduler.builder.BuilderCorrectionLedger
+                        .latestAdoptableCorrection(turns);
+                if (!destroyed) runOnUiThread(() -> {
+                    if (!threadId.equals(activeThreadId) || busy) {
+                        status.setText("Thread or activity state changed. No adoption was recorded.");
+                        return;
+                    }
+                    if (correctionId == null) {
+                        status.setText("No unadopted VERIFIED correction is available.");
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Adopt this correction?")
+                            .setMessage("Correction " + correctionId + " has a recorded VERIFIED milestone. "
+                                    + "This records your acceptance as project practice only. It does not deploy code, "
+                                    + "change settings, contact services, or authorize external actions.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Adopt correction", (dialog, which) -> {
+                                if (!threadId.equals(activeThreadId) || busy) {
+                                    status.setText("Thread or activity changed. No adoption was recorded.");
+                                    return;
+                                }
+                                busy = true;
+                                sendButton.setEnabled(false);
+                                messageInput.setEnabled(false);
+                                executor.execute(() -> {
+                                    try {
+                                        org.yggdrasil.scheduler.builder.BuilderCorrectionLedger
+                                                .recordUserAdoption(journal, threadId, correctionId);
+                                        if (!destroyed) runOnUiThread(() -> {
+                                            busy = false;
+                                            sendButton.setEnabled(true);
+                                            messageInput.setEnabled(true);
+                                            status.setText("User adoption recorded for " + correctionId
+                                                    + ". No deployment or external action was performed.");
+                                            refreshHistory();
+                                        });
+                                    } catch (Exception failure) {
+                                        if (!destroyed) runOnUiThread(() -> {
+                                            busy = false;
+                                            sendButton.setEnabled(true);
+                                            messageInput.setEnabled(true);
+                                            status.setText("Adoption was not recorded: " + failure.getMessage());
+                                        });
+                                    }
+                                });
+                            }).show();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Could not inspect correction history: " + failure.getMessage()));
             } finally {
                 journal.close();
             }
