@@ -19,6 +19,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.NumberPicker;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import org.yggdrasil.scheduler.builder.BuilderConversationCoordinator;
@@ -30,6 +31,7 @@ import org.yggdrasil.scheduler.builder.BuilderRuntimeJournalClient;
 import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderDisclosureFingerprint;
 import org.yggdrasil.scheduler.builder.BuilderDisclosurePolicy;
+import org.yggdrasil.scheduler.builder.BuilderOvernightScheduler;
 import org.yggdrasil.scheduler.builder.BuilderOperationalLimits;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRoleProviderSettings;
@@ -249,6 +251,7 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(text("This is a user-declared safeguard, not automatic content detection. Mark it if either the new message or any saved history sent with it is sensitive.", 12));
         sendButton = button("Send to selected Builders", this::requestSend);
         root.addView(sendButton);
+        root.addView(button("Schedule eight-hour Nine Builders run", this::scheduleOvernightRun));
         root.addView(button("Review latest improvement incident", this::requestImprovementReview));
         root.addView(button("Adopt latest verified correction (record only)", this::requestAdoptLatestCorrection));
         status = text("No model request has been sent from this screen.", 13);
@@ -763,6 +766,100 @@ public final class BuilderConversationActivity extends Activity {
                 if (store != null) store.close();
             }
         });
+    }
+
+    private void scheduleOvernightRun() {
+        if (busy) {
+            status.setText("Wait for the current conversation round to finish before scheduling overnight work.");
+            return;
+        }
+        String taskPrompt = messageInput.getText().toString().trim();
+        if (taskPrompt.isEmpty() || taskPrompt.length() > 4000) {
+            status.setText("Enter an overnight task of 1–4000 characters.");
+            return;
+        }
+
+        BuilderRoleProviderSettings settings = new BuilderRoleProviderSettings(this);
+        List<BuilderRole> roles = new ArrayList<>();
+        for (BuilderRole role : BuilderRole.values()) roles.add(role);
+        final List<BuilderDisclosureFingerprint.Route> routes = new ArrayList<>();
+        try {
+            settings.requireConfigured(roles);
+            settings.requireIndependentBaldrRoute();
+            for (BuilderRole role : roles) {
+                SecureBuilderProviderSettings.Configuration config = settings.configuration(role);
+                routes.add(new BuilderDisclosureFingerprint.Route(role.name(),
+                        config.providerId, config.endpoint, config.model));
+            }
+        } catch (Exception unavailable) {
+            status.setText("No overnight work scheduled. " + unavailable.getMessage());
+            return;
+        }
+
+        final String fingerprint;
+        try {
+            fingerprint = BuilderDisclosureFingerprint.digest(
+                    BuilderDisclosureFingerprint.createOvernight(routes, taskPrompt));
+        } catch (Exception invalid) {
+            status.setText("No overnight work scheduled. Disclosure scope could not be prepared.");
+            return;
+        }
+
+        NumberPicker hours = new NumberPicker(this);
+        hours.setMinValue(0);
+        hours.setMaxValue(24);
+        hours.setValue(0);
+        NumberPicker minutes = new NumberPicker(this);
+        minutes.setMinValue(0);
+        minutes.setMaxValue(59);
+        minutes.setValue(0);
+        LinearLayout timing = new LinearLayout(this);
+        timing.setOrientation(LinearLayout.HORIZONTAL);
+        timing.addView(hours, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        timing.addView(minutes, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        new AlertDialog.Builder(this)
+                .setTitle("When should the overnight run begin?")
+                .setMessage("Choose a delay from now. The run lasts up to eight hours after it actually starts; it will not consume its work window while waiting.")
+                .setView(timing)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Continue", (dialog, which) -> {
+                    long delay = (hours.getValue() * 60L + minutes.getValue()) * 60L * 1000L;
+                    StringBuilder disclosure = new StringBuilder();
+                    disclosure.append("The scheduled task prompt and the new, dedicated run-thread history will be sent to all nine configured model routes. Existing conversation history from this screen is NOT included. Each cycle repeats approximately every 15 minutes while the eight-hour maximum window remains open. The phone must retain network access and Android must allow the scheduled work to run. A persistent notification provides a Stop control.\n\n")
+                            .append("This is one-time approval for this scheduled run only. The approval is bound to the exact task prompt and all nine route endpoints/model IDs. Later changes to the prompt or routes invalidate it.\n\n")
+                            .append("Start delay: ").append(hours.getValue()).append("h ")
+                            .append(minutes.getValue()).append("m\n\nTASK:\n")
+                            .append(taskPrompt).append("\n\nROUTES:\n");
+                    for (BuilderDisclosureFingerprint.Route route : routes) {
+                        disclosure.append(route.role).append(" — ")
+                                .append(route.providerId).append(" / ")
+                                .append(route.modelId).append("\n")
+                                .append(route.endpoint).append("\n");
+                    }
+                    if (sensitiveDisclosureCheck != null && sensitiveDisclosureCheck.isChecked()) {
+                        disclosure.append("\nYou marked the task as sensitive/confidential. This approval is one-time and limited to the dedicated overnight run.");
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Approve and schedule this overnight run?")
+                            .setMessage(disclosure.toString())
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Approve and schedule", (confirm, approved) -> {
+                                try {
+                                    BuilderOvernightScheduler.ScheduledRun run =
+                                            BuilderOvernightScheduler.schedule(this, taskPrompt,
+                                                    fingerprint, delay);
+                                    status.setText("Scheduled eight-hour Nine Builders run "
+                                            + run.runId.substring(0, 8) + " · starts in "
+                                            + hours.getValue() + "h " + minutes.getValue()
+                                            + "m · dedicated thread " + run.threadId.substring(0, 8)
+                                            + ". No model call is made until the scheduled worker starts.");
+                                } catch (Exception failure) {
+                                    status.setText("Overnight run was not scheduled: " + failure.getMessage());
+                                }
+                            }).show();
+                }).show();
     }
 
     private void renderTurns(List<BuilderConversationProtocol.Turn> turns) {
