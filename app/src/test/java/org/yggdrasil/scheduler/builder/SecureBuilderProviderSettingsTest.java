@@ -1,0 +1,49 @@
+package org.yggdrasil.scheduler.builder;
+
+import android.app.Application;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import static org.junit.Assert.*;
+
+@RunWith(RobolectricTestRunner.class)
+public class SecureBuilderProviderSettingsTest {
+    private SecureBuilderProviderSettings settings() {
+        Application app = RuntimeEnvironment.getApplication();
+        return new SecureBuilderProviderSettings(app);
+    }
+
+    @Test public void rejectsHostedEndpointWithoutCredential() {
+        try {
+            settings().save("hosted", "https://api.example.test/v1/chat/completions", "model", "");
+            fail("Expected missing credential rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("token is required"));
+        } catch (Exception unexpected) {
+            fail(unexpected.toString());
+        }
+    }
+
+    @Test public void rejectsNonLoopbackCleartextEndpointBeforeSaving() {
+        try {
+            settings().save("local", "http://192.168.1.10:8080/v1/chat/completions", "model", "");
+            fail("Expected cleartext endpoint rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("HTTPS"));
+        } catch (Exception unexpected) {
+            fail(unexpected.toString());
+        }
+    }
+
+    @Test public void rejectsEndpointContainingQueryParameters() {
+        try {
+            settings().save("hosted", "https://api.example.test/v1/chat?token=secret", "model", "token");
+            fail("Expected query parameter rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("without credentials"));
+        } catch (Exception unexpected) {
+            fail(unexpected.toString());
+        }
+    }
+}
