@@ -1,3 +1,5 @@
+import { nextCalendarOccurrence, validateCalendarSchedule } from "./calendar.js";
+
 const MAX_INTERVAL_MS = 366 * 24 * 60 * 60 * 1000;
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
 
@@ -38,14 +40,23 @@ export class Scheduler {
     if (!input || !ID_PATTERN.test(input.id || "")) throw new TypeError("Task id must be 1–80 safe characters");
     if (typeof input.name !== "string" || !input.name.trim()) throw new TypeError("Task name is required");
     if (!/^[a-z][a-z0-9._-]{0,63}$/.test(input.handlerType || "")) throw new TypeError("A registered handlerType is required");
-    if (!input.schedule || input.schedule.kind !== "interval") {
-      throw new TypeError("Only interval schedules are supported in prototype 0.1");
+    let schedule;
+    let nextRunAt;
+    if (input.schedule?.kind === "interval") {
+      const intervalMs = input.schedule.intervalMs;
+      if (!Number.isSafeInteger(intervalMs) || intervalMs < 1000 || intervalMs > MAX_INTERVAL_MS) {
+        throw new RangeError("intervalMs must be between 1 second and 366 days");
+      }
+      const startAt = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
+      schedule = { kind: "interval", intervalMs, startAt };
+      nextRunAt = startAt;
+    } else if (input.schedule?.kind === "calendar") {
+      schedule = validateCalendarSchedule(input.schedule);
+      const reference = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
+      nextRunAt = nextCalendarOccurrence(schedule, reference);
+    } else {
+      throw new TypeError("Schedule kind must be interval or calendar");
     }
-    const intervalMs = input.schedule.intervalMs;
-    if (!Number.isSafeInteger(intervalMs) || intervalMs < 1000 || intervalMs > MAX_INTERVAL_MS) {
-      throw new RangeError("intervalMs must be between 1 second and 366 days");
-    }
-    const startAt = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
     const createdAt = this.clock().toISOString();
     const task = {
       id: input.id,
@@ -53,8 +64,8 @@ export class Scheduler {
       enabled: input.enabled !== false,
       handlerType: input.handlerType,
       payload: clone(input.payload ?? {}),
-      schedule: { kind: "interval", intervalMs, startAt },
-      nextRunAt: startAt,
+      schedule,
+      nextRunAt,
       createdAt,
       updatedAt: createdAt
     };
@@ -87,6 +98,13 @@ export class Scheduler {
     return clone(state.runs.filter(run => !taskId || run.taskId === taskId).slice(-limit).reverse());
   }
 
+  nextOccurrence(task, scheduledFor) {
+    if (task.schedule.kind === "interval") {
+      return new Date(new Date(scheduledFor).getTime() + task.schedule.intervalMs).toISOString();
+    }
+    return nextCalendarOccurrence(task.schedule, scheduledFor);
+  }
+
   async runDue() {
     if (this.tickInProgress) return { skipped: true, reason: "tick_already_running", runs: [] };
     this.tickInProgress = true;
@@ -117,7 +135,7 @@ export class Scheduler {
         const scheduledFor = task.nextRunAt;
         const runId = `${task.id}:${scheduledFor}`;
         if (state.runs.some(run => run.id === runId)) {
-          task.nextRunAt = new Date(new Date(scheduledFor).getTime() + task.schedule.intervalMs).toISOString();
+          task.nextRunAt = this.nextOccurrence(task, scheduledFor);
           task.updatedAt = nowIso;
           continue;
         }
@@ -133,7 +151,7 @@ export class Scheduler {
           error: null
         };
         state.runs.push(run);
-        task.nextRunAt = new Date(new Date(scheduledFor).getTime() + task.schedule.intervalMs).toISOString();
+        task.nextRunAt = this.nextOccurrence(task, scheduledFor);
         task.updatedAt = nowIso;
         await this.store.save(state);
         started.push(runId);
