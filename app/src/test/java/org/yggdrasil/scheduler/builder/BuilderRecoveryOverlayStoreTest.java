@@ -174,6 +174,29 @@ public class BuilderRecoveryOverlayStoreTest {
     }
 
 
+
+    @Test public void overlayRowsAndGenerationMetadataRejectUpdateAndDelete() {
+        overlay = createOverlay();
+        overlay.append(turn("overlay-turn", 2000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
+        android.database.sqlite.SQLiteDatabase db = overlay.getWritableDatabase();
+        try {
+            db.execSQL("UPDATE conversation_turns SET body = 'changed' WHERE turn_id = 'overlay-turn'");
+            fail("turn update must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        try {
+            db.execSQL("DELETE FROM subject_thread_events WHERE event_id = 'overlay-event'");
+            fail("event deletion must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        try {
+            db.execSQL("UPDATE overlay_metadata SET generation_id = 'other' WHERE singleton = 1");
+            fail("generation metadata update must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        assertEquals("overlay-turn", overlay.readThread("overlay-thread").get(1).turnId);
+        assertEquals("overlay-event", overlay.readSubjectThread("overlay-thread").get(1).eventId);
+    }
+
     @Test public void missingOverlayIsNotSilentlyRecreated() {
         try {
             BuilderRecoveryOverlayStore.openExisting(context,
