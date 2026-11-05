@@ -51,8 +51,12 @@ public class BuilderSubjectThreadRecorderTest {
             List<BuilderSubjectThreadIndex.Event> events = index.readThread("thread-2");
             assertEquals(10, events.size());
             assertEquals(BuilderSubjectThreadIndex.EventType.SUBJECT_ATTACHED, events.get(0).type);
-            assertEquals(9, events.stream().filter(e ->
-                    e.type == BuilderSubjectThreadIndex.EventType.PARTICIPANT_SELECTED).count());
+            int participantCount = 0;
+            for (BuilderSubjectThreadIndex.Event event : events) {
+                if (event.type == BuilderSubjectThreadIndex.EventType.PARTICIPANT_SELECTED)
+                    participantCount++;
+            }
+            assertEquals(9, participantCount);
         } finally {
             index.close();
         }
