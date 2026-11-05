@@ -62,6 +62,11 @@ public final class NavigatingDifficultSpaces {
             + "Report what the Builders can do, what requires the user's authorization or physical "
             + "action, and the smallest useful human intervention. Do not transfer routine technical "
             + "work to the user merely because a boundary exists.\n"
+            + "When a human action is necessary, create a HANDOFF addressed to USER. Explain in ordinary conversation: "
+            + "the exact action needed, why the Builders cannot perform it, what protection or authority requires it, "
+            + "the safe place to perform it, what confirmation to report, and what the Builders will do immediately afterward. "
+            + "Ask for one necessary action at a time. Do not send the user away to read a checklist or technical document "
+            + "when the Builders can guide the action conversationally. Never ask the user to paste secrets into chat.\n"
             + "The user remains director and retains final authority for consequential commitments.";
     }
 
