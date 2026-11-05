@@ -31,7 +31,9 @@
   "source_candidates": [
     {
       "model_family_ref": "qwen3_5_0_8b",
-      "artifact_refs": [],
+      "artifact_refs": [
+        "artifact.qwen3_5_0_8b.bf16"
+      ],
       "license_status": "unknown",
       "weight_access_status": "downloadable",
       "baseline_evaluation_status": "not_evaluated",
@@ -47,7 +49,10 @@
     },
     {
       "model_family_ref": "lfm3_1_7b",
-      "artifact_refs": [],
+      "artifact_refs": [
+        "artifact.lfm3_1_7b.q4_k_m",
+        "artifact.lfm3_1_7b.bf16_gguf"
+      ],
       "license_status": "unknown",
       "weight_access_status": "downloadable",
       "baseline_evaluation_status": "not_evaluated",
@@ -69,7 +74,9 @@
     },
     {
       "model_family_ref": "qwen3_5_2b",
-      "artifact_refs": [],
+      "artifact_refs": [
+        "artifact.qwen3_5_2b.bf16"
+      ],
       "license_status": "unknown",
       "weight_access_status": "downloadable",
       "baseline_evaluation_status": "not_evaluated",
@@ -182,7 +189,8 @@
     "The analytical/verifier Builder roles are role assignments, not independent model artifacts; a separate evaluator artifact or human/deterministic review path must be selected before any model is independently scored.",
     "No larger-model expansion blueprint has been registered; architecture, tokenizer, source weights, training data, recipe, toolchain, license, and compute dependencies remain to be identified.",
     "Qwen3.5-2B and SmolLM3-3B are proposed evaluator families only; exact evaluator artifacts, independent runtime compatibility, and any license/provenance review must be completed before selection.",
-    "LFM3-1.7B base revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned, but the two weight-file SHA-256 digests and exact deployment license review remain pending."
+    "LFM3-1.7B base revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned, but the two weight-file SHA-256 digests and exact deployment license review remain pending.",
+    "Four model-weight artifacts have exact sizes and publisher-reported SHA-256 values from official Git LFS pointers. None has been downloaded and locally hashed, so validation_state remains unverified."
   ],
   "decision": "not_decided",
   "evidence_refs": [],
