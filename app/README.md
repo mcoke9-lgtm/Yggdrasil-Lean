@@ -9,7 +9,7 @@ not embed or run the Node.js desktop service.
 - Stores task definitions and recent execution records locally in SQLite.
 - Uses Android WorkManager for persistent background polling with network
   connectivity constraints.
-- Creates daily GitHub Actions monitors using the phone's current IANA timezone.
+- Creates daily or selected-weekday GitHub Actions monitors using the phone's current IANA timezone.
 - Establishes a baseline on the first successful check; historic failures are
   not replayed as new alerts.
 - Detects newly completed workflow failures and posts Android notifications.
@@ -25,7 +25,7 @@ availability, and OEM background restrictions. A daily time is therefore a
 exact alarm or guaranteed minute. This app intentionally does not request
 exact-alarm privileges or run a permanent foreground service.
 
-The first version supports daily schedules only. Weekly schedules, richer
+Schedules can run on every day or any selected combination of weekdays. Richer
 task types, encrypted GitHub credentials for private repositories, backup/
 restore, and Builder-to-Builder communication remain future work.
 
