@@ -56,8 +56,8 @@ test("rejects unsupported schedule kinds", async () => {
     id: "unsupported",
     name: "Unsupported",
     handlerType: "test.check",
-    schedule: { kind: "calendar" }
-  }), /Only interval schedules/);
+    schedule: { kind: "cron" }
+  }), /Schedule kind must be interval or calendar/);
 });
 
 test("supports daily wall-clock schedules in an IANA timezone", async () => {
