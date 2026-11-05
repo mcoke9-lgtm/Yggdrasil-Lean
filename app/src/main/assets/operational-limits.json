@@ -2,7 +2,11 @@
   "schema": "yggdrasil.operational-capacity-register",
   "schema_version": "1.0.0",
   "purpose": "Give the Nine Builders a shared, evidence-backed view of current operating constraints and remaining capacity so they adapt plans and outputs before attempting blocked work.",
-  "principles": ["accountability", "transparency", "honesty"],
+  "principles": [
+    "accountability",
+    "transparency",
+    "honesty"
+  ],
   "state_vocabulary": {
     "available": "Current evidence shows the capability can be used.",
     "constrained": "Capability exists but a known limit reduces or conditions its use.",
@@ -48,13 +52,38 @@
       "evidence_source": "Automations create response: plan limit 3, current count 3; creation of 'Review app artifacts weekly' failed due to capacity.",
       "observed_at": "2026-11-05",
       "recheck_trigger": "After user frees a task slot, when task state changes, or when user explicitly asks to retry.",
-      "safe_alternative": "Do not retry creation or offer another scheduled task. User can review existing scheduled tasks and free a slot; meanwhile provide a one-time review manually when requested.",
+      "safe_alternative": "Prefer the project's independent scheduler when its deployment and GitHub access are freshly verified. If that capability is unavailable or unknown, report the exact gap and propose the next implementation/recheck step. Do not recommend freeing a ChatGPT task slot as the default workaround; no existing task may be changed without explicit authorization.",
       "confidence": "verified_service_response",
       "unknowns": [
         "Which three scheduled tasks occupy the slots",
         "Whether the account limit or usage has since changed"
       ],
-      "actions_not_authorized": ["Delete or pause an existing task", "Change plan or billing"]
+      "actions_not_authorized": [
+        "Delete or pause an existing task",
+        "Change plan or billing"
+      ]
+    },
+    {
+      "constraint_id": "independent-scheduler-github-monitoring-2026-11-05",
+      "capability": "Independent scheduler execution / GitHub PR monitoring",
+      "scope": "Yggdrasil Lean independent scheduler prototype and intended GitHub monitor workload",
+      "state": "unknown",
+      "evidence_source": "Project context records branch independent-scheduler-prototype-001, checkpoint 2ce21c5, and a prior report that scheduler 0.2 passed 12/12 tests and GitHub Actions. This historical report was not independently rechecked during this runtime update.",
+      "observed_at": "2026-11-05",
+      "recheck_trigger": "Before relying on scheduler execution; verify current branch/commit, deployment or service-runner state, credentials/permissions, GitHub API access, and an actual monitor run.",
+      "safe_alternative": "Treat availability as unknown until the independent scheduler service and GitHub access are verified. If unavailable, report the exact missing dependency and propose an implementation/test step. Do not substitute a ChatGPT scheduled task or ask the user to free a ChatGPT task slot by default.",
+      "confidence": "previously_reported_not_reverified",
+      "unknowns": [
+        "Whether the scheduler is currently deployed or running",
+        "Whether GitHub credentials and repository permissions are configured",
+        "Whether PR #33 monitoring is configured and has completed a verified run"
+      ],
+      "actions_not_authorized": [
+        "Provision paid compute",
+        "Change credentials or permissions",
+        "Deploy or activate a continuous service",
+        "Modify devices or production infrastructure"
+      ]
     }
   ],
   "output_adaptation": {
@@ -67,7 +96,7 @@
   "audit": {
     "created_on": "2026-11-05",
     "last_updated_on": "2026-11-05",
-    "status": "copied_from_shared_operational_limits_register",
-    "note": "Snapshot copied into the Android runtime. It does not query live ChatGPT account capacity."
+    "status": "updated_for_builder_improvement_runtime",
+    "note": "Snapshot copied into the Android runtime. It does not query live ChatGPT account capacity or independent scheduler deployment/access."
   }
 }
