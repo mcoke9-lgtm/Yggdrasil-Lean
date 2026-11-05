@@ -66,7 +66,8 @@
       "license_status": "unknown",
       "usage_constraints": [
         "Commercial-use permission is subject to the $10M annual-revenue threshold in LFM Open License v1.0.",
-        "Publisher cautions that this size is not recommended for agentic coding or complex multi-step reasoning."
+        "Publisher cautions that this size is not recommended for agentic coding or complex multi-step reasoning.",
+        "Publisher describes a post-training stage that distills six specialist RL teachers back into one model; this is a relevant multi-teacher distillation precedent, not proof that the student can reconstruct teacher weights."
       ],
       "provenance_ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
       "weight_access_status": "downloadable",
@@ -80,14 +81,14 @@
         "ONNX Runtime"
       ],
       "known_context_limit": 262144,
-      "known_quantization": "Publisher lists FP8, NVFP4 and GGUF variants; exact selected artifact and memory not yet measured.",
+      "known_quantization": "Publisher reports approximately 1 GB memory at 4-bit and lists FP8, NVFP4, GGUF, MLX and ONNX variants; exact selected artifact and memory remain unmeasured.",
       "known_parameter_count": 1730000000,
       "evidence_refs": [
         {
           "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
           "kind": "provider_documentation",
           "status": "observed",
-          "note": "Official model card identifies size, context, deployment formats and task limitations."
+          "note": "Official model card identifies size, context, about 1 GB at 4-bit, deployment formats, a six-specialist-teacher distillation stage, benchmark results, and task limitations."
         },
         {
           "ref": "https://www.liquid.ai/lfm-license",
