@@ -60,7 +60,8 @@ The Phase A GitHub Actions workflow runs the schema validator and unit tests usi
 ## Current status
 
 - Runner source: committed; 63 capability evaluations and nine receiver turns are implemented (72 model calls in a full run).
-- Mock endpoint unit tests: passed in Phase A CI run 42042582498 at commit `64dcd78162e138416bc63e428cceaa11187b4b5d`.
+- Candidate runner mock tests: passed in Phase A CI run 42042582498 at commit `64dcd78162e138416bc63e428cceaa11187b4b5d`.
+- Blind evaluator runner and its new tests: committed; latest CI validation is pending.
 - Model revision in the report is operator-supplied and explicitly marked unverified; the runner does not attest what the endpoint actually loaded.
 - Live model calls: not run.
 - Model quality scores: none.
