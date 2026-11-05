@@ -61,6 +61,15 @@ public class BuilderRoleProviderSettingsTest {
         }
     }
 
+    @Test public void baldrMustDifferInBothEndpointAndModel() throws Exception {
+        BuilderRoleProviderSettings settings = settings();
+        save(settings, BuilderRole.HUGINN, "implementation", "8101", "model-a");
+        save(settings, BuilderRole.BALDR, "review", "8102", "model-a");
+        assertFalse(settings.hasDistinctBaldrRoute());
+        save(settings, BuilderRole.BALDR, "review", "8101", "model-b");
+        assertFalse(settings.hasDistinctBaldrRoute());
+    }
+
     @Test public void baldrDistinctRoutePassesMinimumConfigurationCheck() throws Exception {
         BuilderRoleProviderSettings settings = settings();
         save(settings, BuilderRole.HUGINN, "implementation", "8101", "model-a");
