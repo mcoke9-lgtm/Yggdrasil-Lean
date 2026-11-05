@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyStore;
+import java.io.FileOutputStream;
 
 import org.junit.Test;
 
@@ -30,6 +31,15 @@ public class KeyStoreEngineTest {
         KeyStore jdkStore = KeyStore.getInstance("PKCS12");
         jdkStore.load(new ByteArrayInputStream(encoded), PASSWORD);
         assertTrue(jdkStore.isKeyEntry(KeyStoreEngine.ALIAS));
+    }
+
+    @Test
+    public void writesDisposablePkcs12ForGradleSigningWhenRequested() throws Exception {
+        String outputPath = System.getProperty("builder.test.keystore.output");
+        if (outputPath == null || outputPath.isEmpty()) return;
+        try (FileOutputStream output = new FileOutputStream(outputPath)) {
+            KeyStoreEngine.create(output, PASSWORD);
+        }
     }
 
     @Test
