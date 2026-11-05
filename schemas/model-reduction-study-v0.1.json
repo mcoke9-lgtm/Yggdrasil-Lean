@@ -45,7 +45,7 @@
           "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
         }
       ],
-      "notes": "Research shortlist entry; repository revision 2fc06364715b967f1860aea9cf38778875588b17 is pinned, but the selected weight-file digest, complete artifact lock, and baseline test are not registered."
+      "notes": "Repository revision, exact file size, and publisher-reported SHA-256 are registered; local checksum verification, license review, and baseline evaluation remain pending."
     },
     {
       "model_family_ref": "lfm3_1_7b",
@@ -70,7 +70,7 @@
           "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
         }
       ],
-      "notes": "Research shortlist entry; base repository revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned with displayed file sizes, but neither file SHA-256, deployment-specific license review, nor baseline test is registered."
+      "notes": "Base and GGUF repository revisions are pinned; Q4_K_M and BF16 GGUF variants have exact sizes and publisher-reported SHA-256 values; local checksum verification, LFM license review, and baseline evaluation remain pending."
     },
     {
       "model_family_ref": "qwen3_5_2b",
@@ -88,7 +88,7 @@
           "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
         }
       ],
-      "notes": "Research shortlist entry; repository revision 15852e8c16360a2fea060d615a32b45270f8a8fc is pinned, but the selected weight-file digest, complete artifact lock, and baseline test are not registered."
+      "notes": "Repository revision, exact file size, and publisher-reported SHA-256 are registered; local checksum verification, license review, and baseline evaluation remain pending."
     },
     {
       "model_family_ref": "smollm3_3b",
