@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yggdrasil.example/schemas/subject-registry-v1.schema.json",
+  "title": "Nine Builders Subject Registry",
+  "description": "Versioned subject headings, stewardship, subheadings, conversation-entry rules, and evidence-record references.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_id", "schema_version", "registry_status", "subjects"],
+  "properties": {
+    "format_id": { "const": "org.yggdrasil.nine-builders.subject-registry" },
+    "schema_version": { "const": "1.0.0" },
+    "registry_status": { "enum": ["proposed", "tested", "verified", "adopted"] },
+    "subjects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/subject" }
+    }
+  },
+  "$defs": {
+    "builderId": {
+      "type": "string",
+      "enum": ["HUGINN", "MUNINN", "KVASIR", "MARI", "HODR", "TYR", "LOKI", "ODIN", "BALDR"]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_id", "heading", "summary", "scope", "lifecycle_status", "stewardship", "subheadings", "conversation_entry", "governance", "conversation_protocol_ref", "thread_refs"],
+      "properties": {
+        "subject_id": { "type": "string", "pattern": "^subject\\.[a-z0-9.-]+$" },
+        "heading": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["includes", "excludes"],
+          "properties": {
+            "includes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "excludes": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "lifecycle_status": { "enum": ["proposed", "drafted", "built", "tested", "verified", "adopted"] },
+        "stewardship": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["builder_id", "responsibility"],
+            "properties": {
+              "builder_id": { "$ref": "#/$defs/builderId" },
+              "responsibility": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "subheadings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subheading_id", "heading", "description", "primary_stewards"],
+            "properties": {
+              "subheading_id": { "type": "string", "pattern": "^[A-Z0-9-]+$" },
+              "heading": { "type": "string", "minLength": 1 },
+              "description": { "type": "string", "minLength": 1 },
+              "primary_stewards": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/builderId" },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "conversation_entry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["recognition_terms", "assembly_policy", "user_is_first_class_participant", "any_builder_may_join"],
+          "properties": {
+            "recognition_terms": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "assembly_policy": {
+              "enum": ["matched_subheading_stewards", "user_selected_builders", "all_nine"]
+            },
+            "user_is_first_class_participant": { "const": true },
+            "any_builder_may_join": { "const": true },
+            "baldr_verification_gate": { "type": "boolean" }
+          }
+        },
+        "governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primary_stewardship_is_nonexclusive", "user_is_final_authority", "disagreement_is_preserved", "no_self_certification"],
+          "properties": {
+            "primary_stewardship_is_nonexclusive": { "const": true },
+            "user_is_final_authority": { "const": true },
+            "disagreement_is_preserved": { "const": true },
+            "no_self_certification": { "const": true }
+          }
+        },
+        "conversation_protocol_ref": { "type": "string", "minLength": 1 },
+        "thread_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
