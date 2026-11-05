@@ -1,0 +1,127 @@
+{
+  "format_id": "org.yggdrasil.lean.model-artifact-inventory",
+  "schema_version": "0.1.0",
+  "status": "publisher_metadata_registered",
+  "artifacts": [
+    {
+      "artifact_id": "artifact.qwen3_5_0_8b.bf16",
+      "artifact_type": "weights",
+      "model_family_id": "qwen3_5_0_8b",
+      "version": "2fc06364715b967f1860aea9cf38778875588b17",
+      "format": "Safetensors BF16",
+      "size_bytes": 1746942600,
+      "digest": {
+        "algorithm": "sha256",
+        "value": "04b1c301231dd422b8860db31311ab2721511346a32cb1e079c4c4e5f1fe4696"
+      },
+      "storage_ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/tree/2fc06364715b967f1860aea9cf38778875588b17",
+      "license_status": "unknown",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/tree/2fc06364715b967f1860aea9cf38778875588b17",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned official model repository tree and Apache-2.0 license label."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/raw/2fc06364715b967f1860aea9cf38778875588b17/model.safetensors-00001-of-00001.safetensors",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Publisher Git LFS pointer supplies exact file size and SHA-256."
+        }
+      ],
+      "sensitivity_classification": "public",
+      "validation_state": "unverified"
+    },
+    {
+      "artifact_id": "artifact.qwen3_5_2b.bf16",
+      "artifact_type": "weights",
+      "model_family_id": "qwen3_5_2b",
+      "version": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+      "format": "Safetensors BF16",
+      "size_bytes": 4548221488,
+      "digest": {
+        "algorithm": "sha256",
+        "value": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1"
+      },
+      "storage_ref": "https://huggingface.co/Qwen/Qwen3.5-2B/tree/15852e8c16360a2fea060d615a32b45270f8a8fc",
+      "license_status": "unknown",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B/tree/15852e8c16360a2fea060d615a32b45270f8a8fc",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned official model repository tree and Apache-2.0 license label."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B/raw/15852e8c16360a2fea060d615a32b45270f8a8fc/model.safetensors-00001-of-00001.safetensors",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Publisher Git LFS pointer supplies exact file size and SHA-256."
+        }
+      ],
+      "sensitivity_classification": "public",
+      "validation_state": "unverified"
+    },
+    {
+      "artifact_id": "artifact.lfm3_1_7b.q4_k_m",
+      "artifact_type": "weights",
+      "model_family_id": "lfm3_1_7b",
+      "version": "cd0c74c",
+      "format": "GGUF Q4_K_M",
+      "size_bytes": 1099627808,
+      "digest": {
+        "algorithm": "sha256",
+        "value": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+      },
+      "storage_ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/cd0c74c",
+      "license_status": "unknown",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official GGUF repository tree shows Q4_K_M variant and current commit cd0c74c."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/raw/main/LFM3-1.7B-Q4_K_M.gguf",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Publisher Git LFS pointer supplies exact file size and SHA-256."
+        }
+      ],
+      "sensitivity_classification": "public",
+      "validation_state": "unverified"
+    },
+    {
+      "artifact_id": "artifact.lfm3_1_7b.bf16_gguf",
+      "artifact_type": "weights",
+      "model_family_id": "lfm3_1_7b",
+      "version": "cd0c74c",
+      "format": "GGUF BF16",
+      "size_bytes": 3466626336,
+      "digest": {
+        "algorithm": "sha256",
+        "value": "39158a79f56edb85e0c4252ce6447b8d7883ef82ffedd02f0cda7c84da5e9f68"
+      },
+      "storage_ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/cd0c74c",
+      "license_status": "unknown",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official GGUF repository tree shows BF16 GGUF variant and current commit cd0c74c."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/raw/main/LFM3-1.7B-BF16.gguf",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Publisher Git LFS pointer supplies exact file size and SHA-256."
+        }
+      ],
+      "sensitivity_classification": "public",
+      "validation_state": "unverified"
+    }
+  ]
+}
