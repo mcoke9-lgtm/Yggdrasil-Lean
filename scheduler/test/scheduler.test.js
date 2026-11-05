@@ -335,7 +335,7 @@ test("dashboard task changes are not lost while a scheduled handler is running",
   assert.ok((await scheduler.listTasks()).some(task => task.id === "added-during-run"));
 });
 
-test("service runner starts dashboard, acquires lock and shuts down cleanly", async () => {
+test("service runner handles SIGTERM immediately at readiness and releases its lock", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scheduler-runner-"));
   const stateFile = join(directory, "state.json");
   const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -378,14 +378,20 @@ test("service runner starts dashboard, acquires lock and shuts down cleanly", as
       inspect();
     });
     assert.match(startup.dashboard, /^http:\/\/127\.0\.0\.1:\d+$/);
-    const health = await fetch(startup.dashboard + "/api/health");
-    assert.equal(health.status, 200);
+    // Deliberately signal immediately after scheduler_started. No health request
+    // or extra event-loop turn is allowed to hide a late signal-handler install.
     child.kill("SIGTERM");
     const exitCode = await new Promise((resolveExit, rejectExit) => {
       const timeout = setTimeout(() => rejectExit(new Error("Scheduler runner did not shut down")), 8000);
       child.once("exit", code => { clearTimeout(timeout); resolveExit(code); });
     });
     assert.equal(exitCode, 0);
+    assert.ok(output.split("\\n").some(value => {
+      try {
+        const event = JSON.parse(value);
+        return event.event === "scheduler_stopping" && event.signal === "SIGTERM";
+      } catch { return false; }
+    }), "SIGTERM shutdown handler must run at the readiness boundary");
     await assert.rejects(() => readFile(stateFile + ".lock", "utf8"), { code: "ENOENT" });
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
