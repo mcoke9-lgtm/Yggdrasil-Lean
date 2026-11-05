@@ -60,6 +60,16 @@ def evaluate(register, capability, action=None, as_of=None, max_age_days=7):
                       reason=f"Evidence is {age} days old (freshness limit: {max_age_days}); refresh before acting.")
         return result, 3
 
+    maximum = item.get("maximum_capacity")
+    usage = item.get("current_usage")
+    remaining = item.get("remaining_capacity")
+    if all(isinstance(value, (int, float)) and not isinstance(value, bool)
+           for value in (maximum, usage, remaining)):
+        if maximum < 0 or usage < 0 or remaining < 0 or usage > maximum or remaining != maximum - usage:
+            result.update(decision="recheck_required",
+                          reason="Capacity figures are inconsistent; reconcile maximum, usage, and remaining capacity.")
+            return result, 3
+
     state = str(item.get("state", "unknown")).casefold()
     if state == "blocked":
         result.update(decision="blocked", reason="Fresh evidence records this capability as blocked.")
