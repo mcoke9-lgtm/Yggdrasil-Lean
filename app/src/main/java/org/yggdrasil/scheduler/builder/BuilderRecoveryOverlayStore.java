@@ -332,10 +332,14 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
      */
     public JSONObject exportMergedSnapshots() {
         SQLiteDatabase overlay = getReadableDatabase();
-        SQLiteDatabase conversations = baselineConversation();
-        SQLiteDatabase subjects = baselineSubject();
-        overlay.beginTransaction();
+        SQLiteDatabase conversations = null;
+        SQLiteDatabase subjects = null;
+        boolean transactionStarted = false;
         try {
+            conversations = baselineConversation();
+            subjects = baselineSubject();
+            overlay.beginTransaction();
+            transactionStarted = true;
             JSONArray threads = new JSONArray();
             int turnCount = 0;
             for (String threadId : listThreadIds(overlay, conversations)) {
@@ -391,9 +395,9 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         } catch (Exception e) {
             throw new IllegalStateException("Could not export one consistent merged recovery view", e);
         } finally {
-            overlay.endTransaction();
-            conversations.close();
-            subjects.close();
+            if (transactionStarted) overlay.endTransaction();
+            if (conversations != null) conversations.close();
+            if (subjects != null) subjects.close();
         }
     }
 
