@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.util.Base64;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -117,13 +118,15 @@ public final class MainActivity extends Activity {
     }
 
     private char[] readPassword() {
-        return passwordField.getText().toString().toCharArray();
+        int length = passwordField.getText().length();
+        char[] value = new char[length];
+        passwordField.getText().getChars(0, length, value, 0);
+        return value;
     }
 
     private void beginCreate() {
         if (!hasValidPassword()) return;
-        if (!passwordField.getText().toString().equals(
-                confirmField.getText().toString())) {
+        if (!TextUtils.equals(passwordField.getText(), confirmField.getText())) {
             status.setText("The password entries do not match.");
             return;
         }
@@ -216,12 +219,15 @@ public final class MainActivity extends Activity {
             }
             bytes = output.toByteArray();
         }
-        String encoded = Base64.encodeToString(bytes, Base64.NO_WRAP);
+        byte[] encodedBytes = Base64.encode(bytes, Base64.NO_WRAP);
         java.util.Arrays.fill(bytes, (byte) 0);
-        if (encoded.length() > MAX_GITHUB_SECRET_CHARS) {
+        if (encodedBytes.length > MAX_GITHUB_SECRET_CHARS) {
+            java.util.Arrays.fill(encodedBytes, (byte) 0);
             throw new IllegalArgumentException("Base64 value exceeds GitHub's 48 KB secret limit");
         }
 
+        String encoded = new String(encodedBytes, java.nio.charset.StandardCharsets.US_ASCII);
+        java.util.Arrays.fill(encodedBytes, (byte) 0);
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("BUILDER_KEYSTORE_BASE64", encoded);
         if (Build.VERSION.SDK_INT >= 33) {
