@@ -8,10 +8,11 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "schemas/model-lifecycle-contracts-1.0.schema.json"
 BUNDLE_PATH = ROOT / "schemas/nine-builder-capability-contracts-v0.1.json"
 SUITE_PATH = ROOT / "tests/model-capabilities/phase-a-suite-v0.1.json"
+RUBRIC_PATH = ROOT / "schemas/capability-evaluation-rubric-v0.1.json"
 
 EXPECTED_BUILDERS = {
     "HUGINN", "MUNINN", "KVASIR", "MARI", "HODR",
@@ -40,6 +41,7 @@ def main() -> int:
     schema = load(SCHEMA_PATH)
     bundle = load(BUNDLE_PATH)
     suite = load(SUITE_PATH)
+    rubric = load(RUBRIC_PATH)
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)
@@ -47,6 +49,7 @@ def main() -> int:
     failures = 0
     failures += schema_errors(validator, bundle, "capability bundle")
     failures += schema_errors(validator, suite, "evaluation suite")
+    failures += schema_errors(validator, rubric, "evaluation rubric")
 
     contracts = bundle.get("contracts", [])
     cases = suite.get("cases", [])
@@ -90,6 +93,13 @@ def main() -> int:
             print(f"FAIL {builder} does not reference all four shared capability fixtures")
             failures += 1
 
+    if rubric.get("aggregation", {}).get("threshold_status") != "proposed_not_adopted":
+        print("FAIL evaluation thresholds must remain explicitly unadopted")
+        failures += 1
+    weights = [dimension.get("weight", 0) for dimension in rubric.get("dimensions", [])]
+    if len(weights) != 6 or abs(sum(weights) - 1.0) > 1e-9:
+        print("FAIL six rubric dimension weights must sum to exactly 1.0")
+        failures += 1
     if bundle.get("threshold_policy", {}).get("status") != "proposed_not_adopted":
         print("FAIL provisional thresholds must remain explicitly unadopted")
         failures += 1
@@ -102,7 +112,8 @@ def main() -> int:
         return 1
 
     print("PASS: Draft 2020-12 schema is valid.")
-    print("PASS: Capability bundle and evaluation suite satisfy the JSON Schema.")
+    print("PASS: Capability bundle, evaluation suite, and scoring rubric satisfy the JSON Schema.")
+    print("PASS: Six evaluation dimensions have normalized weights.")
     print("PASS: Nine unique Builder contracts; six capability tests each.")
     print("PASS: 22 unique fixtures (18 role-specific, four shared).")
     print("PASS: All capability-to-fixture references resolve.")
