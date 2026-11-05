@@ -38,6 +38,8 @@ import org.yggdrasil.scheduler.builder.BuilderRole;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -193,6 +195,8 @@ public final class BuilderConversationActivity extends Activity {
         threadActions.addView(button("New thread", this::newThread));
         threadActions.addView(button("Open saved thread", this::chooseThread));
         threadActions.addView(button("Export backup", this::requestExport));
+        threadActions.addView(button("Run recovery drill", this::requestRecoveryDrill));
+        root.addView(text("Recovery drill: choose a previously exported Yggdrasil JSON backup. The app checks its structure and checksum and shows a readiness report. This is read-only: it does not restore, overwrite, or delete anything. Source comparison is marked unavailable unless a separate independent source capture is supplied.", 13));
         root.addView(threadActions);
         threadLabel = text("", 12);
         root.addView(threadLabel);
@@ -287,6 +291,8 @@ public final class BuilderConversationActivity extends Activity {
     }
 
     private static final int REQUEST_EXPORT_BACKUP = 901;
+    private static final int REQUEST_RECOVERY_DRILL = 902;
+    private static final int MAX_RECOVERY_EXPORT_BYTES = 25 * 1024 * 1024;
 
     private void requestExport() {
         if (busy) {
@@ -302,8 +308,12 @@ public final class BuilderConversationActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_EXPORT_BACKUP || resultCode != RESULT_OK
-                || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQUEST_RECOVERY_DRILL) {
+            runRecoveryDrill(data.getData());
+            return;
+        }
+        if (requestCode != REQUEST_EXPORT_BACKUP) return;
         Uri destination = data.getData();
         executor.execute(() -> {
             BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
@@ -352,6 +362,74 @@ public final class BuilderConversationActivity extends Activity {
                                 + ". Existing conversation history remains in Builder-native host."));
             } finally {
                 journal.close();
+            }
+        });
+    }
+
+    private void requestRecoveryDrill() {
+        if (busy) {
+            status.setText("Wait until the current Builder round finishes before running a recovery drill.");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "Select a Yggdrasil recovery backup");
+        startActivityForResult(intent, REQUEST_RECOVERY_DRILL);
+    }
+
+    private void runRecoveryDrill(Uri source) {
+        status.setText("Reading selected backup for a read-only recovery assessment…");
+        executor.execute(() -> {
+            try {
+                byte[] bytes;
+                try (InputStream input = getContentResolver().openInputStream(source);
+                     ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    if (input == null) throw new java.io.IOException("Selected backup could not be opened");
+                    byte[] buffer = new byte[8192];
+                    int total = 0;
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        if (total > MAX_RECOVERY_EXPORT_BYTES)
+                            throw new java.io.IOException("Backup exceeds the 25 MB assessment limit");
+                        output.write(buffer, 0, count);
+                    }
+                    bytes = output.toByteArray();
+                }
+                org.json.JSONObject backup = new org.json.JSONObject(
+                        new String(bytes, StandardCharsets.UTF_8));
+                BuilderRecoveryDrill.Report report = BuilderRecoveryDrill.assess(backup, null);
+                StringBuilder message = new StringBuilder();
+                message.append("Read-only recovery assessment\n\n");
+                message.append("Readiness: ").append(report.readiness.replace('_', ' ')).append("\n");
+                message.append("Integrity: ").append(report.integrityValid ? "valid" : "failed").append("\n");
+                message.append("Checksum: ").append(report.checksumValid ? "valid" : "failed").append("\n");
+                message.append("Provenance: ").append(report.provenanceState).append("\n");
+                message.append("Independent source comparison: ").append(report.sourceComparison).append("\n\n");
+                message.append("Findings:\n");
+                for (String finding : report.findings) message.append("• ").append(finding).append("\n");
+                message.append("\nNo restoration, overwrite, or deletion was performed.");
+                String resultText = message.toString();
+                if (!destroyed) runOnUiThread(() -> {
+                    status.setText("Recovery drill assessment complete: " + report.readiness.replace('_', ' '));
+                    new AlertDialog.Builder(this)
+                            .setTitle("Recovery drill report")
+                            .setMessage(resultText)
+                            .setPositiveButton("Close", null)
+                            .show();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> {
+                    status.setText("Recovery drill could not assess the selected file.");
+                    new AlertDialog.Builder(this)
+                            .setTitle("Recovery drill could not run")
+                            .setMessage("The selected file could not be read as a valid Yggdrasil recovery export.\n\n"
+                                    + failure.getClass().getSimpleName() + "\n\n"
+                                    + "No data was changed.")
+                            .setPositiveButton("Close", null)
+                            .show();
+                });
             }
         });
     }
