@@ -5,6 +5,7 @@ on:
     branches:
       - analysis-engine-prototype-001
       - independent-scheduler-prototype-001
+      - nine-builders-overnight-runtime-001
     paths:
       - "analysis-engine/**"
       - "scheduler/**"
