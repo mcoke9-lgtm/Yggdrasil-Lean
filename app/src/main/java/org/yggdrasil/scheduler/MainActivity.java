@@ -85,6 +85,21 @@ public final class MainActivity extends Activity {
             card.addView(text(String.format(java.util.Locale.US,"%s %02d:%02d · %s · %s",daysLabel(t.days),t.hour,t.minute,t.zone,t.lastStatus),13));
             LinearLayout actions=new LinearLayout(this); actions.addView(button(t.enabled?"Pause":"Resume",()->{db.setEnabled(t.id,!t.enabled);refresh();})); actions.addView(button("Delete",()->new AlertDialog.Builder(this).setMessage("Delete this monitor?").setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{db.delete(t.id);refresh();}).show())); card.addView(actions); taskList.addView(card);
         }
-        history.removeAllViews(); for(String item:db.recentRuns(25)) history.addView(text(item,12)); if(db.recentRuns(1).isEmpty()) history.addView(text("No activity yet",13));
+        history.removeAllViews();
+        java.util.List<SchedulerDb.Activity> activities = db.recentRuns(25);
+        for (SchedulerDb.Activity item : activities) {
+            String kind = item.detail != null && item.detail.startsWith("[manual] ") ? "MANUAL CHECK"
+                    : item.detail != null && item.detail.startsWith("[scheduled] ") ? "SCHEDULED CHECK"
+                    : "WORKFLOW EVENT";
+            String detail = item.detail == null ? "" : item.detail.replaceFirst("^\\[(manual|scheduled)\\]\\s*", "");
+            String when;
+            try {
+                when = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a", java.util.Locale.getDefault())
+                        .withZone(ZoneId.systemDefault()).format(java.time.Instant.parse(item.createdAt));
+            } catch (Exception ignored) { when = item.createdAt; }
+            history.addView(text(when + " · " + kind + "\\n" + item.taskName + " · " + item.status.toUpperCase(java.util.Locale.US)
+                    + (detail.isEmpty() ? "" : "\\n" + detail), 13));
+        }
+        if (activities.isEmpty()) history.addView(text("No activity yet",13));
     }
 }
