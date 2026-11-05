@@ -36,7 +36,7 @@ public final class SchedulerWorker extends Worker {
                 if (!forced && (!scheduledDays.contains("," + now.getDayOfWeek().getValue() + ",") || now.getHour() < task.hour || (now.getHour() == task.hour && now.getMinute() < task.minute) || today.equals(task.lastDate))) continue;
                 checkGithub(task, today, forced);
             } catch (Exception e) {
-                db.record(task.id, 0, "error", safe(e.getMessage()));
+                db.record(task.id, 0, "error", (forced ? "[manual] " : "[scheduled] ") + "Check failed: " + safe(e.getMessage()));
                 db.updateCheck(task, task.lastDate, task.lastRunId, task.baseline, "Error: " + safe(e.getMessage()), task.lastCheckedAt);
                 retry = true;
             }
@@ -77,7 +77,7 @@ public final class SchedulerWorker extends Worker {
         String recordedScheduleDate = manual ? task.lastDate : today;
         if (!task.baseline) {
             db.updateCheck(task, recordedScheduleDate, maxId, true, "Baseline established", checkStartedAt);
-            db.record(task.id, maxId, "baseline", "Recorded existing workflow runs; no historic failures alerted");
+            db.record(task.id, maxId, "baseline", (manual ? "[manual] " : "[scheduled] ") + "Baseline established; existing runs recorded without historic failure alerts");
             return;
         }
         matches.sort(Comparator.comparingLong(x -> x.optLong("id",0)));
@@ -90,7 +90,7 @@ public final class SchedulerWorker extends Worker {
             }
         }
         db.updateCheck(task, recordedScheduleDate, maxId, true, matches.isEmpty() ? "Checked; no new runs" : "Checked; " + matches.size() + " new completed run(s)", checkStartedAt);
-        db.record(task.id, maxId, "checked", "GitHub workflow check completed" + (manual ? " (manual)" : " (scheduled)"));
+        db.record(task.id, maxId, "checked", (manual ? "[manual] " : "[scheduled] ") + "GitHub check completed");
     }
     private void notifyFailure(String title, String detail) {
         Context context = getApplicationContext();
