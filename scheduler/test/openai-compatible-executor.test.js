@@ -239,10 +239,10 @@ test("loads the host executor only from owner-protected config and operator modu
   try {
     await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes() }), { mode: 0o600 });
     await writeFile(taskVaultPath,
-      'export async function getTask() { return { prompt: "host task" }; }\\n' +
-      'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\\n');
+      'export async function getTask() { return { prompt: "host task" }; }\n' +
+      'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n');
     await writeFile(credentialsPath,
-      'export async function readSecret() { return "host-secret"; }\\n');
+      'export async function readSecret() { return "host-secret"; }\n');
     process.env.BUILDER_HOST_CONFIG_FILE = configPath;
     process.env.BUILDER_TASK_VAULT_MODULE = taskVaultPath;
     process.env.BUILDER_CREDENTIALS_MODULE = credentialsPath;
