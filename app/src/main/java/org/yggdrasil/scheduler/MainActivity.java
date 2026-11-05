@@ -22,9 +22,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
+import androidx.work.Operation;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 import java.time.ZoneId;
@@ -50,28 +52,61 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onResume() { super.onResume(); if (db != null && taskList != null) refresh(); }
     private void scheduleWorker() {
+        // Registration is asynchronous. Readiness remains false until WorkManager
+        // confirms that the enqueue Operation completed successfully.
+        schedulerReady = false;
         try {
             WorkManager manager = WorkManager.getInstance(this);
             boolean internetPermission = getPackageManager().checkPermission(
                     Manifest.permission.INTERNET, getPackageName()) == PackageManager.PERMISSION_GRANTED;
-            schedulerReady = db != null && internetPermission && manager != null;
-            if (!schedulerReady) return;
-            BuilderActionPreflight.Execution<Void> result = BuilderActionPreflight.execute(
-                    localSchedulerObservation("INSTALL_PERIODIC_POLL",
-                            BuilderActionPreflight.Authorization.NOT_REQUIRED),
-                    java.time.Instant.now(), () -> {
-                        Constraints constraints = new Constraints.Builder()
-                                .setRequiredNetworkType(NetworkType.CONNECTED).build();
-                        PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
-                                SchedulerWorker.class, 15, TimeUnit.MINUTES)
-                                .setConstraints(constraints).build();
-                        manager.enqueueUniquePeriodicWork(
-                                "yggdrasil-scheduler-poll", ExistingPeriodicWorkPolicy.KEEP, request);
-                        return null;
-                    });
-            schedulerReady = result.executed;
+            boolean localPrerequisites = db != null && internetPermission && manager != null;
+            if (!localPrerequisites) return;
+
+            java.time.Instant observedAt = java.time.Instant.now();
+            BuilderActionPreflight.Observation observation = new BuilderActionPreflight.Observation(
+                    "yggdrasil-android-workmanager", "INSTALL_PERIODIC_POLL",
+                    BuilderActionPreflight.CapabilityState.AVAILABLE,
+                    observedAt, java.time.Duration.ofMinutes(1),
+                    null, null, null, BuilderActionPreflight.Authorization.NOT_REQUIRED,
+                    "runtime-check:SchedulerDb+WorkManager+INTERNET-permission;enqueue-result-pending");
+            BuilderActionPreflight.Execution<Void> result =
+                    org.yggdrasil.scheduler.builder.BuilderActionBoundaries.installPeriodicPoll(
+                            observation, observedAt, () -> {
+                                Constraints constraints = new Constraints.Builder()
+                                        .setRequiredNetworkType(NetworkType.CONNECTED).build();
+                                PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
+                                        SchedulerWorker.class, 15, TimeUnit.MINUTES)
+                                        .setConstraints(constraints).build();
+                                Operation operation = manager.enqueueUniquePeriodicWork(
+                                        "yggdrasil-scheduler-poll",
+                                        ExistingPeriodicWorkPolicy.KEEP, request);
+                                operation.getResult().addListener(() -> {
+                                    try {
+                                        operation.getResult().get();
+                                        schedulerReady = true;
+                                        if (status != null) status.setText(
+                                                "WorkManager registration confirmed · GitHub reachability not yet verified");
+                                    } catch (InterruptedException interrupted) {
+                                        Thread.currentThread().interrupt();
+                                        schedulerReady = false;
+                                        if (status != null) status.setText(
+                                                "WorkManager registration was interrupted; scheduler not ready");
+                                    } catch (Exception failure) {
+                                        schedulerReady = false;
+                                        if (status != null) status.setText(
+                                                "WorkManager registration failed; scheduler not ready: "
+                                                        + failure.getClass().getSimpleName());
+                                    }
+                                }, ContextCompat.getMainExecutor(this));
+                                return null;
+                            });
+            if (!result.executed) {
+                schedulerReady = false;
+                if (status != null) status.setText("WorkManager registration blocked: " + result.reason);
+            }
         } catch (Exception failure) {
             schedulerReady = false;
+            if (status != null) status.setText("WorkManager registration could not be started");
         }
     }
 
@@ -98,8 +133,8 @@ public final class MainActivity extends Activity {
             BuilderActionPreflight.Authorization authorization) {
         BuilderActionPreflight.Execution<Void> result;
         try {
-            result = BuilderActionPreflight.execute(localSchedulerObservation(actionId, authorization),
-                    java.time.Instant.now(), () -> null);
+            result = org.yggdrasil.scheduler.builder.BuilderActionBoundaries.offerMonitorRegistration(
+                    localSchedulerObservation(actionId, authorization), java.time.Instant.now());
         } catch (Exception impossible) {
             result = null;
         }
@@ -410,8 +445,9 @@ public final class MainActivity extends Activity {
                 if(days.length()==0) throw new IllegalArgumentException("Choose at least one day");
                 String id="gh-"+UUID.randomUUID().toString().substring(0,8);
                 BuilderActionPreflight.Execution<String> registration =
-                        BuilderActionPreflight.execute(localSchedulerObservation(
-                                "REGISTER_GITHUB_MONITOR", BuilderActionPreflight.Authorization.GRANTED),
+                        org.yggdrasil.scheduler.builder.BuilderActionBoundaries.registerMonitor(
+                                localSchedulerObservation(
+                                        "REGISTER_GITHUB_MONITOR", BuilderActionPreflight.Authorization.GRANTED),
                                 java.time.Instant.now(), () -> {
                                     db.addTask(id,n,r,b,w,h,m,ZoneId.systemDefault().getId(),days.toString());
                                     return id;
