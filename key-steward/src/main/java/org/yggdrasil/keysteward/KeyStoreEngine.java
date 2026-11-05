@@ -84,7 +84,6 @@ final class KeyStoreEngine {
 
     static Verification verify(InputStream source, char[] password) throws Exception {
         if (source == null) throw new IllegalArgumentException("No keystore selected");
-        ensureProvider();
         KeyStore store = KeyStore.getInstance("PKCS12", PROVIDER);
         store.load(source, password);
         if (!store.containsAlias(ALIAS) || !store.isKeyEntry(ALIAS)) {
