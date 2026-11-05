@@ -1,10 +1,12 @@
 package org.yggdrasil.scheduler.builder;
 
 import android.content.Context;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -23,7 +25,7 @@ public final class BuilderRoleProviderSettings {
         private final BuilderModelProvider delegate;
 
         RoleProvider(BuilderRole role, BuilderModelProvider delegate) {
-            this.routeId = "builder-role-" + role.name().toLowerCase(java.util.Locale.ROOT)
+            this.routeId = "builder-role-" + role.name().toLowerCase(Locale.ROOT)
                     + "-" + delegate.providerId();
             this.delegate = delegate;
         }
@@ -42,7 +44,7 @@ public final class BuilderRoleProviderSettings {
     private SecureBuilderProviderSettings settings(BuilderRole role) {
         if (role == null) throw new IllegalArgumentException("Builder role is required");
         return new SecureBuilderProviderSettings(context,
-                "role_" + role.name().toLowerCase(java.util.Locale.ROOT));
+                "role_" + role.name().toLowerCase(Locale.ROOT));
     }
 
     public SecureBuilderProviderSettings.Configuration configuration(BuilderRole role) {
@@ -87,7 +89,7 @@ public final class BuilderRoleProviderSettings {
         Map<String, BuilderRole> modelOwners = new java.util.HashMap<>();
         for (BuilderRole role : selectedRoles) {
             SecureBuilderProviderSettings.Configuration config = configuration(role);
-            String modelKey = config.model.trim().toLowerCase(java.util.Locale.ROOT);
+            String modelKey = config.model.trim().toLowerCase(Locale.ROOT);
             BuilderRole prior = modelOwners.put(modelKey, role);
             if (prior != null)
                 throw new IllegalStateException("Selected Builders " + prior.getDisplayName()
@@ -97,29 +99,47 @@ public final class BuilderRoleProviderSettings {
     }
 
     /**
-     * Baldr must use a different configured endpoint/model pair from every
-     * configured non-Baldr role. This is a minimum routing safeguard; it cannot
-     * prove the provider's ownership, model lineage, or infrastructure isolation.
+     * Baldr must use a different canonical endpoint and model ID from every
+     * configured non-Baldr role. Canonical comparison catches cosmetic URL
+     * differences (host case, default HTTPS port, dot segments, trailing slash).
+     * This remains a configuration safeguard, not proof of provider ownership,
+     * model lineage, or infrastructure isolation.
      */
     public boolean hasDistinctBaldrRoute() {
         SecureBuilderProviderSettings.Configuration baldr = configuration(BuilderRole.BALDR);
         if (baldr == null) return false;
         boolean hasOtherRoute = false;
+        String baldrEndpoint = canonicalEndpointKey(baldr.endpoint);
+        String baldrModel = baldr.model.trim().toLowerCase(Locale.ROOT);
         for (BuilderRole role : BuilderRole.values()) {
             if (role == BuilderRole.BALDR) continue;
             SecureBuilderProviderSettings.Configuration other = configuration(role);
             if (other == null) continue;
             hasOtherRoute = true;
-            if (baldr.endpoint.equals(other.endpoint) || baldr.model.equals(other.model))
+            if (baldrEndpoint.equals(canonicalEndpointKey(other.endpoint))
+                    || baldrModel.equals(other.model.trim().toLowerCase(Locale.ROOT)))
                 return false;
         }
         return hasOtherRoute;
     }
 
+    private static String canonicalEndpointKey(String endpoint) {
+        URI uri = URI.create(endpoint).normalize();
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        int port = uri.getPort();
+        if (("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80))
+            port = -1;
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        while (path.length() > 1 && path.endsWith("/"))
+            path = path.substring(0, path.length() - 1);
+        return scheme + "://" + host + (port < 0 ? "" : ":" + port) + path;
+    }
+
     public void requireIndependentBaldrRoute() {
         if (!hasDistinctBaldrRoute())
             throw new IllegalStateException("Baldr requires its own configured route and a different "
-                    + "endpoint AND model from every configured non-Baldr role. This does not prove "
+                    + "canonical endpoint AND model from every configured non-Baldr role. This does not prove "
                     + "provider ownership or infrastructure independence.");
     }
 
