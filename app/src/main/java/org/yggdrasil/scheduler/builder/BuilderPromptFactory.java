@@ -66,7 +66,7 @@ public final class BuilderPromptFactory {
                 .append("Do not execute actions or imply that a recorded decision grants permission.\n")
                 .append("Before proposing a capability-dependent action, identify its exact capability in the shared operational limits snapshot.\n")
                 .append("Honor each gate_decision: BLOCKED means do not retry or recommend that action; RECHECK_REQUIRED means do not assume availability; PROCEED_WITH_CONSTRAINTS means stay within the recorded constraints; PROCEED means the snapshot records availability, subject to separate user authorization.\n")
-                .append("If register_status is UNAVAILABLE, or the relevant capability has no exact record, treat its availability as unknown and ask for a targeted authoritative check before recommending action.\\n")
+                .append("If register_status is UNAVAILABLE, or the relevant capability has no exact record, treat its availability as unknown and ask for a targeted authoritative check before recommending action.\n")
                 .append("A capability absent from the snapshot is unknown, never implicitly available. The snapshot is not live telemetry; state its age and request a fresh authoritative check when material.\n")
                 .append("Never suggest deleting tasks, spending money, changing plans/settings, or bypassing provider limits to create capacity.\n");
         if (navigatingDifficultSpaces) {
