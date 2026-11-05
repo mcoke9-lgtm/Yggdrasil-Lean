@@ -25,7 +25,7 @@ process.stdout.write(JSON.stringify({
   event: builderRuntime.configured ? "nine_builders_executor_registered" : "nine_builders_executor_unconfigured",
   reason: builderRuntime.reason ?? null,
   builderStateFile: builderRuntime.builderStateFile ?? null
-}) + "\\n");
+}) + "\n");
 scheduler.registerHandler("system.heartbeat", async (_payload, context) => {
   process.stdout.write(JSON.stringify({
     event: "scheduled_heartbeat",
