@@ -142,6 +142,19 @@ def main() -> int:
     if set(evaluation_design.get("evaluator_builder_ids", [])) & set(evaluation_design.get("independent_verifier_builder_ids", [])):
         print("FAIL analytical evaluator and independent verifier roles must be distinct")
         failures += 1
+    if evaluation_design.get("evaluator_selection_status") != "not_selected" or evaluation_design.get("evaluator_model_artifact_refs") != []:
+        print("FAIL no independent evaluator artifact may be implied before it is registered")
+        failures += 1
+    if evaluation_design.get("builder_roles_are_independent_model_artifacts") is not False:
+        print("FAIL Builder role prompts must not be misrepresented as independent model artifacts")
+        failures += 1
+    expansion = study.get("expansion_blueprint", {})
+    if expansion.get("status") != "planned" or expansion.get("reconstruction_claim") != "not_selected":
+        print("FAIL expansion blueprint must remain planned until dependencies and recovery evidence are registered")
+        failures += 1
+    if expansion.get("student_weights_alone_sufficient") is not False:
+        print("FAIL student weights alone must not be represented as sufficient to reconstruct a larger model")
+        failures += 1
     if evaluation_design.get("model_self_evaluation_is_sufficient") is not False:
         print("FAIL candidate model must not be its own sole evaluator")
         failures += 1
