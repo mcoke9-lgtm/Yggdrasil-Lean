@@ -78,12 +78,12 @@ public class BuilderProviderRoutingTest {
 
 
     @Test public void provenanceSanitizesCarriageReturnAndLineFeedWithoutChangingOtherLetters() throws Exception {
-        FakeProvider provider = new FakeProvider("ven\\ndor");
-        provider.reportedModel = "infer\\rence";
+        FakeProvider provider = new FakeProvider("ven\ndor");
+        provider.reportedModel = "infer\rence";
         BuilderProviderRegistry registry = new BuilderProviderRegistry(
                 Collections.<BuilderModelProvider>singletonList(provider));
         Map<BuilderRole, String> routes = new EnumMap<>(BuilderRole.class);
-        routes.put(BuilderRole.HUGINN, "ven\\ndor");
+        routes.put(BuilderRole.HUGINN, "ven\ndor");
         BuilderModelResponder responder = new BuilderModelResponder(
                 new BuilderProviderRouter(registry, routes), 2048);
         BuilderConversationProtocol.Turn user = new BuilderConversationProtocol.Turn(
