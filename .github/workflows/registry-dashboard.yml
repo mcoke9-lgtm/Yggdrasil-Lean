@@ -38,7 +38,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Validate registry package identities and privacy scope
+      - name: Validate registry package identities, privacy scope, and report handoff
         run: |
           python3 - <<'PY'
           import json, re, pathlib
@@ -54,6 +54,16 @@ jobs:
           for package_id in ids:
               if package_id not in source:
                   raise SystemExit('Dashboard seed missing registered package: '+package_id)
+          required = [
+              'yggdrasil.device-inventory-report', 'schema_version',
+              'captured_at', 'current_signer_sha256', 'signing_history_sha256',
+              'not_found_or_not_visible', 'inspection_error',
+              'ClipboardManager', 'ClipData.newPlainText',
+              'Intent.ACTION_SEND', 'Intent.ACTION_CREATE_DOCUMENT'
+          ]
+          for token in required:
+              assert token in source, 'Missing report handoff feature: '+token
+          assert 'android.permission.INTERNET' not in source
           PY
       - name: Build dashboard
         run: gradle --no-daemon :registry-dashboard:assembleDebug
