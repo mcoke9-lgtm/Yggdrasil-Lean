@@ -28,6 +28,7 @@ public final class BuilderOvernightWorker extends Worker {
     static final String KEY_CYCLE_INTERVAL = "builder_cycle_interval_ms";
     private static final String CHANNEL_ID = "nine_builders_overnight";
     private static final int NOTIFICATION_ID = 9401;
+    private static final long MINIMUM_CYCLE_BUDGET_MILLIS = 12L * 60L * 1000L;
 
     public BuilderOvernightWorker(Context context, WorkerParameters parameters) {
         super(context, parameters);
