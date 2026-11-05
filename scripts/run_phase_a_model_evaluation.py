@@ -234,6 +234,7 @@ def run(args) -> dict:
             "request_count": 1,
         }
         try:
+            model_call_count += 1
             output, usage = request_model(
                 endpoint, args.model, item["system_prompt"], item["user_prompt"],
                 args.timeout, api_key, args.max_tokens
@@ -241,7 +242,6 @@ def run(args) -> dict:
             result["raw_output"] = output
             result["usage"] = usage
             result["status"] = "success"
-            model_call_count += 1
             follow_up = build_handoff_follow_up(bundle, item, output)
             if follow_up:
                 result["request_count"] = 2
@@ -258,6 +258,7 @@ def run(args) -> dict:
                     "usage": {},
                 }
                 try:
+                    model_call_count += 1
                     follow_output, follow_usage = request_model(
                         endpoint, args.model, follow_up["system_prompt"], follow_up["user_prompt"],
                         args.timeout, api_key, args.max_tokens
@@ -270,7 +271,6 @@ def run(args) -> dict:
                     result["status"] = "transport_error"
                 follow_record["latency_ms"] = round((time.monotonic() - follow_clock) * 1000, 2)
                 result["follow_up"] = follow_record
-                model_call_count += 1
         except (RuntimeError, ValueError) as exc:
             result["error"] = str(exc)
         result["latency_ms"] = round((time.monotonic() - clock) * 1000, 2)
@@ -328,7 +328,8 @@ def main() -> int:
             handle.write("\n")
         print(
             f"Run {report['run_id']}: {report['status']}; "
-            f"{report['success_count']}/{report['execution_count']} calls succeeded. "
+            f"{report['success_count']}/{report['execution_count']} capability evaluations succeeded across "
+            f"{report['model_call_count']} attempted model calls. "
             f"Independent review remains pending. Report: {output}"
         )
         return 0 if report["status"] == "completed" else 2
