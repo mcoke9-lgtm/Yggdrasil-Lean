@@ -23,6 +23,16 @@ export async function registerOptionalBuilderRuntime({
     return { configured: false, reason: "BUILDER_EXECUTOR_MODULE is not configured" };
   }
 
+  // Validate state separation before loading any operator-supplied module.
+  // Ledger writes must not race with scheduler task/run writes to the same JSON file.
+  const resolvedSchedulerStateFile = resolve(schedulerStateFile);
+  const builderStateFile = builderStateFilePath
+    ? resolve(builderStateFilePath)
+    : resolve(schedulerStateFile + ".builder-runs.json");
+  if (builderStateFile === resolvedSchedulerStateFile) {
+    throw new Error("Builder run ledger must use a separate state file from scheduler tasks and runs");
+  }
+
   const moduleUrl = pathToFileURL(resolve(executorModulePath)).href;
   const hostModule = await loadModule(moduleUrl);
   if (typeof hostModule.createBuilderExecutor !== "function") {
@@ -33,15 +43,6 @@ export async function registerOptionalBuilderRuntime({
     throw new TypeError("createBuilderExecutor() must return an async role executor");
   }
 
-  // Keep BuilderRunLedger in a separate file so its load/modify/save operations
-  // cannot overwrite concurrent scheduler task/run updates in scheduler.json.
-  const resolvedSchedulerStateFile = resolve(schedulerStateFile);
-  const builderStateFile = builderStateFilePath
-    ? resolve(builderStateFilePath)
-    : resolve(schedulerStateFile + ".builder-runs.json");
-  if (builderStateFile === resolvedSchedulerStateFile) {
-    throw new Error("Builder run ledger must use a separate state file from scheduler tasks and runs");
-  }
   const ledger = new BuilderRunLedger({ store: new JsonFileStore(builderStateFile) });
   registerBuilderRunHandler(scheduler, { ledger, executor, output });
   return { configured: true, builderStateFile };
