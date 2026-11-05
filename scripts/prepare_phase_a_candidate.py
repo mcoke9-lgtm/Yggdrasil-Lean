@@ -65,6 +65,8 @@ def load_artifact() -> dict:
 
 def preflight(destination: pathlib.Path, artifact: dict) -> dict:
     destination = destination.expanduser().resolve()
+    if destination == ROOT or ROOT in destination.parents:
+        raise ValueError("Model artifacts must be stored outside the repository working tree.")
     parent = destination if destination.exists() else destination.parent
     while not parent.exists() and parent != parent.parent:
         parent = parent.parent
