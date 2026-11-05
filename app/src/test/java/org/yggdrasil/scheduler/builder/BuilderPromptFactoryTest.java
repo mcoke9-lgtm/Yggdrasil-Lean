@@ -207,6 +207,7 @@ public class BuilderPromptFactoryTest {
                 BuilderRole.KVASIR, Collections.singletonList(user), user);
         assertTrue(prompt.systemInstruction.contains("independent scheduler is a first-class project alternative"));
         assertTrue(prompt.systemInstruction.contains("Do not recommend freeing a ChatGPT task slot as the default route"));
+        assertTrue(prompt.systemInstruction.contains("verify the independent scheduler or state the exact capability gap.\nReturn exactly one JSON object"));
     }
 
     @Test public void mariPromptArguesForComplementaryAlternativesAndSurfacesTrueConflicts() {
@@ -223,6 +224,7 @@ public class BuilderPromptFactoryTest {
         assertTrue(mari.systemInstruction.contains("clearly bounded scope"));
         assertTrue(mari.systemInstruction.contains("identify the exact incompatibility"));
         assertTrue(mari.systemInstruction.contains("explain the trade-offs"));
+        assertTrue(mari.systemInstruction.contains("Do not flatten differences or pursue agreement for its own sake.\nReturn exactly one JSON object"));
 
         for (BuilderRole role : BuilderRole.values()) {
             if (role == BuilderRole.MARI) continue;
