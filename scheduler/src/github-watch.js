@@ -130,5 +130,9 @@ export function registerGithubWatch(scheduler, {
       updatedAt: new Date().toISOString(),
       seenCompletedRunIds: merged
     });
+    if (failures.length > 0) {
+      const summary = failures.map(run => `${run.name} #${run.id} (${run.conclusion}) ${run.html_url || ""}`).join("; ");
+      throw new Error(`New GitHub workflow failure(s): ${summary}`);
+    }
   });
 }
