@@ -16,6 +16,8 @@ android {
 
     buildTypes {
         debug {
+            // Keep CI/debug builds installable alongside the existing production app.
+            applicationIdSuffix '.ci'
             if (System.getenv('BUILDER_KEYSTORE_PATH') != null) {
                 signingConfig signingConfigs.disposableCi
             }
