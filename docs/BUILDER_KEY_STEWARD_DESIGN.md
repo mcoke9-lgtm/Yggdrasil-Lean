@@ -1,6 +1,6 @@
 # Builder Key Steward — Design and Safety Gate
 
-**Status:** Android implementation built; disposable-key creation and saved-keystore verification reported successful on the user's Galaxy S21 / Android 15; CI repeat-build signer stability verified. Production migration remains gated.
+**Status:** Android implementation built; disposable-key creation and saved-keystore verification reported successful on the user's Galaxy S21 / Android 15; edge-case unit tests and disposable-key CI signing/repeat-build checks verified. Production migration remains gated.
 **Target:** Standalone Android app for the Samsung Galaxy S21 / Android 15.
 **Application ID:** `org.yggdrasil.keysteward` (reserved for this module).
 **Repository branch:** `builder-key-steward-foundation-001`.
@@ -42,10 +42,12 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 - [x] `apksigner` verifies the APK and the APK signer fingerprint matches the PKCS#12 certificate.
 - [x] Wrong password and altered keystore data are rejected by unit tests.
 - [x] Fingerprint remains identical after export/import.
-- [x] User-initiated Base64 export has explicit confirmation, a 48 KB limit, sensitive clipboard metadata, and a scheduled clear.
-- [x] Repeat APK assembly with the same disposable signing identity produces the same verified signer fingerprint (CI run `42015921585`).
-- [ ] Missing-alias and oversize-secret boundary tests added; CI result pending.
-- [ ] Expired/not-yet-valid certificate rejection test.
+- [x] User-initiated Base64 export has explicit confirmation, a 48 KB encoded-length guard, sensitive clipboard metadata, and a scheduled clear.
+- [x] Repeat APK assembly with the same disposable signing identity produces the same verified signer fingerprint (CI run `42017325650`, commit `37bb6bb89c2cb797a3ecbb680d0927ec43d0d102`).
+- [x] Missing expected PKCS#12 alias is rejected by unit test and CI run `42017325650`.
+- [x] Export-size validator accepts exactly 36 KiB and rejects 36 KiB + 1 byte; unit test passed in CI run `42017325650`.
+- [x] Expired-certificate rejection unit test passed in CI run `42017325650`.
+- [ ] A dedicated automated test of the Base64-encoded 48 KB boundary has not yet been added; the production export path enforces the encoded-length ceiling.
 - [x] User reports disposable keystore creation succeeded on Galaxy S21 / Android 15.
 - [x] User reports the saved keystore was reopened and verified successfully on Galaxy S21 / Android 15.
 - [ ] Permanent key is created only after phone testing and all remaining release gates.
