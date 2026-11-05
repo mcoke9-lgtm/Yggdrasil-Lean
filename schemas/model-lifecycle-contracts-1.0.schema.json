@@ -2744,7 +2744,8 @@
         "started_at",
         "finished_at",
         "evaluations",
-        "limitations"
+        "limitations",
+        "candidate_artifact_validation_state"
       ],
       "properties": {
         "format_id": {
@@ -3012,6 +3013,16 @@
           "items": {
             "$ref": "#/$defs/nonEmpty"
           }
+        },
+        "candidate_artifact_validation_state": {
+          "type": "string",
+          "enum": [
+            "unverified",
+            "checksum_verified",
+            "signature_verified",
+            "compatibility_verified",
+            "rejected"
+          ]
         }
       },
       "additionalProperties": false
@@ -3039,7 +3050,8 @@
         "decision",
         "threshold_status",
         "limitations",
-        "created_at"
+        "created_at",
+        "candidate_artifact_validation_state"
       ],
       "properties": {
         "format_id": {
@@ -3429,6 +3441,15 @@
         },
         "created_at": {
           "$ref": "#/$defs/timestamp"
+        },
+        "candidate_artifact_validation_state": {
+          "type": "string",
+          "enum": [
+            "unverified",
+            "checksum_verified",
+            "signature_verified",
+            "compatibility_verified"
+          ]
         }
       },
       "additionalProperties": false
