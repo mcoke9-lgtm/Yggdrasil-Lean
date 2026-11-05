@@ -14,7 +14,7 @@ A Builder application may have three deliberately separated implementations. The
 | **CI** | Automated, repeatable verification and disposable test operation | Distinct application ID where installable; disposable credentials and test data | Long-lived project member; safe to rebuild and replace |
 | **Development** | Feature work, experiments, diagnostics, and prototypes | Separate application ID when side-by-side installation is useful; synthetic or disposable data | Evolves rapidly; never treated as authoritative |
 
-Not every app needs all three installed on a device. CI may run only in a hosted build environment. Development may be a build variant rather than a separately published app. The separation must be appropriate to the platform and threat model.
+Not every app needs all three installed on a device. CI may run only in a hosted build environment. Development may be a build variant rather than a separately published app. The separation must be appropriate to the platform and threat model. If all three are intended to be installed together, three-way coexistence is a release gate, not an assumption.
 
 ### Builder Key Steward example
 
@@ -23,22 +23,39 @@ Not every app needs all three installed on a device. CI may run only in a hosted
 - The CI build uses a disposable PKCS#12 identity for signing tests. It is not a production key.
 - A separate Development variant is a future option, not yet implemented or approved as a repository change.
 - The CI package is intended to coexist with the existing production installation. It must not update, migrate, or replace it.
+- The current implementation proves only a Production-reserved/CI pair at the source-configuration level. It does not yet prove a three-install arrangement because Development does not exist and pairwise device acceptance has not been completed.
 
 ## 2. Six design rules
 
 ### 2.1 Identity separation
+
 Give independently installable variants distinct application identities and recognizable names. Verify the built artifact's application ID and visible label; do not rely only on Gradle configuration or source declarations.
 
+**Three-install conflict gate (when Production, CI, and Development must coexist):**
+
+- Assign three pairwise-distinct Android `applicationId` values. A different launcher label, module name, Gradle project name, or source namespace alone does not prevent Android from treating two APKs as the same installed application.
+- Give each install a distinct, human-recognizable launcher label and verify the label in the built APK and on the device.
+- Audit manifest-level collision points across all three variants: `ContentProvider` authorities, custom permission names, exported component identities, intent/deep-link filters, app links, account/authenticator or sync-adapter authorities, and any other globally registered Android identifiers. Parameterize authorities/names per variant where they must be unique.
+- Check shared/external storage paths, notification channels, scheduled work identifiers, database names, file names, and backup/restore behavior for cross-variant interference. Keep private app data separate by default; do not introduce shared state without an explicit design.
+- Define signing compatibility deliberately. Distinct package IDs allow side-by-side installs with different signing certificates; updates to the same package must use an accepted signing lineage. Never use a CI/development signer as a production signer.
+- Verify the final merged manifests and built APK metadata, not just source manifests or Gradle declarations.
+- Test all three install orders and pairwise combinations on a clean test device. Confirm install, launch, data isolation, update-in-place for each variant, and uninstall of one variant without damaging the other two. Also test that installing/updating one does not silently replace another.
+- If any role is not meant to be installed, record it as a non-installable build/test environment and exclude it from the three-way device-install claim. Do not claim three-way coexistence until all three installable artifacts have passed.
+
 ### 2.2 Data separation
+
 Use synthetic or disposable data in CI and Development. Prevent test operations from mutating production databases, files, preferences, or device state. Define explicit migration paths rather than treating shared storage as harmless.
 
 ### 2.3 Credential separation
+
 Use disposable credentials in CI and Development. Never copy production secrets into test environments, source control, logs, build artifacts, or chat. Production credentials require a separate, reviewed provisioning process and least-privilege access.
 
 ### 2.4 Repeatable assembly
+
 Build from a known source revision with pinned toolchain/dependency versions where practical. Rebuild and compare the properties that matter: package identity, test results, signature validity, signer fingerprint, and artifact provenance. Byte-for-byte APK equality is not assumed unless the build is designed to be reproducible at that level.
 
 ### 2.5 Layered acceptance
+
 Combine automated unit/integration checks with artifact inspection and real-device or real-environment acceptance. Keep the evidence classes distinct:
 - **Proposed:** design intent not yet exercised.
 - **Tested:** a test or check ran; record its scope and result.
@@ -47,6 +64,7 @@ Combine automated unit/integration checks with artifact inspection and real-devi
 - **Pending / blocked / not done:** retain these states instead of converting them into success.
 
 ### 2.6 Recoverability
+
 Before consequential changes, establish backups, restoration tests, migration boundaries, and a known-good rollback route. Two copies count as independent backups only when their failure modes and retention locations are meaningfully independent. Never remove the prior working installation as a shortcut around a failed update or signature mismatch.
 
 ## 3. Recommended development sequence
@@ -55,7 +73,7 @@ Before consequential changes, establish backups, restoration tests, migration bo
 2. **Create an isolated CI path:** separate package identity when needed, disposable test data, disposable credentials, and restricted permissions.
 3. **Automate checks:** tests, static safety checks, build, artifact inspection, signature/fingerprint checks where relevant, and artifact retention.
 4. **Add a Development path only when useful:** keep experiments isolated; promote changes through review and CI rather than copying experimental state into production.
-5. **Perform real-environment acceptance:** install the intended artifact, confirm the visible identity, test normal and negative paths, and record user-confirmed observations separately.
+5. **Perform real-environment acceptance:** install the intended artifact, confirm the visible identity, test normal and negative paths, and record user-confirmed observations separately. If three variants are intended to coexist, execute the full three-way conflict gate above.
 6. **Review recovery before release or migration:** verify backups and restoration, document rollback, and obtain explicit approval for production credential or data changes.
 
 ## 4. Security and authority boundaries
@@ -79,6 +97,7 @@ The current Builder Key Steward work demonstrates several parts of this pattern:
 - The user reported that the two app installations were difficult to distinguish and that the export process was unclear. The CI launcher label addresses the first issue. The export flow still requires clearer user-facing explanation and physical cancellation/clipboard acceptance.
 - Export-cancellation and clipboard-clear rehearsals remain pending. Two independently retained encrypted backups, production-key creation, formal security review, and production migration remain not done and gated.
 - The separate Development implementation is a possible future role; it has not been created by this document.
+- Three-way installation conflict testing is **not done**. Only the CI identity is currently configured as a distinct installable variant; the Development variant is absent. Do not interpret successful CI installation alongside Production as proof of a three-install arrangement.
 
 This case study supports the value of identity separation and automated build validation. It does not yet establish that the full pattern is proven or sufficient for other applications.
 
@@ -91,4 +110,4 @@ Treat this document as a reusable starting standard, not a rigid architecture. B
 - record the first real-world acceptance results; and
 - revise the pattern when a second application reveals missing or unnecessary rules.
 
-**Integrity checkpoint:** three roles are defined; six rules are present; proposed design is distinguished from tested and user-confirmed evidence; no production credential or migration work is authorized; cross-application validation remains open.
+**Integrity checkpoint:** three roles are defined; six rules are present; three-way install collision checks are an explicit gate when all roles must coexist; proposed design is distinguished from tested and user-confirmed evidence; no production credential or migration work is authorized; cross-application validation remains open.
