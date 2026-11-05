@@ -51,6 +51,25 @@ class PhaseARunnerTests(unittest.TestCase):
             self.assertIn(item["builder_id"], item["system_prompt"])
             self.assertIn("I am ", item["user_prompt"])
 
+    def test_candidate_run_requires_registered_artifact_and_exact_revision(self):
+        from types import SimpleNamespace
+        base = dict(
+            endpoint="http://127.0.0.1:8000/v1/chat/completions",
+            allow_remote=False,
+            model="mock-model",
+            revision="2fc06364715b967f1860aea9cf38778875588b17",
+            output=ROOT / "unused.json",
+            timeout=10,
+            max_tokens=128,
+            limit=1,
+        )
+        unknown = SimpleNamespace(**{**base, "artifact_id": "artifact.unknown"})
+        with self.assertRaisesRegex(ValueError, "must exist"):
+            runner.run(unknown)
+        wrong_revision = SimpleNamespace(**{**base, "artifact_id": "artifact.qwen3_5_0_8b.bf16", "revision": "wrong-revision"})
+        with self.assertRaisesRegex(ValueError, "must match"):
+            runner.run(wrong_revision)
+
     def test_handoff_receiver_turn_is_a_separate_builder_identity(self):
         bundle = self.bundle
         plan = runner.build_evaluation_plan(bundle, self.suite)
