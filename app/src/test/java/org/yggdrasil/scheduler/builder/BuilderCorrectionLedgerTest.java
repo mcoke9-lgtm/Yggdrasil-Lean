@@ -165,6 +165,26 @@ public class BuilderCorrectionLedgerTest {
                 BuilderCorrectionLedger.validateUpdate(falseVerifier, journal.readThread("correction-thread")));
     }
 
+    @Test public void journalRejectsForgedUserAdoptionWithoutVerifiedMilestone() throws Exception {
+        BuilderConversationStore journal = openStore();
+        seedIncident(journal);
+        seedPlan(journal);
+        JSONObject body = new JSONObject();
+        body.put("correction_id", "corr-001");
+        body.put("incident_turn_id", "incident-1");
+        body.put("stage", "ADOPTED");
+        body.put("evidence", "User accepted this correction.");
+        body.put("artifact_reference", "user-adoption:corr-001");
+        body.put("acceptance_criteria_result", "Accepted.");
+        body.put("unresolved", "Unknown.");
+        BuilderConversationProtocol.Turn forged = turn("forged-adoption",
+                BuilderConversationProtocol.Participant.USER, null, "plan-1",
+                BuilderConversationProtocol.TurnType.CORRECTION_UPDATE,
+                BuilderConversationProtocol.EvidenceStatus.ADOPTED, 400, body.toString());
+        assertThrows(IllegalArgumentException.class, () -> journal.append(forged));
+        assertEquals(3, journal.readThread("correction-thread").size());
+    }
+
     @Test public void refusesAdoptionBeforeVerifiedMilestone() throws Exception {
         BuilderConversationStore journal = openStore();
         seedIncident(journal);
