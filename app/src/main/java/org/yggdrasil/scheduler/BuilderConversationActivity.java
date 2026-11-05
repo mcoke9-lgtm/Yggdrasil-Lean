@@ -239,23 +239,31 @@ public final class BuilderConversationActivity extends Activity {
 
     private void chooseThread() {
         if (busy) return;
-        BuilderConversationStore store = new BuilderConversationStore(getApplicationContext());
-        try {
-            List<String> ids = store.listThreadIds();
-            if (ids.isEmpty()) {
-                status.setText("No saved conversation threads yet.");
-                return;
+        status.setText("Loading saved thread list from Builder-native host…");
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<String> ids = journal.listThreadIds();
+                if (!destroyed) runOnUiThread(() -> {
+                    if (ids.isEmpty()) {
+                        status.setText("No saved conversation threads yet.");
+                        return;
+                    }
+                    String[] labels = ids.toArray(new String[0]);
+                    new AlertDialog.Builder(this).setTitle("Open saved conversation")
+                            .setItems(labels, (dialog, which) -> {
+                                setActiveThread(labels[which]);
+                                refreshHistory();
+                                status.setText("Loaded saved conversation history from Builder-native host.");
+                            }).setNegativeButton("Cancel", null).show();
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Could not load threads from Builder-native host: " + failure.getMessage()));
+            } finally {
+                journal.close();
             }
-            String[] labels = ids.toArray(new String[0]);
-            new AlertDialog.Builder(this).setTitle("Open saved conversation")
-                    .setItems(labels, (dialog, which) -> {
-                        setActiveThread(labels[which]);
-                        refreshHistory();
-                        status.setText("Loaded saved conversation history.");
-                    }).setNegativeButton("Cancel", null).show();
-        } finally {
-            store.close();
-        }
+        });
     }
 
     private static final int REQUEST_EXPORT_BACKUP = 901;
@@ -277,45 +285,66 @@ public final class BuilderConversationActivity extends Activity {
         if (requestCode != REQUEST_EXPORT_BACKUP || resultCode != RESULT_OK
                 || data == null || data.getData() == null) return;
         Uri destination = data.getData();
-        BuilderConversationStore store = new BuilderConversationStore(getApplicationContext());
-        try {
-            String snapshot = store.exportSnapshot().toString(2);
-            try (OutputStream output = getContentResolver().openOutputStream(destination)) {
-                if (output == null) throw new java.io.IOException("Could not open selected backup destination");
-                output.write(snapshot.getBytes(StandardCharsets.UTF_8));
-                output.flush();
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                String snapshot = journal.exportSnapshot().toString(2);
+                try (OutputStream output = getContentResolver().openOutputStream(destination)) {
+                    if (output == null) throw new java.io.IOException("Could not open selected backup destination");
+                    output.write(snapshot.getBytes(StandardCharsets.UTF_8));
+                    output.flush();
+                }
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Conversation backup exported from Builder-native host. Keep the JSON file somewhere safe."));
+            } catch (Exception e) {
+                if (!destroyed) runOnUiThread(() -> status.setText(
+                        "Backup export failed: " + e.getClass().getSimpleName()
+                                + ". Existing conversation history remains in Builder-native host."));
+            } finally {
+                journal.close();
             }
-            status.setText("Conversation backup exported. Keep the JSON file somewhere safe before replacing this app.");
-        } catch (Exception e) {
-            status.setText("Backup export failed: " + e.getClass().getSimpleName()
-                    + ". Existing conversation history remains on this device.");
-        } finally {
-            store.close();
-        }
+        });
     }
 
     private void refreshHistory() {
         if (history == null || busy) return;
         history.removeAllViews();
-        BuilderConversationStore store = new BuilderConversationStore(getApplicationContext());
-        try {
-            List<BuilderConversationProtocol.Turn> turns = store.readThread(activeThreadId);
-            if (turns.isEmpty()) {
-                history.addView(text("This thread is empty. Send a message to begin.", 13));
-                return;
+        history.addView(text("Loading canonical history from Builder-native host…", 13));
+        final String threadId = activeThreadId;
+        executor.execute(() -> {
+            BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
+            try {
+                List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
+                if (!destroyed) runOnUiThread(() -> {
+                    if (history == null || !threadId.equals(activeThreadId)) return;
+                    history.removeAllViews();
+                    if (turns.isEmpty()) {
+                        history.addView(text("This thread is empty. Send a message to begin.", 13));
+                        return;
+                    }
+                    for (BuilderConversationProtocol.Turn turn : turns) {
+                        String speaker = turn.speaker == BuilderConversationProtocol.Participant.USER
+                                ? "You" : displayName(turn.speaker.name());
+                        String recipient = turn.recipient == null ? "" : " → " + displayName(turn.recipient.name());
+                        TextView item = text(speaker + recipient + " · " + turn.type.name()
+                                + " · " + turn.evidenceStatus.name() + "\n" + turn.body, 14);
+                        item.setPadding(0, 10, 0, 14);
+                        history.addView(item);
+                    }
+                });
+            } catch (Exception failure) {
+                if (!destroyed) runOnUiThread(() -> {
+                    if (history != null) {
+                        history.removeAllViews();
+                        history.addView(text("Builder-native history unavailable: "
+                                + failure.getMessage(), 13));
+                    }
+                    status.setText("Builder-native host journal read failed.");
+                });
+            } finally {
+                journal.close();
             }
-            for (BuilderConversationProtocol.Turn turn : turns) {
-                String speaker = turn.speaker == BuilderConversationProtocol.Participant.USER
-                        ? "You" : displayName(turn.speaker.name());
-                String recipient = turn.recipient == null ? "" : " → " + displayName(turn.recipient.name());
-                TextView item = text(speaker + recipient + " · " + turn.type.name()
-                        + " · " + turn.evidenceStatus.name() + "\n" + turn.body, 14);
-                item.setPadding(0, 10, 0, 14);
-                history.addView(item);
-            }
-        } finally {
-            store.close();
-        }
+        });
     }
 
     private static String displayName(String participant) {
