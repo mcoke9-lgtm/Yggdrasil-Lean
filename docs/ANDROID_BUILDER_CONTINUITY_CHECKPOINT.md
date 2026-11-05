@@ -73,3 +73,17 @@ Committed support:
 - User is director and decision authority.
 - Code-production-rate analysis remains parked until meaningful new code accumulates or user reopens it.
 - For new chats, read `docs/ACTIVE_HANDOFF.md` first; it is the concise cross-chat entry point.
+
+
+## Android device self-reporting bridge — 2026-11-05
+
+- User-confirmed target: Samsung Galaxy S21+ variant SM-G996U, Android 15.
+- Source implementation added: `AndroidDeviceInventory` collects model/device, Android/API level, supported ABIs, processor count, total/available RAM, and data-volume total/available storage.
+- Runtime health response carries the versioned inventory over the existing local, non-exported Messenger IPC. The conversation screen displays the detected device details automatically.
+- Privacy boundary: no serial number, Android ID, IMEI, phone number, location, Wi-Fi identifier, account data, installed-app inventory, or filesystem contents. No new Android permission and no cloud upload.
+- A dedicated refresh message is also defined. The current UI obtains the report on runtime connection.
+- Added Robolectric assertions for inventory schema, capability declaration, platform values, and excluded identifiers.
+- Implementation and documentation are committed on this branch. Android CI run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42051226557
+- **Current status:** CI was observed in progress at the last check; build/test result not yet known. No new APK is ready or installed. No physical-device inventory has yet been read by the new code.
+- **Next gate:** wait for CI. If it passes, inspect the generated APK and signer certificate. Do not ask the user to uninstall or replace the currently installed Builder Host until stable signing is verified and a fresh backup/migration plan is ready.
+- **Interoperability still pending:** portable cross-host capability envelope and authenticated sync between phone, free cloud and NUC. This change is local self-reporting only.
