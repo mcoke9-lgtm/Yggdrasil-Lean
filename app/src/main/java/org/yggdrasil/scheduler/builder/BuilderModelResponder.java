@@ -49,7 +49,7 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
         String providerId = provider.providerId().replaceAll("[\\\\r\\\\n]", "_");
         String modelId = completion.modelId.replaceAll("[\\\\r\\\\n]", "_");
         String provenance = "[MODEL_PROVENANCE role=" + role.name()
-                + " provider=" + providerId + " reported_model=" + modelId + "]\\n";
+                + " provider=" + providerId + " reported_model=" + modelId + "]\n";
         return new BuilderConversationCoordinator.Reply(
                 provenance + parsed.body, parsed.evidenceStatus, parsed.type,
                 parsed.recipient, parsed.replyToTurnId);
