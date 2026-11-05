@@ -134,12 +134,17 @@
       "installation": {
         "status": "unverified",
         "device_id": "galaxy-s21-plus-primary",
-        "evidence": "Not installed; corrected selectable-text build is being verified through CI."
+        "evidence": "CI build artifact retrieved and locally inspected; installation on Galaxy S21+ has not been performed or verified."
       },
       "build": {
-        "status": "built_source",
+        "status": "ci_build_verified",
         "source_commit": "5f6c7f498faf409b3dd49361aa402f334bd21668",
-        "corrected_artifact_status": "CI pending at last check"
+        "workflow_run_id": 42060148545,
+        "artifact_id": 13431701343,
+        "artifact_name": "installed-signer-diagnostic-apk",
+        "artifact_archive_sha256": "36e32ae1797964659c7b89a8083659ede3786168da15f87ed94840e5252c57d4",
+        "apk_sha256": "887ee4de78b8d61f7323737d42e74e22bb12eceb5d6c1b26fcef7d4f3395a41b",
+        "artifact_expires_at": "2026-11-19T15:58:09Z"
       },
       "signing": {
         "installed_signer_sha256": null,
@@ -147,7 +152,7 @@
         "status": "unknown"
       },
       "permissions": [],
-      "evidence_notes": "Diagnostic is scoped to exactly the two named packages. It is a separate utility and does not change either inspected app."
+      "evidence_notes": "Corrected build passed all 8 workflow steps, including package identity, exact query scope, offline permission checks, and artifact upload. APK archive contents and APK SHA-256 independently inspected. Not installed."
     }
   ],
   "relationships": [
@@ -171,6 +176,7 @@
     "created_on": "2026-11-05",
     "created_from": "conversation context and repository source inspection",
     "last_device_inventory": null,
-    "notes": "Initial seed only. All app installation states require device-side confirmation before being upgraded to device_verified_installed."
+    "notes": "Initial seed only. All app installation states require device-side confirmation before being upgraded to device_verified_installed.",
+    "last_updated_on": "2026-11-05"
   }
 }
