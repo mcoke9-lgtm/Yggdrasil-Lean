@@ -1,6 +1,6 @@
 # Builder Key Steward — Design and Safety Gate
 
-**Status:** Foundation design; implementation not yet verified.
+**Status:** Android implementation built and CI-verified with disposable signing material; phone validation and production migration remain gated.
 **Target:** Standalone Android app for the Samsung Galaxy S21 / Android 15.
 **Application ID:** `org.yggdrasil.keysteward` (reserved for this module).
 **Repository branch:** `builder-key-steward-foundation-001`.
@@ -15,7 +15,7 @@ Provide a phone-only, offline-capable way to create, protect, back up, inspect, 
 2. Store the key in an encrypted PKCS#12 keystore.
 3. Save/export through Android's Storage Access Framework; no broad storage permission.
 4. Re-open and verify the exported keystore, alias, private-key presence, certificate dates, algorithm, and SHA-256 certificate fingerprint.
-5. Encode the verified keystore for a user-initiated GitHub secret transfer, with a 48 KB size check, Android sensitive-clipboard marking, and a scheduled clipboard clear.
+5. After explicit confirmation, encode the exact verified keystore bytes for GitHub secret transfer, with a 48 KB size check, Android sensitive-clipboard marking, and a scheduled clipboard clear.
 
 ## Security decisions
 
@@ -36,13 +36,16 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 
 ## Release gates
 
-- [ ] Standalone app builds without changing Builder Host or Scheduler behavior.
+- [x] Standalone app builds without changing Builder Host or Scheduler behavior.
 - [x] Disposable-key generation and PKCS#12 export/import round-trip pass in CI.
-- [ ] Disposable PKCS#12 is used by Gradle to sign a test APK and its signer fingerprint matches the keystore.
-- [ ] Wrong password, altered file, missing alias, expired/not-yet-valid certificate, and oversize secret cases fail safely.
-- [ ] Fingerprint remains identical after export/import.
-- [ ] GitHub Actions can sign a disposable test APK with PKCS#12; repeat build has the same signer digest.
-- [ ] Permanent key is created only after the above.
+- [x] Bouncy Castle-generated disposable PKCS#12 is loaded by the JDK provider and used by Gradle to sign a test APK.
+- [x] `apksigner` verifies the APK and the APK signer fingerprint matches the PKCS#12 certificate.
+- [x] Wrong password and altered keystore data are rejected by unit tests.
+- [x] Fingerprint remains identical after export/import.
+- [x] User-initiated Base64 export has explicit confirmation, a 48 KB limit, sensitive clipboard metadata, and a scheduled clear.
+- [ ] Missing-alias, expired/not-yet-valid certificate, oversize-secret, and repeat-build signer-digest tests.
+- [ ] Install and exercise the disposable build on the user's Galaxy S21.
+- [ ] Permanent key is created only after phone testing and all remaining release gates.
 - [ ] At least two independently retained encrypted backups are confirmed by the user before migration.
 
 ## Explicit non-goals
