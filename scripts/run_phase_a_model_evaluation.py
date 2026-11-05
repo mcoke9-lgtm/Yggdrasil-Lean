@@ -285,6 +285,9 @@ def run(args) -> dict:
         "status": status,
         "candidate_model_id": args.model,
         "candidate_revision": args.revision,
+        "candidate_revision_status": "operator_supplied_unverified",
+        "scope": "full_suite" if args.limit is None else "smoke_test",
+        "planned_execution_count": 63,
         "endpoint_origin": endpoint_origin,
         "request_config": {
             "temperature": 0,
