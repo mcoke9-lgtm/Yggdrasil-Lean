@@ -125,11 +125,13 @@ public final class BuilderOvernightWorker extends Worker {
                     "Eight-hour window ended or no further cycle fits.", System.currentTimeMillis());
             return Result.success();
         } catch (Exception failure) {
-            try {
-                runStore.setStatus(runId, "INTERRUPTED",
-                        "Cycle failed or host was interrupted: " + safeMessage(failure),
-                        System.currentTimeMillis());
-            } catch (Exception ignored) { }
+            if (!isStopped()) {
+                try {
+                    runStore.setStatus(runId, "INTERRUPTED",
+                            "Cycle failed or host was interrupted: " + safeMessage(failure),
+                            System.currentTimeMillis());
+                } catch (Exception ignored) { }
+            }
             return Result.failure();
         } finally {
             if (journal != null) journal.close();
