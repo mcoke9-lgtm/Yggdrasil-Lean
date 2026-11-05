@@ -515,9 +515,11 @@ public final class BuilderConversationActivity extends Activity {
                                 sendButton.setEnabled(false);
                                 messageInput.setEnabled(false);
                                 executor.execute(() -> {
+                                    BuilderConversationJournal adoptionJournal =
+                                            new BuilderRuntimeJournalClient(getApplicationContext());
                                     try {
                                         org.yggdrasil.scheduler.builder.BuilderCorrectionLedger
-                                                .recordUserAdoption(journal, threadId, correctionId);
+                                                .recordUserAdoption(adoptionJournal, threadId, correctionId);
                                         if (!destroyed) runOnUiThread(() -> {
                                             busy = false;
                                             sendButton.setEnabled(true);
@@ -533,6 +535,8 @@ public final class BuilderConversationActivity extends Activity {
                                             messageInput.setEnabled(true);
                                             status.setText("Adoption was not recorded: " + failure.getMessage());
                                         });
+                                    } finally {
+                                        adoptionJournal.close();
                                     }
                                 });
                             }).show();
