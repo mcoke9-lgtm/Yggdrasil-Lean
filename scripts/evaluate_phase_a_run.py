@@ -248,6 +248,8 @@ def run(args) -> dict:
     if args.evaluator_model == args.candidate_model_id:
         raise ValueError("Evaluator model ID must differ from the candidate model ID.")
     report = load_json(args.execution_report)
+    if report.get("candidate_artifact_id") != args.candidate_artifact_id:
+        raise ValueError("Candidate artifact ID must match the source execution report.")
     bundle = load_json(BUNDLE_PATH)
     suite = load_json(SUITE_PATH)
     rubric = load_json(RUBRIC_PATH)
