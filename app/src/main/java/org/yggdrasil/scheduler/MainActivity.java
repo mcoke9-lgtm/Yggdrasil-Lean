@@ -296,10 +296,18 @@ public final class MainActivity extends Activity {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save configuration", (d, which) -> {
                     try {
+                        String selectedProviderId = providerId.getText().toString().trim();
+                        String selectedEndpoint = endpoint.getText().toString().trim();
                         String secret = token.getText().toString();
-                        if (secret.trim().isEmpty() && current != null && current.hasCredential)
+                        // Never carry a saved bearer token to a different provider or endpoint.
+                        boolean sameCredentialDestination =
+                                SecureBuilderProviderSettings.canReuseCredential(
+                                        current, selectedProviderId, selectedEndpoint);
+                        if (secret.trim().isEmpty() && current != null && current.hasCredential
+                                && sameCredentialDestination) {
                             secret = settings.readToken();
-                        settings.save(providerId.getText().toString(), endpoint.getText().toString(),
+                        }
+                        settings.save(selectedProviderId, selectedEndpoint,
                                 model.getText().toString(), secret);
                         providerStatus.setText(providerConfigurationSummary());
                         builderStatus.setText("Provider configuration saved locally. No connection was attempted.");
