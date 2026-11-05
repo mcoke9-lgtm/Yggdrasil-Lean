@@ -422,7 +422,7 @@ public final class BuilderConversationActivity extends Activity {
         final List<BuilderRole> roles = new ArrayList<>(selectedRoles);
 
         executor.execute(() -> {
-            BuilderConversationStore store = null;
+            BuilderConversationJournal store = null;
             try {
                 SecureBuilderProviderSettings settings =
                         new SecureBuilderProviderSettings(getApplicationContext());
@@ -434,7 +434,7 @@ public final class BuilderConversationActivity extends Activity {
                 for (BuilderRole role : BuilderRole.values()) routes.put(role, provider.providerId());
                 BuilderProviderRouter router = new BuilderProviderRouter(registry, routes);
                 BuilderModelResponder responder = new BuilderModelResponder(router, 2048);
-                store = new BuilderConversationStore(getApplicationContext());
+                store = new BuilderRuntimeJournalClient(getApplicationContext());
                 BuilderConversationCoordinator coordinator =
                         new BuilderConversationCoordinator(store, responder);
                 BuilderConversationCoordinator.Result result =
