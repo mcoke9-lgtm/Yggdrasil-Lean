@@ -55,7 +55,7 @@ public final class BuilderConversationActivity extends Activity {
     private static final String UI_PREFS = "builder_conversation_ui";
     private static final String KEY_THREAD = "active_thread_id";
     private static final String KEY_DISCLOSURE = "approved_endpoint_model";
-    private static final String KEY_SENSITIVE_DISCLOSURE = "sensitive_disclosure_declared";
+    private static final String KEY_SENSITIVE_DISCLOSURE_PREFIX = "sensitive_disclosure_declared_";
     private final Map<BuilderRole, CheckBox> roleChecks = new EnumMap<>(BuilderRole.class);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private LinearLayout root;
@@ -241,10 +241,10 @@ public final class BuilderConversationActivity extends Activity {
         sensitiveDisclosureCheck = new CheckBox(this);
         sensitiveDisclosureCheck.setText("This message OR saved thread history contains sensitive or confidential information — require one-time approval for this submission");
         sensitiveDisclosureCheck.setChecked(getSharedPreferences(UI_PREFS, MODE_PRIVATE)
-                .getBoolean(KEY_SENSITIVE_DISCLOSURE, false));
+                .getBoolean(sensitiveDisclosurePreferenceKey(), false));
         sensitiveDisclosureCheck.setOnCheckedChangeListener((buttonView, checked) ->
                 getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
-                        .putBoolean(KEY_SENSITIVE_DISCLOSURE, checked).apply());
+                        .putBoolean(sensitiveDisclosurePreferenceKey(), checked).apply());
         root.addView(sensitiveDisclosureCheck);
         root.addView(text("This is a user-declared safeguard, not automatic content detection. Mark it if either the new message or any saved history sent with it is sensitive.", 12));
         sendButton = button("Send to selected Builders", this::requestSend);
@@ -255,9 +255,18 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(status);
     }
 
+    private String sensitiveDisclosurePreferenceKey() {
+        return KEY_SENSITIVE_DISCLOSURE_PREFIX + activeThreadId;
+    }
+
     private void setActiveThread(String id) {
         activeThreadId = id;
         getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit().putString(KEY_THREAD, id).apply();
+        if (sensitiveDisclosureCheck != null) {
+            boolean declared = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
+                    .getBoolean(sensitiveDisclosurePreferenceKey(), false);
+            sensitiveDisclosureCheck.setChecked(declared);
+        }
         updateThreadLabel();
     }
 
