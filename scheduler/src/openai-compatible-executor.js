@@ -287,6 +287,44 @@ async function readLimitedResponse(response, signal) {
   return new TextDecoder().decode(merged);
 }
 
+function unavailableOperationalLimitsSnapshot(reason) {
+  return {
+    schema: "yggdrasil.operational-capacity-runtime-snapshot",
+    register_status: "UNAVAILABLE",
+    live_telemetry: false,
+    unlisted_capability_decision: "RECHECK_REQUIRED",
+    reason,
+    constraints: []
+  };
+}
+
+function validateOperationalLimitsSnapshot(value) {
+  if (value == null) return unavailableOperationalLimitsSnapshot("No host operational-limits snapshot was supplied.");
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+      !Array.isArray(value.constraints) || value.unlisted_capability_decision !== "RECHECK_REQUIRED") {
+    return unavailableOperationalLimitsSnapshot("Operational-limits snapshot is malformed; availability remains unknown.");
+  }
+  if (value.register_status === "UNAVAILABLE") {
+    if (value.schema !== "yggdrasil.operational-capacity-runtime-snapshot" || value.live_telemetry !== false) {
+      return unavailableOperationalLimitsSnapshot("Unavailable snapshot failed schema checks; availability remains unknown.");
+    }
+    return value;
+  }
+  if (value.register_status === "LOADED") {
+    const evaluation = value.runtime_evaluation;
+    if (value.schema !== "yggdrasil.operational-capacity-register" ||
+        value.schema_version !== "1.0.0" ||
+        !evaluation || typeof evaluation !== "object" ||
+        evaluation.live_telemetry !== false ||
+        evaluation.unlisted_capability_decision !== "RECHECK_REQUIRED" ||
+        !/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluation.evaluated_on || "")) {
+      return unavailableOperationalLimitsSnapshot("Loaded snapshot failed schema or freshness metadata checks; availability remains unknown.");
+    }
+    return value;
+  }
+  return unavailableOperationalLimitsSnapshot("Unknown operational-limits register status; availability remains unknown.");
+}
+
 function validateTask(task, routes, runId) {
   if (!task || typeof task !== "object" || Array.isArray(task)) {
     throw new TypeError("Secure task vault returned no task object");
@@ -317,12 +355,7 @@ function validateTask(task, routes, runId) {
       throw new Error("Task history contains data outside this scheduled run's dedicated thread");
     }
   }
-  const limits = task.operationalLimitsSnapshot == null
-    ? { register_status: "UNAVAILABLE", live_telemetry: false, unlisted_capability_decision: "RECHECK_REQUIRED" }
-    : task.operationalLimitsSnapshot;
-  if (!limits || typeof limits !== "object" || Array.isArray(limits)) {
-    throw new TypeError("Operational-limits snapshot must be a JSON object");
-  }
+  const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
   return { prompt, history, threadId, operationalLimitsSnapshot: limits, consentFingerprint: fingerprint };
 }
