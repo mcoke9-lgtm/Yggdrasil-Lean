@@ -135,15 +135,17 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         BuilderConversationProtocol.validateTurn(turn);
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
+        SQLiteDatabase baseline = baselineConversation();
         try {
             List<BuilderConversationProtocol.Turn> candidate =
-                    readConversationThread(baselineConversation(), turn.threadId);
+                    readConversationThread(baseline, turn.threadId);
             candidate.addAll(readOverlayThread(db, turn.threadId));
             candidate.add(turn);
             BuilderConversationProtocol.validateThread(candidate);
             db.insertOrThrow(TURNS, null, turnValues(turn));
             db.setTransactionSuccessful();
         } finally {
+            baseline.close();
             db.endTransaction();
         }
     }
@@ -174,10 +176,13 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     /** Returns baseline turns followed by overlay turns in append order. */
     public List<BuilderConversationProtocol.Turn> readThread(String threadId) {
         String id = required(threadId, "threadId");
-        List<BuilderConversationProtocol.Turn> merged =
-                readConversationThread(baselineConversation(), id);
-        merged.addAll(readOverlayThread(getReadableDatabase(), id));
-        return Collections.unmodifiableList(merged);
+        SQLiteDatabase baseline = baselineConversation();
+        try {
+            List<BuilderConversationProtocol.Turn> merged =
+                    readConversationThread(baseline, id);
+            merged.addAll(readOverlayThread(getReadableDatabase(), id));
+            return Collections.unmodifiableList(merged);
+        } finally { baseline.close(); }
     }
 
     /** Returns the union of thread IDs, with overlay-active threads first. */
@@ -192,7 +197,7 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         try (Cursor c = base.rawQuery("SELECT thread_id FROM conversation_turns "
                 + "GROUP BY thread_id ORDER BY MAX(_id) DESC", null)) {
             while (c.moveToNext()) ids.add(c.getString(0));
-        }
+        } finally { base.close(); }
         return Collections.unmodifiableList(new ArrayList<>(ids));
     }
 
@@ -241,7 +246,7 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
             SQLiteDatabase base = baselineSubject();
             try (Cursor c = base.query(EVENTS, null, null, null, null, null, "_id ASC")) {
                 while (c.moveToNext()) rows.put(eventJson(eventFromCursor(c)));
-            }
+            } finally { base.close(); }
             SQLiteDatabase overlay = getReadableDatabase();
             try (Cursor c = overlay.query(EVENTS, null, null, null, null, null, "_id ASC")) {
                 while (c.moveToNext()) rows.put(eventJson(eventFromCursor(c)));
