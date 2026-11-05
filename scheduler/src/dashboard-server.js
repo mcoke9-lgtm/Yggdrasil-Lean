@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pagePath = resolve(here, "../public/index.html");
+const stylePath = resolve(here, "../public/styles.css");
+const scriptPath = resolve(here, "../public/app.js");
 const BODY_LIMIT = 16 * 1024;
 
 function send(response, status, body, contentType = "application/json; charset=utf-8") {
@@ -42,15 +44,23 @@ export function createDashboardServer({ scheduler, host = "127.0.0.1", port = 41
       if (request.headers.host !== expectedHost) return send(response, 403, { error: "Host header rejected" });
       const origin = request.headers.origin;
       if (origin && origin !== `http://${expectedHost}`) return send(response, 403, { error: "Cross-origin request rejected" });
-      if (token) {
-        const supplied = request.headers.authorization || "";
-        if (supplied !== `Bearer ${token}`) return send(response, 401, { error: "Dashboard token required" });
-      }
 
       const url = new URL(request.url, `http://${expectedHost}`);
       if (request.method === "GET" && url.pathname === "/") {
         const page = await readFile(pagePath, "utf8");
         return send(response, 200, page, "text/html; charset=utf-8");
+      }
+      if (request.method === "GET" && url.pathname === "/styles.css") {
+        const asset = await readFile(stylePath, "utf8");
+        return send(response, 200, asset, "text/css; charset=utf-8");
+      }
+      if (request.method === "GET" && url.pathname === "/app.js") {
+        const asset = await readFile(scriptPath, "utf8");
+        return send(response, 200, asset, "text/javascript; charset=utf-8");
+      }
+      if (token) {
+        const supplied = request.headers.authorization || "";
+        if (supplied !== `Bearer ${token}`) return send(response, 401, { error: "Dashboard token required" });
       }
       if (request.method === "GET" && url.pathname === "/api/health") {
         return send(response, 200, { status: "ok", observedAt: new Date().toISOString() });
