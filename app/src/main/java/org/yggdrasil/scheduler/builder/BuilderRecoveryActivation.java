@@ -67,9 +67,10 @@ public final class BuilderRecoveryActivation {
                 staged.conversationDataSha256, staged.subjectDataSha256);
 
         File descriptorFile = descriptorFile(app, staged.stagingId);
-        if (descriptorFile.exists()) throw new IllegalStateException("Generation descriptor already exists");
-        String previous = readPointer(app).optString("active_generation_id", "");
-        if (previous.isEmpty()) previous = null;
+        JSONObject currentPointer = readPointer(app);
+        String currentActive = currentPointer.optString("active_generation_id", "");
+        if (staged.stagingId.equals(currentActive)) return getActive(app);
+        String previous = currentActive.isEmpty() ? null : currentActive;
 
         try {
             JSONObject descriptor = new JSONObject();
@@ -84,7 +85,14 @@ public final class BuilderRecoveryActivation {
             descriptor.put("conversation_data_sha256", staged.conversationDataSha256);
             descriptor.put("subject_data_sha256", staged.subjectDataSha256);
             descriptor.put("descriptor_sha256", checksum(descriptor));
-            writeNewAtomic(descriptorFile, descriptor.toString());
+            if (descriptorFile.exists()) {
+                JSONObject existing = readDescriptor(app, staged.stagingId);
+                if (!existing.toString().equals(descriptor.toString()))
+                    throw new IllegalStateException("Existing generation descriptor conflicts with staged pair");
+                descriptor = existing;
+            } else {
+                writeNewAtomic(descriptorFile, descriptor.toString());
+            }
 
             JSONObject pointer = new JSONObject();
             pointer.put("format", FORMAT);
@@ -240,7 +248,9 @@ public final class BuilderRecoveryActivation {
 
     private static void writeNewAtomic(File target, String value) throws Exception {
         File temp = new File(target.getParentFile(), target.getName() + ".tmp");
-        if (target.exists() || temp.exists()) throw new IllegalStateException("Generation file already exists");
+        if (target.exists()) throw new IllegalStateException("Generation file already exists");
+        // A leftover temp is never authoritative; it is safe to discard before retry.
+        if (temp.exists() && !temp.delete()) throw new IllegalStateException("Cannot clear stale generation temp file");
         writeSynced(temp, value);
         Os.rename(temp.getAbsolutePath(), target.getAbsolutePath());
         syncDirectory(target.getParentFile());
