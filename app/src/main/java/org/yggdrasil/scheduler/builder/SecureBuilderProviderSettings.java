@@ -84,6 +84,14 @@ public final class SecureBuilderProviderSettings {
         return new Configuration(id, endpoint, model, preferences.contains(K_TOKEN));
     }
 
+    /** Creates an adapter from the saved configuration; does not make a network request. */
+    public synchronized OpenAiCompatibleModelProvider buildProvider() {
+        Configuration config = readConfiguration();
+        if (config == null) throw new IllegalStateException("No model provider is configured");
+        return new OpenAiCompatibleModelProvider(config.providerId, config.endpoint, config.model,
+                this::readToken, new UrlConnectionModelTransport(), 15000, 60000);
+    }
+
     /** Returns the decrypted token only to the in-process provider credential adapter. */
     public synchronized String readToken() throws Exception {
         String encoded = preferences.getString(K_TOKEN, null);
