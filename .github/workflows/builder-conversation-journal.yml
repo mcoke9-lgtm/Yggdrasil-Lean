@@ -7,12 +7,14 @@ on:
       - operational-snapshot-journal-muninn-pirate-001
       - recovery-integrity-reconciliation-001
       - recovery-drill-preview-001
+      - recovery-drill-interface-001
   pull_request:
     branches:
       - independent-builder-runtime-foundation-001
       - operational-snapshot-journal-muninn-pirate-001
       - recovery-export-provenance-002
       - recovery-integrity-reconciliation-001
+      - recovery-drill-preview-001
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
