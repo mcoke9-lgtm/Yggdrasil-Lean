@@ -81,6 +81,12 @@ function validateRoutes(input) {
       secretRef
     });
   }
+  const modelOwners = new Map();
+  for (const role of BUILDER_ROLES) {
+    const owner = modelOwners.get(routes[role].model);
+    if (owner) throw new Error("Model ID must be unique across Builder roles: " + owner + " and " + role);
+    modelOwners.set(routes[role].model, role);
+  }
   const baldr = routes.BALDR;
   for (const role of BUILDER_ROLES.filter(value => value !== "BALDR")) {
     if (baldr.endpoint === routes[role].endpoint || baldr.model === routes[role].model) {
@@ -147,13 +153,70 @@ function validateBuilderReply(value) {
   const evidenceStatus = requiredText(value.evidence_status, "Builder response evidence_status", 64);
   if (!TURN_TYPES.has(turnType)) throw new Error("Builder response has unsupported turn_type");
   if (!EVIDENCE_STATUSES.has(evidenceStatus)) throw new Error("Builder response has unsupported evidence_status");
-  if (value.evidence_status === "ADOPTED") throw new Error("Builders cannot emit ADOPTED");
+  const allowedRecipients = new Set(["USER", ...BUILDER_ROLES]);
   const recipient = value.recipient == null ? null : requiredText(value.recipient, "Builder response recipient", 32);
+  if (recipient !== null && !allowedRecipients.has(recipient)) throw new Error("Builder response names an unknown recipient");
   const replyToTurnId = value.reply_to_turn_id == null ? null :
     requiredText(value.reply_to_turn_id, "Builder response reply_to_turn_id", 256);
-  if ((STOP_TYPES.has(turnType) || CORRECTION_TYPES.has(turnType)) &&
-      (recipient !== "USER" || !replyToTurnId)) {
-    throw new Error(turnType + " must be addressed to USER and reference an earlier turn");
+  const directedTypes = new Set([
+    "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
+    "RECONCILIATION", "INTERRUPTION", "IMPROVEMENT_INCIDENT",
+    "CORRECTION_PLAN", "CORRECTION_UPDATE"
+  ]);
+  if (directedTypes.has(turnType) && recipient === null) {
+    throw new Error(turnType + " must name a recipient");
+  }
+  if (["CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT", "RECONCILIATION",
+       "INTERRUPTION", "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN", "CORRECTION_UPDATE"].includes(turnType)
+      && !replyToTurnId) {
+    throw new Error(turnType + " must reference an earlier turn");
+  }
+  if ((STOP_TYPES.has(turnType) || CORRECTION_TYPES.has(turnType)) && recipient !== "USER") {
+    throw new Error(turnType + " must be addressed to USER");
+  }
+  const parseBody = (label, requiredFields) => {
+    let parsed;
+    try { parsed = JSON.parse(body); }
+    catch { throw new Error(label + " body must be a JSON object"); }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(label + " body must be a JSON object");
+    }
+    for (const field of requiredFields) requiredText(parsed[field], label + "." + field, 4096);
+    return parsed;
+  };
+  if (turnType === "INTERRUPTION") {
+    const item = parseBody("Interruption", [
+      "stop_state", "observed_constraint", "source_time", "affected_step",
+      "impact", "unknowns", "feasible_alternative",
+      "required_recheck_authorization", "resume_condition"
+    ]);
+    if (!["STOP", "PAUSE"].includes(item.stop_state)) {
+      throw new Error("Interruption stop_state must be STOP or PAUSE");
+    }
+  } else if (turnType === "IMPROVEMENT_INCIDENT") {
+    const item = parseBody("Improvement incident", [
+      "incident_summary", "observed_behavior", "expected_behavior", "evidence",
+      "unknowns", "suspected_causes", "proposed_next_step", "status"
+    ]);
+    if (!["OPEN_DIAGNOSIS", "OPEN_REVIEW"].includes(item.status)) {
+      throw new Error("Improvement incident status must remain OPEN_DIAGNOSIS or OPEN_REVIEW");
+    }
+  } else if (turnType === "CORRECTION_PLAN") {
+    const item = parseBody("Correction plan", [
+      "correction_id", "incident_turn_id", "objective", "acceptance_criteria",
+      "steps", "owner", "rollback_condition", "status"
+    ]);
+    if (item.status !== "PROPOSED" || evidenceStatus !== "PROPOSED") {
+      throw new Error("Correction plan status and evidence_status must be PROPOSED");
+    }
+  } else if (turnType === "CORRECTION_UPDATE") {
+    const item = parseBody("Correction update", [
+      "correction_id", "incident_turn_id", "stage", "evidence",
+      "artifact_reference", "acceptance_criteria_result", "unresolved"
+    ]);
+    if (!["IMPLEMENTED", "TESTED", "VERIFIED"].includes(item.stage) || evidenceStatus !== item.stage) {
+      throw new Error("Correction update evidence_status must match IMPLEMENTED, TESTED, or VERIFIED stage");
+    }
   }
   return { body, turn_type: turnType, evidence_status: evidenceStatus, recipient, reply_to_turn_id: replyToTurnId };
 }
@@ -311,6 +374,9 @@ export function createOpenAiCompatibleExecutor({
         reply,
         completedAt: clock().toISOString()
       });
+      if (saved?.durable !== true) {
+        throw new Error("Task vault did not confirm durable persistence of the Builder result");
+      }
       const checkpointId = requiredText(saved?.checkpointId, "Task vault checkpointId", 256);
       await context.checkpoint({
         checkpointId,
