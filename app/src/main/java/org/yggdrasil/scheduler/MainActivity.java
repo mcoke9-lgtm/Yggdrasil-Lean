@@ -147,20 +147,23 @@ public final class MainActivity extends Activity {
                 rejectionReason = expected.getMessage() == null ? expected.getClass().getSimpleName() : expected.getMessage();
             }
 
-            if (!rejected) {
-                // Defensive recovery: never leave the live journal on the altered test snapshot.
+            org.json.JSONObject immediatelyAfter = journal.exportSnapshot();
+            boolean unchangedImmediately = original.toString().equals(immediatelyAfter.toString());
+            if (!unchangedImmediately) {
+                // Defensive recovery: even an unexpected partial mutation must not be left behind.
                 journal.restoreSnapshot(original);
             }
 
             org.json.JSONObject after = journal.exportSnapshot();
-            boolean unchanged = original.toString().equals(after.toString());
+            boolean restoredOriginal = original.toString().equals(after.toString());
             boolean integrity = journal.verifyChain();
-            if (rejected && unchanged && originalCount == journal.eventCount()
-                    && originalIntegrity && integrity) {
+            if (rejected && unchangedImmediately && restoredOriginal
+                    && originalCount == journal.eventCount() && originalIntegrity && integrity) {
                 builderStatus.setText("Recovery safety test PASSED · altered snapshot rejected · live journal unchanged · chain verified");
             } else {
                 builderStatus.setText("Recovery safety test FAILED · "
-                        + (rejected ? "rejection occurred but journal comparison failed" : "altered snapshot was unexpectedly accepted and original snapshot was restored")
+                        + (unchangedImmediately ? "rejection was not confirmed" : "unexpected mutation detected; original snapshot restored")
+                        + " · original data " + (restoredOriginal ? "preserved" : "NOT CONFIRMED")
                         + " · chain " + (integrity ? "verified" : "FAILED"));
             }
         } catch (Exception e) {
