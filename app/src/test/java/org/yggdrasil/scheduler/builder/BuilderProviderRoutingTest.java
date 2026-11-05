@@ -105,6 +105,8 @@ public class BuilderProviderRoutingTest {
                 new BuilderDisclosureFingerprint.Route(
                         "HUGINN", "a", "https://x/v1", "b|https://y/v1|c")));
         assertNotEquals(first, second);
+        assertTrue(first.contains("builder-prompt-scope-v2"));
+        assertTrue(first.contains("timestamped_operational_limits_snapshot"));
         assertEquals(first, BuilderDisclosureFingerprint.create(Collections.singletonList(
                 new BuilderDisclosureFingerprint.Route(
                         "HUGINN", "a|https://x/v1|b", "https://y/v1", "c"))));
