@@ -89,3 +89,30 @@ Reopen or update this record when:
 | Date | Update | Evidence |
 |---|---|---|
 | 2026-11-05 | Initial incident captured; diagnosis left open; acceptance tests proposed | PR #21 comment 6668290778; PR #24 comments 6668288163 and 6668339484 |
+
+
+## H. Runtime implementation checkpoint — 2026-11-05
+
+A draft runtime implementation is now proposed in [PR #35](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/pull/35), stacked on the protocol documentation PR.
+
+Implemented in the PR branch (not yet merged or deployed):
+- Protocol version 3 adds typed `INTERRUPTION` and `IMPROVEMENT_INCIDENT` events while retaining read compatibility for protocol versions 1 and 2.
+- Every Builder prompt permits a structured interruption; the coordinator appends the event to the existing journal and halts remaining Builder calls in that round.
+- The coordinator reports which Builder interrupted and which selected roles were not run.
+- Structured incident reports are validated and retained as append-only journal turns with status restricted to `OPEN_DIAGNOSIS` or `OPEN_REVIEW`.
+- Kvasir's prompt explicitly assigns operational-constraint stewardship and requires checking the independent scheduler before recommending a ChatGPT task-slot workaround.
+- The shared operational snapshot now records the independent scheduler as a first-class capability with state `unknown`, not available; deployment, credentials, GitHub access, and an actual monitor run still require verification.
+- The ChatGPT task-capacity alternative no longer recommends freeing a ChatGPT slot by default.
+
+### Verification state
+
+- **Implemented:** code and tests exist on PR #35's draft branch.
+- **Tested:** not yet established. Test cases have been added, but no CI run or local test execution is currently visible for the latest commit.
+- **Verified:** not yet.
+- **Adopted:** not yet; PR #35 remains draft and unmerged.
+- **Runtime/device behavior:** not tested on the Galaxy S21 or another device.
+- **Scheduler / PR #33 monitoring:** not activated or verified.
+
+### Remaining diagnosis
+
+The incident's root cause remains open. The runtime change reduces the chance of repeating the same omission by delivering the scheduler as a shared, explicit unknown capability and giving Kvasir direct stewardship instructions. It does not yet prove whether the original failure arose from context delivery, reasoning, or both.
