@@ -378,6 +378,20 @@ The validator has been committed, but **its GitHub Actions result has not yet be
 
 `docs/PHASE_A_PROVIDER_INVENTORY_001.md` records a source-verified inventory of the provider-neutral interface, immutable provider registry, explicit per-role router, OpenAI-compatible HTTP adapter, and device-local encrypted credential settings. The source confirms that the current route is static per Builder role and that no elastic allocator or local inference engine is implemented. Actual device-saved provider/model metadata and endpoint availability remain unknown; no credential values were accessed.
 
+### Reproducible model evaluation runner
+
+`scripts/run_phase_a_model_evaluation.py` converts the nine contracts and 23 fixtures into **63 separate role-assigned executions**: two role-specific and five shared tasks for each Builder. It sends one Builder's responsibility contract at a time, including a deliberately conflicting prior-role message for the identity-separation test.
+
+Safety and evidence behavior:
+- Loopback-only endpoint by default; remote endpoints require explicit `--allow-remote` and HTTPS.
+- Optional API credential is read from `BUILDER_MODEL_API_KEY`; it is not written to the report.
+- No model download, installation, automatic quality score, or automatic pass/fail decision.
+- Raw prompts, raw model outputs, latency, and provider token usage are retained in a versioned execution report for independent review.
+- Memory, CPU, power, and thermal telemetry are not measured by this HTTP client and must be collected separately on the host.
+- `--limit` supports a small smoke test before a full 63-execution run.
+
+The CI workflow runs unit tests with a mocked endpoint only. It never calls a live model. The runner has not yet been used against any candidate. Its report schema is part of the lifecycle schema.
+
 ### Compact-model candidate research
 
 `docs/PHASE_A_COMPACT_MODEL_CANDIDATE_WATCHLIST_001.md` records a source-linked shortlist for baseline comparison: Qwen3.5-0.8B, LFM3-1.7B, Qwen3.5-2B, SmolLM3-3B, and Gemma 4 E2B. It distinguishes Apache 2.0 models from Liquid AI's LFM Open License, notes the LFM commercial-use threshold, and distinguishes Gemma E2B's effective parameter count from its larger total weight count. This is a research watchlist only: no model is formally selected, and the model-reduction study now records five research-stage source candidates, one with a pinned repository revision but no individual weight-file digest or baseline evaluation.
@@ -404,7 +418,7 @@ The study currently has **five research-stage model families**, but one reposito
 | Resource profiles | Measurable elastic sizing and degraded-mode rules | Lifecycle states and transition criteria specified; runtime implementation pending |
 | Provider/model inventory | Source-inspected adapter architecture; configured models and provider access evidence | Source inventory documented; device-saved provider/model metadata and endpoint availability pending |
 
-Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, the formal schema-validation workflow has passed, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed without exposing credentials, and the contracts have been reviewed for consistency. Model-level testing and resource measurements must also be completed for at least one lawful candidate compact model. Documentation alone does not complete those evidence tasks.
+Phase A is complete only after the nine adopted responsibility maps and shared capabilities have measurable task suites, the formal schema-validation workflow and mocked runner tests have passed, provisional thresholds have been calibrated and explicitly adopted or revised, the configured provider/model inventory has been completed without exposing credentials, and the contracts have been reviewed for consistency. Model-level testing and resource measurements must also be completed for at least one lawful candidate compact model. Documentation alone does not complete those evidence tasks.
 
 ## 11. Integrity checkpoint
 
