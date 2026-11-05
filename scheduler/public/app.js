@@ -82,6 +82,7 @@ async function loadRuns() {
   host.replaceChildren();
   if (!runs.length) {
     host.append(element("p", "muted", "No execution history yet."));
+    runBaselineLoaded = true;
     return;
   }
   for (const run of runs) {
@@ -141,7 +142,8 @@ $("#runs-refresh").addEventListener("click", async () => {
 
 $("#add-task").addEventListener("submit", async event => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
+  const formElement = event.currentTarget;
+  const form = new FormData(formElement);
   const workflowNames = String(form.get("workflowNames")).split("\n").map(value => value.trim()).filter(Boolean);
   const body = {
     id: String(form.get("id")).trim(),
@@ -163,7 +165,7 @@ $("#add-task").addEventListener("submit", async event => {
     await api("/api/tasks", { method: "POST", body: JSON.stringify(body) });
     status.textContent = "Task created.";
     await loadTasks();
-    event.currentTarget.reset();
+    formElement.reset();
   } catch (error) {
     status.textContent = error.message;
   }
