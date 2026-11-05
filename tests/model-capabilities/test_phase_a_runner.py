@@ -69,6 +69,7 @@ class PhaseARunnerTests(unittest.TestCase):
             endpoint="http://127.0.0.1:8000/v1/chat/completions",
             allow_remote=False,
             model="mock-model",
+            artifact_id="artifact.mock-model",
             revision="mock-revision",
             output=ROOT / "unused.json",
             timeout=10,
