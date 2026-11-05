@@ -86,4 +86,24 @@ public class BuilderSubjectResolverTest {
         assertTrue(result.ambiguous);
         assertTrue(result.selectedRoles.isEmpty());
     }
+    @Test public void userCanAddBuildersWithoutRemovingSubjectStewardsOrDuplicatingRoles() throws Exception {
+        BuilderSubjectResolver.Resolution resolution =
+                resolver().resolve("The Android app signing identity must remain consistent.");
+        List<BuilderRole> combined = BuilderSubjectResolver.withAdditionalRoles(
+                resolution, Arrays.asList(BuilderRole.LOKI, BuilderRole.HODR));
+        assertEquals(Arrays.asList(BuilderRole.MUNINN, BuilderRole.HODR,
+                BuilderRole.TYR, BuilderRole.LOKI), combined);
+    }
+
+    @Test public void userInvitedBuildersAreAddedInCanonicalRoleOrder() throws Exception {
+        BuilderSubjectResolver.Resolution resolution = resolver().resolve("Cryptography");
+        List<BuilderRole> combined = BuilderSubjectResolver.withAdditionalRoles(
+                resolution, Arrays.asList(BuilderRole.BALDR, BuilderRole.HUGINN));
+        assertEquals(9, combined.size());
+        assertEquals(Arrays.asList(BuilderRole.HUGINN, BuilderRole.MUNINN,
+                BuilderRole.KVASIR, BuilderRole.MARI, BuilderRole.HODR,
+                BuilderRole.TYR, BuilderRole.LOKI, BuilderRole.ODIN,
+                BuilderRole.BALDR), combined);
+    }
+
 }
