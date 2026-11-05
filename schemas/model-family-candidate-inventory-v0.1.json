@@ -95,6 +95,18 @@
           "kind": "provider_documentation",
           "status": "observed",
           "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face repository tree shows commit cd0c74c and Q4_K_M GGUF file displayed at 1.1 GB; file SHA-256 has not been retrieved."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face repository tree shows current main revision 0dc4268 and BF16 model.safetensors displayed at 3.46 GB."
         }
       ],
       "unknowns": [
@@ -103,7 +115,21 @@
         "Actual 4-bit artifact size and memory not independently measured",
         "License review for intended project deployment and redistribution not completed"
       ],
-      "parameter_count_scope": "total_parameters"
+      "parameter_count_scope": "total_parameters",
+      "immutable_revision": "0dc4268",
+      "revision_last_modified": "2026-11-04",
+      "repository_storage_bytes": 3480000000,
+      "artifact_variants": [
+        {
+          "repository": "LiquidAI/LFM3-1.7B-GGUF",
+          "immutable_revision": "cd0c74c",
+          "filename": "LFM3-1.7B-Q4_K_M.gguf",
+          "format": "GGUF Q4_K_M",
+          "displayed_size": "1.1 GB",
+          "size_is_approximate": true,
+          "sha256_status": "not_retrieved"
+        }
+      ]
     },
     {
       "model_family_id": "qwen3_5_2b",
