@@ -134,6 +134,8 @@ public final class MainActivity extends Activity {
             startActivityForResult(intent, REQUEST_SAVE);
         } catch (Exception failure) {
             status.setText("Key generation failed. No key was exported. Check device support and try again.");
+            password.setText("");
+            confirmation.setText("");
             clearPending();
         }
     }
@@ -176,6 +178,7 @@ public final class MainActivity extends Activity {
                 char[] secret = password.getText().toString().toCharArray();
                 String fingerprint = KeystoreMaterial.inspect(candidate, secret);
                 Arrays.fill(secret, '\0');
+                password.setText("");
                 clearPending();
                 pendingBytes = candidate;
                 copyButton.setEnabled(true);
@@ -184,6 +187,7 @@ public final class MainActivity extends Activity {
                         + "\nCopy Base64 only when ready to add the GitHub secret.");
             } catch (Exception failure) {
                 status.setText("Could not verify this backup. Check the password and file; no key was loaded.");
+                password.setText("");
                 clearPending();
             }
         }
