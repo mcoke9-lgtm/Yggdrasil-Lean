@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <queries>
         <package android:name="org.yggdrasil.builderhost" />
+        <package android:name="org.yggdrasil.scheduler" />
         <package android:name="org.yggdrasil.keysteward" />
         <package android:name="org.yggdrasil.signingdiagnostic" />
     </queries>
