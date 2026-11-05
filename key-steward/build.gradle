@@ -2,7 +2,25 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'org.yggdrasil.keysteward'
+
+    signingConfigs {
+        disposableCi {
+            storeFile file(System.getenv('BUILDER_KEYSTORE_PATH') ?: 'missing.p12')
+            storeType 'PKCS12'
+            storePassword System.getenv('BUILDER_KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('BUILDER_KEY_ALIAS') ?: 'builder-upload-key'
+            keyPassword System.getenv('BUILDER_KEY_PASSWORD') ?: ''
+        }
+    }
     compileSdk 35
+
+    buildTypes {
+        debug {
+            if (System.getenv('BUILDER_KEYSTORE_PATH') != null) {
+                signingConfig signingConfigs.disposableCi
+            }
+        }
+    }
 
     defaultConfig {
         applicationId 'org.yggdrasil.keysteward'
