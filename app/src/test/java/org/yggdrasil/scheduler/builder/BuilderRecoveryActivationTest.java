@@ -126,6 +126,70 @@ public class BuilderRecoveryActivationTest {
         }
     }
 
+    @Test public void descriptorDirectorySyncInterruptionLeavesOldPointerInactiveAndRetryable() {
+        BuilderRecoveryStager.StageResult staged = stage(ONE);
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> {
+            throw new java.io.IOException("injected descriptor directory sync interruption");
+        });
+        try {
+            BuilderRecoveryActivation.activate(context, staged);
+            fail("injected descriptor sync failure should interrupt activation");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not activate"));
+        }
+        assertNull(BuilderRecoveryActivation.getActive(context));
+        assertTrue(new File(context.getFilesDir(),
+                "builder-recovery-generation-" + ONE + ".json").isFile());
+
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
+        assertEquals(ONE, BuilderRecoveryActivation.activate(context, staged).generationId);
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+    }
+
+    @Test public void pointerDirectorySyncInterruptionRequiresReadbackAndRetryIsIdempotent() {
+        BuilderRecoveryStager.StageResult staged = stage(ONE);
+        final int[] calls = {0};
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> {
+            calls[0]++;
+            if (calls[0] == 2)
+                throw new java.io.IOException("injected pointer directory sync interruption");
+        });
+        try {
+            BuilderRecoveryActivation.activate(context, staged);
+            fail("pointer directory sync interruption should be reported");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not activate"));
+        }
+
+        // Rename has already happened: inspect the authoritative pointer before retrying.
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
+        assertEquals(ONE, BuilderRecoveryActivation.activate(context, staged).generationId);
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+    }
+
+    @Test public void rollbackPointerSyncInterruptionLeavesReadableSwitchedPointer() {
+        BuilderRecoveryActivation.activate(context, stage(ONE));
+        BuilderRecoveryActivation.activate(context, stage(TWO));
+        final int[] calls = {0};
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> {
+            calls[0]++;
+            if (calls[0] == 1)
+                throw new java.io.IOException("injected rollback pointer directory sync interruption");
+        });
+        try {
+            BuilderRecoveryActivation.rollback(context);
+            fail("rollback pointer sync interruption should be reported");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("Could not roll back"));
+        }
+
+        // The pointer rename is atomic and already visible; callers must re-read state.
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+        BuilderRecoveryActivation.setDirectorySyncForTests(directory -> { });
+        assertEquals(ONE, BuilderRecoveryActivation.getActive(context).generationId);
+    }
+
     @Test public void refusesActivationIfStagedContentChangesAfterReadBack() {
         BuilderRecoveryStager.StageResult staged = stage(ONE);
         android.database.sqlite.SQLiteDatabase database =
