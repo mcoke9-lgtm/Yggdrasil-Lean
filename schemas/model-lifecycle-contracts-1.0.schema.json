@@ -2575,6 +2575,308 @@
         }
       },
       "additionalProperties": false
+    },
+    "blindEvaluatorRun": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "schema_version",
+        "run_id",
+        "status",
+        "source_execution_run_id",
+        "candidate_artifact_id",
+        "candidate_artifact_id_status",
+        "evaluator_artifact_id",
+        "evaluator_artifact_id_status",
+        "evaluator_model_id",
+        "evaluator_model_revision",
+        "evaluator_model_revision_status",
+        "evaluator_endpoint_origin",
+        "blind_candidate_identity",
+        "evaluator_artifact_distinct_from_candidate",
+        "human_review_required",
+        "evaluator_is_sole_authority",
+        "scope",
+        "planned_evaluation_count",
+        "evaluation_count",
+        "success_count",
+        "failure_count",
+        "evaluator_status",
+        "request_config",
+        "started_at",
+        "finished_at",
+        "evaluations",
+        "limitations"
+      ],
+      "properties": {
+        "format_id": {
+          "const": "org.yggdrasil.lean.blind-evaluator-run"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed"
+          ]
+        },
+        "source_execution_run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_artifact_id_status": {
+          "const": "operator_supplied_unverified"
+        },
+        "evaluator_artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evaluator_artifact_id_status": {
+          "const": "operator_supplied_unverified"
+        },
+        "evaluator_model_id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "evaluator_model_revision": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "evaluator_model_revision_status": {
+          "const": "operator_supplied_unverified"
+        },
+        "evaluator_endpoint_origin": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "blind_candidate_identity": {
+          "const": true
+        },
+        "evaluator_artifact_distinct_from_candidate": {
+          "const": true
+        },
+        "human_review_required": {
+          "const": true
+        },
+        "evaluator_is_sole_authority": {
+          "const": false
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "full_suite",
+            "smoke_test"
+          ]
+        },
+        "planned_evaluation_count": {
+          "const": 63
+        },
+        "evaluation_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "success_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evaluator_status": {
+          "const": "awaiting_human_and_deterministic_review"
+        },
+        "request_config": {
+          "type": "object",
+          "required": [
+            "temperature",
+            "max_tokens",
+            "timeout_seconds",
+            "api_key_present"
+          ],
+          "properties": {
+            "temperature": {
+              "type": "number"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "api_key_present": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "finished_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "evaluations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "evaluation_id",
+              "builder_id",
+              "capability_id",
+              "case_id",
+              "blind_candidate_label",
+              "evaluator_prompt",
+              "raw_evaluator_output",
+              "status",
+              "latency_ms",
+              "started_at",
+              "usage",
+              "scores",
+              "hard_failure_detected",
+              "hard_failure_ids",
+              "evidence_quotes",
+              "limitations",
+              "rationale"
+            ],
+            "properties": {
+              "evaluation_id": {
+                "$ref": "#/$defs/id"
+              },
+              "builder_id": {
+                "$ref": "#/$defs/builderId"
+              },
+              "capability_id": {
+                "$ref": "#/$defs/id"
+              },
+              "case_id": {
+                "$ref": "#/$defs/id"
+              },
+              "blind_candidate_label": {
+                "const": "Candidate-A"
+              },
+              "evaluator_prompt": {
+                "$ref": "#/$defs/nonEmpty"
+              },
+              "raw_evaluator_output": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "success",
+                  "transport_error",
+                  "invalid_response"
+                ]
+              },
+              "error": {
+                "type": "string"
+              },
+              "latency_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "started_at": {
+                "$ref": "#/$defs/timestamp"
+              },
+              "usage": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "scores": {
+                "type": "object",
+                "properties": {
+                  "task_completion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "factual_and_evidence_integrity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "role_boundary_and_judgment": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "failure_and_edge_handling": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "handoff_and_recoverability": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "clarity_and_structure": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  }
+                },
+                "additionalProperties": false
+              },
+              "hard_failure_detected": {
+                "type": "boolean"
+              },
+              "hard_failure_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "evidence_quotes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "quote",
+                    "reason"
+                  ],
+                  "properties": {
+                    "quote": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "limitations": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/nonEmpty"
+                }
+              },
+              "rationale": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmpty"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -2622,6 +2924,9 @@
     },
     {
       "$ref": "#/$defs/capabilityExecutionRun"
+    },
+    {
+      "$ref": "#/$defs/blindEvaluatorRun"
     }
   ]
 }
