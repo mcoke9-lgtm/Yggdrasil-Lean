@@ -21,7 +21,10 @@ public final class BuilderModelResponder implements BuilderConversationCoordinat
             throw new IllegalArgumentException("Output token limit must be between 1 and 32768");
         this.router = router;
         this.maxOutputTokens = maxOutputTokens;
-        this.operationalLimitsJson = operationalLimitsJson == null ? "" : operationalLimitsJson;
+        this.operationalLimitsJson = operationalLimitsJson == null || operationalLimitsJson.trim().isEmpty()
+                ? "{\\"register_status\\":\\"UNAVAILABLE\\",\\"live_telemetry\\":false,"
+                        + "\\"unlisted_capability_decision\\":\\"RECHECK_REQUIRED\\"}"
+                : operationalLimitsJson;
     }
 
     @Override public BuilderConversationCoordinator.Reply respond(
