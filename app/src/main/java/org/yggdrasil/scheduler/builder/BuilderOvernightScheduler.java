@@ -58,9 +58,31 @@ public final class BuilderOvernightScheduler {
                 .setInputData(input).setConstraints(constraints)
                 .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
                 .addTag("nine-builders-overnight").build();
+        boolean saved = context.getApplicationContext()
+                .getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
+                .edit().putString("last_scheduled_run_id", runId).commit();
+        if (!saved) throw new IllegalStateException("Could not persist scheduled run identifier");
         WorkManager.getInstance(context.getApplicationContext())
                 .enqueueUniqueWork(workName, ExistingWorkPolicy.KEEP, request);
         return new ScheduledRun(runId, threadId, workName);
+    }
+
+
+    public static boolean cancelLast(Context context) {
+        if (context == null) throw new IllegalArgumentException("Context is required");
+        Context app = context.getApplicationContext();
+        String runId = app.getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
+                .getString("last_scheduled_run_id", null);
+        if (runId == null || runId.trim().isEmpty()) return false;
+        WorkManager.getInstance(app).cancelUniqueWork(workName(runId));
+        try {
+            new BuilderOvernightRunStore(app).setStatus(runId, "CANCELLED",
+                    "Cancelled by the user from the Builder Conversation screen.",
+                    System.currentTimeMillis());
+        } catch (IllegalStateException notStartedYet) {
+            // A delayed WorkManager request may not have created its run checkpoint yet.
+        }
+        return true;
     }
 
     static String workName(String runId) { return "nine-builders-overnight-" + runId; }
