@@ -23,6 +23,18 @@ public class BuilderFoundationTest {
         assertNull(BuilderRegistry.find(null));
     }
 
+    @Test public void roleResponsibilitiesMatchTheCanonicalNineBuildersMap() {
+        assertEquals("Coordination, orchestration, and integration", BuilderRole.ODIN.getResponsibility());
+        assertEquals("Service runner, GitHub monitoring, and execution operations", BuilderRole.HODR.getResponsibility());
+        assertEquals("Interruption, recovery, time-zone/DST handling, and duplicate suppression", BuilderRole.LOKI.getResponsibility());
+        assertEquals("Persistence, history, continuity, provenance, and recovery", BuilderRole.MUNINN.getResponsibility());
+        assertEquals("Evidence, source verification, and research", BuilderRole.HUGINN.getResponsibility());
+        assertEquals("Operational constraints, capability limits, and unsuitable-method detection", BuilderRole.KVASIR.getResponsibility());
+        assertEquals("Complementary alternatives, relationships, interfaces, and integration", BuilderRole.MARI.getResponsibility());
+        assertEquals("Authorization, permissions, and security", BuilderRole.TYR.getResponsibility());
+        assertEquals("Independent verification against requirements", BuilderRole.BALDR.getResponsibility());
+    }
+
     @Test public void messagePreservesEnvelopeFields() {
         BuilderMessage message = new BuilderMessage(1, "m-001", "MARI", "MUNINN",
                 1793850000000L, "task-7", "text/plain", "record this decision");
