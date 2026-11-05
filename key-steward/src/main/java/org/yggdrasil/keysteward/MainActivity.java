@@ -51,7 +51,7 @@ public final class MainActivity extends Activity {
         root.setPadding(28, 32, 28, 24);
 
         TextView heading = new TextView(this);
-        heading.setText("Builder Key Steward");
+        heading.setText(getApplicationInfo().loadLabel(getPackageManager()));
         heading.setTextSize(24);
         root.addView(heading, matchWrap());
 
@@ -92,6 +92,16 @@ public final class MainActivity extends Activity {
         export.setText("Copy verified Base64 for GitHub secret");
         export.setOnClickListener(view -> beginBase64Export());
         root.addView(export, matchWrap());
+
+        TextView exportSteps = new TextView(this);
+        exportSteps.setText("Export steps: (1) enter the keystore password above; "
+                + "(2) choose the saved .p12 file in the Android file picker; "
+                + "(3) review the confirmation dialog and choose Cancel or Copy to clipboard. "
+                + "Copy is only for the encrypted keystore, encoded as Base64. "
+                + "Do not paste it into chat or ordinary messages.");
+        exportSteps.setTextSize(14);
+        exportSteps.setPadding(0, 8, 0, 0);
+        root.addView(exportSteps, matchWrap());
 
         TextView warning = new TextView(this);
         warning.setText("Sensitive action: this copies the encrypted keystore to your clipboard. "
