@@ -48,7 +48,7 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 - [x] Export-size validator accepts exactly 36 KiB and rejects 36 KiB + 1 byte; unit test passed in CI run `42017325650`.
 - [x] Expired-certificate rejection unit test passed in CI run `42017325650`.
 - [x] Dedicated Base64-encoded 48 KiB boundary test added; exact limit accepted and limit + 1 rejected in CI test step on commit `4139407a05a6ab216bb44350915e5de78533d0eb`.
-- [ ] Full workflow on that commit is still awaiting completion of APK assembly, repeat assembly, and signer-fingerprint verification; test-step success alone does not clear this gate.
+- [x] Full CI workflow passed on commit `4139407a05a6ab216bb44350915e5de78533d0eb` (run `42017725787`): signed APK assembly, repeat assembly with the same disposable identity, both APK signature checks, stable signer fingerprint, and artifact upload all succeeded.
 - [x] User reports disposable keystore creation succeeded on Galaxy S21 / Android 15.
 - [x] User reports the saved keystore was reopened and verified successfully on Galaxy S21 / Android 15.
 - [ ] Permanent key is created only after phone testing and all remaining release gates.
