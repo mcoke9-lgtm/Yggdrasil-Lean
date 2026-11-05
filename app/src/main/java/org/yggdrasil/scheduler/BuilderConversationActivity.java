@@ -68,9 +68,19 @@ public final class BuilderConversationActivity extends Activity {
                 Bundle data = message.getData();
                 String runtimeId = data.getString(BuilderRuntimeProtocol.KEY_RUNTIME_ID, "unknown");
                 java.util.ArrayList<String> roles = data.getStringArrayList(BuilderRuntimeProtocol.KEY_BUILDERS);
-                runtimeStatus.setText("Builder-native host: " + data.getString(BuilderRuntimeProtocol.KEY_STATUS)
-                        + " · runtime " + runtimeId.substring(0, Math.min(8, runtimeId.length()))
-                        + " · " + (roles == null ? 0 : roles.size()) + " role identities · separate process");
+                String deviceJson = data.getString(BuilderRuntimeProtocol.KEY_DEVICE_INVENTORY_JSON, "{}");
+                try {
+                    org.json.JSONObject device = new org.json.JSONObject(deviceJson);
+                    runtimeStatus.setText("Builder-native host: " + data.getString(BuilderRuntimeProtocol.KEY_STATUS)
+                            + " · runtime " + runtimeId.substring(0, Math.min(8, runtimeId.length()))
+                            + " · " + (roles == null ? 0 : roles.size()) + " role identities · separate process\n"
+                            + device.optString("manufacturer") + " " + device.optString("model")
+                            + " · Android " + device.optString("android_release")
+                            + " · RAM " + formatBytes(device.optLong("memory_total_bytes"))
+                            + " · available storage " + formatBytes(device.optLong("data_storage_available_bytes")));
+                } catch (org.json.JSONException invalidInventory) {
+                    runtimeStatus.setText("Builder-native host is ready; device inventory could not be parsed.");
+                }
             } else if (message.what == BuilderRuntimeProtocol.MESSAGE_ERROR) {
                 runtimeStatus.setText("Builder-native host error: " + message.getData().getString(BuilderRuntimeProtocol.KEY_ERROR));
             }
@@ -129,6 +139,11 @@ public final class BuilderConversationActivity extends Activity {
         destroyed = true;
         executor.shutdownNow();
         super.onDestroy();
+    }
+
+    private static String formatBytes(long bytes) {
+        if (bytes <= 0) return "unknown";
+        return String.format(java.util.Locale.ROOT, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 
     private TextView text(String value, int size) {
