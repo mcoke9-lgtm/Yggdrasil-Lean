@@ -27,7 +27,7 @@ import java.util.Set;
  * SQLite transactions provide cross-process write serialization; Java monitors
  * are not used as a correctness boundary.
  */
-public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
+final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
     private static final int DATABASE_VERSION = 1;
     private static final String META = "overlay_metadata";
     private static final String TURNS = "conversation_turns";
