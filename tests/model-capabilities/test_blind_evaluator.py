@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import jsonschema
 import pathlib
 import sys
 import unittest
@@ -150,6 +151,8 @@ class BlindEvaluatorTests(unittest.TestCase):
         self.assertFalse(result["evaluator_is_sole_authority"])
         self.assertEqual("artifact.candidate", result["candidate_artifact_id"])
         self.assertEqual("artifact.judge", result["evaluator_artifact_id"])
+        schema = evaluator.load_json(ROOT / "schemas/model-lifecycle-contracts-1.0.schema.json")
+        jsonschema.validate(result, schema)
         self.assertEqual("success", result["evaluations"][0]["status"])
 
     def test_parse_scores_requires_exact_six_dimensions(self):
