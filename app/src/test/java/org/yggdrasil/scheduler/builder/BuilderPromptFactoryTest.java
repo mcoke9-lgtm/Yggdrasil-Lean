@@ -138,4 +138,15 @@ public class BuilderPromptFactoryTest {
         assertTrue(prompt.userMessage.contains("INTERRUPTION"));
     }
 
+
+    @Test public void kvasirPromptNamesIndependentSchedulerAsFirstClassAlternative() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100, "Review scheduler capacity.");
+        BuilderPromptFactory.Prompt prompt = BuilderPromptFactory.forTurn(
+                BuilderRole.KVASIR, Collections.singletonList(user), user);
+        assertTrue(prompt.systemInstruction.contains("independent scheduler is a first-class project alternative"));
+        assertTrue(prompt.systemInstruction.contains("Do not recommend freeing a ChatGPT task slot as the default route"));
+    }
+
 }
