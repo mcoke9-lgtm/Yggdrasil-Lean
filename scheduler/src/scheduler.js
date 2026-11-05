@@ -27,6 +27,7 @@ export class Scheduler {
     this.handlers = new Map();
     this.tickInProgress = false;
     this.stateQueue = Promise.resolve();
+    this.activeControllers = new Set();
   }
 
   withStateLock(operation) {
@@ -41,6 +42,13 @@ export class Scheduler {
     }
     if (this.handlers.has(type)) throw new Error(`Handler already registered: ${type}`);
     this.handlers.set(type, handler);
+  }
+
+  abortActiveRuns(reason = "Scheduler shutdown requested") {
+    for (const controller of this.activeControllers) {
+      if (!controller.signal.aborted) controller.abort(new Error(String(reason)));
+    }
+    return this.activeControllers.size;
   }
 
   async addTask(input) {
@@ -194,17 +202,21 @@ export class Scheduler {
         const handler = this.handlers.get(run.handlerType);
         let status = "succeeded";
         let errorMessage = null;
+        const controller = new AbortController();
+        this.activeControllers.add(controller);
         try {
           if (!handler) throw new Error(`No handler registered for type: ${run.handlerType}`);
           await handler(payload, {
             taskId: run.taskId,
             runId: run.id,
             scheduledFor: run.scheduledFor,
-            signal: undefined
+            signal: controller.signal
           });
         } catch (error) {
           status = "failed";
           errorMessage = String(error?.message || error).slice(0, 2000);
+        } finally {
+          this.activeControllers.delete(controller);
         }
 
         const finished = await this.withStateLock(async () => {
