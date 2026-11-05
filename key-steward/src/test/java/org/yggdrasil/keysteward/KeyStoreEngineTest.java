@@ -8,6 +8,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.security.KeyStore;
+import java.security.Provider;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -62,6 +64,24 @@ public class KeyStoreEngineTest {
         altered[altered.length / 2] ^= 0x01;
         assertThrows(Exception.class, () -> KeyStoreEngine.verify(
                 new ByteArrayInputStream(altered), PASSWORD));
+    }
+
+    @Test
+    public void missingExpectedAliasIsRejected() throws Exception {
+        Provider provider = new BouncyCastleProvider();
+        KeyStore store = KeyStore.getInstance("PKCS12", provider);
+        store.load(null, null);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        store.store(output, PASSWORD);
+        assertThrows(IllegalArgumentException.class, () -> KeyStoreEngine.verify(
+                new ByteArrayInputStream(output.toByteArray()), PASSWORD));
+    }
+
+    @Test
+    public void exportSizeAcceptsExactLimitAndRejectsOversize() {
+        KeyStoreEngine.validateExportSize(KeyStoreEngine.MAX_EXPORT_BYTES);
+        assertThrows(IllegalArgumentException.class, () ->
+                KeyStoreEngine.validateExportSize(KeyStoreEngine.MAX_EXPORT_BYTES + 1));
     }
 
     @Test
