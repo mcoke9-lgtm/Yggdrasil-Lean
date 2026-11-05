@@ -398,7 +398,9 @@ The CI workflow runs unit tests with a mocked endpoint only. It never calls a li
 
 ### Compact model reduction study
 
-`schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluators; Baldr and Týr are proposed independent verification roles. The evaluator artifact must be distinct from the candidate artifact, and model self-evaluation alone is insufficient.
+`schemas/model-reduction-study-v0.1.json` defines the first explicit study to find the smallest lawful model or model combination that can serve all nine Builder identities. Kvasir and Loki are proposed analytical evaluator roles; Baldr and Týr are proposed independent verification roles. These are role assignments, not separate model instances. The study now requires a separately registered evaluator model artifact distinct from every tested candidate, plus human or deterministic verification. No evaluator artifact has yet been selected.
+
+The expansion blueprint separately records architecture/configuration, tokenizer, source weights, training-data manifests, training recipes, runtime toolchains, license/provenance, and required compute. It explicitly forbids treating student weights alone as sufficient to reconstruct a larger model. The blueprint is planned, with no dependencies or reconstruction claim registered.
 
 The study currently has **five research-stage model families**, but one repository revision is pinned for Qwen3.5-0.8B, but no individual weight-file digest or complete artifact lock is registered; no baseline evaluations or selected candidate exist, and the study remains `planned`. It requires baseline tests, candidate comparison, post-reduction tests, resource measurements, license/provenance checks, and a clean-host recovery drill. It does not assume that distillation or compression is reversible or that a compact model contains missing large-model weights.
 
