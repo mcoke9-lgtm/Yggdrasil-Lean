@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile, chmod, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BUILDER_ROLES } from "../src/run-ledger.js";
-import { createOpenAiCompatibleExecutor } from "../src/openai-compatible-executor.js";
+import { createBuilderExecutor, createOpenAiCompatibleExecutor } from "../src/openai-compatible-executor.js";
 
 function makeRoutes() {
   return Object.fromEntries(BUILDER_ROLES.map((role, index) => [role, {
@@ -224,6 +227,40 @@ test("rejects malformed or unauthorized Builder response claims", async () => {
   });
   await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /unsupported evidence_status/);
   assert.equal(h.saved.length, 0);
+});
+
+test("loads the host executor only from owner-protected config and operator modules", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "nine-builders-host-executor-"));
+  const configPath = join(directory, "routes.json");
+  const taskVaultPath = join(directory, "task-vault.mjs");
+  const credentialsPath = join(directory, "credentials.mjs");
+  const names = ["BUILDER_HOST_CONFIG_FILE", "BUILDER_TASK_VAULT_MODULE", "BUILDER_CREDENTIALS_MODULE"];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  try {
+    await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes() }), { mode: 0o600 });
+    await writeFile(taskVaultPath,
+      'export async function getTask() { return { prompt: "host task" }; }\\n' +
+      'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\\n');
+    await writeFile(credentialsPath,
+      'export async function readSecret() { return "host-secret"; }\\n');
+    process.env.BUILDER_HOST_CONFIG_FILE = configPath;
+    process.env.BUILDER_TASK_VAULT_MODULE = taskVaultPath;
+    process.env.BUILDER_CREDENTIALS_MODULE = credentialsPath;
+
+    if (process.platform !== "win32") {
+      await chmod(configPath, 0o644);
+      await assert.rejects(() => createBuilderExecutor(), /permissions are too broad/);
+      await chmod(configPath, 0o600);
+    }
+    const executor = await createBuilderExecutor();
+    assert.equal(typeof executor, "function");
+  } finally {
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("rejects a task vault that does not confirm durable result persistence", async () => {
