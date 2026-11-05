@@ -8,6 +8,16 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.security.KeyStore;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.math.BigInteger;
+import java.util.Date;
+import java.security.cert.X509Certificate;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import java.security.Provider;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -82,6 +92,32 @@ public class KeyStoreEngineTest {
         KeyStoreEngine.validateExportSize(KeyStoreEngine.MAX_EXPORT_BYTES);
         assertThrows(IllegalArgumentException.class, () ->
                 KeyStoreEngine.validateExportSize(KeyStoreEngine.MAX_EXPORT_BYTES + 1));
+    }
+
+    @Test
+    public void expiredCertificateIsRejected() throws Exception {
+        Provider provider = new BouncyCastleProvider();
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", provider);
+        generator.initialize(2048);
+        KeyPair pair = generator.generateKeyPair();
+        Date notBefore = new Date(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000);
+        Date notAfter = new Date(System.currentTimeMillis() - 5L * 24 * 60 * 60 * 1000);
+        X500Name subject = new X500Name("CN=Expired disposable test");
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                subject, BigInteger.valueOf(12345), notBefore, notAfter,
+                subject, pair.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(provider).build(pair.getPrivate());
+        X509Certificate certificate = new JcaX509CertificateConverter()
+                .setProvider(provider).getCertificate(builder.build(signer));
+        KeyStore store = KeyStore.getInstance("PKCS12", provider);
+        store.load(null, null);
+        store.setKeyEntry(KeyStoreEngine.ALIAS, pair.getPrivate(), PASSWORD,
+                new java.security.cert.Certificate[]{certificate});
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        store.store(output, PASSWORD);
+        assertThrows(Exception.class, () -> KeyStoreEngine.verify(
+                new ByteArrayInputStream(output.toByteArray()), PASSWORD));
     }
 
     @Test
