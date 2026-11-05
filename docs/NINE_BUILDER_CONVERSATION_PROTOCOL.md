@@ -212,3 +212,16 @@ The lifecycle validator is deterministic, but the quality of the evidence still 
 - The first Android run, 42106471812, failed during Java compilation on a double-escaped newline character literal in the review incident-reference parser. The compiler error was corrected before the successful rerun; the failure is retained in the PR discussion rather than hidden.
 - Lean build and analysis-engine workflow run 42106686481 completed SUCCESS, including the sample CSV acceptance check.
 - This establishes automated JVM/CI test evidence for the PR head. It does not establish device/emulator behavior, live provider behavior, or deployment.
+
+
+## Typed, independently resolvable evidence references
+
+Correction lifecycle artifact references must not be treated as proof merely because a Builder supplied a string. The development branch now includes `BuilderEvidenceReference`, a provider-neutral parser and fail-closed verification contract:
+
+- Commit reference: `github+commit://github.com/owner/repo/<full-40-character-sha>?branch=<url-encoded-branch>`. Verification checks the fetched repository and SHA and confirms branch membership.
+- GitHub Actions reference: `github+actions://github.com/owner/repo/runs/<run-id>?workflow=<workflow-name>&sha=<full-40-character-tested-sha>`. Verification checks repository, run ID, workflow name, exact tested SHA, completed/success conclusion, and every returned job's completed/success state.
+- Missing references, malformed references, mismatched repository/branch/SHA/workflow, failed or incomplete jobs, empty job results, and unavailable evidence sources remain UNVERIFIED.
+- The verifier has no network client, credentials, or permission-escalation path. A separately authorized adapter must implement `EvidenceGateway`; until one is connected and its behavior tested, parsing a reference is not the same as verifying it.
+- The resolver's unit tests use a fake evidence gateway to exercise provenance mismatches and failed/incomplete runs. They do not establish live GitHub API integration.
+
+This is a first implementation of typed reference resolution, not yet an end-to-end gate on the correction lifecycle. The next integration step is to require a successful resolver result before a TESTED or VERIFIED correction update can be accepted as evidence-bearing. The current coordinator and SQLite ledger still validate lifecycle structure and role authority; they do not yet invoke a live evidence gateway. No credentials, new permissions, deployment, or live GitHub client were added.
