@@ -209,4 +209,27 @@ public class BuilderPromptFactoryTest {
         assertTrue(prompt.systemInstruction.contains("Do not recommend freeing a ChatGPT task slot as the default route"));
     }
 
+    @Test public void mariPromptArguesForComplementaryAlternativesAndSurfacesTrueConflicts() {
+        BuilderConversationProtocol.Turn user = turn("u1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION, 100,
+                "Should we use persistent consent or per-submission consent?");
+        BuilderPromptFactory.Prompt mari = BuilderPromptFactory.forTurn(
+                BuilderRole.MARI, Collections.singletonList(user), user);
+
+        assertTrue(mari.systemInstruction.contains("genuinely incompatible or can coexist"));
+        assertTrue(mari.systemInstruction.contains("Do not force a choice or create a false dichotomy"));
+        assertTrue(mari.systemInstruction.contains("persistent consent and per-submission consent can be complementary layers"));
+        assertTrue(mari.systemInstruction.contains("clearly bounded scope"));
+        assertTrue(mari.systemInstruction.contains("identify the exact incompatibility"));
+        assertTrue(mari.systemInstruction.contains("explain the trade-offs"));
+
+        for (BuilderRole role : BuilderRole.values()) {
+            if (role == BuilderRole.MARI) continue;
+            BuilderPromptFactory.Prompt other = BuilderPromptFactory.forTurn(
+                    role, Collections.singletonList(user), user);
+            assertFalse(other.systemInstruction.contains("persistent consent and per-submission consent can be complementary layers"));
+        }
+    }
+
 }
