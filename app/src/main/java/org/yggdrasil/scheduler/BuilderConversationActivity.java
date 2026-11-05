@@ -306,7 +306,25 @@ public final class BuilderConversationActivity extends Activity {
         executor.execute(() -> {
             BuilderConversationJournal journal = new BuilderRuntimeJournalClient(getApplicationContext());
             try {
-                String snapshot = journal.exportSnapshot().toString(2);
+                org.json.JSONObject conversationSnapshot = journal.exportSnapshot();
+                org.json.JSONArray provenanceEvents = null;
+                String provenanceStatus;
+                String provenanceErrorClass = null;
+                BuilderOperationalSnapshotJournal provenance =
+                        new BuilderOperationalSnapshotJournal(getApplicationContext());
+                try {
+                    provenanceEvents = provenance.exportEvents();
+                    provenanceStatus = provenanceEvents.length() == 0 ? "empty" : "available";
+                } catch (Exception provenanceFailure) {
+                    provenanceStatus = "unavailable";
+                    provenanceErrorClass = provenanceFailure.getClass().getSimpleName();
+                } finally {
+                    provenance.close();
+                }
+                org.json.JSONObject combined = BuilderRecoveryExport.compose(
+                        conversationSnapshot, provenanceEvents, provenanceStatus,
+                        provenanceErrorClass);
+                String snapshot = combined.toString(2);
                 try (OutputStream output = getContentResolver().openOutputStream(destination)) {
                     if (output == null) throw new java.io.IOException("Could not open selected backup destination");
                     output.write(snapshot.getBytes(StandardCharsets.UTF_8));
