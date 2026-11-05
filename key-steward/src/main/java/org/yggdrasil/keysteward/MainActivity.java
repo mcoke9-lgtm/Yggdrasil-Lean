@@ -75,18 +75,20 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
-    private char[] readPassword() {
-        String value = passwordField.getText().toString();
-        if (value.length() < 12) {
+    private boolean hasValidPassword() {
+        if (passwordField.getText().length() < 12) {
             status.setText("Use a password of at least 12 characters.");
-            return null;
+            return false;
         }
-        return value.toCharArray();
+        return true;
+    }
+
+    private char[] readPassword() {
+        return passwordField.getText().toString().toCharArray();
     }
 
     private void beginCreate() {
-        char[] password = readPassword();
-        if (password == null) return;
+        if (!hasValidPassword()) return;
         creating = true;
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -96,7 +98,7 @@ public final class MainActivity extends Activity {
     }
 
     private void beginVerify() {
-        if (readPassword() == null) return;
+        if (!hasValidPassword()) return;
         creating = false;
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -117,8 +119,15 @@ public final class MainActivity extends Activity {
                 try (OutputStream output = getContentResolver().openOutputStream(uri, "w")) {
                     result = KeyStoreEngine.create(output, password);
                 }
-                status.setText(formatResult("Keystore created and written. Re-open it to verify.",
-                        result));
+                KeyStoreEngine.Verification reopened;
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    reopened = KeyStoreEngine.verify(input, password);
+                }
+                if (!result.fingerprint.equals(reopened.fingerprint)) {
+                    throw new IllegalStateException("Saved keystore fingerprint did not match");
+                }
+                status.setText(formatResult("Keystore created, reopened, and verified.",
+                        reopened));
             } else if (requestCode == OPEN_FILE && !creating) {
                 try (InputStream input = getContentResolver().openInputStream(uri)) {
                     result = KeyStoreEngine.verify(input, password);
@@ -144,8 +153,6 @@ public final class MainActivity extends Activity {
     }
 
     private String safeMessage(Exception error) {
-        String message = error.getMessage();
-        if (message == null || message.trim().isEmpty()) return error.getClass().getSimpleName();
-        return message;
+        return "Could not complete the operation. Check the password and selected file, then try again.";
     }
 }
