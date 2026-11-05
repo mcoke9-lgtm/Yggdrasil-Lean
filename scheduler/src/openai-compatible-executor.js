@@ -96,6 +96,33 @@ function validateRoutes(input) {
   return Object.freeze(routes);
 }
 
+function fingerprintForValidatedRoutes(routes, taskPrompt) {
+  const approval = {
+    disclosure_version: "builder-overnight-prompt-scope-v1",
+    prompt_contents: [
+      "scheduled_task_prompt",
+      "run_generated_thread_history",
+      "selected_role_instructions",
+      "timestamped_operational_limits_snapshot"
+    ],
+    task_prompt_sha256: createHash("sha256").update(taskPrompt.trim(), "utf8").digest("hex"),
+    routes: BUILDER_ROLES.map(role => ({
+      role,
+      provider_id: routes[role].providerId,
+      endpoint: routes[role].endpoint,
+      model_id: routes[role].model
+    }))
+  };
+  return createHash("sha256").update(JSON.stringify(approval), "utf8").digest("hex");
+}
+
+/** Fingerprint to store in the operator task vault when the user approves a scheduled disclosure. */
+export function createOvernightDisclosureFingerprint(routeInput, taskPrompt) {
+  const routes = validateRoutes(routeInput);
+  const prompt = requiredText(taskPrompt, "Scheduled task prompt", MAX_TASK_PROMPT_CHARS);
+  return fingerprintForValidatedRoutes(routes, prompt);
+}
+
 function roleSystemInstruction(role) {
   const detail = ROLE_DETAILS[role];
   let instruction = "You are " + detail[0] + ", one role in the Nine Builders collective. " +
@@ -256,7 +283,7 @@ async function readLimitedResponse(response, signal) {
   return new TextDecoder().decode(merged);
 }
 
-function validateTask(task) {
+function validateTask(task, routes) {
   if (!task || typeof task !== "object" || Array.isArray(task)) {
     throw new TypeError("Secure task vault returned no task object");
   }
@@ -264,7 +291,22 @@ function validateTask(task) {
   const history = Array.isArray(task.history) ? task.history : [];
   const encoded = JSON.stringify({ prompt, history });
   if (encoded.length > MAX_CONTEXT_CHARS) throw new RangeError("Task prompt and history exceed the 64 KiB context limit");
-  return { prompt, history };
+
+  const consent = task.consent;
+  if (!consent || consent.status !== "USER_APPROVED" ||
+      consent.scope !== "NINE_BUILDERS_OVERNIGHT") {
+    throw new Error("Scheduled model disclosure has no explicit user approval in the task vault");
+  }
+  const approvedAt = new Date(consent.approvedAt);
+  if (!Number.isFinite(approvedAt.getTime())) {
+    throw new Error("Task-vault consent record has no valid approval timestamp");
+  }
+  const fingerprint = requiredText(consent.fingerprint, "Consent fingerprint", 64);
+  if (!/^[a-f0-9]{64}$/.test(fingerprint) ||
+      fingerprint !== fingerprintForValidatedRoutes(routes, prompt)) {
+    throw new Error("Scheduled task or one or more Builder routes changed after user approval; fresh consent is required");
+  }
+  return { prompt, history, consentFingerprint: fingerprint };
 }
 
 export function createOpenAiCompatibleExecutor({
@@ -301,7 +343,7 @@ export function createOpenAiCompatibleExecutor({
     }
 
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
-    const task = validateTask(await taskVault.getTask(taskReference));
+    const task = validateTask(await taskVault.getTask(taskReference), routes);
     const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
     const userMessage = JSON.stringify({
       task_prompt: task.prompt,
