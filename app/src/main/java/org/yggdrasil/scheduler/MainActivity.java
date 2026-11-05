@@ -154,7 +154,7 @@ public final class MainActivity extends Activity {
         root.addView(text("Local-first Android host · background checks are periodic, not exact-time guarantees", 14));
         status = text("Persistent task store ready", 14); root.addView(status);
         root.addView(text("Builder Console · first local commands", 20));
-        root.addView(button("Configure model provider", this::showProviderSettings));
+        root.addView(button("Manage legacy shared provider (not assigned to Builder roles)", this::showProviderSettings));
         root.addView(button("Open Nine Builder conversation", () -> startActivity(
                 new Intent(this, BuilderConversationActivity.class))));
         providerStatus = text(providerConfigurationSummary(), 13);
@@ -396,8 +396,8 @@ public final class MainActivity extends Activity {
         try {
             SecureBuilderProviderSettings.Configuration config =
                     new SecureBuilderProviderSettings(this).readConfiguration();
-            if (config == null) return "Model provider: not configured · no model requests will be sent";
-            return "Model provider: " + config.providerId + " · " + config.model
+            if (config == null) return "Legacy shared provider: not configured · not used by role-specific Builder routing";
+            return "Legacy shared provider (not assigned to Builder roles): " + config.providerId + " · " + config.model
                     + " · " + (config.hasCredential ? "credential stored securely" : "no credential")
                     + " · configuration saved; connection not tested";
         } catch (Exception e) {
