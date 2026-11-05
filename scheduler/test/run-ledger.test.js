@@ -20,9 +20,13 @@ test("creates a bounded run with all nine distinct Builder identities", async ()
   });
   const run = await ledger.createRun({ scheduledFor: "2026-11-05T20:00:00Z" });
   assert.deepEqual(run.builders.map(item => item.role), BUILDER_ROLES);
-  assert.equal(new Date(run.deadlineAt).getTime() - new Date(run.startedAt).getTime(),
-    MAX_BUILDER_RUN_DURATION_MS);
+  assert.equal(run.startedAt, null);
+  assert.equal(run.deadlineAt, null);
   assert.equal(run.status, "queued");
+  time.advance(30 * 60 * 1000);
+  const started = await ledger.startRun(run.runId);
+  assert.equal(new Date(started.deadlineAt).getTime() - new Date(started.startedAt).getTime(),
+    MAX_BUILDER_RUN_DURATION_MS);
 });
 
 test("rejects work windows longer than eight hours", async () => {
@@ -131,4 +135,14 @@ test("does not permit Baldr review to be silently skipped", async () => {
     () => ledger.finishBuilder(run.runId, "BALDR", "skipped"),
     /cannot be silently skipped/
   );
+});
+
+test("does not consume the eight-hour budget while a scheduled run is queued", async () => {
+  const time = clockAt("2026-11-05T20:00:00.000Z");
+  const ledger = new BuilderRunLedger({ store: new MemoryStore(), clock: time.clock });
+  const run = await ledger.createRun({ runId: "queue-delay", durationMs: 60 * 60 * 1000 });
+  time.advance(5 * 60 * 60 * 1000);
+  const started = await ledger.startRun(run.runId);
+  assert.equal(started.startedAt, "2026-11-06T01:00:00.000Z");
+  assert.equal(started.deadlineAt, "2026-11-06T02:00:00.000Z");
 });
