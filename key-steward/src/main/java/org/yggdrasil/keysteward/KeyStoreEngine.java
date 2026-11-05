@@ -10,6 +10,7 @@ import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.Provider;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -99,6 +100,22 @@ final class KeyStoreEngine {
         }
         X509Certificate x509 = (X509Certificate) certificate;
         x509.checkValidity(new Date());
+
+        // Prove the private key and certificate public key are a matching pair.
+        byte[] challenge = new byte[32];
+        new SecureRandom().nextBytes(challenge);
+        Signature signer = Signature.getInstance("SHA256withRSA", PROVIDER);
+        signer.initSign((PrivateKey) key);
+        signer.update(challenge);
+        byte[] proof = signer.sign();
+        Signature verifier = Signature.getInstance("SHA256withRSA", PROVIDER);
+        verifier.initVerify(x509.getPublicKey());
+        verifier.update(challenge);
+        if (!verifier.verify(proof)) {
+            throw new IllegalArgumentException("Private key does not match its certificate");
+        }
+        java.util.Arrays.fill(challenge, (byte) 0);
+        java.util.Arrays.fill(proof, (byte) 0);
         return describe(x509);
     }
 
