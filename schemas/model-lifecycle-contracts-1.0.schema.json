@@ -1854,7 +1854,8 @@
         "acceptance_gates",
         "known_losses",
         "known_unknowns",
-        "decision"
+        "decision",
+        "expansion_blueprint"
       ],
       "properties": {
         "format_id": {
@@ -2033,7 +2034,10 @@
             "raw_evidence_retention",
             "candidate_must_not_self_evaluate",
             "evaluator_artifacts_must_be_distinct_from_candidate",
-            "human_or_deterministic_verification_required"
+            "human_or_deterministic_verification_required",
+            "evaluator_selection_status",
+            "evaluator_model_artifact_refs",
+            "builder_roles_are_independent_model_artifacts"
           ],
           "properties": {
             "evaluator_builder_ids": {
@@ -2073,6 +2077,24 @@
             },
             "human_or_deterministic_verification_required": {
               "const": true
+            },
+            "evaluator_selection_status": {
+              "type": "string",
+              "enum": [
+                "not_selected",
+                "selected",
+                "blocked"
+              ]
+            },
+            "evaluator_model_artifact_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "builder_roles_are_independent_model_artifacts": {
+              "const": false
             }
           },
           "additionalProperties": false
@@ -2153,6 +2175,95 @@
           "items": {
             "$ref": "#/$defs/evidenceRef"
           }
+        },
+        "expansion_blueprint": {
+          "type": "object",
+          "required": [
+            "status",
+            "architecture_and_configuration_refs",
+            "tokenizer_refs",
+            "source_weight_artifact_refs",
+            "training_data_manifest_refs",
+            "training_recipe_refs",
+            "runtime_toolchain_refs",
+            "license_and_provenance_refs",
+            "required_compute_profile_id",
+            "reconstruction_claim",
+            "student_weights_alone_sufficient"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "not_selected",
+                "planned",
+                "registered",
+                "verified",
+                "blocked"
+              ]
+            },
+            "architecture_and_configuration_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "tokenizer_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "source_weight_artifact_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "training_data_manifest_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "training_recipe_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "runtime_toolchain_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "license_and_provenance_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidenceRef"
+              }
+            },
+            "required_compute_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reconstruction_claim": {
+              "type": "string",
+              "enum": [
+                "not_selected",
+                "exact_from_preserved_source_artifacts",
+                "approximate_retraining",
+                "no_reconstruction_path"
+              ]
+            },
+            "student_weights_alone_sufficient": {
+              "const": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
