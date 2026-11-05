@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "analyze:sample": "node src/cli.js samples/materials.csv reports/materials-report.json"
+    "analyze:sample": "node src/cli.js samples/materials.csv reports/materials-report.json",
+    "start": "node src/server.js"
   },
   "engines": {
     "node": ">=20"
