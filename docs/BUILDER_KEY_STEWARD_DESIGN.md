@@ -44,7 +44,8 @@ Bouncy Castle Java 1.86 is the current release shown by the vendor at the time o
 - [x] Fingerprint remains identical after export/import.
 - [x] User-initiated Base64 export has explicit confirmation, a 48 KB limit, sensitive clipboard metadata, and a scheduled clear.
 - [x] Repeat APK assembly with the same disposable signing identity produces the same verified signer fingerprint (CI run `42015921585`).
-- [ ] Missing-alias, expired/not-yet-valid certificate, and oversize-secret edge-case tests.
+- [ ] Missing-alias and oversize-secret boundary tests added; CI result pending.
+- [ ] Expired/not-yet-valid certificate rejection test.
 - [x] User reports disposable keystore creation succeeded on Galaxy S21 / Android 15.
 - [x] User reports the saved keystore was reopened and verified successfully on Galaxy S21 / Android 15.
 - [ ] Permanent key is created only after phone testing and all remaining release gates.
