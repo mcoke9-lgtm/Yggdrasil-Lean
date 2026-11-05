@@ -141,6 +141,9 @@ export class BuilderRunLedger {
       if (status !== "succeeded" && status !== "failed" && status !== "skipped") {
         throw new TypeError("Builder result must be succeeded, failed, or skipped");
       }
+      if (role === "BALDR" && status === "skipped") {
+        throw new Error("Baldr review cannot be silently skipped; record a failure if review is unavailable");
+      }
       const builder = this.builder(run, role);
       if (builder.status !== "running" && !(status === "skipped" && builder.status === "pending")) {
         throw new Error("Builder is not in a finishable state");
