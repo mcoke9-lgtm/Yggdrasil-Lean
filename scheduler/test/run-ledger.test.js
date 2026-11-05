@@ -117,3 +117,18 @@ test("rejects oversized checkpoint metadata", async () => {
     checkpointId: "too-large", data: { payload: "x".repeat(17000) }
   }), /16 KiB/);
 });
+
+test("does not permit Baldr review to be silently skipped", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore() });
+  const run = await ledger.createRun({ runId: "baldr-required" });
+  await ledger.startRun(run.runId);
+  for (const role of BUILDER_ROLES.filter(role => role !== "BALDR")) {
+    await ledger.startBuilder(run.runId, role);
+    await ledger.finishBuilder(run.runId, role, "succeeded");
+  }
+  await ledger.startBuilder(run.runId, "BALDR");
+  await assert.rejects(
+    () => ledger.finishBuilder(run.runId, "BALDR", "skipped"),
+    /cannot be silently skipped/
+  );
+});
