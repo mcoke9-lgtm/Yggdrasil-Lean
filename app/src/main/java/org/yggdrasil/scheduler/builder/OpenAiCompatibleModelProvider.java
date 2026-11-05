@@ -85,8 +85,14 @@ public final class OpenAiCompatibleModelProvider implements BuilderModelProvider
         payload.put("model", model);
         payload.put("messages", messages);
         payload.put("max_tokens", request.maxOutputTokens);
+        JSONObject responseFormat = new JSONObject();
+        responseFormat.put("type", "json_object");
+        payload.put("response_format", responseFormat);
+        String requestBody = payload.toString();
+        if (requestBody.length() > 1024 * 1024)
+            throw new IllegalArgumentException("Serialized model request exceeds 1 MB limit");
 
-        HttpResult result = transport.post(endpoint, headers, payload.toString(),
+        HttpResult result = transport.post(endpoint, headers, requestBody,
                 connectTimeoutMillis, readTimeoutMillis);
         if (result == null) throw new IllegalStateException("Model transport returned no HTTP result");
         if (result.statusCode < 200 || result.statusCode >= 300)
