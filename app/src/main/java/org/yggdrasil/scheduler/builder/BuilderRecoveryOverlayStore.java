@@ -325,6 +325,91 @@ public final class BuilderRecoveryOverlayStore extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * Exports both merged streams under one overlay read transaction, so a
+     * concurrent process cannot commit between the conversation and subject snapshots.
+     * The outer object carries the immutable generation and baseline provenance.
+     */
+    public JSONObject exportMergedSnapshots() {
+        SQLiteDatabase overlay = getReadableDatabase();
+        SQLiteDatabase conversations = baselineConversation();
+        SQLiteDatabase subjects = baselineSubject();
+        overlay.beginTransaction();
+        try {
+            JSONArray threads = new JSONArray();
+            int turnCount = 0;
+            for (String threadId : listThreadIds(overlay, conversations)) {
+                JSONArray turns = new JSONArray();
+                List<BuilderConversationProtocol.Turn> merged =
+                        readConversationThread(conversations, threadId);
+                merged.addAll(readOverlayThread(overlay, threadId));
+                for (BuilderConversationProtocol.Turn turn : merged) {
+                    turns.put(turnJson(turn));
+                    turnCount++;
+                }
+                JSONObject thread = new JSONObject();
+                thread.put("thread_id", threadId);
+                thread.put("turns", turns);
+                threads.put(thread);
+            }
+
+            JSONArray events = new JSONArray();
+            try (Cursor c = subjects.query(EVENTS, null, null, null, null, null, "_id ASC")) {
+                while (c.moveToNext()) events.put(eventJson(eventFromCursor(c)));
+            }
+            try (Cursor c = overlay.query(EVENTS, null, null, null, null, null, "_id ASC")) {
+                while (c.moveToNext()) events.put(eventJson(eventFromCursor(c)));
+            }
+
+            JSONObject conversation = new JSONObject();
+            conversation.put("format", "yggdrasil-nine-builder-conversations");
+            conversation.put("format_version", 1);
+            conversation.put("exported_at_epoch_millis", System.currentTimeMillis());
+            conversation.put("thread_count", threads.length());
+            conversation.put("turn_count", turnCount);
+            conversation.put("threads", threads);
+            conversation.put("content_sha256", sha256(conversation.toString()));
+
+            JSONObject subject = new JSONObject();
+            subject.put("format", "yggdrasil-subject-thread-index");
+            subject.put("format_version", 1);
+            subject.put("event_count", events.length());
+            subject.put("events", events);
+            subject.put("content_sha256", sha256(subject.toString()));
+
+            JSONObject result = new JSONObject();
+            result.put("format", "yggdrasil-recovery-overlay-export");
+            result.put("format_version", 1);
+            result.put("generation_id", generationId);
+            result.put("conversation_baseline_sha256", conversationDigest);
+            result.put("subject_baseline_sha256", subjectDigest);
+            result.put("conversation_snapshot", conversation);
+            result.put("subject_thread_snapshot", subject);
+            result.put("content_sha256", sha256(result.toString()));
+            overlay.setTransactionSuccessful();
+            return result;
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not export one consistent merged recovery view", e);
+        } finally {
+            overlay.endTransaction();
+            conversations.close();
+            subjects.close();
+        }
+    }
+
+    private List<String> listThreadIds(SQLiteDatabase overlay, SQLiteDatabase baseline) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        try (Cursor c = overlay.rawQuery("SELECT thread_id FROM " + TURNS
+                + " GROUP BY thread_id ORDER BY MAX(_id) DESC", null)) {
+            while (c.moveToNext()) ids.add(c.getString(0));
+        }
+        try (Cursor c = baseline.rawQuery("SELECT thread_id FROM conversation_turns "
+                + "GROUP BY thread_id ORDER BY MAX(_id) DESC", null)) {
+            while (c.moveToNext()) ids.add(c.getString(0));
+        }
+        return new ArrayList<>(ids);
+    }
+
     private SQLiteDatabase baselineConversation() {
         return openBaseline(conversationBaselineName);
     }
