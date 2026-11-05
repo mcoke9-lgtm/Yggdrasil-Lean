@@ -12,7 +12,7 @@ on:
       - ".github/workflows/phase-a-contract-validation.yml"
   pull_request:
     branches:
-      - independent-builder-runtime-foundation-001
+      - main
     paths:
       - "schemas/model-lifecycle-contracts-1.0.schema.json"
       - "schemas/nine-builder-capability-contracts-v0.1.json"
