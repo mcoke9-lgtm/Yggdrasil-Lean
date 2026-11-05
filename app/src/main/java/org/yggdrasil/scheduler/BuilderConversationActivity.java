@@ -449,6 +449,14 @@ public final class BuilderConversationActivity extends Activity {
                 }
                 final BuilderConversationProtocol.Turn found = incident;
                 if (!destroyed) runOnUiThread(() -> {
+                    if (!threadId.equals(activeThreadId)) {
+                        status.setText("The active thread changed while locating the incident. No review was sent.");
+                        return;
+                    }
+                    if (busy) {
+                        status.setText("Another Builder round started while locating the incident. No review was sent.");
+                        return;
+                    }
                     if (found == null) {
                         status.setText("No improvement incident is recorded in this thread. No review was sent.");
                         return;
