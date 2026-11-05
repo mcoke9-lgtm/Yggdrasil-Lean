@@ -19,7 +19,7 @@ public final class BuilderConversationProtocol {
 
     public enum TurnType {
         CONTRIBUTION, QUESTION, CHALLENGE, RESPONSE, HANDOFF,
-        ACKNOWLEDGEMENT, RECONCILIATION, DECISION
+        ACKNOWLEDGEMENT, RECONCILIATION, INTERRUPTION, IMPROVEMENT_INCIDENT, DECISION
     }
 
     public enum EvidenceStatus {
@@ -97,10 +97,14 @@ public final class BuilderConversationProtocol {
                 Turn referenced = priorTurns.get(turn.replyToTurnId);
                 if (referenced == null)
                     throw new IllegalArgumentException("Replies must reference an earlier turn");
-                if (turn.type != TurnType.HANDOFF && turn.recipient != null && turn.recipient != referenced.speaker)
+                if (turn.type != TurnType.HANDOFF && turn.type != TurnType.INTERRUPTION
+                        && turn.type != TurnType.IMPROVEMENT_INCIDENT
+                        && turn.recipient != null && turn.recipient != referenced.speaker)
                     throw new IllegalArgumentException("Recipient must match the referenced speaker");
                 boolean answersDirectedTurn = turn.type == TurnType.RESPONSE
-                        || turn.type == TurnType.ACKNOWLEDGEMENT;
+                        || turn.type == TurnType.ACKNOWLEDGEMENT
+                || turn.type == TurnType.INTERRUPTION
+                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
                 boolean referencedWasDirected = referenced.type == TurnType.QUESTION
                         || referenced.type == TurnType.CHALLENGE
                         || referenced.type == TurnType.HANDOFF;
@@ -123,7 +127,9 @@ public final class BuilderConversationProtocol {
                 || turn.type == TurnType.RESPONSE
                 || turn.type == TurnType.HANDOFF
                 || turn.type == TurnType.ACKNOWLEDGEMENT
-                || turn.type == TurnType.RECONCILIATION;
+                || turn.type == TurnType.RECONCILIATION
+                || turn.type == TurnType.INTERRUPTION
+                || turn.type == TurnType.IMPROVEMENT_INCIDENT;
 
         if (needsRecipient && turn.recipient == null)
             throw new IllegalArgumentException(turn.type + " requires a recipient");
