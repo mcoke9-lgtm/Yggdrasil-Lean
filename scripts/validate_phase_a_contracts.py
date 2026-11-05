@@ -70,27 +70,49 @@ def main() -> int:
         print("FAIL evaluation suite must contain four shared cases")
         failures += 1
 
+    fixture_by_id = {case.get("case_id"): case for case in cases}
     for contract in contracts:
         builder = contract.get("builder_id", "<unknown>")
         capabilities = contract.get("required_capabilities", [])
         if len(capabilities) != 6:
             print(f"FAIL {builder} must define exactly six required capability tests")
             failures += 1
+        capability_ids = [capability.get("capability_id") for capability in capabilities]
+        if len(capability_ids) != len(set(capability_ids)):
+            print(f"FAIL {builder} has duplicate capability IDs")
+            failures += 1
+        role_case_count = 0
+        shared_case_count = 0
         for capability in capabilities:
             refs = capability.get("test_case_refs", [])
             if len(refs) != 1 or refs[0].get("ref") not in case_id_set:
                 print(f"FAIL {builder}/{capability.get('capability_id')} must reference one existing fixture")
                 failures += 1
-            for shared_id in SHARED_CASES:
-                if shared_id in {item.get("ref") for item in refs}:
-                    pass
-        referenced_shared = {
-            item.get("ref")
-            for capability in capabilities
-            for item in capability.get("test_case_refs", [])
-        }
-        if not SHARED_CASES.issubset(referenced_shared):
-            print(f"FAIL {builder} does not reference all four shared capability fixtures")
+                continue
+            fixture = fixture_by_id[refs[0]["ref"]]
+            if fixture.get("capability_id") != capability.get("capability_id"):
+                print(f"FAIL {builder}/{capability.get('capability_id')} references a different capability fixture")
+                failures += 1
+            if fixture.get("test_kind") == "role_specific":
+                role_case_count += 1
+                if fixture.get("builder_id") != builder:
+                    print(f"FAIL {builder}/{capability.get('capability_id')} references another Builder's fixture")
+                    failures += 1
+            elif fixture.get("test_kind") == "shared":
+                shared_case_count += 1
+                if builder not in fixture.get("builder_ids", []):
+                    print(f"FAIL shared fixture {fixture.get('case_id')} omits {builder}")
+                    failures += 1
+        if role_case_count != 2 or shared_case_count != 4:
+            print(f"FAIL {builder} must reference two role-specific and four shared fixtures")
+            failures += 1
+
+    for fixture in cases:
+        if fixture.get("test_kind") == "shared" and set(fixture.get("builder_ids", [])) != EXPECTED_BUILDERS:
+            print(f"FAIL shared fixture {fixture.get('case_id')} must target all nine Builders")
+            failures += 1
+        if fixture.get("test_kind") == "role_specific" and fixture.get("builder_id") not in EXPECTED_BUILDERS:
+            print(f"FAIL role-specific fixture {fixture.get('case_id')} has an unknown Builder")
             failures += 1
 
     if rubric.get("aggregation", {}).get("threshold_status") != "proposed_not_adopted":
