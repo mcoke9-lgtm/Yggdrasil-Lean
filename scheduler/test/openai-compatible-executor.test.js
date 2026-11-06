@@ -732,6 +732,7 @@ test("correction updates persist only after the read-only gateway verifies the e
   assert.equal(h.saved[0].evidenceVerification.status, "VERIFIED");
   assert.equal(h.saved[0].evidenceVerification.verificationMethod, "READ_ONLY_GITHUB_GATEWAY");
   assert.equal(h.saved[0].evidenceVerification.workflow, "scheduler-tests");
+  assert.equal(h.saved[0].evidenceVerification.verificationMethod, "READ_ONLY_GITHUB_GATEWAY");
   assert.equal(h.saved[0].evidenceVerification.expectedSha, sha);
   assert.ok(Number.isFinite(Date.parse(h.saved[0].evidenceVerification.checkedAt)));
   assert.equal(h.checkpoints.length, 1);
