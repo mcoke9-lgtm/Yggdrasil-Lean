@@ -64,6 +64,11 @@ test("rejects history from another run or thread", () => {
   assert.throws(() => validateBuilderHistory([foreign], runId, threadId), /outside this scheduled run/);
 });
 
+test("rejects a history record without a stable identity", () => {
+  const missing = { runId, threadId, speaker: "ODIN", body: "legacy without an ID" };
+  assert.throws(() => validateBuilderHistory([missing], runId, threadId), /missing its stable turnId/);
+});
+
 test("rejects duplicate stable turn identities", () => {
   const history = [
     turn("same-id", "ODIN", "CONTRIBUTION"),
@@ -168,7 +173,7 @@ test("correction history enforces incident linkage and ordered lifecycle", () =>
       unresolved: "none"
     })
   };
-  assert.throws(() => validateBuilderHistory(outOfOrder, runId, threadId), /stages must advance exactly/);
+  assert.throws(() => validateBuilderHistory(outOfOrder, runId, threadId, "task-prompt-1"), /stages must advance exactly/);
 });
 
 test("only unaffected Baldr can issue VERIFIED after TESTED", () => {
