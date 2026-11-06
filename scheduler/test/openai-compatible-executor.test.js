@@ -586,6 +586,7 @@ test("loads the host executor only from owner-protected config and operator modu
       'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n');
     await writeFile(credentialsPath,
       'export async function readSecret() { return "host-secret"; }\n');
+    await writeFile(evidenceGatewayPath, "export async function createEvidenceGateway() {\n  return {\n    async fetchCommit() { return null; },\n    async branchContainsCommit() { return false; },\n    async fetchWorkflowRun() { return null; },\n    async fetchWorkflowJobs() { return []; }\n  };\n}\n", { mode: 0o600 });
     process.env.BUILDER_HOST_CONFIG_FILE = configPath;
     process.env.BUILDER_TASK_VAULT_MODULE = taskVaultPath;
     process.env.BUILDER_CREDENTIALS_MODULE = credentialsPath;
