@@ -47,7 +47,7 @@ test("verifies a signed user action bound to one run, thread, and correction", (
 
 test("signature binds every authorization field; tampering fails", () => {
   const assertion = makeAssertion();
-  for (const field of ["userId", "runId", "threadId", "correctionId", "nonce", "issuedAt"]) {
+  for (const field of ["userId", "taskReference", "runId", "threadId", "correctionId", "nonce", "issuedAt"]) {
     const changedValue = field === "issuedAt"
       ? new Date(Date.parse(assertion.issuedAt) + 1000).toISOString()
       : assertion[field] + "-changed";
