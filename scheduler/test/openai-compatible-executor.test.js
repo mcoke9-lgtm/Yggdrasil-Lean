@@ -236,6 +236,89 @@ test("executor recovers a durable same-run result without repeating a provider r
   assert.equal(providerCalls, 0);
 });
 
+test("legacy continuation blocks uncertain failed roles without a matching durable vault turn", async () => {
+  const routes = makeRoutes();
+  const sourceRunId = "builder:legacy-source";
+  const targetRunId = "builder:legacy-target";
+  const sourceThreadId = "nine-builders:" + sourceRunId;
+  const targetThreadId = "nine-builders:" + targetRunId;
+  const prompt = "Continue only when prior outcomes are recoverable.";
+  const sourceHistory = [{
+    protocolVersion: 4,
+    runId: sourceRunId,
+    threadId: sourceThreadId,
+    turnId: "legacy-odin-turn",
+    checkpointId: "legacy-odin-turn",
+    speaker: "ODIN",
+    body: "Recorded Odin contribution",
+    type: "CONTRIBUTION",
+    evidence_status: "OBSERVED",
+    timestampEpochMillis: Date.parse("2026-11-05T20:00:01.000Z"),
+    completedAt: "2026-11-05T20:00:01.000Z",
+    responseSha256: "a".repeat(64),
+    reply: { body: "Recorded Odin contribution", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" }
+  }];
+  const sourceTask = {
+    prompt, promptTurnId: "legacy-task-prompt", promptCreatedAt: "2026-11-05T20:00:00.000Z",
+    threadId: sourceThreadId, history: sourceHistory,
+    consent: {
+      status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+      approvedAt: "2026-11-05T20:00:00.000Z",
+      fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+    }
+  };
+  let targetTask = null;
+  const taskVault = {
+    async getRunHistoryManifest(reference, { runId }) {
+      assert.equal(reference, "vault:task-001");
+      assert.equal(runId, sourceRunId);
+      return { threadId: sourceThreadId, historySha256: "b".repeat(64) };
+    },
+    async forkRunHistory(_reference, options) {
+      assert.equal(options.sourceRunId, sourceRunId);
+      assert.equal(options.targetRunId, targetRunId);
+      targetTask = {
+        ...sourceTask,
+        threadId: targetThreadId,
+        history: sourceHistory.map(turn => ({
+          ...turn,
+          runId: targetRunId,
+          threadId: targetThreadId,
+          origin: {
+            kind: "ENCRYPTED_VAULT_RUN_FORK",
+            sourceTaskReference: "vault:task-001",
+            sourceRunId,
+            sourceThreadId,
+            sourceTurnId: turn.turnId
+          }
+        }))
+      };
+      return {
+        durable: true, duplicate: false, sourceThreadId, targetThreadId,
+        sourceHistorySha256: "b".repeat(64), importedTurnCount: sourceHistory.length
+      };
+    },
+    async getTask(reference, { runId }) {
+      assert.equal(reference, "vault:task-001");
+      return runId === sourceRunId ? sourceTask : targetTask;
+    },
+    async appendBuilderResult() { throw new Error("No provider execution expected during reconciliation"); }
+  };
+  const executor = createOpenAiCompatibleExecutor({
+    routes, taskVault, readSecret: async () => "unused",
+    fetchImpl: async () => { throw new Error("No provider call expected during reconciliation"); }
+  });
+  const sourceBuilders = BUILDER_ROLES.map(role => ({
+    role,
+    status: role === "ODIN" ? "succeeded" : role === "HODR" ? "failed" : "pending",
+    checkpoint: role === "ODIN" ? { checkpointId: "legacy-odin-turn" } : null
+  }));
+  await assert.rejects(() => executor.forkRunHistory({
+    taskReference: "vault:task-001", sourceRunId, targetRunId, sourceBuilders
+  }), /MANUAL_RECONCILIATION_REQUIRED/);
+  assert.ok(targetTask, "encrypted source history was forked before reconciliation");
+});
+
 test("uses operator routes, secure task lookup, bounded JSON output, and durable checkpoints", async () => {
   let request;
   const h = makeHarness({
