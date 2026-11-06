@@ -8,11 +8,16 @@ import {
 const runId = "run-1";
 const threadId = "nine-builders:run-1";
 
-function turn(checkpointId, speaker, type, replyTo = null, body = "record", evidenceStatus = "OBSERVED") {
+function turn(checkpointId, speaker, type, replyTo = null, body = "record", evidenceStatus = "OBSERVED", recipient) {
+  const directed = [
+    "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
+    "INTERRUPTION", "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN", "CORRECTION_UPDATE"
+  ].includes(type);
   return {
     runId, threadId, checkpointId, speaker, body,
     reply: {
       body, turn_type: type, reply_to_turn_id: replyTo,
+      recipient: recipient === undefined ? (directed ? "USER" : null) : recipient,
       evidence_status: evidenceStatus
     }
   };
@@ -33,7 +38,10 @@ function correctionHistory() {
     id, speaker, "CORRECTION_UPDATE", replyTo,
     JSON.stringify({
       correction_id: "corr-1", incident_turn_id: "incident-1", stage,
-      evidence: "recorded evidence", artifact_reference: "run-or-commit",
+      evidence: "recorded evidence",
+      artifact_reference: stage === "IMPLEMENTED"
+        ? "github+commit://github.com/acme/project/0123456789abcdef0123456789abcdef01234567?branch=correction"
+        : "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=0123456789abcdef0123456789abcdef01234567",
       acceptance_criteria_result: "checked", unresolved: "none"
     }), stage
   );
@@ -77,6 +85,43 @@ test("rejects malformed source timestamps but accepts absent legacy timestamps",
   assert.throws(() => validateBuilderHistory([bad], runId, threadId), /canonical ISO-8601/);
   const good = { ...turn("turn-2", "ODIN", "CONTRIBUTION"), completedAt: "2026-11-05T12:00:00.000Z" };
   assert.doesNotThrow(() => validateBuilderHistory([good], runId, threadId));
+});
+
+test("Android protocol v4 timestamps increase strictly and retain source identity", () => {
+  const first = {
+    ...turn("first", "ODIN", "CONTRIBUTION"),
+    protocolVersion: 4,
+    turnId: "first",
+    completedAt: "2026-11-05T12:00:00.000Z",
+    timestampEpochMillis: Date.parse("2026-11-05T12:00:00.000Z")
+  };
+  const second = {
+    ...turn("second", "HODR", "CONTRIBUTION"),
+    protocolVersion: 4,
+    turnId: "second",
+    completedAt: "2026-11-05T12:00:01.000Z",
+    timestampEpochMillis: Date.parse("2026-11-05T12:00:01.000Z")
+  };
+  assert.doesNotThrow(() => validateBuilderHistory([first, second], runId, threadId));
+  assert.throws(() => validateBuilderHistory([
+    first, { ...second, completedAt: first.completedAt, timestampEpochMillis: first.timestampEpochMillis }
+  ], runId, threadId), /timestamps must increase strictly/);
+});
+
+test("recipient must match the referenced speaker and only the addressed participant may answer", () => {
+  const claim = turn("claim", "HUGINN", "QUESTION", null, "Question", "PROPOSED", "KVASIR");
+  const wrongRecipient = turn("response", "KVASIR", "RESPONSE", "claim", "Answer", "OBSERVED", "MARI");
+  assert.throws(() => validateBuilderHistory([claim, wrongRecipient], runId, threadId),
+    /recipient must match the speaker/);
+  const wrongSpeaker = turn("response-2", "MARI", "RESPONSE", "claim", "Answer", "OBSERVED", "HUGINN");
+  assert.throws(() => validateBuilderHistory([claim, wrongSpeaker], runId, threadId),
+    /Only the participant addressed/);
+});
+
+test("new replies may reference the stable task prompt identity", () => {
+  assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
+    turn_type: "RESPONSE", recipient: "USER", reply_to_turn_id: "user-prompt-1"
+  }, [], "HODR", "user-prompt-1"));
 });
 
 test("new directed replies must reference an existing same-run turn", () => {
@@ -130,7 +175,8 @@ test("only unaffected Baldr can issue VERIFIED after TESTED", () => {
   const history = correctionHistory();
   const verifiedBody = JSON.stringify({
     correction_id: "corr-1", incident_turn_id: "incident-1", stage: "VERIFIED",
-    evidence: "independent check", artifact_reference: "verification-run",
+    evidence: "independent check",
+    artifact_reference: "github+actions://github.com/acme/project/runs/12346?workflow=scheduler-tests&sha=0123456789abcdef0123456789abcdef01234567",
     acceptance_criteria_result: "all pass", unresolved: "none"
   });
   assert.throws(() => validateBuilderReplyAgainstHistory({
