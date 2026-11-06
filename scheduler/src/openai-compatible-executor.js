@@ -528,16 +528,9 @@ export function createOpenAiCompatibleExecutor({
     return {
       status: stopTurn ? "interrupted" : "succeeded",
       checkpointId,
-      data: {
-        threadId: task.threadId,
-        providerId: turn.providerId ?? null,
-        requestedModel: turn.requestedModel ?? null,
-        providerReportedModel: turn.providerReportedModel ?? null,
-        responseSha256,
-        recoveredFromEncryptedVault: true
-      },
-      summary: role + " recovered durable vault result " + checkpointId +
-        "; no model request was repeated.",
+      outcomeRef: checkpointId,
+      responseSha256,
+      evidenceStatus: turn.evidence_status ?? turn.reply?.evidence_status ?? null,
       turnType
     };
   }
@@ -568,13 +561,19 @@ export function createOpenAiCompatibleExecutor({
       const recovered = durableRecoveryRecord(task, role, existingTurn);
       await context.checkpoint({
         checkpointId: recovered.checkpointId,
-        ...recovered.data,
+        vaultTurnId: recovered.outcomeRef,
+        responseSha256: recovered.responseSha256,
+        turnType: recovered.turnType,
+        evidenceStatus: recovered.evidenceStatus,
         safeToResume: true
       });
       return {
         status: recovered.status,
         turnType: recovered.turnType,
-        summary: recovered.summary
+        checkpointId: recovered.checkpointId,
+        outcomeRef: recovered.outcomeRef,
+        responseSha256: recovered.responseSha256,
+        evidenceStatus: recovered.evidenceStatus
       };
     }
     const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
@@ -688,25 +687,76 @@ export function createOpenAiCompatibleExecutor({
       const checkpointId = requiredText(saved?.checkpointId, "Task vault checkpointId", 256);
       await context.checkpoint({
         checkpointId,
-        threadId: task.threadId,
-        providerId: route.providerId,
-        requestedModel: route.model,
-        providerReportedModel,
+        vaultTurnId: checkpointId,
         responseSha256: responseHash,
+        turnType: reply.turn_type,
+        evidenceStatus: reply.evidence_status,
         safeToResume: !STOP_TYPES.has(reply.turn_type)
       });
       const stopRequested = STOP_TYPES.has(reply.turn_type);
       return {
         status: stopRequested ? "interrupted" : "succeeded",
         turnType: reply.turn_type,
-        summary: stopRequested
-          ? role + " issued " + reply.turn_type + "; response checkpoint " + checkpointId
-          : role + " completed; response checkpoint " + checkpointId
+        checkpointId,
+        outcomeRef: checkpointId,
+        responseSha256: responseHash,
+        evidenceStatus: reply.evidence_status
       };
     } finally {
       clearTimeout(timeout);
       context.signal?.removeEventListener("abort", abortFromRun);
     }
+  };
+
+  executeBuilderRole.forkRunHistory = async function forkRunHistory({
+    taskReference, sourceRunId, targetRunId, sourceBuilders
+  } = {}) {
+    const reference = requiredText(taskReference, "opaque taskReference", 256);
+    const sourceId = requiredText(sourceRunId, "sourceRunId", 120);
+    const targetId = requiredText(targetRunId, "targetRunId", 120);
+    if (typeof taskVault.getRunHistoryManifest !== "function" ||
+        typeof taskVault.forkRunHistory !== "function") {
+      throw new Error("TASK_VAULT_UNAVAILABLE");
+    }
+    if (!Array.isArray(sourceBuilders) || sourceBuilders.length !== BUILDER_ROLES.length ||
+        sourceBuilders.some((item, index) => item?.role !== BUILDER_ROLES[index])) {
+      throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+    }
+    const manifest = await taskVault.getRunHistoryManifest(reference, { runId: sourceId });
+    const fork = await taskVault.forkRunHistory(reference, {
+      sourceRunId: sourceId,
+      targetRunId: targetId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    });
+    const targetTask = validateTask(
+      await taskVault.getTask(reference, { runId: targetId }),
+      routes, targetId, reference
+    );
+    for (const savedBuilder of sourceBuilders) {
+      const matches = targetTask.history.filter(turn => turn.speaker === savedBuilder.role);
+      if (matches.length > 1) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+      if (savedBuilder.status === "succeeded") {
+        const expectedTurnId = savedBuilder.checkpoint?.checkpointId;
+        const actualTurnId = matches[0]?.checkpointId ?? matches[0]?.turnId;
+        if (typeof expectedTurnId !== "string" || matches.length !== 1 ||
+            actualTurnId !== expectedTurnId) {
+          throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+        }
+      } else if (savedBuilder.status === "skipped" && matches.length !== 0) {
+        throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+      }
+    }
+    return {
+      durable: fork.durable === true,
+      duplicate: fork.duplicate === true,
+      sourceRunId: sourceId,
+      targetRunId: targetId,
+      sourceThreadId: fork.sourceThreadId,
+      targetThreadId: fork.targetThreadId,
+      sourceHistorySha256: manifest.historySha256,
+      importedTurnCount: fork.importedTurnCount
+    };
   };
 
   executeBuilderRole.recoverDurableResult = async function recoverDurableResult(role, context) {
