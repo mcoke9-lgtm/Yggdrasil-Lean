@@ -226,7 +226,8 @@ export function registerBuilderRunHandler(
               checkpointId: recovered.checkpointId ?? recovered.outcomeRef,
               responseSha256: recovered.responseSha256,
               turnType: recovered.turnType,
-              evidenceStatus: recovered.evidenceStatus
+              evidenceStatus: recovered.evidenceStatus,
+              reviewInvocation: recovered.reviewInvocation ?? null
             });
             const recoveredBuilder = recoveredRun.builders.find(item => item.role === role);
             activeRole = null;
