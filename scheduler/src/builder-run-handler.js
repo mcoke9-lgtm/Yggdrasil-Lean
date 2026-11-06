@@ -5,6 +5,12 @@ import {
 
 const HANDLER_TYPE = "nine-builders.run";
 const ERROR_CODE_SET = new Set(BUILDER_ERROR_CODES);
+const STOP_ERROR_CODES = new Set([
+  "CONSENT_REQUIRED", "CONSENT_STALE", "TASK_VAULT_UNAVAILABLE",
+  "VAULT_RESULT_MISSING", "VAULT_IDEMPOTENCY_CONFLICT",
+  "EVIDENCE_MISMATCH", "CHECKPOINT_INVALID", "RESUME_NOT_SAFE",
+  "MANUAL_RECONCILIATION_REQUIRED", "EXTERNAL_OUTCOME_UNKNOWN"
+]);
 
 class BuilderRequestedInterruption extends Error {
   constructor(code) {
@@ -253,9 +259,9 @@ export function registerBuilderRunHandler(
           });
         } catch (error) {
           if (controller.signal.aborted) await interrupt("CANCELLED");
-          await ledger.finishBuilder(runId, role, "failed", {
-            errorCode: errorCode(error, "EXECUTOR_FAILURE")
-          });
+          const code = errorCode(error, "EXECUTOR_FAILURE");
+          if (STOP_ERROR_CODES.has(code)) await interrupt(code);
+          await ledger.finishBuilder(runId, role, "failed", { errorCode: code });
           activeRole = null;
           const failed = await ledger.getRun(runId);
           outcomes.push(outcomeMetadata(failed.builders.find(item => item.role === role)));
