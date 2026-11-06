@@ -775,7 +775,9 @@ export function createOpenAiCompatibleExecutor({
         let started;
         try {
           started = await taskVault.beginBaldrReviewInvocation(taskReference, {
-            ...baldrInvocationStart
+            ...baldrInvocationStart,
+            inputManifest: baldrManifest.manifest,
+            reviewInput: requestBody
           });
         } catch {
           throw manualReconciliationError();
