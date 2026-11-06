@@ -48,7 +48,10 @@ test("verifies a signed user action bound to one run, thread, and correction", (
 test("signature binds every authorization field; tampering fails", () => {
   const assertion = makeAssertion();
   for (const field of ["userId", "runId", "threadId", "correctionId", "nonce", "issuedAt"]) {
-    const changed = { ...assertion, [field]: assertion[field] + "-changed" };
+    const changedValue = field === "issuedAt"
+      ? new Date(Date.parse(assertion.issuedAt) + 1000).toISOString()
+      : assertion[field] + "-changed";
+    const changed = { ...assertion, [field]: changedValue };
     assert.throws(() => verifyUserAdoptionAuthorization(changed, {
       publicKeys: { "user-action-key-2026-01": publicPem }, now
     }), /signature is invalid/);
