@@ -289,7 +289,7 @@ test("operational constraint register persists append-only entries across vault 
       affected_capability: "Create another scheduled ChatGPT task",
       affected_operation: "ChatGPT automation creation",
       force: "ADVISORY",
-      evidence_state: "VERIFIED",
+      evidence_state: "REPORTED",
       operational_effect: "NO_DIRECT_BLOCK",
       responsible_builder: "KVASIR",
       decision_authority: "USER",
