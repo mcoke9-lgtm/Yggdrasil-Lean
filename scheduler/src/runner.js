@@ -98,7 +98,6 @@ try {
       process.stdout.write(JSON.stringify({
         event: "scheduler_lease_heartbeat",
         pid: releaseLock.pid,
-        token: releaseLock.token,
         heartbeatAt
       }) + "\n");
     } catch (error) {
