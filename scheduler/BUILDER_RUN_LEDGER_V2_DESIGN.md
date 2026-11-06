@@ -149,7 +149,9 @@ This contract also requires tests for same-task binding, source-history mutation
 - Readers must identify v1 explicitly and label it as legacy plaintext. Read-only display may continue, subject to existing access controls.
 - Do not automatically copy v1 summaries, errors, or interruption reasons into v2.
 - A v1 continuation should create a distinct v2 run with `supersedesRunId`, after an operator-controlled reconciliation step. Preserve the original v1 record as the historical source.
-- Reconcile successful v1 roles against the exact run/thread in the encrypted vault using their saved checkpoint/turn identifiers. Only a matching durable vault turn can become a v2 `outcomeRef`. A v1 status of succeeded without a matching vault turn is not sufficient proof of a recoverable result.
+- Reconcile v1 `succeeded` roles against exactly one encrypted-vault turn matching the saved checkpoint/turn identifier. A mismatch or missing turn blocks continuation.
+- A v1 `failed`, `interrupted`, or `running` role is uncertain and may continue only if exactly one durable turn exists for that role and its response hash/turn type validate. If no durable turn exists, fail closed with `MANUAL_RECONCILIATION_REQUIRED`; do not automatically repeat a possibly completed provider call.
+- A v1 `pending` role may run fresh only when no prior turn exists. A v1 `skipped` role must have no turn and is carried into v2 as skipped without an attempt. Baldr may never be carried as skipped.
 - Do not carry v1 failure text forward. Map only facts that can be independently established; otherwise use `MANUAL_RECONCILIATION_REQUIRED`.
 - Require an operator-controlled backup and secure archive decision before any optional removal of legacy plaintext. Do not claim that an archive is secure unless its encryption, access controls, and restore path have been verified.
 - New runs use v2 only after the reader, writer, resume path, dashboard/log contract, and Baldr continuity tests are all in place. Avoid mixed-version mutation of a single run.
@@ -177,6 +179,7 @@ Implemented in the repository:
 - New Builder ledger runs use `schemaVersion: 2`, typed status/error codes, allowlisted checkpoint metadata, and vault turn references. No free-text summary/error/interruption reason is written to new v2 records or Builder stdout events.
 - Version-1 records remain readable and immutable. `continueRunId` creates a distinct deterministic v2 continuation after the executor forks encrypted history and reconciles every v1-successful role against exactly one matching vault turn. Same-run `resumeRunId` is restricted to v2.
 - The source-history digest remains inside the encrypted vault and trusted in-memory handoff; it is not copied into the plaintext ledger or emitted to logs.
+- Each continuation task supplies a stable `continuationId` (the CLI binds it to the one-shot task ID) so retries of the same task are idempotent. If an operator repairs the source history after a failed reconciliation, create a new continuation task ID; the existing fork target cannot be repurposed for a different source manifest.
 - The executor passes Baldr typed peer outcomes and the full successful turn history from the encrypted run thread, and checks each successful `outcomeRef` against exactly one matching turn.
 
 Remaining verification and deployment gates:
