@@ -856,6 +856,12 @@ test("persists append-only Baldr invocation start and completion receipts in the
       () => h.vault.beginBaldrReviewInvocation(taskReference, start),
       /already in use/
     );
+    await assert.rejects(
+      () => h.vault.beginBaldrReviewInvocation(taskReference, {
+        ...start, reviewInvocationId: "review-baldr-pending-2"
+      }),
+      /unknown outcome/
+    );
     const completion = {
       reviewInvocationId: start.reviewInvocationId,
       inputManifestSha256: start.inputManifestSha256,
@@ -872,6 +878,8 @@ test("persists append-only Baldr invocation start and completion receipts in the
       runId, reviewInvocationId: start.reviewInvocationId
     });
     assert.equal(saved.start.inputManifestSha256, start.inputManifestSha256);
+    assert.equal(saved.start.reviewInput, reviewInput);
+    assert.deepEqual(saved.start.inputManifest, inputManifest);
     assert.equal(saved.completion.vaultTurnId, completion.vaultTurnId);
     await assert.rejects(
       () => h.vault.completeBaldrReviewInvocation(taskReference, completion),
