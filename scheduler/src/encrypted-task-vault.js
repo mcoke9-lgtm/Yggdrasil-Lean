@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { mkdir, open, readFile, rename, lstat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
@@ -31,6 +31,18 @@ function normalizedReply(value) {
     reply_to_turn_id: value.reply_to_turn_id == null
       ? null : required(value.reply_to_turn_id, "Builder result reply_to_turn_id", 256)
   };
+}
+
+function historyManifestSha256(taskReference, runId, threadId, task, history) {
+  const manifest = {
+    taskReference,
+    runId,
+    threadId,
+    promptTurnId: task.promptTurnId ?? null,
+    promptCreatedAt: task.promptCreatedAt ?? null,
+    history
+  };
+  return createHash("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
 }
 
 function keyFromEnvironment() {
@@ -291,6 +303,161 @@ export function createEncryptedTaskVault({
       });
     },
 
+    async getRunHistoryManifest(taskReference, { runId } = {}) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        const id = required(runId, "runId", 120);
+        const state = await readState();
+        const task = state.tasks[reference];
+        if (!task) throw new Error("Task reference does not exist");
+        const run = task.runs[id];
+        if (!run || typeof run.threadId !== "string" || !Array.isArray(run.history)) {
+          throw new Error("Source run history does not exist or is malformed");
+        }
+        if (typeof task.promptTurnId !== "string" || !task.promptTurnId.trim()) {
+          throw new Error("Task prompt identity is unavailable for a history fork");
+        }
+        validateBuilderHistory(run.history, id, run.threadId, task.promptTurnId,
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
+        if (run.history.some(turn => Object.hasOwn(turn, "origin"))) {
+          throw new Error("Nested imported histories cannot be used as a v1 source; manual reconciliation required");
+        }
+        return {
+          runId: id,
+          threadId: run.threadId,
+          historySha256: historyManifestSha256(reference, id, run.threadId, task, run.history),
+          turnCount: run.history.length
+        };
+      });
+    },
+
+    async forkRunHistory(taskReference, {
+      sourceRunId,
+      targetRunId,
+      expectedSourceThreadId,
+      expectedSourceHistorySha256
+    } = {}) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        const sourceId = required(sourceRunId, "sourceRunId", 120);
+        const targetId = required(targetRunId, "targetRunId", 120);
+        const expectedThread = required(expectedSourceThreadId, "expectedSourceThreadId", 256);
+        const expectedDigest = required(expectedSourceHistorySha256, "expectedSourceHistorySha256", 64);
+        if (sourceId === targetId) throw new Error("Source and target run IDs must be distinct");
+        if (!/^[a-f0-9]{64}$/.test(expectedDigest)) {
+          throw new TypeError("Expected source history SHA-256 must be lowercase hexadecimal");
+        }
+        const state = await readState();
+        const task = state.tasks[reference];
+        if (!task) throw new Error("Task reference does not exist");
+        const source = task.runs[sourceId];
+        if (!source || source.threadId !== expectedThread || !Array.isArray(source.history)) {
+          throw new Error("Source run thread does not match the requested history fork");
+        }
+        if (typeof task.promptTurnId !== "string" || !task.promptTurnId.trim()) {
+          throw new Error("Task prompt identity is unavailable for a history fork");
+        }
+        validateBuilderHistory(source.history, sourceId, source.threadId, task.promptTurnId,
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
+        if (source.history.some(turn => Object.hasOwn(turn, "origin"))) {
+          throw new Error("Nested imported histories cannot be used as a v1 source; manual reconciliation required");
+        }
+        const actualDigest = historyManifestSha256(reference, sourceId, source.threadId, task, source.history);
+        if (actualDigest !== expectedDigest) {
+          throw new Error("Source history changed after manifest inspection; no fork was committed");
+        }
+        const targetThreadId = "nine-builders:" + targetId;
+        if (targetThreadId === source.threadId) {
+          throw new Error("Target thread identity must differ from the source thread");
+        }
+        const existing = task.runs[targetId];
+        const forkMetadata = {
+          kind: "ENCRYPTED_VAULT_RUN_FORK",
+          sourceTaskReference: reference,
+          sourceRunId: sourceId,
+          sourceThreadId: source.threadId,
+          sourceHistorySha256: actualDigest,
+          importedTurnCount: source.history.length
+        };
+        if (existing) {
+          const prior = existing.originFork;
+          if (!prior || prior.kind !== forkMetadata.kind ||
+              prior.sourceTaskReference !== reference ||
+              prior.sourceRunId !== sourceId ||
+              prior.sourceThreadId !== source.threadId ||
+              prior.sourceHistorySha256 !== actualDigest ||
+              prior.importedTurnCount !== source.history.length ||
+              existing.threadId !== targetThreadId ||
+              !Array.isArray(existing.history) ||
+              existing.history.length < source.history.length) {
+            throw new Error("Target run ID already exists with conflicting history or fork provenance");
+          }
+          const expectedImported = source.history.map(turn => ({
+            ...structuredClone(turn),
+            runId: targetId,
+            threadId: targetThreadId,
+            origin: {
+              kind: "ENCRYPTED_VAULT_RUN_FORK",
+              sourceTaskReference: reference,
+              sourceRunId: sourceId,
+              sourceThreadId: source.threadId,
+              sourceTurnId: turn.turnId ?? turn.checkpointId
+            }
+          }));
+          if (expectedImported.some((turn, index) =>
+            JSON.stringify(existing.history[index]) !== JSON.stringify(turn))) {
+            throw new Error("Existing target history does not match the verified source manifest");
+          }
+          validateBuilderHistory(existing.history, targetId, targetThreadId, task.promptTurnId,
+            task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
+          return {
+            durable: true,
+            duplicate: true,
+            sourceRunId: sourceId,
+            targetRunId: targetId,
+            sourceThreadId: source.threadId,
+            targetThreadId,
+            sourceHistorySha256: actualDigest,
+            importedTurnCount: source.history.length
+          };
+        }
+
+        const importedHistory = source.history.map(turn => ({
+          ...structuredClone(turn),
+          runId: targetId,
+          threadId: targetThreadId,
+          origin: {
+            kind: "ENCRYPTED_VAULT_RUN_FORK",
+            sourceTaskReference: reference,
+            sourceRunId: sourceId,
+            sourceThreadId: source.threadId,
+            sourceTurnId: turn.turnId ?? turn.checkpointId
+          }
+        }));
+        validateBuilderHistory(importedHistory, targetId, targetThreadId, task.promptTurnId,
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
+        task.runs[targetId] = {
+          threadId: targetThreadId,
+          history: importedHistory,
+          originFork: {
+            ...forkMetadata,
+            forkedAt: new Date(clock()).toISOString()
+          }
+        };
+        await writeState(state);
+        return {
+          durable: true,
+          duplicate: false,
+          sourceRunId: sourceId,
+          targetRunId: targetId,
+          sourceThreadId: source.threadId,
+          targetThreadId,
+          sourceHistorySha256: actualDigest,
+          importedTurnCount: importedHistory.length
+        };
+      });
+    },
+
     async getTask(taskReference, { runId } = {}) {
       return serializeMutation(async () => {
       const reference = required(taskReference, "taskReference", 256);
@@ -308,6 +475,8 @@ export function createEncryptedTaskVault({
       if (!task.runs[id].threadId || !Array.isArray(task.runs[id].history)) {
         throw new Error("Task vault run history is malformed");
       }
+      validateBuilderHistory(run.history, id, run.threadId, task.promptTurnId,
+        task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
       if (!state.tasks[reference].consent) {
         // Return the missing consent state; the executor will fail closed.
       }
@@ -380,7 +549,7 @@ export function createEncryptedTaskVault({
         return { durable: true, checkpointId: prior.checkpointId };
       }
       validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId,
-        task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt);
+        task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
       validateBuilderReplyAgainstHistory(reply, run.history, role, task.promptTurnId, task.prompt);
       let evidenceVerification = record.evidenceVerification ?? null;
       if (reply.turn_type === "CORRECTION_UPDATE") {
@@ -491,7 +660,7 @@ export function createEncryptedTaskVault({
           throw new Error("Signed user action does not match an initialized run thread");
         }
         validateBuilderHistory(run.history, id, run.threadId, task.promptTurnId,
-          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt);
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt, reference);
 
         if (!state.usedUserActionNonces || typeof state.usedUserActionNonces !== "object" ||
             Array.isArray(state.usedUserActionNonces)) state.usedUserActionNonces = {};
@@ -610,6 +779,13 @@ export async function getTask(taskReference, context) {
 export async function appendOperationalConstraint(taskReference, entry, runtimeEvaluation) {
   return configuredVault().appendOperationalConstraint(taskReference, entry, runtimeEvaluation);
 }
+export async function getRunHistoryManifest(taskReference, context) {
+  return configuredVault().getRunHistoryManifest(taskReference, context);
+}
+export async function forkRunHistory(taskReference, options) {
+  return configuredVault().forkRunHistory(taskReference, options);
+}
+
 export async function appendBuilderResult(taskReference, record) {
   return configuredVault().appendBuilderResult(taskReference, record);
 }
