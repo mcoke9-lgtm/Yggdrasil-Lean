@@ -1,6 +1,6 @@
 # Builder Run Ledger v2 — Design Proposal
 
-**Status:** Proposed; not implemented or tested  
+**Status:** Implemented in the repository; current CI verification pending on the latest test additions  
 **Design baseline:** `7ca8538273ecdd5b45cd03d8760b22605e4d6499`  
 **Scope:** Plaintext Builder-run ledger, Builder-to-Builder handoff, recovery, and process output
 
@@ -167,6 +167,25 @@ This contract also requires tests for same-task binding, source-history mutation
 9. Mixed v1/v2 state is read safely, and a v2 run cannot accidentally resume or mutate a v1 record.
 10. Tests use fake providers and vaults and are described as contract tests, not live provider execution.
 
-## 9. Decision gate
+## 9. Implementation status and remaining gates
 
-This document is a design proposal only. No runtime behavior changes here. Implementation should begin only after the exact v2 schema, code taxonomy, vault reference lookup contract, and v1 continuation procedure have been reviewed against existing tests and host integration requirements. Baldr review remains a separate invocation and must not be simulated by this document or by the ordinary executor sequence.
+Implemented in the repository:
+
+- The encrypted vault exports `getRunHistoryManifest()` and `forkRunHistory()`. The fork validates the source thread, compares its SHA-256 manifest while holding the vault's cross-process mutation lock, and commits the target history in one encrypted-file replacement.
+- Imported turns retain original turn/checkpoint IDs, idempotency keys, bodies, timestamps, reply links, evidence/provider metadata, and normalized user-adoption authorization. Only the enclosing run/thread identity is rebound; a typed origin envelope preserves the original source identity.
+- The history validator checks imported-turn origin and source-bound user-authorization metadata. It does not claim to re-verify an original Ed25519 signature that the vault does not store.
+- New Builder ledger runs use `schemaVersion: 2`, typed status/error codes, allowlisted checkpoint metadata, and vault turn references. No free-text summary/error/interruption reason is written to new v2 records or Builder stdout events.
+- Version-1 records remain readable and immutable. `continueRunId` creates a distinct deterministic v2 continuation after the executor forks encrypted history and reconciles every v1-successful role against exactly one matching vault turn. Same-run `resumeRunId` is restricted to v2.
+- The source-history digest remains inside the encrypted vault and trusted in-memory handoff; it is not copied into the plaintext ledger or emitted to logs.
+- The executor passes Baldr typed peer outcomes and the full successful turn history from the encrypted run thread, and checks each successful `outcomeRef` against exactly one matching turn.
+
+Remaining verification and deployment gates:
+
+1. CI must pass on the exact final commit, including cross-process fork serialization and plaintext-disclosure regression tests.
+2. Operator-owned task-vault modules must expose the fork/manifest methods before legacy v1 continuation is available; older custom vault modules fail closed for that operation.
+3. Task references supplied by a host should be opaque, non-semantic identifiers. The repository cannot verify external host naming practices.
+4. Existing v1 plaintext and previously emitted host logs remain plaintext; this change cannot make them confidential retroactively. Any archive/removal requires an operator-controlled backup and secure-archive decision.
+5. No production host module, credentials resolver, provider account, live model invocation, or unattended host has been configured or verified.
+6. Baldr has not been independently invoked. A code path that schedules Baldr is not an independent review.
+
+This implementation remains on an open draft PR and is not deployed or adopted. Baldr review remains a separate invocation and must not be simulated by this document or by the ordinary executor sequence.
