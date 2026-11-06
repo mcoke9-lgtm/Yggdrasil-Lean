@@ -34,6 +34,7 @@ const MAX_RESPONSE_BYTES = 1024 * 1024;
 const MAX_TASK_PROMPT_CHARS = 32000;
 const MAX_CONTEXT_CHARS = 64000;
 const MAX_OUTPUT_TOKENS = 2048;
+const MAX_TURN_BODY_CHARS = 8000;
 
 function requiredText(value, label, maxLength = 4096) {
   if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
@@ -184,7 +185,7 @@ function validateBuilderReply(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Builder response must be a JSON object");
   }
-  const body = requiredText(value.body, "Builder response body", 16000);
+  const body = requiredText(value.body, "Builder response body", MAX_TURN_BODY_CHARS);
   const turnType = requiredText(value.turn_type, "Builder response turn_type", 64);
   const evidenceStatus = requiredText(value.evidence_status, "Builder response evidence_status", 64);
   if (!TURN_TYPES.has(turnType)) throw new Error("Builder response has unsupported turn_type");
@@ -192,6 +193,7 @@ function validateBuilderReply(value) {
   const allowedRecipients = new Set(["USER", ...BUILDER_ROLES]);
   const recipient = value.recipient == null ? null : requiredText(value.recipient, "Builder response recipient", 32);
   if (recipient !== null && !allowedRecipients.has(recipient)) throw new Error("Builder response names an unknown recipient");
+  if (recipient === role) throw new Error("A Builder cannot address a turn to itself");
   const replyToTurnId = value.reply_to_turn_id == null ? null :
     requiredText(value.reply_to_turn_id, "Builder response reply_to_turn_id", 256);
   const directedTypes = new Set([
