@@ -202,6 +202,55 @@ test("encrypted vault requires explicit approval and preserves isolated run hist
   }
 });
 
+test("operational constraint register persists append-only entries across vault instances", async () => {
+  const f = await fixture();
+  try {
+    await f.vault.initializeTask("task:constraints", "Assess environment and operation boundaries");
+    const entry = {
+      constraint_id: "chatgpt-automation-advisory-001",
+      origin_system: "ChatGPT automation service",
+      origin_scope: "CHATGPT_SERVICE",
+      source_reference: "https://help.openai.com/",
+      observed_at: "2026-11-04T12:00:00.000Z",
+      affected_capability: "Create another scheduled ChatGPT task",
+      affected_operation: "ChatGPT automation creation",
+      force: "ADVISORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "NO_DIRECT_BLOCK",
+      responsible_builder: "KVASIR",
+      decision_authority: "USER",
+      recheck_condition: "A task slot becomes available",
+      decision_status: "SCOPED"
+    };
+    const evaluation = {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    };
+    const first = await f.vault.appendOperationalConstraint("task:constraints", entry, evaluation);
+    assert.equal(first.durable, true);
+    assert.equal(first.duplicate, false);
+    const duplicate = await f.vault.appendOperationalConstraint("task:constraints", entry, evaluation);
+    assert.equal(duplicate.duplicate, true);
+    const restartedVault = createEncryptedTaskVault({ filePath: f.filePath, key: f.key });
+    const task = await restartedVault.getTask("task:constraints", { runId: "run:constraints-001" });
+    assert.equal(task.operationalLimitsSnapshot.register_status, "LOADED");
+    assert.deepEqual(task.operationalLimitsSnapshot.constraints, [entry]);
+    assert.deepEqual(task.operationalLimitsSnapshot.runtime_evaluation, evaluation);
+    await assert.rejects(
+      () => restartedVault.appendOperationalConstraint("task:constraints", {
+        ...entry, operational_effect: "BLOCKS_OPERATION"
+      }, evaluation),
+      /already exists with different content/
+    );
+    const reread = await restartedVault.getTask("task:constraints", { runId: "run:constraints-001" });
+    assert.deepEqual(reread.operationalLimitsSnapshot.constraints, [entry]);
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
 test("Builder result persistence is durable and idempotent by run-role key", async () => {
   const f = await fixture();
   try {
