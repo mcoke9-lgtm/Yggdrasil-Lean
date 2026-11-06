@@ -16,6 +16,7 @@ function makeAssertion(overrides = {}) {
     action: "ADOPT_CORRECTION",
     keyId: "user-action-key-2026-01",
     userId: "user-opaque-7f2a",
+    taskReference: "task:pilot",
     runId: "builder:run-001",
     threadId: "nine-builders:builder:run-001",
     correctionId: "correction-001",
