@@ -240,6 +240,14 @@ export function createEncryptedTaskVault({
       if (!Number.isFinite(completedDate.getTime()) || completedDate.toISOString() !== completedAt) {
         throw new TypeError("completedAt must be a canonical ISO-8601 timestamp");
       }
+      if (evidenceVerification?.checkedAt != null) {
+        const checkedAt = required(evidenceVerification.checkedAt, "Evidence verification checkedAt", 64);
+        const checkedDate = new Date(checkedAt);
+        if (!Number.isFinite(checkedDate.getTime()) || checkedDate.toISOString() !== checkedAt ||
+            checkedDate.getTime() > completedDate.getTime()) {
+          throw new TypeError("Evidence verification checkedAt must precede the persisted Builder result");
+        }
+      }
       const priorTimestamp = [...run.history].reverse().find(turn =>
         Number.isSafeInteger(turn.timestampEpochMillis) ? turn.timestampEpochMillis > 0 :
           (typeof turn.completedAt === "string" && Number.isFinite(Date.parse(turn.completedAt)))
