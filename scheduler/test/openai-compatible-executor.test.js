@@ -1126,6 +1126,16 @@ test("loads the host executor only from owner-protected config and operator modu
     }
     const executor = await createBuilderExecutor();
     assert.equal(typeof executor, "function");
+
+    const legacyTaskVaultPath = join(directory, "legacy-task-vault.mjs");
+    await writeFile(legacyTaskVaultPath,
+      'export async function getTask() { return { prompt: "legacy host task" }; }\\n' +
+      'export async function appendBuilderResult() { return { durable: true, checkpointId: "legacy-checkpoint" }; }\\n');
+    process.env.BUILDER_TASK_VAULT_MODULE = legacyTaskVaultPath;
+    await assert.rejects(
+      () => createBuilderExecutor(),
+      /must export createTaskVault.*when a GitHub evidence gateway is configured/
+    );
   } finally {
     for (const name of names) {
       if (previous[name] === undefined) delete process.env[name];
