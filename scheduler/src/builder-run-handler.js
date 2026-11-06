@@ -15,8 +15,9 @@ class BuilderRequestedInterruption extends Error {
 }
 
 function errorCode(error, fallback = "EXECUTOR_FAILURE") {
-  return typeof error?.code === "string" && ERROR_CODE_SET.has(error.code)
-    ? error.code : fallback;
+  const candidate = error?.errorCode ?? error?.code;
+  return typeof candidate === "string" && ERROR_CODE_SET.has(candidate)
+    ? candidate : fallback;
 }
 
 function outcomeMetadata(builder) {
