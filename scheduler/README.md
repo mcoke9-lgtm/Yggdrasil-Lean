@@ -103,9 +103,13 @@ local process and one host, not distributed workers.
 
 If the process stops while a handler is running, the run is marked interrupted
 after restart. It is not automatically replayed because the external outcome
-may be unknown. Task state uses atomic file replacement. Builder-run recovery
-marks abandoned runs interrupted/expired; explicit resume still requires the
-saved run ID and a safe per-Builder checkpoint.
+may be unknown. Task state uses fsynced atomic file replacement. Builder-run
+recovery marks abandoned runs interrupted/expired during host startup. Every
+new Builder run persists its opaque task-vault reference alongside the run ID,
+so explicit resume restores the original task binding and rejects any
+caller-supplied mismatch. Resume still requires the saved run ID and a safe
+per-Builder checkpoint; legacy runs without a persisted task reference require
+manual reconciliation.
 
 ## Long-running task isolation
 
