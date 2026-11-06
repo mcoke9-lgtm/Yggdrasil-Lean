@@ -478,3 +478,31 @@ function lineExists(output) {
     catch { return false; }
   });
 }
+
+test("abortActiveRuns propagates cooperative cancellation to the active handler", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let handlerStarted;
+  const started = new Promise(resolve => { handlerStarted = resolve; });
+  let observedAbort;
+  const aborted = new Promise(resolve => { observedAbort = resolve; });
+  scheduler.registerHandler("test.cancellable", async (_payload, context) => {
+    handlerStarted();
+    if (context.signal.aborted) observedAbort(context.signal.reason);
+    else context.signal.addEventListener("abort", () => observedAbort(context.signal.reason), { once: true });
+    await aborted;
+  });
+  await scheduler.addTask({
+    id: "cooperative-cancel",
+    name: "Cooperative cancellation",
+    handlerType: "test.cancellable",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await started;
+  assert.equal(scheduler.abortActiveRuns("test shutdown"), 1);
+  const reason = await aborted;
+  assert.match(String(reason?.message || reason), /test shutdown/);
+  const result = await execution;
+  assert.equal(result.runs[0].status, "failed");
+  assert.match(result.runs[0].error, /test shutdown/);
+});
