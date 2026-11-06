@@ -585,8 +585,8 @@ export function createOpenAiCompatibleExecutor({
         !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
       throw manualReconciliationError();
     }
-    const responseSha256 = requiredText(turn.responseSha256, "durable response SHA-256", 64);
-    if (!/^[a-f0-9]{64}$/.test(responseSha256)) {
+    const responseSha256 = turn.responseSha256;
+    if (typeof responseSha256 !== "string" || !/^[a-f0-9]{64}$/.test(responseSha256)) {
       throw manualReconciliationError();
     }
     const turnType = turn.type ?? turn.reply?.turn_type;
