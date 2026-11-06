@@ -76,7 +76,7 @@ A constraint entry should preserve at least:
 - decision_authority;
 - alternatives_considered and why each is or is not suitable;
 - recheck_condition or review_after;
-- decision_status and unresolved questions.
+- decision_status (UNASSESSED, SCOPED, RECHECK_REQUIRED, ALTERNATIVE_AVAILABLE, ESCALATED, or ACCEPTED_WITH_CONSTRAINTS) and unresolved questions.
 
 Do not invent missing values. Mark them UNKNOWN or NOT_ESTABLISHED. Preserve the original provider wording separately from the Builders' interpretation.
 
@@ -132,7 +132,7 @@ A pause is not a permanent prohibition. A stop is not lifted merely because a di
 
 This document establishes the proposed governance contract and prompt expectations. It does not claim that a persistent, fully validated Constraint Register, live telemetry feed, independent Builder process, or authorization engine already exists. Those capabilities must be implemented and tested separately.
 
-The current executor's UNAVAILABLE fallback remains fail-closed for unknown capability state. The current schema validator checks each loaded constraint entry for required identity, origin scope, source, affected capability and operation, force, evidence state, operational effect, responsible Builder, decision authority, recheck condition, and evidence age against the declared evaluation date. Invalid, future-dated, or stale entries cause the entire snapshot to fall back to UNAVAILABLE. This validates structure and declared evidence freshness; it does not independently authenticate source references or prove that the source is authoritative.
+The current executor's UNAVAILABLE fallback remains fail-closed for unknown capability state. The current schema validator checks each loaded constraint entry for required identity, origin scope, source, ISO timestamp, affected capability and operation, force, evidence state, operational effect, responsible Builder, decision authority, recheck condition, decision status, and evidence age against the declared evaluation date. Invalid, future-dated, or stale entries cause the entire snapshot to fall back to UNAVAILABLE. This validates structure and declared evidence freshness; it does not independently authenticate source references or prove that the source is authoritative.
 
 ## 10. Integrity rule
 
