@@ -15,6 +15,7 @@ export async function registerOptionalBuilderRuntime({
   executorModulePath = process.env.BUILDER_EXECUTOR_MODULE,
   builderStateFilePath = process.env.BUILDER_RUN_STATE_FILE,
   loadModule = url => import(url),
+  clock = () => new Date(),
   output = line => process.stdout.write(line + "\n")
 }) {
   if (!scheduler) throw new TypeError("A scheduler is required");
@@ -43,7 +44,14 @@ export async function registerOptionalBuilderRuntime({
     throw new TypeError("createBuilderExecutor() must return an async role executor");
   }
 
-  const ledger = new BuilderRunLedger({ store: new JsonFileStore(builderStateFile) });
-  registerBuilderRunHandler(scheduler, { ledger, executor, output });
-  return { configured: true, builderStateFile };
+  const ledger = new BuilderRunLedger({ store: new JsonFileStore(builderStateFile), clock });
+  const recoveredRuns = await ledger.recoverAbandonedRuns();
+  if (recoveredRuns.length) {
+    output(JSON.stringify({
+      event: "nine_builders_abandoned_runs_recovered",
+      runIds: recoveredRuns
+    }));
+  }
+  registerBuilderRunHandler(scheduler, { ledger, executor, output, clock });
+  return { configured: true, builderStateFile, recoveredRuns };
 }
