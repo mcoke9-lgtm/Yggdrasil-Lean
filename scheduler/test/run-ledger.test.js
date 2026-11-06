@@ -327,14 +327,14 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
   assert.equal(saved[0].builders.find(item => item.role === "ODIN").status, "interrupted");
 });
 
-test("resumed Baldr review receives the original saved summaries from completed Builders", async () => {
+test("resumed Baldr review receives typed references from completed Builders", async () => {
   const store = new MemoryStore();
   const ledger = new BuilderRunLedger({ store, clock });
   const prior = await ledger.createRun({
     runId: "summary-resume-run",
     scheduledFor: "2026-11-04T12:00:00Z",
     durationMs: 60 * 60 * 1000,
-    taskReference: "vault:summary-resume"
+    taskReference: "vault:metadata-resume"
   });
   await ledger.startRun(prior.runId);
   await ledger.startBuilder(prior.runId, "ODIN");
@@ -351,18 +351,18 @@ test("resumed Baldr review receives the original saved summaries from completed 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
   let baldrOutcomes = null;
+  const executor = async (role, context) => {
+    invoked.push(role);
+    if (role === "BALDR") baldrOutcomes = context.outcomes;
+    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+  };
+  executor.supportsVerifiedResumeCheckpoint = true;
   registerBuilderRunHandler(scheduler, {
-    ledger, clock,
-    executor: async (role, context) => {
-      invoked.push(role);
-      if (role === "BALDR") baldrOutcomes = context.outcomes;
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
-    },
-    output: () => {}
+    ledger, clock, executor, output: () => {}
   });
   await scheduler.addTask({
-    id: "resume-with-summaries",
-    name: "Resume with preserved summaries",
+    id: "resume-with-metadata",
+    name: "Resume with preserved references",
     handlerType: BUILDER_RUN_HANDLER_TYPE,
     payload: { resumeRunId: prior.runId },
     schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
@@ -631,13 +631,13 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
+  const executor = async role => {
+    invoked.push(role);
+    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+  };
+  executor.supportsVerifiedResumeCheckpoint = true;
   registerBuilderRunHandler(scheduler, {
-    ledger, clock,
-    executor: async role => {
-      invoked.push(role);
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
-    },
-    output: () => {}
+    ledger, clock, executor, output: () => {}
   });
   await scheduler.addTask({
     id: "resume-existing-builder-run",
