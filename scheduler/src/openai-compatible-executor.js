@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { BUILDER_ROLES } from "./run-ledger.js";
 import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
-import { verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
+import { parseBuilderEvidenceReference, verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
 
 const ROLE_DETAILS = Object.freeze({
   ODIN: ["Odin", "coordination, orchestration, and integration"],
@@ -321,7 +321,7 @@ const CONSTRAINT_ORIGINS = new Set([
 ]);
 const CONSTRAINT_FORCES = new Set(["MANDATORY", "ADVISORY", "UNVERIFIED"]);
 // VERIFIED is intentionally excluded until a trusted source-verification path can issue attestations.
-const CONSTRAINT_EVIDENCE = new Set(["REPORTED", "INFERRED", "UNKNOWN"]);
+const CONSTRAINT_EVIDENCE = new Set(["REPORTED", "INFERRED", "UNKNOWN", "VERIFIED"]);
 const CONSTRAINT_EFFECTS = new Set([
   "BLOCKS_OPERATION", "RESTRICTS_OPERATION", "REDUCES_CAPABILITY",
   "NO_DIRECT_BLOCK", "RECHECK_REQUIRED"
@@ -350,6 +350,24 @@ function validateConstraintEntry(entry, evaluation) {
       !CONSTRAINT_EFFECTS.has(entry.operational_effect) ||
       !CONSTRAINT_ROLES.has(entry.responsible_builder) ||
       !CONSTRAINT_DECISIONS.has(entry.decision_status)) return false;
+  if (entry.evidence_state === "VERIFIED") {
+    const proof = entry.evidenceVerification;
+    let reference;
+    try { reference = parseBuilderEvidenceReference(entry.source_reference); }
+    catch { return false; }
+    if (!proof || proof.verified !== true || proof.status !== "VERIFIED" ||
+        proof.verificationMethod !== "READ_ONLY_GITHUB_GATEWAY" ||
+        proof.kind !== reference.kind || proof.repository !== reference.repository ||
+        proof.objectId !== reference.objectId || proof.branch !== reference.branch ||
+        proof.workflow !== reference.workflow || proof.expectedSha !== reference.expectedSha ||
+        typeof proof.checkedAt !== "string") return false;
+    const checkedAt = Date.parse(proof.checkedAt);
+    if (!Number.isFinite(checkedAt) || new Date(checkedAt).toISOString() !== proof.checkedAt) return false;
+    const evaluationEnd = Date.parse(evaluation.evaluated_on + "T23:59:59.999Z");
+    if (!Number.isFinite(evaluationEnd) || checkedAt > evaluationEnd) return false;
+  } else if (entry.evidenceVerification != null) {
+    return false;
+  }
   if (typeof entry.observed_at !== "string" ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(entry.observed_at)) return false;
   const observedAt = Date.parse(entry.observed_at);
