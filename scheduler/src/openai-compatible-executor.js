@@ -586,9 +586,39 @@ export async function createBuilderExecutor() {
   if (typeof credentialsModule.readSecret !== "function") {
     throw new TypeError("Credentials module must export readSecret(secretRef)");
   }
+
+  let evidenceGateway = null;
+  const evidenceGatewayPath = process.env.BUILDER_EVIDENCE_GATEWAY_MODULE;
+  if (evidenceGatewayPath) {
+    const gatewayFile = resolve(requiredText(
+      evidenceGatewayPath, "BUILDER_EVIDENCE_GATEWAY_MODULE", 4096
+    ));
+    const gatewayInfo = await lstat(gatewayFile);
+    if (!gatewayInfo.isFile() || gatewayInfo.isSymbolicLink()) {
+      throw new Error("Evidence gateway module must be a regular, non-symlink file");
+    }
+    if (process.platform !== "win32" && (gatewayInfo.mode & 0o077) !== 0) {
+      throw new Error("Evidence gateway module permissions are too broad; use owner-only read/write permissions (0600)");
+    }
+    const gatewayModule = await import(pathToFileURL(gatewayFile).href);
+    const candidate = typeof gatewayModule.createEvidenceGateway === "function"
+      ? await gatewayModule.createEvidenceGateway({ readSecret: credentialsModule.readSecret })
+      : gatewayModule.evidenceGateway;
+    const methodNames = [
+      "fetchCommit", "branchContainsCommit", "fetchWorkflowRun", "fetchWorkflowJobs"
+    ];
+    if (!candidate || methodNames.some(name => typeof candidate[name] !== "function")) {
+      throw new TypeError("Evidence gateway must implement all four read-only GitHub lookup methods");
+    }
+    evidenceGateway = Object.freeze(Object.fromEntries(methodNames.map(name => [
+      name, candidate[name].bind(candidate)
+    ])));
+  }
+
   return createOpenAiCompatibleExecutor({
     routes: config.routes,
     taskVault: taskVaultModule,
-    readSecret: credentialsModule.readSecret
+    readSecret: credentialsModule.readSecret,
+    evidenceGateway
   });
 }
