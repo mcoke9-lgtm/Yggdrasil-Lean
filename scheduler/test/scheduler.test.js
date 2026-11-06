@@ -408,6 +408,40 @@ test("CLI creates a one-shot task for an explicitly requested Builder run resume
   }
 });
 
+test("CLI creates a one-shot task for an explicit legacy Builder run continuation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-cli-continue-"));
+  const stateFile = join(directory, "scheduler.json");
+  const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const cliPath = join(schedulerDirectory, "src", "cli.js");
+  const child = spawn(process.execPath, [
+    cliPath, "continue-nine-builders", "continue-one", "Continue legacy Builder run", "builder:legacy-run-123"
+  ], {
+    cwd: schedulerDirectory,
+    env: { ...process.env, SCHEDULER_STATE_FILE: stateFile },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderr += chunk; });
+  try {
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      child.once("error", rejectExit);
+      child.once("close", code => resolveExit(code));
+    });
+    assert.equal(exitCode, 0, stderr);
+    const state = JSON.parse(await readFile(stateFile, "utf8"));
+    const task = state.tasks.find(item => item.id === "continue-one");
+    assert.equal(task.schedule.kind, "once");
+    assert.equal(task.payload.continueRunId, "builder:legacy-run-123");
+    assert.equal(Object.hasOwn(task.payload, "resumeRunId"), false);
+    assert.equal(task.enabled, true);
+    assert.equal(typeof task.nextRunAt, "string");
+  } finally {
+    if (child.exitCode == null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("service runner handles SIGTERM immediately at readiness and releases its lock", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scheduler-runner-"));
   const stateFile = join(directory, "state.json");
