@@ -325,6 +325,10 @@ const CONSTRAINT_EFFECTS = new Set([
   "NO_DIRECT_BLOCK", "RECHECK_REQUIRED"
 ]);
 const CONSTRAINT_ROLES = new Set(BUILDER_ROLES);
+const CONSTRAINT_DECISIONS = new Set([
+  "UNASSESSED", "SCOPED", "RECHECK_REQUIRED",
+  "ALTERNATIVE_AVAILABLE", "ESCALATED", "ACCEPTED_WITH_CONSTRAINTS"
+]);
 
 function nonEmptyConstraintText(value) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= 2048;
@@ -335,14 +339,17 @@ function validateConstraintEntry(entry, evaluation) {
   const requiredTextFields = [
     "constraint_id", "origin_system", "source_reference",
     "affected_capability", "affected_operation", "decision_authority",
-    "recheck_condition"
+    "recheck_condition", "decision_status"
   ];
   if (!requiredTextFields.every(key => nonEmptyConstraintText(entry[key]))) return false;
   if (!CONSTRAINT_ORIGINS.has(entry.origin_scope) ||
       !CONSTRAINT_FORCES.has(entry.force) ||
       !CONSTRAINT_EVIDENCE.has(entry.evidence_state) ||
       !CONSTRAINT_EFFECTS.has(entry.operational_effect) ||
-      !CONSTRAINT_ROLES.has(entry.responsible_builder)) return false;
+      !CONSTRAINT_ROLES.has(entry.responsible_builder) ||
+      !CONSTRAINT_DECISIONS.has(entry.decision_status)) return false;
+  if (typeof entry.observed_at !== "string" ||
+      !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(entry.observed_at)) return false;
   const observedAt = Date.parse(entry.observed_at);
   const evaluatedAt = Date.parse(evaluation.evaluated_on + "T00:00:00.000Z");
   if (!Number.isFinite(observedAt) || !Number.isFinite(evaluatedAt) ||
