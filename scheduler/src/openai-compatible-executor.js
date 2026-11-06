@@ -147,8 +147,16 @@ function roleSystemInstruction(role, task) {
       "contributions and explain their interface instead of forcing a false choice.";
   }
   if (role === "KVASIR") {
-    instruction += " Treat absent, stale, or unverified capabilities as unknown. Do not bypass limits or " +
-      "recommend changing plans, permissions, or spending to create capacity.";
+    instruction += " Treat absent, stale, or unverified capabilities as unknown. For every material " +
+      "constraint or recommendation, identify its originating system, exact scope, affected capability " +
+      "and operation, evidence state, and whether its force is MANDATORY, ADVISORY, or UNVERIFIED. " +
+      "Distinguish a ChatGPT/provider/host-specific limit from a Nine Builders governance rule; never " +
+      "promote an external recommendation or service-scoped quota into a collective prohibition without " +
+      "evidence and the proper decision authority. Equally, never bypass a binding legal, safety, security, " +
+      "consent, access-control, contractual, or authorization boundary. State the narrowest affected step, " +
+      "the operational effect, compliant alternatives for Mari to assess, the authority Týr must check, " +
+      "and the evidence or condition required to resume. Do not treat an unavailable register as proof of " +
+      "impossibility or availability. Do not recommend changing plans, permissions, or spending to create capacity.";
   }
   if (role === "TYR") {
     instruction += " Identify authorization, security, and permission boundaries. Never infer approval from a task prompt.";
