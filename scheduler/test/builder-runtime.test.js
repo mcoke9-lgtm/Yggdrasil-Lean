@@ -98,9 +98,13 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
       executorModulePath: join(directory, "host-executor.mjs"),
       clock,
       loadModule: async () => ({
-        createBuilderExecutor: async () => async role => {
-          invoked.push(role);
-          return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+        createBuilderExecutor: async () => {
+          const executor = async role => {
+            invoked.push(role);
+            return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+          };
+          executor.supportsVerifiedResumeCheckpoint = true;
+          return executor;
         }
       }),
       output: line => events.push(JSON.parse(line))
