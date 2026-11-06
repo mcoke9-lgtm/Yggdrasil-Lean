@@ -71,6 +71,17 @@ function turnBody(turn) {
   return typeof turn?.reply?.body === "string" ? turn.reply.body : turn?.body;
 }
 
+function reviewIncidentIdFromPrompt(prompt) {
+  if (typeof prompt !== "string") return null;
+  const marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=";
+  const markerIndex = prompt.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const start = markerIndex + marker.length;
+  const end = prompt.indexOf("\\n", start);
+  const value = (end < 0 ? prompt.slice(start) : prompt.slice(start, end)).trim();
+  return value || null;
+}
+
 function parseEvidenceReference(value, expectedKind, stage) {
   const raw = nonEmpty(value, "Correction " + stage + " artifact_reference", 2048);
   let url;
@@ -125,7 +136,7 @@ function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
  * Validate and retain the vault's original records. Missing timestamps on legacy
  * records remain missing; this function never manufactures historical time.
  */
-export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis) {
+export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis, taskPrompt) {
   if (!Array.isArray(history)) throw new TypeError("Run history must be an array");
   const ids = new Map();
   if (promptTurnId != null) {
@@ -236,7 +247,7 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId, p
     // Keep this local read explicit: the body is bounded even for legacy records.
     if (body.length > MAX_BODY_LENGTH) throw new RangeError("Run history body exceeds the Android protocol limit");
   }
-  validateCorrectionHistory(history, ids);
+  validateCorrectionHistory(history, ids, reviewIncidentIdFromPrompt(taskPrompt));
   return history;
 }
 
@@ -255,7 +266,7 @@ function validateReferenceRelationship(type, speaker, recipient, target) {
   }
 }
 
-function validateCorrectionHistory(history, ids) {
+function validateCorrectionHistory(history, ids, reviewIncidentId) {
   const plans = new Map();
   const adopted = new Set();
   for (let index = 0; index < history.length; index += 1) {
@@ -264,6 +275,9 @@ function validateCorrectionHistory(history, ids) {
     if (type === "IMPROVEMENT_INCIDENT") continue;
     if (type === "CORRECTION_PLAN") {
       const item = parseObject(turnBody(turn), "Correction plan");
+      if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+        throw new Error("Correction plans may only be recorded for the incident explicitly named in the review task");
+      }
       const correctionId = nonEmpty(item.correction_id, "Correction plan correction_id", 256);
       const incidentId = nonEmpty(item.incident_turn_id, "Correction plan incident_turn_id", 256);
       if (plans.has(correctionId)) throw new Error("Correction ID is already planned in this run: " + correctionId);
@@ -290,6 +304,9 @@ function validateCorrectionHistory(history, ids) {
     }
     if (type !== "CORRECTION_UPDATE") continue;
     const item = parseObject(turnBody(turn), "Correction update");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction updates may only be recorded for the incident explicitly named in the review task");
+    }
     const correctionId = nonEmpty(item.correction_id, "Correction update correction_id", 256);
     const incidentId = nonEmpty(item.incident_turn_id, "Correction update incident_turn_id", 256);
     const plan = plans.get(correctionId);
@@ -356,7 +373,7 @@ function validateCorrectionHistory(history, ids) {
 }
 
 /** Validate a new model reply against already persisted turns before it is appended. */
-export function validateBuilderReplyAgainstHistory(reply, history, speaker, promptTurnId) {
+export function validateBuilderReplyAgainstHistory(reply, history, speaker, promptTurnId, taskPrompt) {
   if (!reply || typeof reply !== "object") throw new TypeError("Builder reply is required");
   const type = reply.turn_type;
   const replyTo = reply.reply_to_turn_id;
@@ -385,8 +402,12 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     }
     validateReferenceRelationship(type, speaker, recipient, target.turn);
   }
+  const reviewIncidentId = reviewIncidentIdFromPrompt(taskPrompt);
   if (type === "CORRECTION_PLAN") {
     const item = parseObject(reply.body, "Correction plan");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction plans may only be created during an explicit review of the named incident");
+    }
     for (const field of ["correction_id", "incident_turn_id", "objective", "acceptance_criteria", "steps", "owner", "rollback_condition"]) {
       nonEmpty(item[field], "Correction plan " + field, 4096);
     }
@@ -408,6 +429,9 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
   }
   if (type === "CORRECTION_UPDATE") {
     const item = parseObject(reply.body, "Correction update");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction updates may only be created during an explicit review of the named incident");
+    }
     const prior = history.filter(turn => {
       if (turnType(turn) === "CORRECTION_PLAN" || turnType(turn) === "CORRECTION_UPDATE") {
         const parsed = parseObject(turnBody(turn), "Prior correction record");
