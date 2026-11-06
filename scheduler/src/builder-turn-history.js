@@ -125,13 +125,17 @@ function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
  * Validate and retain the vault's original records. Missing timestamps on legacy
  * records remain missing; this function never manufactures historical time.
  */
-export function validateBuilderHistory(history, runId, threadId, promptTurnId) {
+export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis) {
   if (!Array.isArray(history)) throw new TypeError("Run history must be an array");
   const ids = new Map();
   if (promptTurnId != null) {
     ids.set(nonEmpty(promptTurnId, "Task prompt turn identity", 256), -1);
   }
-  let previousTimestamp = null;
+  let previousTimestamp = promptTimestampEpochMillis ?? null;
+  if (previousTimestamp != null &&
+      (!Number.isSafeInteger(previousTimestamp) || previousTimestamp <= 0)) {
+    throw new Error("Task prompt timestamp must be a positive source epoch-millisecond value");
+  }
   for (let index = 0; index < history.length; index += 1) {
     const turn = history[index];
     if (!turn || typeof turn !== "object" || Array.isArray(turn)) {
