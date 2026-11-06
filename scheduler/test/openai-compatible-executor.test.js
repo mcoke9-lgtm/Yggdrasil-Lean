@@ -31,7 +31,7 @@ function makeReply(overrides = {}) {
   };
 }
 
-function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, timeoutMs } = {}) {
+function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, timeoutMs, clock } = {}) {
   const saved = [];
   const checkpoints = [];
   const runHistory = new Map();
@@ -89,7 +89,8 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
     taskVault: vault,
     readSecret: readSecret || (async reference => "test-token-for-" + reference),
     fetchImpl: transport,
-    timeoutMs: timeoutMs ?? 5000
+    timeoutMs: timeoutMs ?? 5000,
+    ...(clock ? { clock } : {})
   });
   return {
     executor, saved, checkpoints,
@@ -1484,6 +1485,20 @@ test("Baldr requires and durably links a separately attributable invocation rece
     },
     async appendBuilderResult(_reference, record) {
       saved.push(record);
+      history.push({
+        protocolVersion: 4, runId, threadId,
+        checkpointId: "baldr-result-turn",
+        speaker: "BALDR", body: record.reply.body,
+        type: record.reply.turn_type,
+        recipient: record.reply.recipient,
+        reply_to_turn_id: record.reply.reply_to_turn_id,
+        evidence_status: record.reply.evidence_status,
+        reply: record.reply,
+        reviewInvocationId: record.reviewInvocationId,
+        responseSha256: record.responseSha256,
+        timestampEpochMillis: Date.parse("2026-11-06T12:00:10.000Z"),
+        completedAt: "2026-11-06T12:00:10.000Z"
+      });
       events.push({ type: "TURN", record });
       return { durable: true, checkpointId: "baldr-result-turn" };
     },
@@ -1504,9 +1519,12 @@ test("Baldr requires and durably links a separately attributable invocation rece
     outcomeRef: role.toLowerCase() + "-turn",
     outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED"
   }));
+  let providerCalls = 0;
   const h = makeHarness({
     routes, taskVault,
+    clock: () => new Date("2026-11-06T12:00:10.000Z"),
     fetchImpl: async (_url, options) => {
+      providerCalls += 1;
       assert.equal(events[0].type, "START");
       assert.equal(JSON.parse(options.body).model, routes.BALDR.model);
       return new Response(JSON.stringify({
@@ -1528,6 +1546,13 @@ test("Baldr requires and durably links a separately attributable invocation rece
   assert.equal(result.reviewInvocation.status, "COMPLETED");
   assert.equal(result.reviewInvocation.provenanceLevel, "INVOCATION_ATTRIBUTED");
   assert.equal(result.reviewInvocation.providerRequestId, "baldr-request-001");
+  const recovered = await h.executor("BALDR", {
+    runId, task: { taskReference: "vault:task-001" }, outcomes,
+    signal: new AbortController().signal, checkpoint: async value => h.checkpoints.push(value)
+  });
+  assert.equal(recovered.reviewInvocation.reviewInvocationId, result.reviewInvocation.reviewInvocationId);
+  assert.equal(providerCalls, 1);
+  assert.equal(events.map(item => item.type).join(","), "START,TURN,COMPLETE");
 });
 
 test("Baldr does not call a provider when the task vault lacks receipt support", async () => {
