@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { createCipheriv, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { writeFile } from "node:fs/promises";
 import { createEncryptedTaskVault } from "../src/encrypted-task-vault.js";
 import { serializeUserAdoptionPayload } from "../src/user-adoption-authorization.js";
 
@@ -16,7 +17,7 @@ async function fixture() {
 }
 
 
-async function correctionReadyFixture({ includeVerification = true } = {}) {
+async function correctionReadyFixture() {
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-adoption-"));
   await chmod(directory, 0o700);
   const filePath = join(directory, "tasks.vault");
@@ -24,48 +25,43 @@ async function correctionReadyFixture({ includeVerification = true } = {}) {
   const pair = generateKeyPairSync("ed25519");
   const publicPem = pair.publicKey.export({ type: "spki", format: "pem" });
   const keyId = "adoption-key-1";
-  const fixedNow = new Date(Date.now() + 60000);
-  const vault = createEncryptedTaskVault({
-    filePath, key,
-    userAuthorizationPublicKeys: { [keyId]: publicPem },
-    clock: () => fixedNow
-  });
+  const baseTime = Date.parse("2026-11-06T00:00:00.000Z");
+  const fixedNow = new Date(baseTime + 10000);
   const taskReference = "task:adoption-pilot";
   const runId = "run-adoption-001";
-  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview the recorded incident.";
-  await vault.initializeTask(taskReference, prompt);
-  const task = await vault.getTask(taskReference, { runId });
-  let nextTime = Date.parse(task.promptCreatedAt) + 1000;
-  async function append(role, turnType, evidenceStatus, body, replyTo, evidenceVerification = null) {
-    const completedAt = new Date(nextTime).toISOString();
-    const record = {
-      runId, role, idempotencyKey: runId + ":" + role, threadId: task.threadId,
-      reply: {
-        body: JSON.stringify(body), turn_type: turnType, evidence_status: evidenceStatus,
-        recipient: "USER", reply_to_turn_id: replyTo
-      },
-      completedAt
-    };
-    if (evidenceVerification) record.evidenceVerification = {
-      ...evidenceVerification,
-      checkedAt: new Date(nextTime - 1).toISOString()
-    };
-    nextTime += 1000;
-    return vault.appendBuilderResult(taskReference, record);
-  }
-  const incident = await append("HODR", "IMPROVEMENT_INCIDENT", "OBSERVED", {
-    incident_summary: "Wrong result", observed_behavior: "A", expected_behavior: "B",
-    evidence: "test output", unknowns: "none", suspected_causes: "mapping",
-    proposed_next_step: "review", status: "OPEN_REVIEW"
-  }, task.promptTurnId);
-  const plan = await append("TYR", "CORRECTION_PLAN", "PROPOSED", {
-    correction_id: "correction-001", incident_turn_id: incident.checkpointId,
-    objective: "Fix mapping", acceptance_criteria: "test passes", steps: "change code",
-    owner: "MARI", rollback_condition: "regression", status: "PROPOSED"
-  }, incident.checkpointId);
+  const threadId = "nine-builders:" + runId;
+  const promptTurnId = "task-prompt-1";
+  const promptCreatedAt = new Date(baseTime).toISOString();
+  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1\\nReview the recorded incident.";
   const sha = "0123456789abcdef0123456789abcdef01234567";
   const commitRef = "github+commit://github.com/acme/project/" + sha + "?branch=correction";
   const actionsRef = "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=" + sha;
+  function turn(turnId, speaker, type, replyTo, body, evidenceStatus, time, proof = null) {
+    const completedAt = new Date(time).toISOString();
+    const reply = {
+      body: JSON.stringify(body), turn_type: type, evidence_status: evidenceStatus,
+      recipient: "USER", reply_to_turn_id: replyTo
+    };
+    return {
+      protocolVersion: 4, runId, threadId, turnId, checkpointId: turnId,
+      speaker, body: reply.body, type, recipient: "USER",
+      reply_to_turn_id: replyTo, evidence_status: evidenceStatus,
+      timestampEpochMillis: time, completedAt, reply,
+      ...(proof ? { evidenceVerification: {
+        ...proof, checkedAt: new Date(time - 1).toISOString()
+      } } : {})
+    };
+  }
+  const incident = turn("incident-1", "HODR", "IMPROVEMENT_INCIDENT", promptTurnId, {
+    incident_summary: "Wrong result", observed_behavior: "A", expected_behavior: "B",
+    evidence: "test output", unknowns: "none", suspected_causes: "mapping",
+    proposed_next_step: "review", status: "OPEN_REVIEW"
+  }, "OBSERVED", baseTime + 1000);
+  const plan = turn("plan-1", "TYR", "CORRECTION_PLAN", "incident-1", {
+    correction_id: "correction-001", incident_turn_id: "incident-1",
+    objective: "Fix mapping", acceptance_criteria: "test passes", steps: "change code",
+    owner: "MARI", rollback_condition: "regression", status: "PROPOSED"
+  }, "PROPOSED", baseTime + 2000);
   const commitProof = {
     verified: true, status: "VERIFIED", verificationMethod: "READ_ONLY_GITHUB_GATEWAY",
     kind: "COMMIT", repository: "acme/project", objectId: sha,
@@ -76,31 +72,53 @@ async function correctionReadyFixture({ includeVerification = true } = {}) {
     kind: "ACTIONS_RUN", repository: "acme/project", objectId: "12345",
     branch: null, workflow: "scheduler-tests", expectedSha: sha
   };
-  const implemented = await append("MARI", "CORRECTION_UPDATE", "IMPLEMENTED", {
-    correction_id: "correction-001", incident_turn_id: incident.checkpointId,
+  const implemented = turn("implemented-1", "MARI", "CORRECTION_UPDATE", "plan-1", {
+    correction_id: "correction-001", incident_turn_id: "incident-1",
     stage: "IMPLEMENTED", evidence: "The mapping change is committed.",
     artifact_reference: commitRef, acceptance_criteria_result: "Implementation matches plan.",
     unresolved: "Testing remains."
-  }, plan.checkpointId, commitProof);
-  const tested = await append("MUNINN", "CORRECTION_UPDATE", "TESTED", {
-    correction_id: "correction-001", incident_turn_id: incident.checkpointId,
+  }, "IMPLEMENTED", baseTime + 3000, commitProof);
+  const tested = turn("tested-1", "MUNINN", "CORRECTION_UPDATE", "implemented-1", {
+    correction_id: "correction-001", incident_turn_id: "incident-1",
     stage: "TESTED", evidence: "The scheduler suite passed.",
     artifact_reference: actionsRef, acceptance_criteria_result: "The regression test passed.",
     unresolved: "Independent review remains."
-  }, implemented.checkpointId, actionsProof);
-  let verified = null;
-  if (includeVerification) {
-    verified = await append("BALDR", "CORRECTION_UPDATE", "VERIFIED", {
-      correction_id: "correction-001", incident_turn_id: incident.checkpointId,
-      stage: "VERIFIED", evidence: "Baldr independently reviewed the evidence.",
-      artifact_reference: actionsRef, acceptance_criteria_result: "Independent review passed.",
-      unresolved: "User adoption remains."
-    }, tested.checkpointId, actionsProof);
-  }
+  }, "TESTED", baseTime + 4000, actionsProof);
+  const verified = turn("verified-1", "BALDR", "CORRECTION_UPDATE", "tested-1", {
+    correction_id: "correction-001", incident_turn_id: "incident-1",
+    stage: "VERIFIED", evidence: "Baldr independently reviewed the evidence.",
+    artifact_reference: actionsRef, acceptance_criteria_result: "Independent review passed.",
+    unresolved: "User adoption remains."
+  }, "VERIFIED", baseTime + 5000, actionsProof);
+  const state = {
+    version: 1,
+    usedUserActionNonces: {},
+    tasks: {
+      [taskReference]: {
+        prompt, promptTurnId, promptCreatedAt, consent: null,
+        runs: { [runId]: { threadId, history: [incident, plan, implemented, tested, verified] } }
+      }
+    }
+  };
+  const magic = "YGGDRASIL-BUILDER-VAULT";
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(Buffer.from(magic + ":1"));
+  const plaintext = Buffer.from(JSON.stringify(state), "utf8");
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const encrypted = Buffer.concat([
+    Buffer.from(magic + "\\n1\\n", "utf8"),
+    iv, cipher.getAuthTag(), ciphertext
+  ]);
+  await writeFile(filePath, encrypted, { mode: 0o600 });
+  const vault = createEncryptedTaskVault({
+    filePath, key, userAuthorizationPublicKeys: { [keyId]: publicPem },
+    clock: () => fixedNow
+  });
   function authorize(overrides = {}) {
     const assertion = {
       version: 1, action: "ADOPT_CORRECTION", keyId, userId: "user-opaque-1",
-      taskReference, runId, threadId: task.threadId, correctionId: "correction-001",
+      taskReference, runId, threadId, correctionId: "correction-001",
       nonce: "0123456789abcdefghijklmnopqrstuv",
       issuedAt: fixedNow.toISOString(), signature: "", ...overrides
     };
@@ -109,7 +127,7 @@ async function correctionReadyFixture({ includeVerification = true } = {}) {
     ).toString("base64url");
     return assertion;
   }
-  return { directory, filePath, key, vault, taskReference, runId, task, fixedNow, authorize, verified };
+  return { directory, filePath, key, vault, taskReference, runId, fixedNow, authorize, verified };
 }
 
 test("encrypted vault requires explicit approval and preserves isolated run history", async () => {
