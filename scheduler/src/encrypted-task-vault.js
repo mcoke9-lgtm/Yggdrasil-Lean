@@ -186,8 +186,16 @@ export function createEncryptedTaskVault({
         return { durable: true, checkpointId: prior.checkpointId };
       }
       const checkpointId = "vault-" + randomBytes(16).toString("hex");
+      const completedAt = required(record.completedAt, "completedAt", 64);
+      const completedDate = new Date(completedAt);
+      if (!Number.isFinite(completedDate.getTime()) || completedDate.toISOString() !== completedAt) {
+        throw new TypeError("completedAt must be a canonical ISO-8601 timestamp");
+      }
       run.history.push({
+        protocolVersion: 4,
         runId, threadId: run.threadId, idempotencyKey, checkpointId,
+        turnId: checkpointId,
+        timestampEpochMillis: completedDate.getTime(),
         speaker: role, body: record.reply.body, reply: record.reply,
         requestedProviderId: record.requestedProviderId,
         requestedModel: record.requestedModel,
