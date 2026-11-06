@@ -174,6 +174,7 @@ export function createEncryptedTaskVault({
       return {
         prompt: task.prompt,
         promptTurnId: task.promptTurnId,
+        promptCreatedAt: task.promptCreatedAt ?? null,
         threadId: run.threadId,
         history: structuredClone(run.history),
         consent: task.consent,
@@ -217,7 +218,7 @@ export function createEncryptedTaskVault({
       const priorTimestampMillis = priorTimestamp
         ? (Number.isSafeInteger(priorTimestamp.timestampEpochMillis)
             ? priorTimestamp.timestampEpochMillis : Date.parse(priorTimestamp.completedAt))
-        : null;
+        : (typeof task.promptCreatedAt === "string" ? Date.parse(task.promptCreatedAt) : null);
       if (priorTimestampMillis != null && completedDate.getTime() <= priorTimestampMillis) {
         throw new Error("Builder completion timestamp must increase strictly in run-thread order");
       }
