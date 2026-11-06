@@ -127,6 +127,12 @@ export function registerBuilderRunHandler(
             await ledger.interruptRun(runId, reason, role);
             throw new Error("Cannot recover " + role + ": " + reason);
           }
+          if (recovered.status === "interrupted") {
+            const reason = "Recovered durable stop turn for " + role +
+              "; run remains interrupted pending human reconciliation.";
+            await ledger.interruptRun(runId, reason, role);
+            throw new BuilderRequestedInterruption(reason);
+          }
           try {
             const recoveredRun = await ledger.recoverBuilder(runId, role, recovered);
             const recoveredBuilder = recoveredRun.builders.find(item => item.role === role);
