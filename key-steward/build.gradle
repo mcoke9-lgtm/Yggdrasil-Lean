@@ -15,6 +15,24 @@ android {
         versionCode 1
         versionName '1.0.0'
     }
+
+    // Production retains the existing package identity. CI and Development
+    // receive separate identities and can never update the Production install.
+    buildTypes {
+        debug {
+            applicationIdSuffix '.ci'
+            versionNameSuffix '-ci'
+        }
+        development {
+            initWith debug
+            applicationIdSuffix '.dev'
+            versionNameSuffix '-dev'
+            matchingFallbacks = ['debug']
+        }
+        release {
+            // Identity-only build in CI; no production signing key is configured.
+        }
+    }
 }
 
 dependencies {
