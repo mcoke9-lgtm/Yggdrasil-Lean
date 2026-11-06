@@ -183,7 +183,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
   });
   const result = await scheduler.runDue();
   assert.equal(result.runs[0].status, "succeeded");
-  assert.deepEqual(invoked, BUILDER_ROLES.filter(role => role !== "MARI"));
+  assert.deepEqual(invoked, BUILDER_ROLES);
   assert.equal(output[0].event, "nine_builders_run_completed");
   const saved = await ledger.listRuns();
   assert.equal(saved[0].status, "completed");
@@ -489,7 +489,7 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   });
   const result = await scheduler.runDue();
   assert.equal(result.runs[0].status, "succeeded");
-  assert.deepEqual(invoked, BUILDER_ROLES);
+  assert.deepEqual(invoked, BUILDER_ROLES.filter(role => role !== "MARI"));
   const allRuns = await ledger.listRuns();
   const continuation = allRuns.find(item => item.schemaVersion === 2 &&
     item.supersedesRunId === source.runId);
