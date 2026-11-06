@@ -102,7 +102,7 @@ export class BuilderRunLedger {
 
   async createRun({
     runId = this.idFactory(), scheduledFor, durationMs = MAX_BUILDER_RUN_DURATION_MS,
-    taskReference = null, supersedesRunId = null, sourceHistorySha256 = null
+    taskReference = null, supersedesRunId = null
   } = {}) {
     return this.withLock(async () => {
       safeIdentifier(runId, "runId");
@@ -115,12 +115,9 @@ export class BuilderRunLedger {
       }
       if (supersedesRunId != null) {
         safeIdentifier(supersedesRunId, "supersedesRunId");
-        if (supersedesRunId === runId ||
-            typeof sourceHistorySha256 !== "string" || !/^[a-f0-9]{64}$/.test(sourceHistorySha256)) {
-          throw new TypeError("A continuation requires a distinct superseded run and source-history SHA-256");
+        if (supersedesRunId === runId) {
+          throw new TypeError("A continuation requires a distinct superseded run");
         }
-      } else if (sourceHistorySha256 != null) {
-        throw new TypeError("sourceHistorySha256 requires supersedesRunId");
       }
       const created = this.clock().toISOString();
       const scheduled = iso(scheduledFor ?? created, "scheduledFor");
@@ -129,7 +126,7 @@ export class BuilderRunLedger {
       if (state.builderRuns.some(run => run.runId === runId)) throw new Error("Builder run already exists: " + runId);
       const run = {
         schemaVersion: 2, runId, taskReference: taskReference == null ? null : taskReference.trim(),
-        supersedesRunId, sourceHistorySha256,
+        supersedesRunId,
         scheduledFor: scheduled, startedAt: null, deadlineAt: null,
         durationMs, status: "queued", createdAt: created, updatedAt: created,
         interruptedAt: null, interruptionCode: null, finishedAt: null,
