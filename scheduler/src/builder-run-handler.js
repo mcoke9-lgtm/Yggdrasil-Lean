@@ -101,7 +101,10 @@ export function registerBuilderRunHandler(
           scheduledFor: context.scheduledFor,
           durationMs,
           taskReference: source.taskReference,
-          supersedesRunId: source.runId
+          supersedesRunId: source.runId,
+          initialSkippedRoles: source.builders
+            .filter(item => item.status === "skipped")
+            .map(item => item.role)
         });
       }
     } else if (payload?.resumeRunId) {
