@@ -979,6 +979,30 @@ test("stores the Baldr invocation ID on the encrypted durable review turn", asyn
     const runId = "run-baldr-turn-link";
     await h.vault.initializeTask(taskReference, "Review the peer outcomes.");
     const task = await h.vault.getTask(taskReference, { runId });
+    const reviewInput = '{"model":"baldr-model","messages":[]}';
+    const inputManifest = {
+      schema: "yggdrasil.baldr-review-manifest.v1",
+      runId, taskReference, reviewerRole: "BALDR",
+      promptTurnId: task.promptTurnId,
+      peerOutcomeRefs: ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"]
+        .map(role => ({ role, status: "skipped", outcomeRef: null, errorCode: null })),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      requestBodySha256: sha256(reviewInput)
+    };
+    await h.vault.beginBaldrReviewInvocation(taskReference, {
+      reviewInvocationId: "review-baldr-link-001",
+      runId, taskReference, threadId: task.threadId,
+      reviewerRole: "BALDR",
+      inputManifestSha256: sha256(inputManifest),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      invokedAt: "2026-11-06T12:00:00.000Z",
+      provenanceLevel: "ROUTE_SEPARATED",
+      inputManifest, reviewInput
+    });
     const saved = await h.vault.appendBuilderResult(taskReference, {
       idempotencyKey: runId + ":BALDR",
       runId, threadId: task.threadId, role: "BALDR",
