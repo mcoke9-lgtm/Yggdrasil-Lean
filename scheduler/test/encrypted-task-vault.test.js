@@ -935,3 +935,34 @@ test("does not permit a second Baldr invocation for a run after the first comple
     await rm(h.directory, { recursive: true, force: true });
   }
 });
+
+
+test("stores the Baldr invocation ID on the encrypted durable review turn", async () => {
+  const h = await fixture();
+  try {
+    const taskReference = "task:baldr-turn-link";
+    const runId = "run-baldr-turn-link";
+    await h.vault.initializeTask(taskReference, "Review the peer outcomes.");
+    const task = await h.vault.getTask(taskReference, { runId });
+    const saved = await h.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: runId + ":BALDR",
+      runId, threadId: task.threadId, role: "BALDR",
+      requestedProviderId: "provider-baldr",
+      requestedModel: "baldr-model",
+      providerReportedModel: "reported-baldr-model",
+      reviewInvocationId: "review-baldr-link-001",
+      responseSha256: "e".repeat(64),
+      reply: {
+        body: "Review completed with evidence limitations.",
+        turn_type: "CONTRIBUTION", evidence_status: "OBSERVED",
+        recipient: null, reply_to_turn_id: null
+      },
+      completedAt: new Date(Date.now() + 1000).toISOString()
+    });
+    assert.equal(saved.durable, true);
+    const reloaded = await h.vault.getTask(taskReference, { runId });
+    assert.equal(reloaded.history[0].reviewInvocationId, "review-baldr-link-001");
+  } finally {
+    await rm(h.directory, { recursive: true, force: true });
+  }
+});
