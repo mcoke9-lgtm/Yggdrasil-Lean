@@ -8,9 +8,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.ForegroundInfo;
+import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
@@ -189,7 +191,7 @@ public final class BuilderOvernightWorker extends Worker {
     private static String safeMessage(Exception failure) {
         String message = failure.getMessage();
         String value = message == null ? failure.getClass().getSimpleName() : message;
-        value = value.replace('\r', ' ').replace('\n', ' ');
+        value = value.replace('\\r', ' ').replace('\\n', ' ');
         return value.substring(0, Math.min(500, value.length()));
     }
 }
