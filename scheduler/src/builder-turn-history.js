@@ -215,6 +215,9 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId, p
         throw new Error("Run history reply envelope is malformed");
       }
       if (type != null) validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus);
+    } else if (turn.type != null) {
+      // Android protocol-v4 turns store these fields at the top level.
+      validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus);
     }
     if (recipient != null &&
         recipient !== "USER" && !BUILDER_ROLES.includes(recipient)) {
