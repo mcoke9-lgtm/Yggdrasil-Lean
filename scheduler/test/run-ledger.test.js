@@ -196,14 +196,15 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
   const scheduler = new Scheduler({ store, clock });
   const ledger = new BuilderRunLedger({ store, clock });
   let baldrOutcomes;
+  const emitted = [];
   registerBuilderRunHandler(scheduler, {
     ledger,
     executor: async (role, context) => {
-      if (role === "HODR") throw new Error("simulated implementation failure");
+      if (role === "HODR") throw new Error("PRIVATE PROVIDER FAILURE TEXT");
       if (role === "BALDR") baldrOutcomes = context.outcomes;
       return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
-    output: () => {}
+    output: line => emitted.push(JSON.parse(line))
   });
   await scheduler.addTask({
     id: "nine-builder-failure",
@@ -216,6 +217,15 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
   assert.equal(result.runs[0].status, "succeeded");
   assert.equal(baldrOutcomes.find(item => item.role === "HODR").status, "failed");
   assert.equal((await ledger.listRuns())[0].status, "completed_with_failures");
+  const saved = (await ledger.listRuns())[0];
+  const failedBuilder = saved.builders.find(item => item.role === "HODR");
+  assert.equal(failedBuilder.errorCode, "EXECUTOR_FAILURE");
+  assert.equal(Object.hasOwn(failedBuilder, "error"), false);
+  assert.equal(Object.hasOwn(failedBuilder, "summary"), false);
+  assert.equal(Object.hasOwn(saved, "interruptionReason"), false);
+  assert.equal(JSON.stringify(emitted).includes("PRIVATE PROVIDER FAILURE TEXT"), false);
+  assert.equal(Object.hasOwn(emitted[0].outcomes.find(item => item.role === "HODR"), "summary"), false);
+  assert.equal(Object.hasOwn(emitted[0].outcomes.find(item => item.role === "HODR"), "error"), false);
 });
 
 test("Builder interruption and improvement incident stop the round without failing the role", async () => {
