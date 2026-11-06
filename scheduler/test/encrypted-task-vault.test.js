@@ -59,6 +59,9 @@ test("Builder result persistence is durable and idempotent by run-role key", asy
     assert.equal(task.history.length, 1);
     assert.equal(task.history[0].speaker, "ODIN");
     assert.equal(task.history[0].body, "Odin result");
+    assert.equal(task.history[0].protocolVersion, 4);
+    assert.equal(task.history[0].turnId, task.history[0].checkpointId);
+    assert.equal(task.history[0].timestampEpochMillis, Date.parse(task.history[0].completedAt));
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
