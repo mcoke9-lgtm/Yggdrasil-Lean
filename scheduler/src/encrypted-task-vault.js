@@ -14,6 +14,20 @@ function required(value, label, max = 4096) {
   return value.trim();
 }
 
+function normalizedReply(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Builder result reply envelope is required");
+  }
+  return {
+    body: required(value.body, "Builder result body", 8000),
+    turn_type: required(value.turn_type, "Builder result turn_type", 64),
+    evidence_status: required(value.evidence_status, "Builder result evidence_status", 64),
+    recipient: value.recipient == null ? null : required(value.recipient, "Builder result recipient", 32),
+    reply_to_turn_id: value.reply_to_turn_id == null
+      ? null : required(value.reply_to_turn_id, "Builder result reply_to_turn_id", 256)
+  };
+}
+
 function keyFromEnvironment() {
   const encoded = required(process.env.BUILDER_TASK_VAULT_KEY, "BUILDER_TASK_VAULT_KEY", 256);
   const key = Buffer.from(encoded, "base64");
@@ -179,19 +193,17 @@ export function createEncryptedTaskVault({
       if (!task) throw new Error("Task reference does not exist");
       const run = task.runs[runId];
       if (!run || run.threadId !== record.threadId) throw new Error("Builder result does not belong to an initialized run thread");
+      const reply = normalizedReply(record.reply);
       const prior = run.history.find(turn => turn.idempotencyKey === idempotencyKey);
       if (prior) {
-        if (JSON.stringify(prior.reply) !== JSON.stringify(record.reply)) {
+        if (JSON.stringify(normalizedReply(prior.reply)) !== JSON.stringify(reply)) {
           throw new Error("Idempotency key already exists with a different Builder result; manual reconciliation required");
         }
         return { durable: true, checkpointId: prior.checkpointId };
       }
       validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId);
-      if (!record.reply || typeof record.reply !== "object" || Array.isArray(record.reply)) {
-        throw new TypeError("Builder result reply envelope is required");
-      }
-      const replyBody = required(record.reply.body, "Builder result body", 8000);
-      validateBuilderReplyAgainstHistory(record.reply, run.history, role, task.promptTurnId);
+      validateBuilderReplyAgainstHistory(reply, run.history, role, task.promptTurnId);
+      const replyBody = reply.body;
       const checkpointId = "vault-" + randomBytes(16).toString("hex");
       const completedAt = required(record.completedAt, "completedAt", 64);
       const completedDate = new Date(completedAt);
@@ -216,11 +228,11 @@ export function createEncryptedTaskVault({
         timestampEpochMillis: completedDate.getTime(),
         speaker: role,
         body: replyBody,
-        type: record.reply.turn_type,
-        recipient: record.reply.recipient ?? null,
-        reply_to_turn_id: record.reply.reply_to_turn_id ?? null,
-        evidence_status: record.reply.evidence_status,
-        reply: record.reply,
+        type: reply.turn_type,
+        recipient: reply.recipient,
+        reply_to_turn_id: reply.reply_to_turn_id,
+        evidence_status: reply.evidence_status,
+        reply,
         requestedProviderId: record.requestedProviderId,
         requestedModel: record.requestedModel,
         providerReportedModel: record.providerReportedModel,
