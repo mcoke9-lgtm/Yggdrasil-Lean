@@ -142,13 +142,16 @@ The `resume-nine-builders` CLI command creates a one-shot task for a specified
 interrupted version-2 run. The `continue-nine-builders` command is for an
 interrupted or expired version-1 run: it asks the configured executor to
 validate the exact encrypted source history, fork it into a distinct run/thread,
-and reconcile every v1-successful role against its durable vault turn. It then
-creates a separate version-2 ledger run linked by `supersedesRunId`; the v1
-record and source vault thread remain unchanged. Missing or mismatched
-successful-role evidence fails closed for manual reconciliation. Baldr receives
-full successful turn bodies from the encrypted vault plus typed role outcome
-references, never plaintext summaries. Both commands create one-shot tasks;
-neither command silently replays the old run. One-shot tasks become disabled
+and reconcile every role before creating a separate version-2 ledger run
+linked by `supersedesRunId`. Successful roles must match their exact durable
+vault turns. Failed, interrupted, or still-running roles require exactly one
+durable turn; without it, continuation stops for manual reconciliation rather
+than repeating a possibly completed provider call. Pending roles may run fresh
+only when no prior turn exists. Explicitly skipped roles remain skipped; Baldr
+cannot be skipped. The v1 record and source vault thread remain unchanged.
+Baldr receives full successful turn bodies from the encrypted vault plus typed
+role outcome references, never plaintext summaries. Both commands create
+one-shot tasks; neither command silently replays the old run. One-shot tasks become disabled
 after their single attempt and retain a visible terminal state.
 
 ## Long-running task isolation
