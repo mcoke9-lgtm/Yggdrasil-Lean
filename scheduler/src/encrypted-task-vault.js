@@ -667,11 +667,25 @@ export function createEncryptedTaskVault({
         const allowed = [
           "reviewInvocationId", "runId", "taskReference", "threadId", "reviewerRole",
           "inputManifestSha256", "requestedProviderId", "requestedEndpointIdentity",
-          "requestedModelId", "invokedAt", "provenanceLevel"
+          "requestedModelId", "invokedAt", "provenanceLevel",
+          "inputManifest", "reviewInput"
         ];
+        const manifest = receipt.inputManifest;
+        const manifestSha256 = manifest && createHash("sha256")
+          .update(JSON.stringify(manifest), "utf8").digest("hex");
+        const reviewInputSha256 = typeof receipt.reviewInput === "string"
+          ? createHash("sha256").update(receipt.reviewInput, "utf8").digest("hex") : null;
         if (Object.keys(receipt).some(key => !allowed.includes(key)) ||
             receipt.taskReference !== reference || receipt.provenanceLevel !== "ROUTE_SEPARATED" ||
             !/^[a-f0-9]{64}$/.test(receipt.inputManifestSha256 || "") ||
+            manifestSha256 !== receipt.inputManifestSha256 ||
+            !manifest || manifest.schema !== "yggdrasil.baldr-review-manifest.v1" ||
+            manifest.runId !== runId || manifest.taskReference !== reference ||
+            manifest.reviewerRole !== "BALDR" || manifest.requestedProviderId !== receipt.requestedProviderId ||
+            manifest.requestedEndpointIdentity !== receipt.requestedEndpointIdentity ||
+            manifest.requestedModelId !== receipt.requestedModelId ||
+            !Array.isArray(manifest.peerOutcomeRefs) || manifest.peerOutcomeRefs.length !== 8 ||
+            reviewInputSha256 !== manifest.requestBodySha256 ||
             !["BALDR"].includes(receipt.reviewerRole)) {
           throw new TypeError("Baldr invocation start receipt contains invalid or unrecognized metadata");
         }
