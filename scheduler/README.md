@@ -189,6 +189,15 @@ prompts, credentials, or full conversation payloads. It uses the scheduler store
 interface but is persisted in a separate `*.builder-runs.json` file by default,
 so ledger writes cannot overwrite concurrent task and scheduler-run updates.
 
+**Storage confidentiality:** the scheduler and Builder-run JSON state files are
+not encrypted at rest. On POSIX systems the store enforces an owner-only
+directory (0700) and file (0600), but filesystem permissions are not encryption.
+Keep summaries and checkpoint metadata minimal; never place prompts, response
+bodies, access tokens, credentials, private keys, or unnecessary personal data
+in them. The encrypted task vault is the designated store for task text, consent,
+and full per-run conversation history. Protect and back up its encryption key
+separately.
+
 **Important limitation:** the ledger and adapter are now connected to the
 persistent runner through an optional host module, but this is not yet a
 production model executor or a verified unattended host. The runner does not
