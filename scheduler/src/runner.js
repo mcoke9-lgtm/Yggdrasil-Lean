@@ -90,42 +90,46 @@ async function tick() {
 
 try {
   const address = await dashboard.listen();
-  leaseHeartbeatTimer = setInterval(async () => {
-    if (stopping || heartbeatInFlight) return;
-    heartbeatInFlight = true;
-    try {
-      const heartbeatAt = await releaseLock.heartbeat();
-      process.stdout.write(JSON.stringify({
-        event: "scheduler_lease_heartbeat",
-        pid: releaseLock.pid,
-        heartbeatAt
-      }) + "\n");
-    } catch (error) {
-      process.stderr.write(JSON.stringify({
-        event: "scheduler_lease_lost",
-        error: String(error?.message || error)
-      }) + "\n");
-      scheduler.abortActiveRuns("Scheduler process lease ownership was lost");
-      void shutdown("LOCK_LOST");
-    } finally {
-      heartbeatInFlight = false;
-    }
-  }, leaseHeartbeatMs);
-  leaseHeartbeatTimer.unref?.();
-  const tasks = await scheduler.listTasks();
-  process.stdout.write(JSON.stringify({
-    event: "scheduler_started",
-    stateFile,
-    pollMs,
-    leaseHeartbeatMs,
-    taskCount: tasks.length,
-    dashboard: `http://127.0.0.1:${address.port}`,
-    note: "Single process, loopback-only dashboard, registered handlers only."
-  }) + "\n");
-  await tick();
-  // Shutdown may arrive while the initial tick is awaited. Do not recreate
-  // the polling timer after shutdown has already cleared it.
-  if (!stopping) timer = setInterval(tick, pollMs);
+  if (stopping) {
+    if (dashboard.server.listening) await dashboard.close();
+  } else {
+    leaseHeartbeatTimer = setInterval(async () => {
+      if (stopping || heartbeatInFlight) return;
+      heartbeatInFlight = true;
+      try {
+        const heartbeatAt = await releaseLock.heartbeat();
+        process.stdout.write(JSON.stringify({
+          event: "scheduler_lease_heartbeat",
+          pid: releaseLock.pid,
+          heartbeatAt
+        }) + "\n");
+      } catch (error) {
+        process.stderr.write(JSON.stringify({
+          event: "scheduler_lease_lost",
+          error: String(error?.message || error)
+        }) + "\n");
+        scheduler.abortActiveRuns("Scheduler process lease ownership was lost");
+        void shutdown("LOCK_LOST");
+      } finally {
+        heartbeatInFlight = false;
+      }
+    }, leaseHeartbeatMs);
+    leaseHeartbeatTimer.unref?.();
+    const tasks = await scheduler.listTasks();
+    process.stdout.write(JSON.stringify({
+      event: "scheduler_started",
+      stateFile,
+      pollMs,
+      leaseHeartbeatMs,
+      taskCount: tasks.length,
+      dashboard: `http://127.0.0.1:${address.port}`,
+      note: "Single process, loopback-only dashboard, registered handlers only."
+    }) + "\n");
+    await tick();
+    // Shutdown may arrive while the initial tick is awaited. Do not recreate
+    // the polling timer after shutdown has already cleared it.
+    if (!stopping) timer = setInterval(tick, pollMs);
+  }
 } catch (error) {
   await releaseLock();
   throw error;
@@ -142,7 +146,7 @@ async function shutdown(signal) {
     if (dashboard.server.listening) await dashboard.close();
   } finally {
     await releaseLock();
-    process.exitCode = 0;
+    process.exitCode = signal === "LOCK_LOST" ? 1 : 0;
   }
 }
 
