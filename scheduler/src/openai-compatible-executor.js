@@ -763,23 +763,31 @@ export function createOpenAiCompatibleExecutor({
       const responseHash = createHash("sha256").update(content, "utf8").digest("hex");
       const providerReportedModel = typeof envelope.model === "string" && envelope.model.trim()
         ? envelope.model.trim().slice(0, 256) : null;
-      const saved = await taskVault.appendBuilderResult(taskReference, {
-        idempotencyKey: runId + ":" + role,
-        runId,
-        threadId: task.threadId,
-        role,
-        requestedProviderId: route.providerId,
-        requestedModel: route.model,
-        providerReportedModel,
-        responseSha256: responseHash,
-        reply,
-        evidenceVerification,
-        completedAt: clock().toISOString()
-      });
-      if (saved?.durable !== true) {
-        throw new Error("Task vault did not confirm durable persistence of the Builder result");
+      let saved;
+      try {
+        saved = await taskVault.appendBuilderResult(taskReference, {
+          idempotencyKey: runId + ":" + role,
+          runId,
+          threadId: task.threadId,
+          role,
+          requestedProviderId: route.providerId,
+          requestedModel: route.model,
+          providerReportedModel,
+          responseSha256: responseHash,
+          reply,
+          evidenceVerification,
+          completedAt: clock().toISOString()
+        });
+      } catch {
+        // A provider response exists, but durable persistence is now uncertain.
+        throw manualReconciliationError();
       }
-      const checkpointId = requiredText(saved?.checkpointId, "Task vault checkpointId", 256);
+      if (saved?.durable !== true) throw manualReconciliationError();
+      const checkpointId = saved?.checkpointId;
+      if (typeof checkpointId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
+        throw manualReconciliationError();
+      }
       await context.checkpoint({
         checkpointId,
         vaultTurnId: checkpointId,
