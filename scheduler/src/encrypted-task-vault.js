@@ -722,6 +722,17 @@ export function createEncryptedTaskVault({
         )) {
           throw new Error("Baldr invocation start is missing or already completed");
         }
+        const task = state.tasks[reference];
+        const run = task?.runs?.[start.runId];
+        const matchingTurns = Array.isArray(run?.history) ? run.history.filter(turn =>
+          turn.speaker === "BALDR" &&
+          (turn.checkpointId ?? turn.turnId) === completion.vaultTurnId &&
+          turn.reviewInvocationId === invocationId &&
+          turn.responseSha256 === completion.responseSha256
+        ) : [];
+        if (matchingTurns.length !== 1) {
+          throw new Error("Baldr completion must reference exactly one matching durable vault turn");
+        }
         const allowed = [
           "reviewInvocationId", "inputManifestSha256", "responseSha256",
           "vaultTurnId", "providerRequestId", "provenanceLevel",
