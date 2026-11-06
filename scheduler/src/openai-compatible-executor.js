@@ -503,13 +503,17 @@ export function createOpenAiCompatibleExecutor({
       let evidenceVerification = null;
       if (reply.turn_type === "CORRECTION_UPDATE") {
         const correction = JSON.parse(reply.body);
-        evidenceVerification = await verifyBuilderEvidenceReference(
+        const verification = await verifyBuilderEvidenceReference(
           correction.artifact_reference, evidenceGateway
         );
-        if (!evidenceVerification.verified) {
-          throw new Error("Correction evidence verification " + evidenceVerification.status +
-            ": " + evidenceVerification.reason);
+        if (!verification.verified) {
+          throw new Error("Correction evidence verification " + verification.status +
+            ": " + verification.reason);
         }
+        evidenceVerification = {
+          ...verification,
+          checkedAt: clock().toISOString()
+        };
       }
       if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
