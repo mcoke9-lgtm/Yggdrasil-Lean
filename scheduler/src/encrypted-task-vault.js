@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { mkdir, open, readFile, rename, lstat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
+import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
 
 const MAGIC = "YGGDRASIL-BUILDER-VAULT";
 const VERSION = 1;
@@ -211,6 +212,18 @@ export function createEncryptedTaskVault({
       validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId,
         task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt);
       validateBuilderReplyAgainstHistory(reply, run.history, role, task.promptTurnId, task.prompt);
+      let evidenceVerification = record.evidenceVerification ?? null;
+      if (reply.turn_type === "CORRECTION_UPDATE") {
+        const correction = JSON.parse(reply.body);
+        const expectedEvidence = parseBuilderEvidenceReference(correction.artifact_reference);
+        if (!evidenceVerification || evidenceVerification.verified !== true ||
+            evidenceVerification.status !== "VERIFIED" ||
+            evidenceVerification.kind !== expectedEvidence.kind ||
+            evidenceVerification.repository !== expectedEvidence.repository ||
+            evidenceVerification.objectId !== expectedEvidence.objectId) {
+          throw new Error("Correction update cannot be persisted without matching successful evidence-gateway verification");
+        }
+      }
       const replyBody = reply.body;
       const checkpointId = "vault-" + randomBytes(16).toString("hex");
       const completedAt = required(record.completedAt, "completedAt", 64);
@@ -249,6 +262,7 @@ export function createEncryptedTaskVault({
         recipient: reply.recipient,
         reply_to_turn_id: reply.reply_to_turn_id,
         evidence_status: reply.evidence_status,
+        evidenceVerification,
         reply,
         requestedProviderId: record.requestedProviderId,
         requestedModel: record.requestedModel,
