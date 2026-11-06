@@ -1,0 +1,28 @@
+name: Repository coordination read-only prototype
+
+on:
+  push:
+    branches:
+      - repository-coordination-readonly-prototype-001
+    paths:
+      - "repository-coordination/**"
+      - ".github/workflows/repository-coordination-prototype.yml"
+  pull_request:
+    paths:
+      - "repository-coordination/**"
+      - ".github/workflows/repository-coordination-prototype.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-registry-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run isolated registry tests
+        working-directory: repository-coordination
+        run: npm test
