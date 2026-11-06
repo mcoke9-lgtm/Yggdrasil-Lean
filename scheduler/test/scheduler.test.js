@@ -375,6 +375,39 @@ test("dashboard task changes are not lost while a scheduled handler is running",
   assert.ok((await scheduler.listTasks()).some(task => task.id === "added-during-run"));
 });
 
+test("CLI creates a one-shot task for an explicitly requested Builder run resume", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-cli-resume-"));
+  const stateFile = join(directory, "scheduler.json");
+  const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const cliPath = join(schedulerDirectory, "src", "cli.js");
+  const child = spawn(process.execPath, [
+    cliPath, "resume-nine-builders", "resume-one", "Resume Builder run", "builder:run-123"
+  ], {
+    cwd: schedulerDirectory,
+    env: { ...process.env, SCHEDULER_STATE_FILE: stateFile },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderr += chunk; });
+  try {
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      child.once("error", rejectExit);
+      child.once("close", code => resolveExit(code));
+    });
+    assert.equal(exitCode, 0, stderr);
+    const state = JSON.parse(await readFile(stateFile, "utf8"));
+    const task = state.tasks.find(item => item.id === "resume-one");
+    assert.equal(task.schedule.kind, "once");
+    assert.equal(task.payload.resumeRunId, "builder:run-123");
+    assert.equal(task.enabled, true);
+    assert.equal(typeof task.nextRunAt, "string");
+  } finally {
+    if (child.exitCode == null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("service runner handles SIGTERM immediately at readiness and releases its lock", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scheduler-runner-"));
   const stateFile = join(directory, "state.json");
