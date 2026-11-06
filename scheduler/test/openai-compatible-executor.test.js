@@ -299,6 +299,10 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
   assert.match(prompts[3].messages[0].content, /persistence, history, continuity/);
   assert.match(prompts[4].messages[0].content, /evidence, source verification/);
   assert.match(prompts[5].messages[0].content, /operational constraints, capability limits/);
+  assert.match(prompts[5].messages[0].content, /originating system, exact scope/);
+  assert.match(prompts[5].messages[0].content, /Distinguish a ChatGPT\/provider\/host-specific limit from a Nine Builders governance rule/);
+  assert.match(prompts[5].messages[0].content, /never promote an external recommendation or service-scoped quota into a collective prohibition/);
+  assert.match(prompts[5].messages[0].content, /binding legal, safety, security, consent, access-control/);
   assert.match(prompts[6].messages[0].content, /complementary alternatives, relationships/);
   assert.match(prompts[7].messages[0].content, /authorization, permissions, and security/);
   assert.match(prompts[8].messages[0].content, /separately invoked final reviewer/);
