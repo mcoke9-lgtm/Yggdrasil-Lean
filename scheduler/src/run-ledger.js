@@ -45,7 +45,10 @@ export class BuilderRunLedger {
     return result;
   }
 
-  async createRun({ runId = this.idFactory(), scheduledFor, durationMs = MAX_BUILDER_RUN_DURATION_MS } = {}) {
+  async createRun({
+    runId = this.idFactory(), scheduledFor, durationMs = MAX_BUILDER_RUN_DURATION_MS,
+    taskReference = null
+  } = {}) {
     return this.withLock(async () => {
       if (typeof runId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(runId)) {
         throw new TypeError("runId must be a stable, safe identifier");
@@ -53,13 +56,18 @@ export class BuilderRunLedger {
       if (!Number.isSafeInteger(durationMs) || durationMs < 1000 || durationMs > MAX_BUILDER_RUN_DURATION_MS) {
         throw new RangeError("durationMs must be between 1 second and the eight-hour maximum");
       }
+      if (taskReference != null &&
+          (typeof taskReference !== "string" || !taskReference.trim() || taskReference.length > 256)) {
+        throw new TypeError("taskReference must be a non-empty opaque reference no longer than 256 characters");
+      }
       const created = this.clock().toISOString();
       const scheduled = iso(scheduledFor ?? created, "scheduledFor");
       const state = await this.store.load();
       state.builderRuns ??= [];
       if (state.builderRuns.some(run => run.runId === runId)) throw new Error("Builder run already exists: " + runId);
       const run = {
-        schemaVersion: 1, runId, scheduledFor: scheduled, startedAt: null,
+        schemaVersion: 1, runId, taskReference: taskReference == null ? null : taskReference.trim(),
+        scheduledFor: scheduled, startedAt: null,
         deadlineAt: null, durationMs, status: "queued", createdAt: created,
         updatedAt: created, interruptedAt: null, interruptionReason: null,
         builders: BUILDER_ROLES.map(role => ({
