@@ -872,6 +872,18 @@ test("persists append-only Baldr invocation start and completion receipts in the
       status: "COMPLETED",
       completedAt: "2026-11-06T12:00:01.000Z"
     };
+    await h.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: runId + ":BALDR", runId, threadId: task.threadId,
+      role: "BALDR", requestedProviderId: start.requestedProviderId,
+      requestedModel: start.requestedModelId, providerReportedModel: null,
+      reviewInvocationId: start.reviewInvocationId,
+      responseSha256: completion.responseSha256,
+      reply: {
+        body: "Baldr review output.", turn_type: "CONTRIBUTION",
+        evidence_status: "OBSERVED", recipient: null, reply_to_turn_id: null
+      },
+      completedAt: "2026-11-06T12:00:00.500Z"
+    });
     const completed = await h.vault.completeBaldrReviewInvocation(taskReference, completion);
     assert.equal(completed.durable, true);
     const saved = await h.vault.getBaldrReviewInvocation(taskReference, {
@@ -932,6 +944,18 @@ test("does not permit a second Baldr invocation for a run after the first comple
       provenanceLevel: "INVOCATION_ATTRIBUTED",
       status: "COMPLETED",
       completedAt: "2026-11-06T12:00:01.000Z"
+    });
+    await h.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: runId + ":BALDR", runId, threadId: task.threadId,
+      role: "BALDR", requestedProviderId: start.requestedProviderId,
+      requestedModel: start.requestedModelId, providerReportedModel: null,
+      reviewInvocationId: start.reviewInvocationId,
+      responseSha256: "d".repeat(64),
+      reply: {
+        body: "Baldr review output.", turn_type: "CONTRIBUTION",
+        evidence_status: "OBSERVED", recipient: null, reply_to_turn_id: null
+      },
+      completedAt: "2026-11-06T12:00:00.500Z"
     });
     await assert.rejects(
       () => h.vault.beginBaldrReviewInvocation(taskReference, {
