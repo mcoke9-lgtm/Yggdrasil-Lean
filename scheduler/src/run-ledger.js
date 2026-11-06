@@ -102,7 +102,7 @@ export class BuilderRunLedger {
 
   async createRun({
     runId = this.idFactory(), scheduledFor, durationMs = MAX_BUILDER_RUN_DURATION_MS,
-    taskReference = null, supersedesRunId = null
+    taskReference = null, supersedesRunId = null, initialSkippedRoles = []
   } = {}) {
     return this.withLock(async () => {
       safeIdentifier(runId, "runId");
@@ -119,6 +119,11 @@ export class BuilderRunLedger {
           throw new TypeError("A continuation requires a distinct superseded run");
         }
       }
+      if (!Array.isArray(initialSkippedRoles) ||
+          new Set(initialSkippedRoles).size !== initialSkippedRoles.length ||
+          initialSkippedRoles.some(role => !BUILDER_ROLES.includes(role) || role === "BALDR")) {
+        throw new TypeError("initialSkippedRoles must contain unique non-Baldr Builder roles");
+      }
       const created = this.clock().toISOString();
       const scheduled = iso(scheduledFor ?? created, "scheduledFor");
       const state = await this.store.load();
@@ -130,11 +135,15 @@ export class BuilderRunLedger {
         scheduledFor: scheduled, startedAt: null, deadlineAt: null,
         durationMs, status: "queued", createdAt: created, updatedAt: created,
         interruptedAt: null, interruptionCode: null, finishedAt: null,
-        builders: BUILDER_ROLES.map(role => ({
-          role, status: "pending", attempt: 0, startedAt: null, finishedAt: null,
-          checkpoint: null, errorCode: null, outcomeRef: null,
-          outcomeType: null, evidenceStatus: null
-        }))
+        builders: BUILDER_ROLES.map(role => {
+          const skipped = initialSkippedRoles.includes(role);
+          return {
+            role, status: skipped ? "skipped" : "pending", attempt: 0,
+            startedAt: null, finishedAt: skipped ? created : null,
+            checkpoint: null, errorCode: null, outcomeRef: null,
+            outcomeType: null, evidenceStatus: null
+          };
+        })
       };
       state.builderRuns.push(run);
       await this.store.save(state);
