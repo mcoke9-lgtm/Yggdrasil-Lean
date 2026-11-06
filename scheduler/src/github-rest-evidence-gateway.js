@@ -42,11 +42,13 @@ function abortableDelay(milliseconds, signal) {
       reject(signal.reason || new Error("Evidence request cancelled"));
     };
     signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 
 function retryableHttpStatus(response) {
-  if ([408, 429].includes(response.status) || response.status >= 500) return true;
+  if ([408, 429].includes(response.status) ||
+      (response.status >= 500 && response.status <= 599)) return true;
   return response.status === 403 &&
     (retryAfterMilliseconds(response) != null ||
       response.headers?.get?.("x-ratelimit-remaining") === "0");
