@@ -1104,8 +1104,13 @@ test("loads the host executor only from owner-protected config and operator modu
   try {
     await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes(), evidenceGatewaySecretRef: "github-evidence-read-only" }), { mode: 0o600 });
     await writeFile(taskVaultPath,
-      'export async function getTask() { return { prompt: "host task" }; }\n' +
-      'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n');
+      'export async function createTaskVault({ evidenceGateway }) {\n' +
+      '  if (!evidenceGateway || typeof evidenceGateway.fetchCommit !== "function" || typeof evidenceGateway.fetchWorkflowJobs !== "function") throw new Error("vault did not receive the configured evidence gateway");\n' +
+      '  return {\n' +
+      '    async getTask() { return { prompt: "host task" }; },\n' +
+      '    async appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n' +
+      '  };\n' +
+      '}\n');
     await writeFile(credentialsPath,
       'export async function readSecret() { return "host-secret"; }\n');
     await writeFile(evidenceGatewayPath, "export async function createEvidenceGateway() {\n  return {\n    async fetchCommit() { return null; },\n    async branchContainsCommit() { return false; },\n    async fetchWorkflowRun() { return null; },\n    async fetchWorkflowJobs() { return []; }\n  };\n}\n", { mode: 0o600 });
