@@ -374,6 +374,72 @@ test("concurrent identical history forks are idempotent and conflicting target r
   }
 });
 
+test("serializes competing history forks across separate processes", async () => {
+  const f = await fixture();
+  try {
+    const taskReference = "task:history-fork-processes";
+    const sourceRunId = "legacy-process-fork";
+    const targetRunId = "continuation-process-fork";
+    await f.vault.initializeTask(taskReference, "Cross-process history fork test.");
+    const source = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":ODIN",
+      runId: sourceRunId, threadId: source.threadId, role: "ODIN",
+      requestedProviderId: "fixture-provider", requestedModel: "odin-fixture",
+      providerReportedModel: "odin-fixture", responseSha256: "9".repeat(64),
+      reply: { body: "Cross-process source turn", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" },
+      completedAt: new Date(Date.parse(source.promptCreatedAt) + 1000).toISOString()
+    });
+    const manifest = await f.vault.getRunHistoryManifest(taskReference, { runId: sourceRunId });
+    const modulePath = fileURLToPath(new URL("../src/encrypted-task-vault.js", import.meta.url));
+    const script = `
+      import { createEncryptedTaskVault } from ${JSON.stringify(modulePath)};
+      const [filePath, encodedKey, taskReference, sourceRunId, targetRunId, threadId, digest] = process.argv.slice(1);
+      const vault = createEncryptedTaskVault({
+        filePath, key: Buffer.from(encodedKey, "base64")
+      });
+      const result = await vault.forkRunHistory(taskReference, {
+        sourceRunId, targetRunId,
+        expectedSourceThreadId: threadId,
+        expectedSourceHistorySha256: digest
+      });
+      process.stdout.write(JSON.stringify({ duplicate: result.duplicate }));
+    `;
+    function forkInChild() {
+      return new Promise((resolveChild, rejectChild) => {
+        const child = spawn(process.execPath, [
+          "--input-type=module", "-e", script,
+          f.filePath, f.key.toString("base64"), taskReference,
+          sourceRunId, targetRunId, manifest.threadId, manifest.historySha256
+        ], { stdio: ["ignore", "pipe", "pipe"] });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.setEncoding("utf8");
+        child.stderr.setEncoding("utf8");
+        child.stdout.on("data", chunk => { stdout += chunk; });
+        child.stderr.on("data", chunk => { stderr += chunk; });
+        child.once("error", rejectChild);
+        child.once("close", code => {
+          if (code !== 0) return rejectChild(new Error("Vault fork child exited " + code + ": " + stderr));
+          try { resolveChild(JSON.parse(stdout)); }
+          catch (error) { rejectChild(error); }
+        });
+      });
+    }
+    const results = await Promise.all([forkInChild(), forkInChild()]);
+    assert.equal(results.filter(item => item.duplicate === false).length, 1);
+    assert.equal(results.filter(item => item.duplicate === true).length, 1);
+    const target = await f.vault.getTask(taskReference, { runId: targetRunId });
+    assert.equal(target.history.length, 1);
+    assert.equal(target.history[0].speaker, "ODIN");
+    const sourceAfter = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    assert.equal(sourceAfter.history.length, 1);
+    assert.equal(Object.hasOwn(sourceAfter.history[0], "origin"), false);
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
 test("only the configured read-only evidence gateway can mark a constraint VERIFIED", async () => {
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-verified-constraint-"));
   await chmod(directory, 0o700);
