@@ -42,11 +42,11 @@ function correctionHistory() {
       artifact_reference: stage === "IMPLEMENTED"
         ? "github+commit://github.com/acme/project/0123456789abcdef0123456789abcdef01234567?branch=correction"
         : "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=0123456789abcdef0123456789abcdef01234567",
-      acceptance_criteria_result: "checked", unresolved: "none"
+      acceptance_criteria_result: "criteria checked", unresolved: "none"
     }), stage
   );
   return [
-    turn("incident-1", "HODR", "IMPROVEMENT_INCIDENT", null, incidentBody, "OBSERVED"),
+    turn("incident-1", "HODR", "IMPROVEMENT_INCIDENT", "task-prompt-1", incidentBody, "OBSERVED"),
     turn("plan-1", "TYR", "CORRECTION_PLAN", "incident-1", planBody, "PROPOSED"),
     update("IMPLEMENTED", "plan-1", "implemented-1", "HODR"),
     update("TESTED", "implemented-1", "tested-1", "HODR")
@@ -120,17 +120,17 @@ test("recipient must match the referenced speaker and only the addressed partici
 
 test("new replies may reference the stable task prompt identity", () => {
   assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
-    turn_type: "RESPONSE", recipient: "USER", reply_to_turn_id: "user-prompt-1"
+    turn_type: "RESPONSE", recipient: "USER", reply_to_turn_id: "user-prompt-1", evidence_status: "OBSERVED"
   }, [], "HODR", "user-prompt-1"));
 });
 
 test("new directed replies must reference an existing same-run turn", () => {
   const history = [turn("turn-1", "ODIN", "CONTRIBUTION")];
   assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
-    turn_type: "RESPONSE", recipient: "ODIN", reply_to_turn_id: "turn-1"
+    turn_type: "RESPONSE", recipient: "ODIN", reply_to_turn_id: "turn-1", evidence_status: "OBSERVED"
   }, history, "HODR"));
   assert.throws(() => validateBuilderReplyAgainstHistory({
-    turn_type: "RESPONSE", recipient: "ODIN", reply_to_turn_id: "missing"
+    turn_type: "RESPONSE", recipient: "ODIN", reply_to_turn_id: "missing", evidence_status: "OBSERVED"
   }, history, "HODR"), /earlier turn in this run/);
 });
 
@@ -143,17 +143,17 @@ test("correction plan must point directly to a recorded incident", () => {
   });
   assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_PLAN", recipient: "USER",
-    reply_to_turn_id: "incident-1", body
+    reply_to_turn_id: "incident-1", evidence_status: "PROPOSED", body
   }, history, "TYR"));
   assert.throws(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_PLAN", recipient: "USER",
-    reply_to_turn_id: "missing", body
+    reply_to_turn_id: "missing", evidence_status: "PROPOSED", body
   }, history, "TYR"), /earlier turn in this run/);
 });
 
 test("correction history enforces incident linkage and ordered lifecycle", () => {
   const history = correctionHistory();
-  assert.doesNotThrow(() => validateBuilderHistory(history, runId, threadId));
+  assert.doesNotThrow(() => validateBuilderHistory(history, runId, threadId, "task-prompt-1"));
   const outOfOrder = [...history];
   outOfOrder[3] = {
     ...outOfOrder[3],
