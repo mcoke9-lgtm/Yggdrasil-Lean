@@ -877,8 +877,7 @@ export function createOpenAiCompatibleExecutor({
     const runId = requiredText(context.runId, "runId", 120);
     const taskReference = requiredText(context.task?.taskReference, "opaque taskReference", 256);
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder recovery cancelled");
-    const task = validateTask(await taskVault.getTask(taskReference, { runId }),
-      routes, runId, taskReference);
+    const task = await loadValidatedTask(taskReference, runId);
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder recovery cancelled");
     const previousThreadId = runThreads.get(runId);
     if (previousThreadId && previousThreadId !== task.threadId) {
