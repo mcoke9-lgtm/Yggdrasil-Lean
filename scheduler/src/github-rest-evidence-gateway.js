@@ -19,6 +19,39 @@ function repositoryParts(repository) {
   return parts.map(encodeURIComponent);
 }
 
+function retryAfterMilliseconds(response) {
+  const raw = response.headers?.get?.("retry-after");
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const value = raw.trim();
+  if (/^\d+(?:\.\d+)?$/.test(value)) return Math.ceil(Number(value) * 1000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : null;
+}
+
+function abortableDelay(milliseconds, signal) {
+  if (signal?.aborted) return Promise.reject(signal.reason || new Error("Evidence request cancelled"));
+  if (milliseconds <= 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(signal.reason || new Error("Evidence request cancelled"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function retryableHttpStatus(response) {
+  if ([408, 429].includes(response.status) || response.status >= 500) return true;
+  return response.status === 403 &&
+    (retryAfterMilliseconds(response) != null ||
+      response.headers?.get?.("x-ratelimit-remaining") === "0");
+}
+
 /**
  * Create a read-only GitHub REST evidence gateway.
  *
@@ -28,44 +61,93 @@ function repositoryParts(repository) {
 export async function createEvidenceGateway({
   readSecret,
   secretRef,
-  fetchImpl = globalThis.fetch
+  fetchImpl = globalThis.fetch,
+  maxAttempts = 3,
+  baseDelayMs = 250,
+  maxDelayMs = 5000
 } = {}) {
   if (typeof readSecret !== "function") throw new TypeError("readSecret(secretRef) is required");
   const reference = required(secretRef, "evidence gateway secretRef", 256);
   if (typeof fetchImpl !== "function") throw new TypeError("A Fetch-compatible transport is required");
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5 ||
+      !Number.isInteger(baseDelayMs) || baseDelayMs < 0 || baseDelayMs > 5000 ||
+      !Number.isInteger(maxDelayMs) || maxDelayMs < 1 || maxDelayMs > 30000) {
+    throw new RangeError("Evidence retry policy must use 1–5 attempts and bounded delays");
+  }
   const token = await readSecret(reference);
   if (typeof token !== "string" || !token.trim()) {
     throw new Error("Evidence gateway secret resolver returned no token");
   }
 
   async function getJson(path, signal) {
-    const response = await fetchImpl(API_ROOT + path, {
-      method: "GET",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: "Bearer " + token.trim(),
-        "X-GitHub-Api-Version": "2022-11-28"
-      },
-      signal,
-      redirect: "error"
-    });
-    if (!response || typeof response.status !== "number" || !response.ok) {
-      const error = new Error("GitHub evidence API request failed");
-      error.name = "GitHubEvidenceHttpError";
-      throw error;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      if (signal?.aborted) throw signal.reason || new Error("Evidence request cancelled");
+      let response;
+      try {
+        response = await fetchImpl(API_ROOT + path, {
+          method: "GET",
+          headers: {
+            Accept: "application/vnd.github+json",
+            Authorization: "Bearer " + token.trim(),
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          signal,
+          redirect: "error"
+        });
+      } catch (error) {
+        if (signal?.aborted || error?.name === "AbortError") throw error;
+        if (attempt >= maxAttempts || !(error instanceof TypeError)) throw error;
+        await abortableDelay(Math.min(baseDelayMs * (2 ** (attempt - 1)), maxDelayMs), signal);
+        continue;
+      }
+
+      if (!response || typeof response.status !== "number") {
+        const error = new Error("GitHub evidence API returned an invalid response");
+        error.name = "GitHubEvidenceTransportError";
+        throw error;
+      }
+      if (!response.ok) {
+        if (retryableHttpStatus(response) && attempt < maxAttempts) {
+          const retryAfter = retryAfterMilliseconds(response);
+          const delay = retryAfter == null
+            ? Math.min(baseDelayMs * (2 ** (attempt - 1)), maxDelayMs)
+            : retryAfter;
+          if (delay > maxDelayMs) {
+            const error = new Error("GitHub evidence Retry-After exceeded the configured delay limit");
+            error.name = "GitHubEvidenceRetryDelayExceededError";
+            throw error;
+          }
+          try { await response.body?.cancel(); } catch {}
+          await abortableDelay(delay, signal);
+          continue;
+        }
+        const error = new Error("GitHub evidence API request failed");
+        error.name = "GitHubEvidenceHttpError";
+        error.status = response.status;
+        throw error;
+      }
+
+      let body;
+      try { body = await response.text(); }
+      catch (error) {
+        if (signal?.aborted || error?.name === "AbortError") throw error;
+        if (attempt >= maxAttempts || !(error instanceof TypeError)) throw error;
+        await abortableDelay(Math.min(baseDelayMs * (2 ** (attempt - 1)), maxDelayMs), signal);
+        continue;
+      }
+      if (Buffer.byteLength(body, "utf8") > MAX_RESPONSE_BYTES) {
+        const error = new Error("GitHub evidence API response exceeded 1 MiB");
+        error.name = "GitHubEvidenceResponseLimitError";
+        throw error;
+      }
+      try { return JSON.parse(body); }
+      catch {
+        const error = new Error("GitHub evidence API returned invalid JSON");
+        error.name = "GitHubEvidenceJsonError";
+        throw error;
+      }
     }
-    const body = await response.text();
-    if (Buffer.byteLength(body, "utf8") > MAX_RESPONSE_BYTES) {
-      const error = new Error("GitHub evidence API response exceeded 1 MiB");
-      error.name = "GitHubEvidenceResponseLimitError";
-      throw error;
-    }
-    try { return JSON.parse(body); }
-    catch {
-      const error = new Error("GitHub evidence API returned invalid JSON");
-      error.name = "GitHubEvidenceJsonError";
-      throw error;
-    }
+    throw new Error("GitHub evidence retry budget was exhausted");
   }
 
   async function fetchCommit(repository, sha, signal) {
