@@ -41,6 +41,46 @@ test("runs a due handler and records success", async () => {
   assert.equal(result.runs[0].status, "succeeded");
 });
 
+test("runs a one-time task once, then disables it with no next run", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let calls = 0;
+  scheduler.registerHandler("test.once", async () => { calls += 1; });
+  const task = await scheduler.addTask({
+    id: "one-time-check",
+    name: "One-time check",
+    handlerType: "test.once",
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  assert.equal(task.schedule.kind, "once");
+  assert.equal(task.nextRunAt, "2026-11-04T12:00:00.000Z");
+  const first = await scheduler.runDue();
+  assert.equal(first.runs[0].status, "succeeded");
+  assert.equal(calls, 1);
+  const saved = (await scheduler.listTasks())[0];
+  assert.equal(saved.enabled, false);
+  assert.equal(saved.nextRunAt, null);
+  const second = await scheduler.runDue();
+  assert.deepEqual(second.runs, []);
+  assert.equal(calls, 1);
+  await assert.rejects(() => scheduler.setEnabled("one-time-check", true),
+    /completed one-time task cannot be re-enabled/);
+});
+
+test("does not run a one-time task before its start time", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let calls = 0;
+  scheduler.registerHandler("test.once", async () => { calls += 1; });
+  await scheduler.addTask({
+    id: "future-one-time",
+    name: "Future one-time check",
+    handlerType: "test.once",
+    schedule: { kind: "once", startAt: "2026-11-04T12:01:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.deepEqual(result.runs, []);
+  assert.equal(calls, 0);
+});
+
 test("records a failed handler", async () => {
   const scheduler = new Scheduler({ store: new MemoryStore(), clock });
   scheduler.registerHandler("test.fail", async () => { throw new Error("expected failure"); });
@@ -62,7 +102,7 @@ test("rejects unsupported schedule kinds", async () => {
     name: "Unsupported",
     handlerType: "test.check",
     schedule: { kind: "cron" }
-  }), /Schedule kind must be interval or calendar/);
+  }), /Schedule kind must be interval, calendar, or once/);
 });
 
 test("supports daily wall-clock schedules in an IANA timezone", async () => {
@@ -335,7 +375,75 @@ test("dashboard task changes are not lost while a scheduled handler is running",
   assert.ok((await scheduler.listTasks()).some(task => task.id === "added-during-run"));
 });
 
-test("service runner starts dashboard, acquires lock and shuts down cleanly", async () => {
+test("CLI creates a one-shot task for an explicitly requested Builder run resume", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-cli-resume-"));
+  const stateFile = join(directory, "scheduler.json");
+  const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const cliPath = join(schedulerDirectory, "src", "cli.js");
+  const child = spawn(process.execPath, [
+    cliPath, "resume-nine-builders", "resume-one", "Resume Builder run", "builder:run-123"
+  ], {
+    cwd: schedulerDirectory,
+    env: { ...process.env, SCHEDULER_STATE_FILE: stateFile },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderr += chunk; });
+  try {
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      child.once("error", rejectExit);
+      child.once("close", code => resolveExit(code));
+    });
+    assert.equal(exitCode, 0, stderr);
+    const state = JSON.parse(await readFile(stateFile, "utf8"));
+    const task = state.tasks.find(item => item.id === "resume-one");
+    assert.equal(task.schedule.kind, "once");
+    assert.equal(task.payload.resumeRunId, "builder:run-123");
+    assert.equal(task.enabled, true);
+    assert.equal(typeof task.nextRunAt, "string");
+  } finally {
+    if (child.exitCode == null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("CLI creates a one-shot task for an explicit legacy Builder run continuation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-cli-continue-"));
+  const stateFile = join(directory, "scheduler.json");
+  const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const cliPath = join(schedulerDirectory, "src", "cli.js");
+  const child = spawn(process.execPath, [
+    cliPath, "continue-nine-builders", "continue-one", "Continue legacy Builder run", "builder:legacy-run-123"
+  ], {
+    cwd: schedulerDirectory,
+    env: { ...process.env, SCHEDULER_STATE_FILE: stateFile },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderr += chunk; });
+  try {
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      child.once("error", rejectExit);
+      child.once("close", code => resolveExit(code));
+    });
+    assert.equal(exitCode, 0, stderr);
+    const state = JSON.parse(await readFile(stateFile, "utf8"));
+    const task = state.tasks.find(item => item.id === "continue-one");
+    assert.equal(task.schedule.kind, "once");
+    assert.equal(task.payload.continueRunId, "builder:legacy-run-123");
+    assert.equal(task.payload.continuationId, "continue-one");
+    assert.equal(Object.hasOwn(task.payload, "resumeRunId"), false);
+    assert.equal(task.enabled, true);
+    assert.equal(typeof task.nextRunAt, "string");
+  } finally {
+    if (child.exitCode == null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("service runner handles SIGTERM immediately at readiness and releases its lock", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scheduler-runner-"));
   const stateFile = join(directory, "state.json");
   const schedulerDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -378,14 +486,20 @@ test("service runner starts dashboard, acquires lock and shuts down cleanly", as
       inspect();
     });
     assert.match(startup.dashboard, /^http:\/\/127\.0\.0\.1:\d+$/);
-    const health = await fetch(startup.dashboard + "/api/health");
-    assert.equal(health.status, 200);
+    // Deliberately signal immediately after scheduler_started. No health request
+    // or extra event-loop turn is allowed to hide a late signal-handler install.
     child.kill("SIGTERM");
     const exitCode = await new Promise((resolveExit, rejectExit) => {
       const timeout = setTimeout(() => rejectExit(new Error("Scheduler runner did not shut down")), 8000);
       child.once("exit", code => { clearTimeout(timeout); resolveExit(code); });
     });
     assert.equal(exitCode, 0);
+    assert.ok(output.split("\n").some(value => {
+      try {
+        const event = JSON.parse(value);
+        return event.event === "scheduler_stopping" && event.signal === "SIGTERM";
+      } catch { return false; }
+    }), "SIGTERM shutdown handler must run at the readiness boundary");
     await assert.rejects(() => readFile(stateFile + ".lock", "utf8"), { code: "ENOENT" });
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
@@ -399,3 +513,57 @@ function lineExists(output) {
     catch { return false; }
   });
 }
+
+test("handler return after cancellation is not reported as success", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let handlerStarted;
+  const started = new Promise(resolve => { handlerStarted = resolve; });
+  let releaseHandler;
+  const gate = new Promise(resolve => { releaseHandler = resolve; });
+  scheduler.registerHandler("test.ignores-cancel", async (_payload, context) => {
+    handlerStarted();
+    await gate; // Deliberately ignores the cancellation signal.
+  });
+  await scheduler.addTask({
+    id: "ignored-cancel",
+    name: "Ignored cancellation",
+    handlerType: "test.ignores-cancel",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await started;
+  assert.equal(scheduler.abortActiveRuns("test shutdown"), 1);
+  releaseHandler();
+  const result = await execution;
+  assert.equal(result.runs[0].status, "failed");
+  assert.match(result.runs[0].error, /external outcome is unknown/);
+});
+
+test("abortActiveRuns propagates cooperative cancellation to the active handler", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let handlerStarted;
+  const started = new Promise(resolve => { handlerStarted = resolve; });
+  let observedAbort;
+  const aborted = new Promise(resolve => { observedAbort = resolve; });
+  scheduler.registerHandler("test.cancellable", async (_payload, context) => {
+    handlerStarted();
+    if (context.signal.aborted) observedAbort(context.signal.reason);
+    else context.signal.addEventListener("abort", () => observedAbort(context.signal.reason), { once: true });
+    await aborted;
+    throw context.signal.reason;
+  });
+  await scheduler.addTask({
+    id: "cooperative-cancel",
+    name: "Cooperative cancellation",
+    handlerType: "test.cancellable",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await started;
+  assert.equal(scheduler.abortActiveRuns("test shutdown"), 1);
+  const reason = await aborted;
+  assert.match(String(reason?.message || reason), /test shutdown/);
+  const result = await execution;
+  assert.equal(result.runs[0].status, "failed");
+  assert.match(result.runs[0].error, /test shutdown/);
+});

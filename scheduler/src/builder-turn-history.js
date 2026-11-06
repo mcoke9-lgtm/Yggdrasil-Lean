@@ -1,0 +1,530 @@
+import { BUILDER_ROLES } from "./run-ledger.js";
+import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
+
+const DIRECTED_TYPES = new Set([
+  "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
+  "INTERRUPTION", "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN"
+]);
+const SUPPORTED_TURN_TYPES = new Set([
+  "CONTRIBUTION", "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF",
+  "ACKNOWLEDGEMENT", "RECONCILIATION", "INTERRUPTION",
+  "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN", "CORRECTION_UPDATE", "DECISION"
+]);
+const SUPPORTED_EVIDENCE_STATUSES = new Set([
+  "PROPOSED", "OBSERVED", "IMPLEMENTED", "TESTED", "VERIFIED",
+  "ADOPTED", "USER_CONFIRMED", "DISPUTED", "UNKNOWN"
+]);
+const REFERENCE_TYPES = new Set([
+  "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
+  "RECONCILIATION", "INTERRUPTION", "IMPROVEMENT_INCIDENT",
+  "CORRECTION_PLAN", "CORRECTION_UPDATE"
+]);
+const REPLY_RECIPIENT_EXEMPTIONS = new Set([
+  "HANDOFF", "INTERRUPTION", "IMPROVEMENT_INCIDENT",
+  "CORRECTION_PLAN", "CORRECTION_UPDATE"
+]);
+const ANSWER_TYPES = new Set(["RESPONSE", "ACKNOWLEDGEMENT"]);
+const DIRECTED_PRIOR_TYPES = new Set(["QUESTION", "CHALLENGE", "HANDOFF"]);
+const CORRECTION_STAGES = ["IMPLEMENTED", "TESTED", "VERIFIED"];
+const CURRENT_PROTOCOL_VERSION = 4;
+const LEGACY_PROTOCOL_VERSION = 1;
+const MAX_BODY_LENGTH = 8000;
+
+function nonEmpty(value, label, max = 4096) {
+  if (typeof value !== "string" || !value.trim() || value.length > max) {
+    throw new TypeError(label + " must be a non-empty string no longer than " + max + " characters");
+  }
+  return value.trim();
+}
+
+function parseObject(body, label) {
+  let value;
+  try { value = JSON.parse(body); }
+  catch { throw new Error(label + " body must be a JSON object"); }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(label + " body must be a JSON object");
+  }
+  return value;
+}
+
+function itemStage(body) {
+  try { return JSON.parse(body).stage; } catch { return null; }
+}
+
+function turnId(turn) {
+  const id = turn?.turnId ?? turn?.checkpointId;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function turnType(turn) {
+  return turn?.reply?.turn_type ?? turn?.type ?? null;
+}
+
+function turnEvidenceStatus(turn) {
+  return turn?.reply?.evidence_status ?? turn?.evidence_status ?? null;
+}
+
+function turnRecipient(turn) {
+  return turn?.reply?.recipient ?? turn?.recipient ?? null;
+}
+
+function turnReplyTo(turn) {
+  return turn?.reply?.reply_to_turn_id ?? turn?.reply_to_turn_id ?? null;
+}
+
+function turnBody(turn) {
+  return typeof turn?.reply?.body === "string" ? turn.reply.body : turn?.body;
+}
+
+function reviewIncidentIdFromPrompt(prompt) {
+  if (typeof prompt !== "string") return null;
+  const marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=";
+  const markerIndex = prompt.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const start = markerIndex + marker.length;
+  const end = prompt.indexOf("\n", start);
+  const value = (end < 0 ? prompt.slice(start) : prompt.slice(start, end)).trim();
+  return value || null;
+}
+
+function requireEvidenceReference(value, expectedKind, stage) {
+  const reference = parseBuilderEvidenceReference(value);
+  if (reference.kind !== expectedKind) {
+    throw new Error(stage + " requires a typed " + expectedKind + " GitHub evidence reference");
+  }
+  return reference;
+}
+
+function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
+  if (!SUPPORTED_TURN_TYPES.has(type)) throw new Error("Run history contains an unsupported turn type");
+  if (!SUPPORTED_EVIDENCE_STATUSES.has(evidenceStatus)) throw new Error("Run history contains an unsupported evidence status");
+  if (type === "DECISION" && speaker !== "USER") throw new Error("Builders cannot create DECISION turns");
+  const userAdoption = type === "CORRECTION_UPDATE" && speaker === "USER" && evidenceStatus === "ADOPTED";
+  if (evidenceStatus === "ADOPTED" && !userAdoption) throw new Error("Only USER may record ADOPTED");
+  if ((DIRECTED_TYPES.has(type) || (type === "CORRECTION_UPDATE" && speaker !== "USER")) && recipient == null) {
+    throw new Error(type + " must name a recipient");
+  }
+  if (userAdoption && recipient != null) throw new Error("User correction adoption must not have a recipient");
+  if (REFERENCE_TYPES.has(type) && !replyTo) {
+    throw new Error(type + " must reference an earlier turn");
+  }
+  if (recipient != null && recipient === speaker) {
+    throw new Error("A participant cannot address a turn to itself");
+  }
+  if ((type === "INTERRUPTION" || type === "IMPROVEMENT_INCIDENT" ||
+       type === "CORRECTION_PLAN" || (type === "CORRECTION_UPDATE" && !userAdoption)) &&
+      recipient !== "USER") {
+    throw new Error(type + " must be addressed to USER");
+  }
+}
+
+/**
+ * Validate and retain the vault's original records. Missing timestamps on legacy
+ * records remain missing; this function never manufactures historical time.
+ */
+export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis, taskPrompt, taskReference) {
+  if (!Array.isArray(history)) throw new TypeError("Run history must be an array");
+  const ids = new Map();
+  if (promptTurnId != null) {
+    ids.set(nonEmpty(promptTurnId, "Task prompt turn identity", 256), -1);
+  }
+  let previousTimestamp = promptTimestampEpochMillis ?? null;
+  if (previousTimestamp != null &&
+      (!Number.isSafeInteger(previousTimestamp) || previousTimestamp <= 0)) {
+    throw new Error("Task prompt timestamp must be a positive source epoch-millisecond value");
+  }
+  for (let index = 0; index < history.length; index += 1) {
+    const turn = history[index];
+    if (!turn || typeof turn !== "object" || Array.isArray(turn)) {
+      throw new Error("Run history contains a malformed turn at index " + index);
+    }
+    if (turn.runId !== runId || turn.threadId !== threadId) {
+      throw new Error("Task history contains data outside this scheduled run's dedicated thread");
+    }
+    const speaker = nonEmpty(turn.speaker, "Run history speaker", 32);
+    if (speaker !== "USER" && !BUILDER_ROLES.includes(speaker)) {
+      throw new Error("Run history contains an unknown speaker");
+    }
+    const body = nonEmpty(turn.body, "Run history body", MAX_BODY_LENGTH);
+    const id = turnId(turn);
+    if (!id) throw new Error("Run history turn is missing its stable turnId or checkpointId");
+    if (ids.has(id)) throw new Error("Run history contains duplicate turn identity " + id);
+    ids.set(id, index);
+
+    const protocolVersion = turn.protocolVersion == null
+      ? LEGACY_PROTOCOL_VERSION : turn.protocolVersion;
+    if (!Number.isInteger(protocolVersion) || protocolVersion < LEGACY_PROTOCOL_VERSION ||
+        protocolVersion > CURRENT_PROTOCOL_VERSION) {
+      throw new Error("Run history contains an unsupported conversation protocol version");
+    }
+    let timestamp = turn.timestampEpochMillis;
+    if (turn.completedAt != null) {
+      const completedAt = nonEmpty(turn.completedAt, "Run history completedAt", 64);
+      const parsed = new Date(completedAt);
+      if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== completedAt) {
+        throw new Error("Run history completedAt must be a valid canonical ISO-8601 timestamp");
+      }
+      if (timestamp != null && timestamp !== parsed.getTime()) {
+        throw new Error("Run history timestampEpochMillis does not match completedAt provenance");
+      }
+      timestamp = parsed.getTime();
+    }
+    if (timestamp == null) {
+      if (protocolVersion >= CURRENT_PROTOCOL_VERSION) {
+        throw new Error("Current protocol turns require a source timestamp");
+      }
+    } else {
+      if (!Number.isSafeInteger(timestamp) || timestamp <= 0) {
+        throw new Error("Run history timestampEpochMillis must be a positive safe integer");
+      }
+      if (previousTimestamp != null && timestamp <= previousTimestamp) {
+        throw new Error("Run history timestamps must increase strictly in thread order");
+      }
+      previousTimestamp = timestamp;
+    }
+
+    if (turn.turnId != null && turn.checkpointId != null && turn.turnId !== turn.checkpointId) {
+      throw new Error("Run history turnId and checkpointId must identify the same turn");
+    }
+    if (turn.reply && turn.reply.body !== turn.body) {
+      throw new Error("Run history body and reply body must preserve the same content");
+    }
+    if (turn.reply && turn.type != null && turn.type !== turn.reply.turn_type) {
+      throw new Error("Run history top-level and reply turn types disagree");
+    }
+    if (turn.reply && Object.hasOwn(turn, "recipient") && turn.recipient !== turn.reply.recipient) {
+      throw new Error("Run history top-level and reply recipients disagree");
+    }
+    if (turn.reply && Object.hasOwn(turn, "reply_to_turn_id") &&
+        turn.reply_to_turn_id !== turn.reply.reply_to_turn_id) {
+      throw new Error("Run history top-level and reply references disagree");
+    }
+    if (turn.reply && turn.evidence_status != null &&
+        turn.evidence_status !== turn.reply.evidence_status) {
+      throw new Error("Run history top-level and reply evidence statuses disagree");
+    }
+    const type = turnType(turn);
+    const evidenceStatus = turnEvidenceStatus(turn);
+    const recipient = turnRecipient(turn);
+    const replyTo = turnReplyTo(turn);
+    if (Object.hasOwn(turn, "origin")) {
+      const origin = turn.origin;
+      const originFields = ["kind", "sourceTaskReference", "sourceRunId", "sourceThreadId", "sourceTurnId"];
+      if (!origin || typeof origin !== "object" || Array.isArray(origin) ||
+          Object.keys(origin).sort().join(",") !== originFields.slice().sort().join(",") ||
+          origin.kind !== "ENCRYPTED_VAULT_RUN_FORK" ||
+          typeof origin.sourceTaskReference !== "string" || !origin.sourceTaskReference.trim() ||
+          typeof origin.sourceRunId !== "string" || !origin.sourceRunId.trim() ||
+          typeof origin.sourceThreadId !== "string" || !origin.sourceThreadId.trim() ||
+          typeof origin.sourceTurnId !== "string" || !origin.sourceTurnId.trim() ||
+          origin.sourceRunId === runId || origin.sourceThreadId === threadId ||
+          origin.sourceTurnId !== id ||
+          (taskReference != null && origin.sourceTaskReference !== taskReference)) {
+        throw new Error("Imported run history has an invalid or mismatched source-origin envelope");
+      }
+      if (turn.userAuthorization != null) {
+        const authorization = turn.userAuthorization;
+        if (!authorization || typeof authorization !== "object" || Array.isArray(authorization) ||
+            authorization.taskReference !== origin.sourceTaskReference ||
+            authorization.runId !== origin.sourceRunId ||
+            authorization.threadId !== origin.sourceThreadId ||
+            authorization.verificationMethod !== "ED25519_USER_ACTION_ASSERTION" ||
+            typeof authorization.signatureSha256 !== "string" ||
+            !/^[a-f0-9]{64}$/.test(authorization.signatureSha256)) {
+          throw new Error("Imported user authorization does not preserve its original source binding");
+        }
+      } else if (speaker === "USER" && type === "CORRECTION_UPDATE" && evidenceStatus === "ADOPTED") {
+        throw new Error("Imported user adoption is missing its verified authorization record");
+      }
+    } else if (turn.userAuthorization != null) {
+      const authorization = turn.userAuthorization;
+      if (!authorization || typeof authorization !== "object" || Array.isArray(authorization) ||
+          authorization.runId !== runId || authorization.threadId !== threadId ||
+          (taskReference != null && authorization.taskReference !== taskReference) ||
+          authorization.verificationMethod !== "ED25519_USER_ACTION_ASSERTION" ||
+          typeof authorization.signatureSha256 !== "string" ||
+          !/^[a-f0-9]{64}$/.test(authorization.signatureSha256)) {
+        throw new Error("User authorization does not match its original run-thread binding");
+      }
+    }
+    if (turn.reply != null) {
+      if (!turn.reply || typeof turn.reply !== "object" || Array.isArray(turn.reply)) {
+        throw new Error("Run history reply envelope is malformed");
+      }
+      if (type != null) validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus);
+    } else if (turn.type != null) {
+      // Android protocol-v4 turns store these fields at the top level.
+      validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus);
+    }
+    if (protocolVersion >= CURRENT_PROTOCOL_VERSION && type === "CORRECTION_UPDATE" &&
+        speaker !== "USER" && itemStage(turnBody(turn)) !== "ADOPTED") {
+      const item = parseObject(turnBody(turn), "Correction update");
+      const expectedEvidence = parseBuilderEvidenceReference(item.artifact_reference);
+      const actualEvidence = turn.evidenceVerification;
+      if (!actualEvidence || actualEvidence.verified !== true || actualEvidence.status !== "VERIFIED" ||
+          actualEvidence.verificationMethod !== "READ_ONLY_GITHUB_GATEWAY" ||
+          actualEvidence.kind !== expectedEvidence.kind ||
+          actualEvidence.repository !== expectedEvidence.repository ||
+          actualEvidence.objectId !== expectedEvidence.objectId ||
+          actualEvidence.branch !== expectedEvidence.branch ||
+          actualEvidence.workflow !== expectedEvidence.workflow ||
+          actualEvidence.expectedSha !== expectedEvidence.expectedSha) {
+        throw new Error("Current protocol correction updates require matching successful gateway verification");
+      }
+      const checkedAt = nonEmpty(actualEvidence.checkedAt, "Evidence verification checkedAt", 64);
+      const checkedAtDate = new Date(checkedAt);
+      if (!Number.isFinite(checkedAtDate.getTime()) || checkedAtDate.toISOString() !== checkedAt ||
+          (turn.completedAt != null && checkedAtDate.getTime() > Date.parse(turn.completedAt))) {
+        throw new Error("Evidence verification timestamp must be valid and precede the persisted turn");
+      }
+    }
+    if (recipient != null &&
+        recipient !== "USER" && !BUILDER_ROLES.includes(recipient)) {
+      throw new Error("Run history contains an unknown recipient");
+    }
+    if (replyTo != null) {
+      const targetIndex = ids.get(replyTo);
+      if (targetIndex == null || targetIndex >= index) {
+        throw new Error("Run history reply reference must point to an earlier turn in this run");
+      }
+      const target = replyTo === promptTurnId
+        ? { speaker: "USER", type: "CONTRIBUTION", recipient: null }
+        : history[targetIndex];
+      validateReferenceRelationship(type, speaker, recipient, target);
+    }
+    // Keep this local read explicit: the body is bounded even for legacy records.
+    if (body.length > MAX_BODY_LENGTH) throw new RangeError("Run history body exceeds the Android protocol limit");
+  }
+  validateCorrectionHistory(history, ids, reviewIncidentIdFromPrompt(taskPrompt));
+  return history;
+}
+
+function validateReferenceRelationship(type, speaker, recipient, target) {
+  if (!target) throw new Error("Run history reply reference has no source turn");
+  const targetSpeaker = target.speaker;
+  const targetRecipient = turnRecipient(target);
+  const targetType = turnType(target);
+  if (!REPLY_RECIPIENT_EXEMPTIONS.has(type) && recipient != null &&
+      recipient !== targetSpeaker) {
+    throw new Error("Reply recipient must match the speaker of the referenced turn");
+  }
+  if (ANSWER_TYPES.has(type) && DIRECTED_PRIOR_TYPES.has(targetType) &&
+      speaker !== targetRecipient) {
+    throw new Error("Only the participant addressed by the referenced turn may answer or acknowledge it");
+  }
+}
+
+function validateCorrectionHistory(history, ids, reviewIncidentId) {
+  const plans = new Map();
+  const adopted = new Set();
+  for (let index = 0; index < history.length; index += 1) {
+    const turn = history[index];
+    const type = turnType(turn);
+    if (type === "IMPROVEMENT_INCIDENT") continue;
+    if (type === "CORRECTION_PLAN") {
+      const item = parseObject(turnBody(turn), "Correction plan");
+      if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+        throw new Error("Correction plans may only be recorded for the incident explicitly named in the review task");
+      }
+      const correctionId = nonEmpty(item.correction_id, "Correction plan correction_id", 256);
+      const incidentId = nonEmpty(item.incident_turn_id, "Correction plan incident_turn_id", 256);
+      if (plans.has(correctionId)) throw new Error("Correction ID is already planned in this run: " + correctionId);
+      const incidentIndex = ids.get(incidentId);
+      if (incidentIndex == null || incidentIndex < 0 || incidentIndex >= index ||
+          turnType(history[incidentIndex]) !== "IMPROVEMENT_INCIDENT") {
+        throw new Error("Correction plan must reference an earlier recorded incident in this run");
+      }
+      if (history[incidentIndex].speaker === "USER") {
+        throw new Error("An improvement incident must be authored by a Builder");
+      }
+      if (turnReplyTo(turn) !== incidentId) {
+        throw new Error("Correction plan must reply directly to its referenced incident");
+      }
+      for (const field of ["objective", "acceptance_criteria", "steps", "owner", "rollback_condition"]) {
+        nonEmpty(item[field], "Correction plan " + field, 4096);
+      }
+      if (item.status !== "PROPOSED" || turnEvidenceStatus(turn) !== "PROPOSED" ||
+          turnRecipient(turn) !== "USER" || turn.speaker === "USER") {
+        throw new Error("Correction plan must be a Builder-authored USER-directed PROPOSED record");
+      }
+      plans.set(correctionId, {
+        incidentId, planIndex: index, stageIndex: -1,
+        latestId: turnId(turn), latestStage: "PROPOSED"
+      });
+      continue;
+    }
+    if (type !== "CORRECTION_UPDATE") continue;
+    const item = parseObject(turnBody(turn), "Correction update");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction updates may only be recorded for the incident explicitly named in the review task");
+    }
+    const correctionId = nonEmpty(item.correction_id, "Correction update correction_id", 256);
+    const incidentId = nonEmpty(item.incident_turn_id, "Correction update incident_turn_id", 256);
+    const plan = plans.get(correctionId);
+    if (!plan) throw new Error("Correction update has no earlier correction plan in this run");
+    if (incidentId !== plan.incidentId) throw new Error("Correction update incident does not match its correction plan");
+    if (index <= plan.planIndex) throw new Error("Correction update must follow its correction plan");
+    if (turnReplyTo(turn) !== plan.latestId) {
+      throw new Error("Correction update must reply to the immediately preceding lifecycle record");
+    }
+    if (item.stage === "ADOPTED") {
+      if (turn.speaker !== "USER" || turnRecipient(turn) != null ||
+          turnEvidenceStatus(turn) !== "ADOPTED" || plan.latestStage !== "VERIFIED") {
+        throw new Error("Only USER may adopt the latest independently VERIFIED correction");
+      }
+      if (!nonEmpty(item.artifact_reference, "User adoption artifact_reference", 2048).startsWith("user-adoption:")) {
+        throw new Error("User adoption requires an explicit user-action artifact reference");
+      }
+      nonEmpty(item.evidence, "User adoption evidence", 4096);
+      nonEmpty(item.acceptance_criteria_result, "User adoption acceptance_criteria_result", 4096);
+      nonEmpty(item.unresolved, "User adoption unresolved", 4096);
+      if (plan.latestId == null || history[plan.stageIndex < 0 ? plan.planIndex :
+          ids.get(plan.latestId)]?.speaker !== "BALDR") {
+        throw new Error("User adoption must follow Baldr's independent verification");
+      }
+      adopted.add(correctionId);
+      plan.latestId = turnId(turn);
+      plan.latestStage = "ADOPTED";
+      continue;
+    }
+    if (adopted.has(correctionId)) throw new Error("An adopted correction cannot receive further Builder updates");
+    const stageIndex = CORRECTION_STAGES.indexOf(item.stage);
+    if (stageIndex < 0 || stageIndex !== plan.stageIndex + 1) {
+      throw new Error("Correction stages must advance exactly IMPLEMENTED, TESTED, VERIFIED");
+    }
+    if (turn.speaker === "USER" || turnRecipient(turn) !== "USER") {
+      throw new Error("Builder correction updates must be authored by a Builder and addressed to USER");
+    }
+    if (turnEvidenceStatus(turn) !== item.stage) {
+      throw new Error("Correction update evidence_status must match its lifecycle stage");
+    }
+    const incident = history[ids.get(plan.incidentId)];
+    if (item.stage === "VERIFIED" && (turn.speaker !== "BALDR" || turn.speaker === incident.speaker)) {
+      throw new Error("Only unaffected Baldr may issue VERIFIED");
+    }
+    if (item.stage === "IMPLEMENTED") {
+      requireEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
+    }
+    if (item.stage === "TESTED" || item.stage === "VERIFIED") {
+      requireEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
+    }
+    const evidence = nonEmpty(item.evidence, "Correction update evidence", 4096);
+    const criteria = nonEmpty(item.acceptance_criteria_result, "Correction update acceptance_criteria_result", 4096);
+    nonEmpty(item.unresolved, "Correction update unresolved", 4096);
+    if (evidence.length < 8 || criteria.length < 8) {
+      throw new Error("Correction stage requires substantive evidence and acceptance-criteria results");
+    }
+    if (item.stage === "VERIFIED" && item.artifact_reference.toLowerCase().includes("self-review")) {
+      throw new Error("Verification artifact cannot be a self-review");
+    }
+    plan.stageIndex = stageIndex;
+    plan.latestId = turnId(turn);
+    plan.latestStage = item.stage;
+  }
+}
+
+/** Validate a new model reply against already persisted turns before it is appended. */
+export function validateBuilderReplyAgainstHistory(reply, history, speaker, promptTurnId, taskPrompt) {
+  if (!reply || typeof reply !== "object") throw new TypeError("Builder reply is required");
+  const type = reply.turn_type;
+  const replyTo = reply.reply_to_turn_id;
+  const recipient = reply.recipient;
+  const byId = new Map();
+  if (promptTurnId != null) {
+    byId.set(nonEmpty(promptTurnId, "Task prompt turn identity", 256), {
+      turn: { speaker: "USER", type: "CONTRIBUTION", recipient: null }, index: -1
+    });
+  }
+  for (let index = 0; index < history.length; index += 1) {
+    const id = turnId(history[index]);
+    if (id) {
+      if (byId.has(id)) throw new Error("Task prompt and run history share a turn identity");
+      byId.set(id, { turn: history[index], index });
+    }
+  }
+  validateReplyShape(type, speaker, recipient, replyTo, reply.evidence_status);
+  if (recipient != null && recipient !== "USER" && !BUILDER_ROLES.includes(recipient)) {
+    throw new Error("Builder reply names an unknown recipient");
+  }
+  if (REFERENCE_TYPES.has(type)) {
+    const target = byId.get(replyTo);
+    if (!target || target.index >= history.length) {
+      throw new Error(type + " must reference an earlier turn in this run's thread");
+    }
+    validateReferenceRelationship(type, speaker, recipient, target.turn);
+  }
+  const reviewIncidentId = reviewIncidentIdFromPrompt(taskPrompt);
+  if (type === "CORRECTION_PLAN") {
+    const item = parseObject(reply.body, "Correction plan");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction plans may only be created during an explicit review of the named incident");
+    }
+    for (const field of ["correction_id", "incident_turn_id", "objective", "acceptance_criteria", "steps", "owner", "rollback_condition"]) {
+      nonEmpty(item[field], "Correction plan " + field, 4096);
+    }
+    if (item.status !== "PROPOSED" || reply.evidence_status !== "PROPOSED") {
+      throw new Error("Correction plan status and evidence_status must remain PROPOSED");
+    }
+    if (item.incident_turn_id !== replyTo) {
+      throw new Error("Correction plan must reply directly to its referenced incident");
+    }
+    if (history.some(turn => {
+      if (turnType(turn) !== "CORRECTION_PLAN") return false;
+      return parseObject(turnBody(turn), "Prior correction plan").correction_id === item.correction_id;
+    })) {
+      throw new Error("Correction ID is already planned in this run: " + item.correction_id);
+    }
+    const incidentTurn = byId.get(item.incident_turn_id)?.turn;
+    if (turnType(incidentTurn) !== "IMPROVEMENT_INCIDENT" || incidentTurn.speaker === "USER") {
+      throw new Error("Correction plan must reference a Builder-authored improvement incident");
+    }
+  }
+  if (type === "CORRECTION_UPDATE") {
+    const item = parseObject(reply.body, "Correction update");
+    if (!reviewIncidentId || item.incident_turn_id !== reviewIncidentId) {
+      throw new Error("Correction updates may only be created during an explicit review of the named incident");
+    }
+    const prior = history.filter(turn => {
+      if (turnType(turn) === "CORRECTION_PLAN" || turnType(turn) === "CORRECTION_UPDATE") {
+        const parsed = parseObject(turnBody(turn), "Prior correction record");
+        return parsed.correction_id === item.correction_id;
+      }
+      return false;
+    });
+    if (!prior.length) throw new Error("Correction update has no prior correction plan");
+    const latest = prior[prior.length - 1];
+    if (replyTo !== turnId(latest)) {
+      throw new Error("Correction update must reply to the immediately preceding lifecycle record");
+    }
+    if (item.incident_turn_id !== parseObject(turnBody(prior[0]), "Correction plan").incident_turn_id) {
+      throw new Error("Correction update incident does not match its correction plan");
+    }
+    const completedStages = prior.filter(turn => turnType(turn) === "CORRECTION_UPDATE")
+      .map(turn => parseObject(turnBody(turn), "Prior correction update").stage)
+      .filter(stage => stage !== "ADOPTED");
+    const nextStage = CORRECTION_STAGES[completedStages.length];
+    if (item.stage !== nextStage) throw new Error("Correction stages must advance exactly IMPLEMENTED, TESTED, VERIFIED");
+    const incident = byId.get(item.incident_turn_id)?.turn;
+    if (incident?.speaker === "USER") throw new Error("An improvement incident must be authored by a Builder");
+    if (item.stage === "VERIFIED" && (speaker !== "BALDR" || speaker === incident?.speaker)) {
+      throw new Error("Only unaffected Baldr may issue VERIFIED");
+    }
+    if (reply.evidence_status !== item.stage) {
+      throw new Error("Correction update evidence_status must match its lifecycle stage");
+    }
+    if (item.stage === "IMPLEMENTED") requireEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
+    if (item.stage === "TESTED" || item.stage === "VERIFIED") {
+      requireEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
+    }
+    const evidence = nonEmpty(item.evidence, "Correction update evidence", 4096);
+    const criteria = nonEmpty(item.acceptance_criteria_result, "Correction update acceptance_criteria_result", 4096);
+    nonEmpty(item.unresolved, "Correction update unresolved", 4096);
+    if (evidence.length < 8 || criteria.length < 8) {
+      throw new Error("Correction stage requires substantive evidence and acceptance-criteria results");
+    }
+    if (item.stage === "VERIFIED" && item.artifact_reference.toLowerCase().includes("self-review")) {
+      throw new Error("Verification artifact cannot be a self-review");
+    }
+  }
+  return reply;
+}
