@@ -193,7 +193,6 @@ function validateBuilderReply(value) {
   const allowedRecipients = new Set(["USER", ...BUILDER_ROLES]);
   const recipient = value.recipient == null ? null : requiredText(value.recipient, "Builder response recipient", 32);
   if (recipient !== null && !allowedRecipients.has(recipient)) throw new Error("Builder response names an unknown recipient");
-  if (recipient === role) throw new Error("A Builder cannot address a turn to itself");
   const replyToTurnId = value.reply_to_turn_id == null ? null :
     requiredText(value.reply_to_turn_id, "Builder response reply_to_turn_id", 256);
   const directedTypes = new Set([
