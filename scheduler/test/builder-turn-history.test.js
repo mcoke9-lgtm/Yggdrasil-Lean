@@ -116,6 +116,19 @@ test("Android protocol v4 timestamps increase strictly and retain source identit
   ], runId, threadId), /timestamps must increase strictly/);
 });
 
+test("validates Android's top-level protocol-v4 turn representation", () => {
+  const promptTime = Date.parse("2026-11-05T12:00:00.000Z");
+  const androidTurn = {
+    protocolVersion: 4, runId, threadId, turnId: "android-turn-1",
+    speaker: "HODR", recipient: "USER", reply_to_turn_id: "prompt-1",
+    type: "RESPONSE", evidence_status: "OBSERVED",
+    timestampEpochMillis: promptTime + 1000, body: "A protocol-compatible response."
+  };
+  assert.doesNotThrow(() => validateBuilderHistory(
+    [androidTurn], runId, threadId, "prompt-1", promptTime
+  ));
+});
+
 test("recipient must match the referenced speaker and only the addressed participant may answer", () => {
   const claim = turn("claim", "HUGINN", "QUESTION", null, "Question", "PROPOSED", "KVASIR");
   const wrongRecipient = turn("response", "KVASIR", "RESPONSE", "claim", "Answer", "OBSERVED", "MARI");
