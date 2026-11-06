@@ -7,6 +7,7 @@ import {
 
 const runId = "run-1";
 const threadId = "nine-builders:run-1";
+const reviewPrompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1";
 
 function turn(checkpointId, speaker, type, replyTo = null, body = "record", evidenceStatus = "OBSERVED", recipient) {
   const directed = [
@@ -165,7 +166,7 @@ test("correction plan must point directly to a recorded incident", () => {
   assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_PLAN", recipient: "USER",
     reply_to_turn_id: "incident-1", evidence_status: "PROPOSED", body
-  }, history, "TYR"));
+  }, history, "TYR", "task-prompt-1", reviewPrompt));
   assert.throws(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_PLAN", recipient: "USER",
     reply_to_turn_id: "missing", evidence_status: "PROPOSED", body
@@ -174,7 +175,7 @@ test("correction plan must point directly to a recorded incident", () => {
 
 test("correction history enforces incident linkage and ordered lifecycle", () => {
   const history = correctionHistory();
-  assert.doesNotThrow(() => validateBuilderHistory(history, runId, threadId, "task-prompt-1"));
+  assert.doesNotThrow(() => validateBuilderHistory(history, runId, threadId, "task-prompt-1", null, reviewPrompt));
   const outOfOrder = [...history];
   outOfOrder[3] = {
     ...outOfOrder[3],
@@ -189,7 +190,7 @@ test("correction history enforces incident linkage and ordered lifecycle", () =>
       unresolved: "none"
     })
   };
-  assert.throws(() => validateBuilderHistory(outOfOrder, runId, threadId, "task-prompt-1"), /stages must advance exactly/);
+  assert.throws(() => validateBuilderHistory(outOfOrder, runId, threadId, "task-prompt-1", null, reviewPrompt), /stages must advance exactly/);
 });
 
 test("only unaffected Baldr can issue VERIFIED after TESTED", () => {
@@ -203,9 +204,9 @@ test("only unaffected Baldr can issue VERIFIED after TESTED", () => {
   assert.throws(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_UPDATE", recipient: "USER",
     reply_to_turn_id: "tested-1", evidence_status: "VERIFIED", body: verifiedBody
-  }, history, "HODR"), /Only unaffected Baldr/);
+  }, history, "HODR", "task-prompt-1", reviewPrompt), /Only unaffected Baldr/);
   assert.doesNotThrow(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_UPDATE", recipient: "USER",
     reply_to_turn_id: "tested-1", evidence_status: "VERIFIED", body: verifiedBody
-  }, history, "BALDR"));
+  }, history, "BALDR", "task-prompt-1", reviewPrompt));
 });
