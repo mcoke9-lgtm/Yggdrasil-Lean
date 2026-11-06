@@ -105,6 +105,22 @@ The Builder handler's stdout events must be metadata-only. Completion and interr
 
 The Builder handler must also throw only a stable, sanitized error code/message to the outer scheduler. The general scheduler currently persists `error.message` in its own plaintext run record and exposes that value through dashboard and CLI. Builder-specific exceptions must not carry arbitrary provider or host text across this boundary. General non-Builder scheduler handlers require their own separate error-handling review; this proposal does not silently change their contract.
 
+### Required encrypted-vault history fork for a distinct v2 continuation
+
+The current vault keys run history by `runId` and validates that every turn belongs to that run's dedicated thread. Therefore a new v2 ledger run cannot simply point at a v1 run's thread and pass that history to the current executor: the run/thread identity checks and append idempotency key would no longer agree.
+
+A distinct v2 continuation consequently requires a vault-side, encrypted, atomic history-fork operation before it can safely start:
+
+- The operation takes the task reference, source v1 run ID, new v2 run ID, expected source thread ID, and an expected source-history digest or equivalent compare-and-swap token.
+- It verifies the source thread and history, then creates the target run thread with the source turns copied in order. Each imported turn receives the target run/thread identity while retaining its original turn ID, body, protocol metadata, evidence verification, provider/model metadata, response hash, and explicit origin fields (`sourceRunId`, `sourceThreadId`, `sourceTurnId`). This preserves source provenance without mixing run identities.
+- The operation is idempotent for the same target run ID and source manifest; conflicting reuse fails closed. It never mutates or deletes the source v1 thread.
+- New v2 Builder turns append only to the target thread and use the new run's idempotency keys. The encrypted vault remains the source of full content; the plaintext v2 ledger stores only target/source references and typed outcomes.
+- Before seeding v2 role outcomes, reconcile each v1 `succeeded` role against exactly one source-thread turn matching its saved checkpoint/turn ID and role. Missing, duplicate, or mismatched turns block that role and Baldr pending manual reconciliation. Do not infer success from a v1 summary.
+- V1 failed/interrupted/pending roles do not inherit raw error text or automatic resume permission. Their status is reconciled from the source vault and operator decision; otherwise record `MANUAL_RECONCILIATION_REQUIRED`. A v1 `safeToResume` flag alone is not sufficient to bypass the new validation.
+- Record the source run ID and source history manifest on the v2 run. The original v1 ledger record and vault thread remain unchanged.
+
+This fork is a new required vault capability, not an existing feature. Until it is implemented and tested, the design's distinct-run continuation path is incomplete and v1 runs must remain read-only/manual-reconciliation cases.
+
 ## 7. v1 compatibility and migration
 
 - Treat each existing v1 run as immutable legacy data. A schema upgrade must not rewrite, truncate, delete, or silently reinterpret its free-text fields.
