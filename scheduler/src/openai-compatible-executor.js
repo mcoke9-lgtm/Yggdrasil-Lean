@@ -733,6 +733,7 @@ export function createOpenAiCompatibleExecutor({
     else context.signal?.addEventListener("abort", abortFromRun, { once: true });
     const timeout = setTimeout(() => controller.abort(new Error("Model request timed out after " + timeoutMs + " ms")), timeoutMs);
     timeout.unref?.();
+    let baldrInvocationStart = null;
 
     try {
       const headers = { "Content-Type": "application/json", "Accept": "application/json" };
@@ -749,7 +750,6 @@ export function createOpenAiCompatibleExecutor({
       if (Buffer.byteLength(requestBody, "utf8") > MAX_REQUEST_BYTES) {
         throw new RangeError("Serialized model request exceeds the 1 MiB limit");
       }
-      let baldrInvocationStart = null;
       let baldrManifest = null;
       if (role === "BALDR") {
         if (typeof taskVault.beginBaldrReviewInvocation !== "function" ||
