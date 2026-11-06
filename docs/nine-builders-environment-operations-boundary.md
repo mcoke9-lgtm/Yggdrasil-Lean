@@ -137,3 +137,8 @@ The current executor's UNAVAILABLE fallback remains fail-closed for unknown capa
 ## 10. Integrity rule
 
 Every report must distinguish **proposed**, **implemented**, **tested**, **verified**, and **adopted**. A provider statement is not a Builder decision; a prompt is not an execution engine; a passing test is not proof of a live host; and a recorded review is not an independent review unless the reviewer was separately invoked.
+
+
+## Binding authorization boundary example
+
+A verified, mandatory Nine Builders governance entry may identify a precise operation that cannot proceed without explicit user authorization. For example, activating an unattended run without the user's explicit approval is blocked for that operation. Kvasir records the origin and scope; Týr checks the authorization boundary. The constraint does not prohibit unrelated research, test design, documentation, or mock-only work that remains within existing authorization.
