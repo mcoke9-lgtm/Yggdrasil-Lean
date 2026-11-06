@@ -181,8 +181,8 @@ export function createEncryptedTaskVault({
       });
     },
 
-    async getTask(taskReference, {
-      return serializeMutation(async () => { runId } = {}) {
+    async getTask(taskReference, { runId } = {}) {
+      return serializeMutation(async () => {
       const reference = required(taskReference, "taskReference", 256);
       const id = required(runId, "runId", 120);
       const state = await readState();
