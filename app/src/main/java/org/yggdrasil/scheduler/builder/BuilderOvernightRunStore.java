@@ -8,6 +8,7 @@ import org.json.JSONObject;
 /** Small durable checkpoint for scheduled overnight runs; conversation turns live in the canonical journal. */
 public final class BuilderOvernightRunStore {
     public static final long MAX_DURATION_MILLIS = 8L * 60L * 60L * 1000L;
+    private static final Object PROCESS_LOCK = new Object();
     private final SharedPreferences preferences;
 
     public BuilderOvernightRunStore(Context context) {
@@ -19,6 +20,7 @@ public final class BuilderOvernightRunStore {
     /** Persist consent-bound identity before WorkManager receives the request. */
     public synchronized JSONObject createScheduled(String runId, String threadId,
             String taskPrompt, long nowMillis) {
+        synchronized (PROCESS_LOCK) {
         requireText(runId, "runId");
         requireText(threadId, "threadId");
         requireText(taskPrompt, "taskPrompt");
@@ -39,10 +41,12 @@ public final class BuilderOvernightRunStore {
         }
         write(runId, state);
         return state;
+            }
     }
 
     public synchronized JSONObject beginOrRecover(String runId, String threadId,
             String taskPrompt, long nowMillis) {
+        synchronized (PROCESS_LOCK) {
         requireText(runId, "runId");
         requireText(threadId, "threadId");
         requireText(taskPrompt, "taskPrompt");
@@ -94,6 +98,7 @@ public final class BuilderOvernightRunStore {
             write(runId, state);
         }
         return state;
+            }
     }
 
     public synchronized JSONObject beginCycle(String runId, long nowMillis) {
@@ -131,6 +136,7 @@ public final class BuilderOvernightRunStore {
     }
 
     public synchronized JSONObject setStatus(String runId, String status, String reason, long nowMillis) {
+        synchronized (PROCESS_LOCK) {
         JSONObject state = requireRun(runId);
         String current = state.optString("status");
         if (!"RUNNING".equals(current) && !"SCHEDULED".equals(current) && !current.equals(status))
@@ -138,6 +144,7 @@ public final class BuilderOvernightRunStore {
         state = status(state, status, nowMillis, reason);
         write(runId, state);
         return state;
+            }
     }
 
     public synchronized JSONObject read(String runId) {
