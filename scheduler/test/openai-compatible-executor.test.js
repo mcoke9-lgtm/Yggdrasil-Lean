@@ -464,9 +464,11 @@ test("Baldr cannot run until all eight other Builder outcomes and their recorded
         const threadId = "thread-" + runId;
         return {
           prompt,
+          promptTurnId: "user-turn-001",
           threadId,
           history: outcomes.map(item => ({
-            runId, threadId, speaker: item.role, body: item.summary
+            runId, threadId, checkpointId: "peer-" + item.role,
+            speaker: item.role, body: item.summary
           })),
           consent: {
             status: "USER_APPROVED",
