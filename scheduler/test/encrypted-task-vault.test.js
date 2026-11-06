@@ -22,16 +22,20 @@ test("encrypted vault requires explicit approval and preserves isolated run hist
     assert.equal(before.history.length, 0);
     assert.match(before.threadId, /run-001/);
     assert.match(before.promptTurnId, /^task-prompt-/);
+    assert.ok(Number.isFinite(Date.parse(before.promptCreatedAt)));
     const promptTurnId = before.promptTurnId;
+    const promptCreatedAt = before.promptCreatedAt;
     await f.vault.approveTask("task:pilot", "a".repeat(64), "2026-11-05T20:00:00.000Z");
     const approved = await f.vault.getTask("task:pilot", { runId: "run-001" });
     assert.equal(approved.consent.status, "USER_APPROVED");
     assert.equal(approved.consent.fingerprint, "a".repeat(64));
     assert.equal(approved.promptTurnId, promptTurnId, "task prompt identity must persist across vault reads");
+    assert.equal(approved.promptCreatedAt, promptCreatedAt, "task prompt source timestamp must persist");
     assert.equal(approved.history.length, 0);
     const otherRun = await f.vault.getTask("task:pilot", { runId: "run-002" });
     assert.notEqual(otherRun.threadId, approved.threadId);
     assert.equal(otherRun.promptTurnId, promptTurnId, "task prompt identity is stable across runs");
+    assert.equal(otherRun.promptCreatedAt, promptCreatedAt, "task prompt timestamp is stable across runs");
     assert.equal(otherRun.history.length, 0);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
