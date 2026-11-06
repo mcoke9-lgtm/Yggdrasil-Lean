@@ -743,8 +743,13 @@ export async function createBuilderExecutor() {
     throw new TypeError("Credentials module must export readSecret(secretRef)");
   }
 
-  let evidenceGateway = null;
   const evidenceGatewayPath = process.env.BUILDER_EVIDENCE_GATEWAY_MODULE;
+  if (evidenceGatewayPath && typeof taskVaultModule.createTaskVault !== "function") {
+    throw new TypeError(
+      "Task vault module must export createTaskVault({ evidenceGateway }) when a GitHub evidence gateway is configured"
+    );
+  }
+  let evidenceGateway = null;
   if (evidenceGatewayPath) {
     const gatewayFile = resolve(requiredText(
       evidenceGatewayPath, "BUILDER_EVIDENCE_GATEWAY_MODULE", 4096
@@ -778,11 +783,6 @@ export async function createBuilderExecutor() {
     ])));
   }
 
-  if (evidenceGateway && typeof taskVaultModule.createTaskVault !== "function") {
-    throw new TypeError(
-      "Task vault module must export createTaskVault({ evidenceGateway }) when a GitHub evidence gateway is configured"
-    );
-  }
   const taskVault = typeof taskVaultModule.createTaskVault === "function"
     ? await taskVaultModule.createTaskVault({ evidenceGateway })
     : taskVaultModule;
