@@ -330,7 +330,8 @@ test("passes through a schema-valid operational limits snapshot", async () => {
       operational_effect: "BLOCKS_OPERATION",
       responsible_builder: "KVASIR",
       decision_authority: "USER",
-      recheck_condition: "A task slot becomes available"
+      recheck_condition: "A task slot becomes available",
+      decision_status: "SCOPED"
     }],
     runtime_evaluation: {
       evaluated_on: "2026-11-05",
