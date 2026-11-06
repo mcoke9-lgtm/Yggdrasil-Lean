@@ -363,6 +363,34 @@ Provider calls use a 120-second default timeout, a 2,048-token output cap, a 1 M
 
 CI tests use mocked HTTP responses and fake task/credential vaults. They verify route validation, role separation, cancellation, output validation, durable-checkpoint acknowledgement, and Baldr's final review gate. They do **not** verify real provider routes, real credentials, model identity, or unattended host execution. The example configuration uses `.invalid` endpoints and cannot make live calls.
 
+## Baldr invocation receipts
+
+The reference executor now requires the task vault to implement
+`beginBaldrReviewInvocation`, `completeBaldrReviewInvocation`, and
+`getBaldrReviewInvocation` before it will call the Baldr route. The start event
+stores the exact serialized review request and its ordered peer-outcome
+manifest inside the encrypted vault. The completion event is appended only
+after the Baldr response turn has been durably saved; it links the input
+manifest digest, response digest, vault turn ID, provider request ID when
+available, and typed provenance level.
+
+The encrypted vault rejects a second Baldr invocation for the same run. An
+unfinished start event is treated as an unknown outcome and blocks retry.
+If a Baldr turn exists without its matching completion receipt, recovery stops
+for manual reconciliation. The plaintext v2 ledger stores only allowlisted
+receipt metadata and cannot mark Baldr successful without a completed
+`INVOCATION_ATTRIBUTED` receipt matching the durable turn and response hash.
+
+This establishes an attributable invocation in the reference host path; it
+does **not** establish a distinct provider account, organization, model weights,
+infrastructure, or independently governed reviewer. Current provenance is
+`ROUTE_SEPARATED` at request start and `INVOCATION_ATTRIBUTED` on completion.
+Control-plane and governance independence remain unverified. Custom task vault
+modules must implement all three methods or Baldr fails closed. CI remains
+mock-only and cannot verify live provider identity or independence.
+
+See [the Baldr Independent Review Contract](./BALDR_INDEPENDENT_REVIEW_CONTRACT.md).
+
 ## Tests
 
 ```sh
