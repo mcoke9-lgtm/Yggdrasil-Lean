@@ -881,6 +881,7 @@ export function createOpenAiCompatibleExecutor({
     if (!existingTurn) return null;
     return durableRecoveryRecord(task, role, existingTurn);
   };
+  executeBuilderRole.supportsVerifiedResumeCheckpoint = true;
   return executeBuilderRole;
 }
 
