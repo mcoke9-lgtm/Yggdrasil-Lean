@@ -67,7 +67,11 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
         threadId: record.threadId,
         checkpointId: "checkpoint-" + record.role.toLowerCase(),
         speaker: record.role,
-        body: record.reply.body
+        body: record.reply.body,
+        type: record.reply.turn_type,
+        evidence_status: record.reply.evidence_status,
+        responseSha256: record.responseSha256,
+        reply: record.reply
       });
       return { durable: true, checkpointId: "checkpoint-" + record.role.toLowerCase() };
     }
@@ -342,6 +346,55 @@ test("legacy continuation blocks uncertain failed roles without a matching durab
   assert.equal(recoveredFork.durable, true);
   assert.equal(recoveredFork.importedTurnCount, 2,
     "an uncertain failed role is recoverable only when its exact durable turn exists");
+});
+
+test("safe resume refuses to call a provider when its exact vault turn is missing", async () => {
+  let providerCalls = 0;
+  const h = makeHarness({
+    fetchImpl: async () => {
+      providerCalls++;
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  const context = h.context("HODR");
+  context.resumeCheckpoint = {
+    checkpointId: "missing-hodr-turn",
+    vaultTurnId: "missing-hodr-turn",
+    safeToResume: true
+  };
+  await assert.rejects(() => h.executor("HODR", context), /MANUAL_RECONCILIATION_REQUIRED/);
+  assert.equal(providerCalls, 0);
+});
+
+test("safe resume accepts only the exact durable turn recorded by its checkpoint", async () => {
+  let providerCalls = 0;
+  const h = makeHarness({
+    fetchImpl: async () => {
+      providerCalls++;
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("HODR", h.context("HODR"));
+  assert.equal(providerCalls, 1);
+  const context = h.context("HODR");
+  context.resumeCheckpoint = {
+    checkpointId: "checkpoint-hodr",
+    vaultTurnId: "checkpoint-hodr",
+    responseSha256: h.saved[0].responseSha256,
+    turnType: "CONTRIBUTION",
+    evidenceStatus: "PROPOSED",
+    safeToResume: true
+  };
+  const result = await h.executor("HODR", context);
+  assert.equal(result.status, "succeeded");
+  assert.equal(result.outcomeRef, "checkpoint-hodr");
+  assert.equal(providerCalls, 1, "a verified safe checkpoint must not repeat the provider request");
 });
 
 test("uses operator routes, secure task lookup, bounded JSON output, and durable checkpoints", async () => {
