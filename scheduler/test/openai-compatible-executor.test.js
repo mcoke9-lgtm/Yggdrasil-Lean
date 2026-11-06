@@ -1518,7 +1518,10 @@ test("Baldr requires and durably links a separately attributable invocation rece
       });
     }
   });
-  const result = await h.executor("BALDR", h.context("BALDR", outcomes));
+  const result = await h.executor("BALDR", {
+    runId, task: { taskReference: "vault:task-001" }, outcomes,
+    signal: new AbortController().signal, checkpoint: async value => h.checkpoints.push(value)
+  });
   assert.equal(result.status, "succeeded");
   assert.equal(events.map(item => item.type).join(","), "START,TURN,COMPLETE");
   assert.equal(saved[0].reviewInvocationId, result.reviewInvocation.reviewInvocationId);
@@ -1529,27 +1532,51 @@ test("Baldr requires and durably links a separately attributable invocation rece
 
 test("Baldr does not call a provider when the task vault lacks receipt support", async () => {
   const routes = makeRoutes();
-  const h = makeHarness({ routes });
+  const runId = "builder:baldr-no-receipt";
+  const threadId = "thread-" + runId;
+  const prompt = "Review the eight peer contributions.";
+  const promptTurnId = "prompt-baldr-no-receipt";
   const peerRoles = BUILDER_ROLES.filter(role => role !== "BALDR");
+  const history = peerRoles.map((role, index) => {
+    const completedAt = new Date(Date.parse("2026-11-06T13:00:00.000Z") + index * 1000).toISOString();
+    const body = "Contribution from " + role;
+    const reply = { body, turn_type: "CONTRIBUTION", evidence_status: "OBSERVED", recipient: null, reply_to_turn_id: null };
+    return {
+      protocolVersion: 4, runId, threadId, checkpointId: role.toLowerCase() + "-turn",
+      speaker: role, body, type: "CONTRIBUTION", recipient: null,
+      reply_to_turn_id: null, evidence_status: "OBSERVED", reply,
+      timestampEpochMillis: Date.parse(completedAt), completedAt
+    };
+  });
   const outcomes = peerRoles.map(role => ({
     role, status: "succeeded", attempt: 1, errorCode: null,
     outcomeRef: role.toLowerCase() + "-turn",
     outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED"
   }));
-  let calls = 0;
   const noReceiptVault = {
-    async getTask(reference, options) {
-      const task = await h.executor.taskVault?.getTask?.(reference, options);
-      return task;
-    }
+    async getTask() {
+      return {
+        prompt, promptTurnId, threadId, history,
+        consent: {
+          status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+          approvedAt: "2026-11-06T12:00:00.000Z",
+          fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+        }
+      };
+    },
+    async appendBuilderResult() { throw new Error("must not append"); }
   };
+  let calls = 0;
   const executor = createOpenAiCompatibleExecutor({
     routes, taskVault: noReceiptVault,
     readSecret: async () => "test-token",
     fetchImpl: async () => { calls += 1; throw new Error("provider must not be called"); }
   });
   await assert.rejects(
-    () => executor("BALDR", h.context("BALDR", outcomes)),
+    () => executor("BALDR", {
+      runId, task: { taskReference: "vault:task-001" }, outcomes,
+      signal: new AbortController().signal, checkpoint: async () => {}
+    }),
     /MANUAL_RECONCILIATION_REQUIRED/
   );
   assert.equal(calls, 0);
