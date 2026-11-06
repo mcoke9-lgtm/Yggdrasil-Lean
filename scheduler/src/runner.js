@@ -99,12 +99,12 @@ try {
         pid: releaseLock.pid,
         token: releaseLock.token,
         heartbeatAt
-      }) + "\\n");
+      }) + "\n");
     } catch (error) {
       process.stderr.write(JSON.stringify({
         event: "scheduler_lease_lost",
         error: String(error?.message || error)
-      }) + "\\n");
+      }) + "\n");
       scheduler.abortActiveRuns("Scheduler process lease ownership was lost");
       void shutdown("LOCK_LOST");
     } finally {
