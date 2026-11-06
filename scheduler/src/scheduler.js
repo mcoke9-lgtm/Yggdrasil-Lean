@@ -75,7 +75,7 @@ export class Scheduler {
         schedule = { kind: "once", startAt };
         nextRunAt = startAt;
       } else {
-        throw new TypeError("Schedule kind must be interval or calendar");
+        throw new TypeError("Schedule kind must be interval, calendar, or once");
       }
       const createdAt = this.clock().toISOString();
       const task = {
