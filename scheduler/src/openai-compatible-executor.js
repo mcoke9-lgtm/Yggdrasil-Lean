@@ -56,8 +56,9 @@ function validateOutcomeMetadata(value) {
     }
     previousRoleIndex = roleIndex;
     seen.add(item.role);
+    const minimumAttempt = item.status === "skipped" ? 0 : 1;
     if (!["succeeded", "failed", "skipped"].includes(item.status) ||
-        !Number.isSafeInteger(item.attempt) || item.attempt < 1) {
+        !Number.isSafeInteger(item.attempt) || item.attempt < minimumAttempt) {
       throw new TypeError("Builder outcome status or attempt is invalid");
     }
     if (item.errorCode != null && !BUILDER_ERROR_CODES.includes(item.errorCode)) {
