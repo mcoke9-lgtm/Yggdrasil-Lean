@@ -170,7 +170,7 @@ test("correction plan must point directly to a recorded incident", () => {
   assert.throws(() => validateBuilderReplyAgainstHistory({
     turn_type: "CORRECTION_PLAN", recipient: "USER",
     reply_to_turn_id: "missing", evidence_status: "PROPOSED", body
-  }, history, "TYR"), /earlier turn in this run/);
+  }, history, "TYR", "task-prompt-1", reviewPrompt), /earlier turn in this run/);
 });
 
 test("correction history enforces incident linkage and ordered lifecycle", () => {
