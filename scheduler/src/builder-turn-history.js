@@ -222,10 +222,20 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId, p
       const expectedEvidence = parseBuilderEvidenceReference(item.artifact_reference);
       const actualEvidence = turn.evidenceVerification;
       if (!actualEvidence || actualEvidence.verified !== true || actualEvidence.status !== "VERIFIED" ||
+          actualEvidence.verificationMethod !== "READ_ONLY_GITHUB_GATEWAY" ||
           actualEvidence.kind !== expectedEvidence.kind ||
           actualEvidence.repository !== expectedEvidence.repository ||
-          actualEvidence.objectId !== expectedEvidence.objectId) {
+          actualEvidence.objectId !== expectedEvidence.objectId ||
+          actualEvidence.branch !== expectedEvidence.branch ||
+          actualEvidence.workflow !== expectedEvidence.workflow ||
+          actualEvidence.expectedSha !== expectedEvidence.expectedSha) {
         throw new Error("Current protocol correction updates require matching successful gateway verification");
+      }
+      const checkedAt = nonEmpty(actualEvidence.checkedAt, "Evidence verification checkedAt", 64);
+      const checkedAtDate = new Date(checkedAt);
+      if (!Number.isFinite(checkedAtDate.getTime()) || checkedAtDate.toISOString() !== checkedAt ||
+          (turn.completedAt != null && checkedAtDate.getTime() > Date.parse(turn.completedAt))) {
+        throw new Error("Evidence verification timestamp must be valid and precede the persisted turn");
       }
     }
     if (recipient != null &&
