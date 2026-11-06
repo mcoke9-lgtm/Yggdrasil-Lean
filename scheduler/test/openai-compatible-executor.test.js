@@ -35,7 +35,21 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
   const saved = [];
   const checkpoints = [];
   const runHistory = new Map();
+  const baldrInvocations = new Map();
   const vault = taskVault || {
+    async beginBaldrReviewInvocation(_reference, start) {
+      baldrInvocations.set(start.reviewInvocationId, { start });
+      return { durable: true, reviewInvocationId: start.reviewInvocationId };
+    },
+    async completeBaldrReviewInvocation(_reference, completion) {
+      const prior = baldrInvocations.get(completion.reviewInvocationId);
+      if (!prior) throw new Error("Baldr invocation start is missing");
+      prior.completion = completion;
+      return { durable: true, reviewInvocationId: completion.reviewInvocationId };
+    },
+    async getBaldrReviewInvocation(_reference, { reviewInvocationId }) {
+      return baldrInvocations.get(reviewInvocationId) ?? null;
+    },
     async getTask(reference, { runId }) {
       assert.equal(reference, "vault:task-001");
       const prompt = "Investigate the next safe engineering step.";
@@ -1162,7 +1176,14 @@ test("Baldr cannot run until all eight other Builder outcomes and their recorded
           }
         };
       },
-      async appendBuilderResult() { return { durable: true, checkpointId: "baldr-checkpoint" }; }
+      async appendBuilderResult() { return { durable: true, checkpointId: "baldr-checkpoint" }; },
+      async beginBaldrReviewInvocation(_reference, start) {
+        return { durable: true, reviewInvocationId: start.reviewInvocationId };
+      },
+      async completeBaldrReviewInvocation(_reference, completion) {
+        return { durable: true, reviewInvocationId: completion.reviewInvocationId };
+      },
+      async getBaldrReviewInvocation() { return null; }
     },
     fetchImpl: async () => {
       calls++;
