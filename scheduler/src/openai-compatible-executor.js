@@ -746,13 +746,18 @@ export async function createBuilderExecutor() {
 
   const taskVaultFile = await assertOwnerProtectedRegularFile(taskVaultPath, "Task vault module");
   const credentialsFile = await assertOwnerProtectedRegularFile(credentialsPath, "Credentials module");
+  const evidenceGatewayPath = process.env.BUILDER_EVIDENCE_GATEWAY_MODULE;
+  // Validate every operator-supplied module before importing any of them.
+  // A bad optional gateway path must not cause earlier host modules to execute.
+  const gatewayFile = evidenceGatewayPath
+    ? await assertOwnerProtectedRegularFile(evidenceGatewayPath, "Evidence gateway module")
+    : null;
+
   const taskVaultModule = await import(pathToFileURL(taskVaultFile).href);
   const credentialsModule = await import(pathToFileURL(credentialsFile).href);
   if (typeof credentialsModule.readSecret !== "function") {
     throw new TypeError("Credentials module must export readSecret(secretRef)");
   }
-
-  const evidenceGatewayPath = process.env.BUILDER_EVIDENCE_GATEWAY_MODULE;
   if (evidenceGatewayPath && typeof taskVaultModule.createTaskVault !== "function") {
     throw new TypeError(
       "Task vault module must export createTaskVault({ evidenceGateway }) when a GitHub evidence gateway is configured"
@@ -760,9 +765,6 @@ export async function createBuilderExecutor() {
   }
   let evidenceGateway = null;
   if (evidenceGatewayPath) {
-    const gatewayFile = await assertOwnerProtectedRegularFile(
-      evidenceGatewayPath, "Evidence gateway module"
-    );
     const gatewayModule = await import(pathToFileURL(gatewayFile).href);
     const evidenceSecretRef = requiredText(
       config.evidenceGatewaySecretRef, "evidenceGatewaySecretRef", 256
