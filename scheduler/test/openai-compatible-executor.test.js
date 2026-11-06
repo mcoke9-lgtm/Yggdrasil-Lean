@@ -1439,3 +1439,118 @@ test("rejects a task vault that does not confirm durable result persistence", as
   await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(h.checkpoints.length, 0);
 });
+
+
+test("Baldr requires and durably links a separately attributable invocation receipt", async () => {
+  const routes = makeRoutes();
+  const runId = "builder:baldr-invocation";
+  const threadId = "thread-" + runId;
+  const prompt = "Review the eight peer contributions and identify unsupported claims.";
+  const promptTurnId = "prompt-baldr-001";
+  const peerRoles = BUILDER_ROLES.filter(role => role !== "BALDR");
+  const history = peerRoles.map((role, index) => {
+    const completedAt = new Date(Date.parse("2026-11-06T12:00:00.000Z") + index * 1000).toISOString();
+    const body = "Evidence-labelled contribution from " + role + ".";
+    const reply = {
+      body, turn_type: "CONTRIBUTION", evidence_status: "OBSERVED",
+      recipient: null, reply_to_turn_id: null
+    };
+    return {
+      protocolVersion: 4, runId, threadId,
+      checkpointId: role.toLowerCase() + "-turn",
+      speaker: role, body, type: "CONTRIBUTION",
+      recipient: null, reply_to_turn_id: null,
+      evidence_status: "OBSERVED", reply,
+      timestampEpochMillis: Date.parse(completedAt), completedAt
+    };
+  });
+  const events = [];
+  const saved = [];
+  const consentFingerprint = createOvernightDisclosureFingerprint(routes, prompt);
+  const taskVault = {
+    async getTask() {
+      return {
+        prompt, promptTurnId, threadId, history,
+        consent: {
+          status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+          approvedAt: "2026-11-06T11:00:00.000Z",
+          fingerprint: consentFingerprint
+        }
+      };
+    },
+    async beginBaldrReviewInvocation(_reference, receipt) {
+      events.push({ type: "START", receipt });
+      return { durable: true, reviewInvocationId: receipt.reviewInvocationId };
+    },
+    async appendBuilderResult(_reference, record) {
+      saved.push(record);
+      events.push({ type: "TURN", record });
+      return { durable: true, checkpointId: "baldr-result-turn" };
+    },
+    async completeBaldrReviewInvocation(_reference, receipt) {
+      events.push({ type: "COMPLETE", receipt });
+      return { durable: true, reviewInvocationId: receipt.reviewInvocationId };
+    },
+    async getBaldrReviewInvocation(_reference, { reviewInvocationId }) {
+      const start = events.find(item => item.type === "START" &&
+        item.receipt.reviewInvocationId === reviewInvocationId)?.receipt;
+      const completion = events.find(item => item.type === "COMPLETE" &&
+        item.receipt.reviewInvocationId === reviewInvocationId)?.receipt;
+      return start ? { start, completion: completion ?? null } : null;
+    }
+  };
+  const outcomes = peerRoles.map(role => ({
+    role, status: "succeeded", attempt: 1, errorCode: null,
+    outcomeRef: role.toLowerCase() + "-turn",
+    outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED"
+  }));
+  const h = makeHarness({
+    routes, taskVault,
+    fetchImpl: async (_url, options) => {
+      assert.equal(events[0].type, "START");
+      assert.equal(JSON.parse(options.body).model, routes.BALDR.model);
+      return new Response(JSON.stringify({
+        model: "provider-reported-baldr-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "x-request-id": "baldr-request-001" }
+      });
+    }
+  });
+  const result = await h.executor("BALDR", h.context("BALDR", outcomes));
+  assert.equal(result.status, "succeeded");
+  assert.equal(events.map(item => item.type).join(","), "START,TURN,COMPLETE");
+  assert.equal(saved[0].reviewInvocationId, result.reviewInvocation.reviewInvocationId);
+  assert.equal(result.reviewInvocation.status, "COMPLETED");
+  assert.equal(result.reviewInvocation.provenanceLevel, "INVOCATION_ATTRIBUTED");
+  assert.equal(result.reviewInvocation.providerRequestId, "baldr-request-001");
+});
+
+test("Baldr does not call a provider when the task vault lacks receipt support", async () => {
+  const routes = makeRoutes();
+  const h = makeHarness({ routes });
+  const peerRoles = BUILDER_ROLES.filter(role => role !== "BALDR");
+  const outcomes = peerRoles.map(role => ({
+    role, status: "succeeded", attempt: 1, errorCode: null,
+    outcomeRef: role.toLowerCase() + "-turn",
+    outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED"
+  }));
+  let calls = 0;
+  const noReceiptVault = {
+    async getTask(reference, options) {
+      const task = await h.executor.taskVault?.getTask?.(reference, options);
+      return task;
+    }
+  };
+  const executor = createOpenAiCompatibleExecutor({
+    routes, taskVault: noReceiptVault,
+    readSecret: async () => "test-token",
+    fetchImpl: async () => { calls += 1; throw new Error("provider must not be called"); }
+  });
+  await assert.rejects(
+    () => executor("BALDR", h.context("BALDR", outcomes)),
+    /MANUAL_RECONCILIATION_REQUIRED/
+  );
+  assert.equal(calls, 0);
+});
