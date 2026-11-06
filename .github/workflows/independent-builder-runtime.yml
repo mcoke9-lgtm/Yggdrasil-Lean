@@ -1,0 +1,135 @@
+name: Independent Builder Runtime Android
+
+on:
+  push:
+    branches: [independent-builder-runtime-foundation-001]
+    paths:
+      - 'app/**'
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - '*.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/independent-builder-runtime.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: independent-builder-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Configure persistent Builder signing key
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BUILDER_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BUILDER_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BUILDER_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BUILDER_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64$KEYSTORE_PASSWORD$KEY_ALIAS$KEY_PASSWORD" ]; then
+            echo "persistent_signing_configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Persistent signing is not configured. Tests and compilation will run, but no distributable APK will be uploaded."
+            exit 0
+          fi
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Persistent signing secrets are only partially configured. Set all four BUILDER_* secrets."
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/builder-host-signing.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          echo "BUILDER_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "BUILDER_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "BUILDER_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "BUILDER_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "persistent_signing_configured=true" >> "$GITHUB_OUTPUT"
+          echo "Persistent Builder signing key configured."
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run unit tests and compile Android app
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify APK signature and compare installed Builder Host signer
+        id: signer_match
+        env:
+          EXPECTED_INSTALLED_CERT_SHA256: "91c42517e8e873b9fdc285631007c98f460b0c8b955b99240f552fdbdbec2b3a"
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/builder-signing.txt"
+          ACTUAL="$(sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/builder-signing.txt" | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$ACTUAL"
+          echo "Built APK signer SHA-256: $ACTUAL"
+          if [ "$ACTUAL" = "$EXPECTED_INSTALLED_CERT_SHA256" ]; then
+            echo "installed_signer_match=true" >> "$GITHUB_OUTPUT"
+            echo "Built APK signer matches the device-reported installed Builder Host signer."
+          else
+            echo "installed_signer_match=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Built APK signer does not match the device-reported installed Builder Host signer. APK will not be published."
+          fi
+      - name: Upload persistently signed APK
+        if: steps.signing.outputs.persistent_signing_configured == 'true' && steps.signer_match.outputs.installed_signer_match == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-builder-runtime-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  key-steward-build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Enforce offline Key Steward source boundary
+        run: |
+          if grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)' key-steward/src/main/AndroidManifest.xml; then
+            echo "Network permission found in offline Key Steward manifest."
+            exit 1
+          fi
+          if grep -R -E 'HttpURLConnection|OkHttpClient|android.util.Log' key-steward/src/main/java; then
+            echo "Network transport or logging reference found in Key Steward source."
+            exit 1
+          fi
+      - name: Test and build offline Key Steward utility
+        run: gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:assembleDebug
+      - name: Upload Key Steward app only (contains no signing key)
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-builder-key-steward-apk
+          path: key-steward/build/outputs/apk/debug/key-steward-debug.apk
+          if-no-files-found: error
+          retention-days: 14

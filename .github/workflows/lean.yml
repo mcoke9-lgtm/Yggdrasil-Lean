@@ -1,4 +1,4 @@
-name: Lean build
+name: Lean build and analysis engine checks
 
 on:
   push:
@@ -13,3 +13,19 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           build: true
+
+  analysis-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run analysis engine tests
+        working-directory: analysis-engine
+        run: npm test
+      - name: Run sample CSV acceptance check
+        working-directory: analysis-engine
+        run: |
+          node src/cli.js samples/materials.csv /tmp/materials-report.json
+          node --input-type=module -e "import fs from 'node:fs'; const r=JSON.parse(fs.readFileSync('/tmp/materials-report.json','utf8')); if (r.results.total_inspected_kg !== 230 || r.results.total_reusable_kg !== 162 || !r.verification.passed) process.exit(1);"

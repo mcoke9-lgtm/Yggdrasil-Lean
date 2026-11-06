@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Nine Builders Scheduler</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">NINE BUILDERS · LOCAL SERVICE</p>
+    <h1>Scheduler</h1>
+    <p class="muted">Your scheduled work, task history and controls.</p>
+  </header>
+  <main>
+    <section class="panel auth">
+      <label for="token">Dashboard access token <span class="muted">(only if configured)</span></label>
+      <div class="inline"><input id="token" type="password" autocomplete="off" placeholder="Leave blank if no token is configured"><button id="connect">Connect</button></div>
+      <p id="connection" class="muted" role="status">Not connected yet.</p>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><h2>Scheduled tasks</h2><div class="actions"><button id="notifications" class="secondary">Enable notifications</button><button id="refresh" class="secondary">Refresh</button></div></div>
+      <div id="tasks" class="task-list"><p class="muted">Connect to load tasks.</p></div>
+    </section>
+
+    <section class="panel">
+      <h2>Add GitHub build monitor</h2>
+      <p class="muted">Read-only monitoring. This does not change code, rerun builds or merge pull requests.</p>
+      <form id="add-task">
+        <label>Task name<input name="name" required maxlength="100" value="Watch build failures"></label>
+        <div class="two">
+          <label>Task ID<input name="id" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,79}" value="github-build-watch"></label>
+          <label>Time zone<input name="timeZone" required value="America/New_York"></label>
+        </div>
+        <label>Repository (owner/name)<input name="repository" required value="mcoke9-lgtm/Yggdrasil-Lean"></label>
+        <label>Branch<input name="branch" required value="analysis-engine-prototype-001"></label>
+        <label>Workflow names, one per line<textarea name="workflowNames" rows="3" required>Analysis Engine
+Lean build and analysis engine checks</textarea></label>
+        <div class="three">
+          <label>Frequency<select name="frequency"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
+          <label>Hour (24h)<input name="hour" type="number" min="0" max="23" value="9" required></label>
+          <label>Minute<input name="minute" type="number" min="0" max="59" value="0" required></label>
+        </div>
+        <label id="days-label" hidden>Weekdays (0 Sunday – 6 Saturday)<input name="daysOfWeek" value="1,2,3,4,5"></label>
+        <button type="submit">Create monitor</button>
+        <p id="form-status" class="muted" role="status"></p>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><h2>Recent execution history</h2><button id="runs-refresh" class="secondary">Refresh</button></div>
+      <div id="runs" class="run-list"><p class="muted">No history loaded.</p></div>
+    </section>
+  </main>
+  <footer><p class="muted">Loopback-only dashboard · No remote network access · No arbitrary command execution</p></footer>
+</body>
+</html>

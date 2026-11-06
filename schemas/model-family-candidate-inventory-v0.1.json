@@ -1,0 +1,360 @@
+{
+  "format_id": "org.yggdrasil.lean.model-family-inventory",
+  "schema_version": "0.1.0",
+  "status": "research_shortlist",
+  "candidates": [
+    {
+      "model_family_id": "qwen3_5_0_8b",
+      "display_name": "Qwen3.5-0.8B",
+      "provider_or_origin": "Qwen / Alibaba; official Hugging Face model card",
+      "architecture": "Multimodal vision-language model; 0.8B class",
+      "model_format": "Safetensors; official Transformers format",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Model card positions this size for prototyping, task-specific fine-tuning, and research/development; do not assume production suitability."
+      ],
+      "provenance_ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "KTransformers"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": null,
+      "known_parameter_count": 800000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
+        },
+        {
+          "ref": "https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face model API returned immutable repository revision, last-modified time, safetensors parameter counts, and repository storage total; individual weight-file digest is not yet registered."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/tree/2fc06364715b967f1860aea9cf38778875588b17",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned repository tree displays model.safetensors-00001-of-00001.safetensors at 1.75 GB; individual SHA-256 not retrieved."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B/raw/2fc06364715b967f1860aea9cf38778875588b17/model.safetensors-00001-of-00001.safetensors",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Git LFS pointer reports exact size 1,746,942,600 bytes and SHA-256 04b1c301231dd422b8860db31311ab2721511346a32cb1e079c4c4e5f1fe4696."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "License review for project distribution not completed"
+      ],
+      "immutable_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+      "revision_last_modified": "2026-03-02T11:26:58Z",
+      "repository_storage_bytes": 1759750582,
+      "safetensors_parameter_counts": {
+        "BF16": 873436192,
+        "F32": 2592
+      },
+      "parameter_count_scope": "publisher_reported_language_model",
+      "artifact_variants": [
+        {
+          "repository": "Qwen/Qwen3.5-0.8B",
+          "immutable_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+          "filename": "model.safetensors-00001-of-00001.safetensors",
+          "format": "Safetensors BF16",
+          "displayed_size": "1.75 GB",
+          "size_is_approximate": true,
+          "sha256_status": "publisher_reported",
+          "artifact_id": "artifact.qwen3_5_0_8b.bf16",
+          "size_bytes": 1746942600,
+          "sha256": "04b1c301231dd422b8860db31311ab2721511346a32cb1e079c4c4e5f1fe4696"
+        }
+      ]
+    },
+    {
+      "model_family_id": "lfm3_1_7b",
+      "display_name": "LFM3-1.7B",
+      "provider_or_origin": "Liquid AI; official Hugging Face model card",
+      "architecture": "Tri-hybrid text language model; 1.73B parameters",
+      "model_format": "Safetensors; publisher also lists GGUF, ONNX, FP8 and NVFP4 variants",
+      "license_id": "LFM Open License v1.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Commercial-use permission is subject to the $10M annual-revenue threshold in LFM Open License v1.0.",
+        "Publisher cautions that this size is not recommended for agentic coding or complex multi-step reasoning.",
+        "Publisher describes a post-training stage that distills six specialist RL teachers back into one model; this is a relevant multi-teacher distillation precedent, not proof that the student can reconstruct teacher weights."
+      ],
+      "provenance_ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "available",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "llama.cpp GGUF",
+        "ONNX Runtime"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": "Publisher reports approximately 1 GB memory at 4-bit and lists FP8, NVFP4, GGUF, MLX and ONNX variants; exact selected artifact and memory remain unmeasured.",
+      "known_parameter_count": 1730000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies size, context, about 1 GB at 4-bit, deployment formats, a six-specialist-teacher distillation stage, benchmark results, and task limitations."
+        },
+        {
+          "ref": "https://www.liquid.ai/lfm-license",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face repository tree shows commit cd0c74c and Q4_K_M GGUF file displayed at 1.1 GB; file SHA-256 has not been retrieved."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face repository tree shows current main revision 0dc4268 and BF16 model.safetensors displayed at 3.46 GB."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B/tree/main",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face repository tree shows model.safetensors displayed at 3.46 GB on revision 0dc4268; file SHA-256 has not been retrieved."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/raw/main/LFM3-1.7B-Q4_K_M.gguf",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Git LFS pointer reports exact size 1,099,627,808 bytes and SHA-256 3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4."
+        },
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/raw/main/LFM3-1.7B-BF16.gguf",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Git LFS pointer reports exact size 3,466,626,336 bytes and SHA-256 39158a79f56edb85e0c4252ce6447b8d7883ef82ffedd02f0cda7c84da5e9f68."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Actual 4-bit artifact size and memory not independently measured",
+        "License review for intended project deployment and redistribution not completed"
+      ],
+      "parameter_count_scope": "total_parameters",
+      "immutable_revision": "0dc4268",
+      "revision_last_modified": "2026-11-04",
+      "artifact_variants": [
+        {
+          "repository": "LiquidAI/LFM3-1.7B",
+          "immutable_revision": "0dc4268",
+          "filename": "model.safetensors",
+          "format": "Safetensors BF16",
+          "displayed_size": "3.46 GB",
+          "size_is_approximate": true,
+          "sha256_status": "not_retrieved"
+        },
+        {
+          "repository": "LiquidAI/LFM3-1.7B-GGUF",
+          "immutable_revision": "cd0c74c",
+          "filename": "LFM3-1.7B-Q4_K_M.gguf",
+          "format": "GGUF Q4_K_M",
+          "displayed_size": "1.1 GB",
+          "size_is_approximate": true,
+          "sha256_status": "publisher_reported",
+          "artifact_id": "artifact.lfm3_1_7b.q4_k_m",
+          "size_bytes": 1099627808,
+          "sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+        },
+        {
+          "repository": "LiquidAI/LFM3-1.7B-GGUF",
+          "immutable_revision": "cd0c74c",
+          "filename": "LFM3-1.7B-BF16.gguf",
+          "format": "GGUF BF16",
+          "displayed_size": "3.46 GB",
+          "size_is_approximate": true,
+          "artifact_id": "artifact.lfm3_1_7b.bf16_gguf",
+          "size_bytes": 3466626336,
+          "sha256": "39158a79f56edb85e0c4252ce6447b8d7883ef82ffedd02f0cda7c84da5e9f68",
+          "sha256_status": "publisher_reported"
+        }
+      ]
+    },
+    {
+      "model_family_id": "qwen3_5_2b",
+      "display_name": "Qwen3.5-2B",
+      "provider_or_origin": "Qwen / Alibaba; official Hugging Face model card",
+      "architecture": "Multimodal vision-language model; 2B class",
+      "model_format": "Safetensors; official Transformers format",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Thinking and non-thinking modes; default non-thinking mode according to model card."
+      ],
+      "provenance_ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers",
+        "vLLM",
+        "SGLang",
+        "KTransformers"
+      ],
+      "known_context_limit": 262144,
+      "known_quantization": null,
+      "known_parameter_count": 2000000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
+        },
+        {
+          "ref": "https://huggingface.co/api/models/Qwen/Qwen3.5-2B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Hugging Face model API returned immutable repository revision, last-modified time, safetensors parameter counts, and repository storage total; individual weight-file digest is not yet registered."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B/tree/15852e8c16360a2fea060d615a32b45270f8a8fc",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Pinned repository tree displays model.safetensors-00001-of-00001.safetensors at 4.55 GB; individual SHA-256 not retrieved."
+        },
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B/raw/15852e8c16360a2fea060d615a32b45270f8a8fc/model.safetensors-00001-of-00001.safetensors",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Git LFS pointer reports exact size 4,548,221,488 bytes and SHA-256 aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "License review for project distribution not completed"
+      ],
+      "immutable_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+      "revision_last_modified": "2026-03-02T11:26:29Z",
+      "repository_storage_bytes": 4561029470,
+      "safetensors_parameter_counts": {
+        "BF16": 2274067232,
+        "F32": 2592
+      },
+      "parameter_count_scope": "publisher_reported_language_model",
+      "artifact_variants": [
+        {
+          "repository": "Qwen/Qwen3.5-2B",
+          "immutable_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+          "filename": "model.safetensors-00001-of-00001.safetensors",
+          "format": "Safetensors BF16",
+          "displayed_size": "4.55 GB",
+          "size_is_approximate": true,
+          "sha256_status": "publisher_reported",
+          "artifact_id": "artifact.qwen3_5_2b.bf16",
+          "size_bytes": 4548221488,
+          "sha256": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1"
+        }
+      ]
+    },
+    {
+      "model_family_id": "smollm3_3b",
+      "display_name": "SmolLM3-3B",
+      "provider_or_origin": "Hugging Face Smol Models Research; official Hugging Face model card",
+      "architecture": "Decoder-only transformer with GQA and NoPE; 3B parameters",
+      "model_format": "Safetensors; Transformers and vLLM",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Native context is 65,536 tokens; 128K requires YaRN configuration.",
+        "Six native languages listed by publisher."
+      ],
+      "provenance_ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Transformers >= 4.53.0",
+        "vLLM",
+        "SGLang"
+      ],
+      "known_context_limit": 65536,
+      "known_quantization": null,
+      "known_parameter_count": 3000000000,
+      "evidence_refs": [
+        {
+          "ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official card identifies Apache-2.0, 3B size, 64K native context, public training data mixture and training configurations."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "Availability and completeness of original training datasets must be checked before any rebuild claim"
+      ],
+      "parameter_count_scope": "total_parameters"
+    },
+    {
+      "model_family_id": "gemma4_e2b",
+      "display_name": "Gemma 4 E2B",
+      "provider_or_origin": "Google DeepMind; official Google AI model card",
+      "architecture": "Multimodal model with per-layer embeddings; 2.3B effective parameters and 5.1B total including embeddings",
+      "model_format": "Open weights; exact selected checkpoint format not yet registered",
+      "license_id": "Apache-2.0",
+      "license_status": "unknown",
+      "usage_constraints": [
+        "Do not treat 2.3B effective parameters as total stored weights; publisher reports 5.1B total including embeddings.",
+        "Google's current Gemma 4 documentation gives E2B an approximate mobile inference memory figure of 1.1 GB; the exact mobile deployment package and host-specific use must still be verified."
+      ],
+      "provenance_ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+      "weight_access_status": "downloadable",
+      "tokenizer_status": "available",
+      "adapter_status": "unknown",
+      "runtime_compatibility": [
+        "Google AI Edge",
+        "Transformers-compatible ecosystem; exact tested runtime not yet selected"
+      ],
+      "known_context_limit": 131072,
+      "known_quantization": null,
+      "known_parameter_count": 5100000000,
+      "evidence_refs": [
+        {
+          "ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, total/effective parameter counts, context and modalities."
+        }
+      ],
+      "unknowns": [
+        "Exact immutable revision and artifact digest not registered",
+        "No baseline evaluation against Builder contracts",
+        "Quantized artifact and runtime memory not measured",
+        "Hardware compatibility and license notice requirements not independently reviewed"
+      ],
+      "parameter_count_scope": "total_including_embeddings"
+    }
+  ]
+}

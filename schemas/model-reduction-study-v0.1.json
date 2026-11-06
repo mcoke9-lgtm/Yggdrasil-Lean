@@ -1,0 +1,220 @@
+{
+  "format_id": "org.yggdrasil.lean.model-reduction-study",
+  "schema_version": "0.1.0",
+  "study_id": "study.nine-builder-compact-seed.v0_1",
+  "status": "planned",
+  "goal": "Identify and independently validate the smallest lawful, portable model artifact or model combination that can serve the minimum required capabilities of all nine Builder identities, with role separation, and can be restored or expanded from an explicit reconstruction package.",
+  "builder_identity_refs": [
+    "HUGINN",
+    "MUNINN",
+    "KVASIR",
+    "MARI",
+    "HODR",
+    "TYR",
+    "LOKI",
+    "ODIN",
+    "BALDR"
+  ],
+  "capability_contract_refs": [
+    "contract.huginn.v0_1",
+    "contract.muninn.v0_1",
+    "contract.kvasir.v0_1",
+    "contract.mari.v0_1",
+    "contract.hodr.v0_1",
+    "contract.tyr.v0_1",
+    "contract.loki.v0_1",
+    "contract.odin.v0_1",
+    "contract.baldr.v0_1"
+  ],
+  "evaluation_suite_ref": "suite.nine_builder.v0_1",
+  "evaluation_rubric_ref": "rubric.capability.v0_1",
+  "source_candidates": [
+    {
+      "model_family_ref": "qwen3_5_0_8b",
+      "artifact_refs": [
+        "artifact.qwen3_5_0_8b.bf16"
+      ],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, 0.8B model, and intended prototype/research use."
+        }
+      ],
+      "notes": "Repository revision, exact file size, and publisher-reported SHA-256 are registered; local checksum verification, license review, and baseline evaluation remain pending."
+    },
+    {
+      "model_family_ref": "lfm3_1_7b",
+      "artifact_refs": [
+        "artifact.lfm3_1_7b.q4_k_m",
+        "artifact.lfm3_1_7b.bf16_gguf"
+      ],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/LiquidAI/LFM3-1.7B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies size, context, deployment formats and task limitations."
+        },
+        {
+          "ref": "https://www.liquid.ai/lfm-license",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official LFM Open License describes commercial-use revenue threshold and redistribution conditions."
+        }
+      ],
+      "notes": "Base and GGUF repository revisions are pinned; Q4_K_M and BF16 GGUF variants have exact sizes and publisher-reported SHA-256 values; local checksum verification, LFM license review, and baseline evaluation remain pending."
+    },
+    {
+      "model_family_ref": "qwen3_5_2b",
+      "artifact_refs": [
+        "artifact.qwen3_5_2b.bf16"
+      ],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/Qwen/Qwen3.5-2B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card/tree lists Apache-2.0 and public checkpoint files; listed BF16 file is 4.57 GB."
+        }
+      ],
+      "notes": "Repository revision, exact file size, and publisher-reported SHA-256 are registered; local checksum verification, license review, and baseline evaluation remain pending."
+    },
+    {
+      "model_family_ref": "smollm3_3b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official card identifies Apache-2.0, 3B size, 64K native context, public training data mixture and training configurations."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    },
+    {
+      "model_family_ref": "gemma4_e2b",
+      "artifact_refs": [],
+      "license_status": "unknown",
+      "weight_access_status": "downloadable",
+      "baseline_evaluation_status": "not_evaluated",
+      "provenance_refs": [
+        {
+          "ref": "https://ai.google.dev/gemma/docs/core/model_card_4",
+          "kind": "provider_documentation",
+          "status": "observed",
+          "note": "Official model card identifies Apache-2.0, total/effective parameter counts, context and modalities."
+        }
+      ],
+      "notes": "Research shortlist entry only; no exact artifact revision/digest or baseline test is registered."
+    }
+  ],
+  "target_resource_profile_id": "profile.seed_compact.provisional",
+  "reduction_method": "not_selected",
+  "candidate_compact_artifact_ref": null,
+  "capability_preservation_policy": {
+    "mandatory_capabilities_must_pass": true,
+    "degraded_capabilities_must_be_named": true,
+    "lost_capabilities_must_be_recorded": true,
+    "cross_role_separation_required": true
+  },
+  "evaluation_design": {
+    "evaluator_builder_ids": [
+      "KVASIR",
+      "LOKI"
+    ],
+    "independent_verifier_builder_ids": [
+      "BALDR",
+      "TYR"
+    ],
+    "minimum_independent_reviewers": 2,
+    "model_self_evaluation_is_sufficient": false,
+    "third_review_on_disagreement": true,
+    "raw_evidence_retention": true,
+    "candidate_must_not_self_evaluate": true,
+    "evaluator_artifacts_must_be_distinct_from_candidate": true,
+    "human_or_deterministic_verification_required": true,
+    "evaluator_selection_status": "family_shortlist",
+    "evaluator_model_artifact_refs": [],
+    "builder_roles_are_independent_model_artifacts": false,
+    "proposed_evaluator_model_family_refs": [
+      "qwen3_5_2b",
+      "smollm3_3b"
+    ],
+    "blind_candidate_identity_until_initial_scoring": true,
+    "evaluator_models_must_not_see_other_scores_before_submission": true
+  },
+  "reconstruction_seed_policy": {
+    "seed_type": "not_selected",
+    "includes_compact_weights": false,
+    "includes_larger_weights": false,
+    "requires_external_dependencies_manifest": true,
+    "requires_training_recipe_if_retraining": true,
+    "requires_license_and_provenance": true,
+    "must_disclose_lossy_compression": true
+  },
+  "acceptance_gates": [
+    "Inventory candidate model families, exact artifacts, licenses, weight access, tokenizer, adapters, and provenance before selecting a candidate.",
+    "Establish a baseline capability and resource profile for each lawful candidate under comparable conditions.",
+    "Run all nine Builder contracts against each candidate, including cross-role identity separation and all shared capabilities.",
+    "Select a compact candidate by measured capability and resource performance, not by parameter count or file size alone.",
+    "If reducing a model, preserve the exact source artifact, recipe, data provenance, and toolchain; distinguish quantization from lossy distillation or pruning.",
+    "Run the same held-out suite after reduction and report every retained, degraded, lost, and untested capability.",
+    "Have at least two independent evaluators review raw outputs and deterministic integrity/authority tests; obtain a third review for material disagreement.",
+    "Build the reconstruction seed with checksums, licenses, tokenizer/runtime dependencies, external-weight declarations, and explicit recovery steps.",
+    "Restore the seed on a clean compatible host without deleting or modifying the source known-good artifacts.",
+    "Do not call the candidate a portable minimum model until the capability suite and clean-host recovery drill pass."
+  ],
+  "known_losses": [],
+  "known_unknowns": [
+    "No candidate model has been benchmarked against the nine Builder contracts.",
+    "No compression, quantization, distillation, pruning, or fine-tuning has been performed.",
+    "No target hardware resource ceiling has been measured or adopted.",
+    "Qwen3.5-0.8B repository revision 2fc06364715b967f1860aea9cf38778875588b17 is pinned as a research reference; the exact selected weight-file digest and complete artifact lock remain unregistered.",
+    "No candidate's deployment-specific license review is complete.",
+    "The analytical/verifier Builder roles are role assignments, not independent model artifacts; a separate evaluator artifact or human/deterministic review path must be selected before any model is independently scored.",
+    "No larger-model expansion blueprint has been registered; architecture, tokenizer, source weights, training data, recipe, toolchain, license, and compute dependencies remain to be identified.",
+    "Qwen3.5-2B and SmolLM3-3B are proposed evaluator families only; exact evaluator artifacts, independent runtime compatibility, and any license/provenance review must be completed before selection.",
+    "LFM3-1.7B base revision 0dc4268 and Q4_K_M GGUF revision cd0c74c are pinned, but the two weight-file SHA-256 digests and exact deployment license review remain pending.",
+    "Four model-weight artifacts have exact sizes and publisher-reported SHA-256 values from official Git LFS pointers. None has been downloaded and locally hashed, so validation_state remains unverified."
+  ],
+  "decision": "not_decided",
+  "evidence_refs": [],
+  "expansion_blueprint": {
+    "status": "planned",
+    "architecture_and_configuration_refs": [],
+    "tokenizer_refs": [],
+    "source_weight_artifact_refs": [],
+    "training_data_manifest_refs": [],
+    "training_recipe_refs": [],
+    "runtime_toolchain_refs": [],
+    "license_and_provenance_refs": [],
+    "required_compute_profile_id": null,
+    "reconstruction_claim": "not_selected",
+    "student_weights_alone_sufficient": false
+  },
+  "selection_policy": {
+    "smallest_resource_footprint_among_passing_candidates": true,
+    "parameter_count_alone_is_sufficient": false,
+    "single_model_preferred_when_all_mandatory_gates_pass": true,
+    "model_combination_allowed": true,
+    "role_identity_and_memory_are_external_to_weights": true,
+    "dynamic_model_assignment_by_task_allowed": true,
+    "degraded_tier_must_name_lost_capabilities": true,
+    "no_acceptance_when_mandatory_gates_fail": true
+  }
+}

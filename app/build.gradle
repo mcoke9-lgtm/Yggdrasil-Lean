@@ -1,0 +1,47 @@
+plugins { id 'com.android.application' }
+
+def builderSigningEnv = [
+    'BUILDER_KEYSTORE_PATH',
+    'BUILDER_KEYSTORE_PASSWORD',
+    'BUILDER_KEY_ALIAS',
+    'BUILDER_KEY_PASSWORD'
+]
+def builderSigningConfigured = builderSigningEnv.every { System.getenv(it)?.trim() }
+
+android {
+    namespace 'org.yggdrasil.scheduler'
+    compileSdk 35
+    testOptions { unitTests.includeAndroidResources = true }
+    defaultConfig {
+        applicationId 'org.yggdrasil.builderhost'
+        minSdk 26
+        targetSdk 35
+        // One-time migration above the previously distributed versionCode 1 package.
+        versionCode 2
+        versionName '0.2.0'
+    }
+    if (builderSigningConfigured) {
+        signingConfigs {
+            builderCi {
+                storeFile file(System.getenv('BUILDER_KEYSTORE_PATH'))
+                storeType 'PKCS12'
+                storePassword System.getenv('BUILDER_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('BUILDER_KEY_ALIAS')
+                keyPassword System.getenv('BUILDER_KEY_PASSWORD')
+            }
+        }
+        buildTypes {
+            debug {
+                signingConfig signingConfigs.builderCi
+            }
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    // Android's local-test android.jar stubs throw for org.json; use the real JVM implementation.
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+    implementation 'androidx.work:work-runtime:2.10.0'
+}
