@@ -619,6 +619,20 @@ export function createOpenAiCompatibleExecutor({
     }
     runThreads.set(runId, task.threadId);
     const existingTurn = findExistingBuilderTurn(task, role, runId);
+    if (context.resumeCheckpoint != null) {
+      const checkpoint = context.resumeCheckpoint;
+      const actualTurnId = existingTurn?.checkpointId ?? existingTurn?.turnId;
+      if (checkpoint.safeToResume !== true ||
+          typeof checkpoint.vaultTurnId !== "string" ||
+          checkpoint.vaultTurnId !== checkpoint.checkpointId ||
+          !existingTurn || actualTurnId !== checkpoint.vaultTurnId ||
+          (checkpoint.responseSha256 != null && existingTurn.responseSha256 !== checkpoint.responseSha256) ||
+          (checkpoint.turnType != null && (existingTurn.type ?? existingTurn.reply?.turn_type) !== checkpoint.turnType) ||
+          (checkpoint.evidenceStatus != null &&
+            (existingTurn.evidence_status ?? existingTurn.reply?.evidence_status) !== checkpoint.evidenceStatus)) {
+        throw manualReconciliationError();
+      }
+    }
     if (existingTurn) {
       const recovered = durableRecoveryRecord(task, role, existingTurn);
       await context.checkpoint({
