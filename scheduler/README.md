@@ -75,6 +75,7 @@ npm run scheduler -- add-daily-heartbeat morning-check "Morning check" America/N
 npm run scheduler -- add-weekly-heartbeat monday-check "Monday check" America/New_York 9 0 1
 npm run scheduler -- add-github-watch build-watch "Watch build failures" mcoke9-lgtm/Yggdrasil-Lean analysis-engine-prototype-001 America/New_York 9 0 "Analysis Engine" "Lean build and analysis engine checks"
 npm run scheduler -- add-nine-builders-run overnight-research "Nine Builders overnight research" America/New_York 22 0 vault:task-001
+npm run scheduler -- resume-nine-builders resume-overnight "Resume interrupted Nine Builders run" builder:run-id
 npm run scheduler -- pause morning-check
 npm run scheduler -- resume morning-check
 npm run scheduler -- runs morning-check
@@ -107,9 +108,12 @@ may be unknown. Task state uses fsynced atomic file replacement. Builder-run
 recovery marks abandoned runs interrupted/expired during host startup. Every
 new Builder run persists its opaque task-vault reference alongside the run ID,
 so explicit resume restores the original task binding and rejects any
-caller-supplied mismatch. Resume still requires the saved run ID and a safe
-per-Builder checkpoint; legacy runs without a persisted task reference require
-manual reconciliation.
+caller-supplied mismatch. The `resume-nine-builders` CLI command creates a
+one-shot task for a specified interrupted Builder run; it does not replay the
+run automatically. Resume still requires the saved run ID, an unexpired
+eight-hour deadline, and a safe per-Builder checkpoint; legacy runs without a
+persisted task reference require manual reconciliation. One-shot tasks become
+disabled after their single attempt and retain a visible terminal state.
 
 ## Long-running task isolation
 
