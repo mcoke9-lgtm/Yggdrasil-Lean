@@ -88,7 +88,7 @@ try {
       id,
       name,
       handlerType: "nine-builders.run",
-      payload: { continueRunId: legacyBuilderRunId },
+      payload: { continueRunId: legacyBuilderRunId, continuationId: id },
       schedule: { kind: "once", startAt: new Date().toISOString() }
     });
     process.stdout.write(JSON.stringify(task, null, 2) + "\n");
