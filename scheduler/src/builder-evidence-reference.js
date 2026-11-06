@@ -82,7 +82,11 @@ function unverified(reason, reference) {
     reason,
     kind: reference.kind,
     repository: reference.repository,
-    objectId: reference.objectId
+    objectId: reference.objectId,
+    branch: reference.branch,
+    workflow: reference.workflow,
+    expectedSha: reference.expectedSha,
+    verificationMethod: "READ_ONLY_GITHUB_GATEWAY"
   });
 }
 
@@ -93,7 +97,11 @@ function verified(reference, reason) {
     reason,
     kind: reference.kind,
     repository: reference.repository,
-    objectId: reference.objectId
+    objectId: reference.objectId,
+    branch: reference.branch,
+    workflow: reference.workflow,
+    expectedSha: reference.expectedSha,
+    verificationMethod: "READ_ONLY_GITHUB_GATEWAY"
   });
 }
 
