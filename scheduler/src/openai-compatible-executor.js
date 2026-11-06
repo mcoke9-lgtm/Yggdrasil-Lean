@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BUILDER_ROLES } from "./run-ledger.js";
 import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
+import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 
 const ROLE_DETAILS = Object.freeze({
   ODIN: ["Odin", "coordination, orchestration, and integration"],
@@ -353,15 +354,12 @@ function validateTask(task, routes, runId) {
 
   const threadId = requiredText(task.threadId, "Run-specific threadId", 256);
   for (const turn of history) {
-    if (!turn || turn.runId !== runId || turn.threadId !== threadId) {
-      throw new Error("Task history contains data outside this scheduled run's dedicated thread");
-    }
-    const speaker = requiredText(turn.speaker, "Run history speaker", 32);
+    const speaker = requiredText(turn?.speaker, "Run history speaker", 32);
     if (speaker !== "USER" && !BUILDER_ROLES.includes(speaker)) {
       throw new Error("Task history contains an unknown speaker");
     }
-    requiredText(turn.body, "Run history body", 16000);
   }
+  validateBuilderHistory(history, runId, threadId);
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
   return { prompt, history, threadId, operationalLimitsSnapshot: limits, consentFingerprint: fingerprint };
@@ -474,6 +472,7 @@ export function createOpenAiCompatibleExecutor({
       try { rawReply = JSON.parse(content); }
       catch { throw new Error("Builder model content was not valid JSON"); }
       const reply = validateBuilderReply(rawReply);
+      validateBuilderReplyAgainstHistory(reply, task.history, role);
       if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
       const responseHash = createHash("sha256").update(content, "utf8").digest("hex");
