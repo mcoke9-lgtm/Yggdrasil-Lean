@@ -9,6 +9,27 @@ import { BuilderRunLedger } from "../src/run-ledger.js";
 import { registerOptionalBuilderRuntime } from "../src/builder-runtime.js";
 import { BUILDER_ROLES } from "../src/run-ledger.js";
 
+function mockBuilderResult(role) {
+  const outcomeRef = role.toLowerCase() + "-turn";
+  const responseSha256 = "a".repeat(64);
+  return {
+    status: "succeeded", outcomeRef, turnType: "CONTRIBUTION",
+    evidenceStatus: "OBSERVED", responseSha256,
+    ...(role === "BALDR" ? {
+      reviewInvocation: {
+        reviewInvocationId: "review-" + outcomeRef,
+        inputManifestSha256: "b".repeat(64),
+        responseSha256, vaultTurnId: outcomeRef,
+        provenanceLevel: "INVOCATION_ATTRIBUTED",
+        providerRequestId: null, status: "COMPLETED",
+        completedAt: "2026-11-05T20:00:00.000Z"
+      }
+    } : {})
+  };
+}
+
+
+
 test("leaves the persistent scheduler honest when no host executor is configured", async () => {
   const scheduler = new Scheduler({ store: new MemoryStore() });
   const result = await registerOptionalBuilderRuntime({
@@ -43,7 +64,7 @@ test("registers a host executor and keeps its Builder ledger in a separate durab
           createBuilderExecutor: async () => async (role, context) => {
             invoked.push(role);
             assert.equal(context.task.taskReference, "vault:overnight-task-001");
-            return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+            return mockBuilderResult(role);
           }
         };
       },
@@ -102,7 +123,7 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
           const executor = async (role, context) => {
             invoked.push(role);
             if (role === "ODIN") assert.equal(context.resumeCheckpoint.vaultTurnId, "odin-safe-checkpoint");
-            return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+            return mockBuilderResult(role);
           };
           executor.supportsVerifiedResumeCheckpoint = true;
           return executor;
