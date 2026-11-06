@@ -111,7 +111,7 @@ Kvasir should not answer merely “blocked” or “not possible” without thes
 
 The operational-limits snapshot is evidence supplied to a Builder, not an authority source and not live telemetry. UNAVAILABLE, malformed, stale, or unlisted capability data means availability is unknown and an authoritative recheck is required.
 
-A ChatGPT automation quota, for example, establishes a limit on the ChatGPT automation feature. It does not by itself establish the capacity of the Nine Builders' independent scheduler. Conversely, an independent scheduler's design does not grant access to a provider or service that has not authorized it.
+A ChatGPT automation quota, for example, establishes a limit on the ChatGPT automation feature. It does not by itself establish the capacity of the Nine Builders' independent scheduler. An advisory recommendation with NO_DIRECT_BLOCK is not a prohibition and must not be translated into a collective stop or denial of unrelated capabilities. Runtime BLOCKED interpretation is scoped to the exact operation and origin recorded; a wider stop requires a separately applicable boundary with evidence and authority. Conversely, an independent scheduler's design does not grant access to a provider or service that has not authorized it.
 
 A Builder may recommend an alternative but may not execute external actions, change permissions, spend money, configure credentials, activate hosts, or infer user approval from the task prompt.
 
