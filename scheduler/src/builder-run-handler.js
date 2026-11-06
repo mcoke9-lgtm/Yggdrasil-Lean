@@ -232,6 +232,9 @@ export function registerBuilderRunHandler(
         }
 
         activeRole = role;
+        const resumeCheckpoint = savedBuilder.status === "interrupted" &&
+          savedBuilder.checkpoint?.safeToResume === true
+          ? structuredClone(savedBuilder.checkpoint) : null;
         await ledger.startBuilder(runId, role);
         let result;
         try {
@@ -240,6 +243,7 @@ export function registerBuilderRunHandler(
             scheduledFor: context.scheduledFor,
             task: structuredClone(taskPayload),
             outcomes: structuredClone(outcomes),
+            resumeCheckpoint,
             checkpoint: details => ledger.checkpointBuilder(runId, role, details),
             signal: controller.signal
           });
