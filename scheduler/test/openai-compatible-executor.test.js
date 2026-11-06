@@ -1111,9 +1111,24 @@ test("loads the host executor only from owner-protected config and operator modu
       '    async appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n' +
       '  };\n' +
       '}\n');
-    await writeFile(credentialsPath,
-      'export async function readSecret() { return "host-secret"; }\n');
-    await writeFile(evidenceGatewayPath, "export async function createEvidenceGateway() {\n  return {\n    async fetchCommit() { return null; },\n    async branchContainsCommit() { return false; },\n    async fetchWorkflowRun() { return null; },\n    async fetchWorkflowJobs() { return []; }\n  };\n}\n", { mode: 0o600 });
+    await writeFile(credentialsPath, [
+      'let calls = 0;',
+      'export async function readSecret() { calls += 1; if (calls > 1) throw new Error("unexpected secret read"); return "host-secret"; }',
+      ''
+    ].join("\n"));
+    await writeFile(evidenceGatewayPath, [
+      'export async function createEvidenceGateway({ readSecret, secretRef }) {',
+      '  if (typeof readSecret !== "function" || secretRef !== "github-evidence-read-only") throw new Error("invalid gateway factory inputs");',
+      '  await readSecret(secretRef);',
+      '  return {',
+      '    async fetchCommit() { return null; },',
+      '    async branchContainsCommit() { return false; },',
+      '    async fetchWorkflowRun() { return null; },',
+      '    async fetchWorkflowJobs() { return []; }',
+      '  };',
+      '}',
+      ''
+    ].join("\n"), { mode: 0o600 });
     process.env.BUILDER_HOST_CONFIG_FILE = configPath;
     process.env.BUILDER_TASK_VAULT_MODULE = taskVaultPath;
     process.env.BUILDER_CREDENTIALS_MODULE = credentialsPath;
