@@ -55,8 +55,10 @@ public final class BuilderOvernightWorker extends Worker {
         BuilderOvernightRunStore runStore = new BuilderOvernightRunStore(getApplicationContext());
         long now = System.currentTimeMillis();
         org.json.JSONObject state;
+        boolean checkpointLoaded = false;
         try {
             state = runStore.beginOrRecover(runId, threadId, taskPrompt, now);
+            checkpointLoaded = true;
             if (!"RUNNING".equals(state.optString("status"))) return Result.failure();
             if (now >= state.optLong("deadline_epoch_millis")) {
                 runStore.setStatus(runId, "EXPIRED", "Eight-hour execution window elapsed.", now);
@@ -66,6 +68,20 @@ public final class BuilderOvernightWorker extends Worker {
                     "Preparing Builder cycle " + (state.optInt("completed_cycles") + 1)))
                     .get(15, TimeUnit.SECONDS);
         } catch (Exception failure) {
+            // If foreground setup fails after a durable RUNNING checkpoint exists,
+            // do not leave a stranded run that appears active but has no continuation.
+            // Never rewrite an already-terminal state or mutate a checkpoint when
+            // beginOrRecover rejected mismatched run identity/input.
+            if (checkpointLoaded) {
+                try {
+                    org.json.JSONObject checkpoint = runStore.read(runId);
+                    if (checkpoint != null && "RUNNING".equals(checkpoint.optString("status"))) {
+                        runStore.setStatus(runId, "INTERRUPTED",
+                                "Worker could not enter foreground execution: " + safeMessage(failure),
+                                System.currentTimeMillis());
+                    }
+                } catch (Exception ignored) { }
+            }
             return Result.failure();
         }
 
