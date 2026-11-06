@@ -312,7 +312,7 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
 
 test("passes through a schema-valid operational limits snapshot", async () => {
   const routes = makeRoutes();
-  const prompt = "task with an evaluated limits register";
+  const prompt = "Kvasir assesses an advisory ChatGPT service recommendation";
   const snapshot = {
     schema: "yggdrasil.operational-capacity-register",
     schema_version: "1.0.0",
@@ -325,9 +325,9 @@ test("passes through a schema-valid operational limits snapshot", async () => {
       observed_at: "2026-11-04T12:00:00.000Z",
       affected_capability: "Create another scheduled ChatGPT task",
       affected_operation: "ChatGPT automation creation",
-      force: "MANDATORY",
+      force: "ADVISORY",
       evidence_state: "VERIFIED",
-      operational_effect: "BLOCKS_OPERATION",
+      operational_effect: "NO_DIRECT_BLOCK",
       responsible_builder: "KVASIR",
       decision_authority: "USER",
       recheck_condition: "A task slot becomes available",
@@ -341,6 +341,7 @@ test("passes through a schema-valid operational limits snapshot", async () => {
     }
   };
   let userContext;
+  let systemInstruction;
   const h = makeHarness({
     routes,
     taskVault: {
@@ -361,18 +362,24 @@ test("passes through a schema-valid operational limits snapshot", async () => {
       async appendBuilderResult() { return { durable: true, checkpointId: "limits-checkpoint" }; }
     },
     fetchImpl: async (_url, options) => {
-      userContext = JSON.parse(JSON.parse(options.body).messages[1].content);
+      const messages = JSON.parse(options.body).messages;
+      systemInstruction = messages[0].content;
+      userContext = JSON.parse(messages[1].content);
       return new Response(JSON.stringify({
         model: "reported-model",
         choices: [{ message: { content: JSON.stringify(makeReply()) } }]
       }), { status: 200 });
     }
   });
-  await h.executor("ODIN", h.context("ODIN"));
+  await h.executor("KVASIR", h.context("KVASIR"));
   assert.equal(userContext.operational_limits_snapshot.register_status, "LOADED");
   assert.equal(userContext.operational_limits_snapshot.runtime_evaluation.live_telemetry, false);
   assert.equal(userContext.operational_limits_snapshot.constraints[0].origin_scope, "CHATGPT_SERVICE");
-  assert.equal(userContext.operational_limits_snapshot.constraints[0].operational_effect, "BLOCKS_OPERATION");
+  assert.equal(userContext.operational_limits_snapshot.constraints[0].force, "ADVISORY");
+  assert.equal(userContext.operational_limits_snapshot.constraints[0].operational_effect, "NO_DIRECT_BLOCK");
+  assert.match(systemInstruction, /BLOCKED means do not retry or recommend only the exact operation in the recorded origin scope/);
+  assert.match(systemInstruction, /An ADVISORY constraint with NO_DIRECT_BLOCK is not a prohibition/);
+  assert.match(systemInstruction, /never promote an external recommendation or service-scoped quota into a collective prohibition/);
 });
 
 test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
