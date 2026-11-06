@@ -6,6 +6,10 @@ import { BUILDER_ROLES, BUILDER_ERROR_CODES } from "./run-ledger.js";
 import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 import { parseBuilderEvidenceReference, verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
+import {
+  createBaldrReviewManifest, createBaldrInvocationStart,
+  validateBaldrInvocationCompletion
+} from "./baldr-review-invocation.js";
 
 const ROLE_DETAILS = Object.freeze({
   ODIN: ["Odin", "coordination, orchestration, and integration"],
@@ -646,6 +650,30 @@ export function createOpenAiCompatibleExecutor({
     }
     if (existingTurn) {
       const recovered = durableRecoveryRecord(task, role, existingTurn);
+      let recoveredReviewInvocation = null;
+      if (role === "BALDR") {
+        if (typeof taskVault.getBaldrReviewInvocation !== "function" ||
+            typeof existingTurn.reviewInvocationId !== "string") {
+          throw manualReconciliationError();
+        }
+        const savedInvocation = await taskVault.getBaldrReviewInvocation(taskReference, {
+          runId, reviewInvocationId: existingTurn.reviewInvocationId
+        });
+        if (!savedInvocation?.start || !savedInvocation?.completion) {
+          throw manualReconciliationError();
+        }
+        try {
+          recoveredReviewInvocation = validateBaldrInvocationCompletion(
+            savedInvocation.start, savedInvocation.completion
+          );
+          if (recoveredReviewInvocation.vaultTurnId !== recovered.checkpointId ||
+              recoveredReviewInvocation.responseSha256 !== recovered.responseSha256) {
+            throw new Error("Baldr invocation receipt does not match its durable turn");
+          }
+        } catch {
+          throw manualReconciliationError();
+        }
+      }
       await context.checkpoint({
         checkpointId: recovered.checkpointId,
         vaultTurnId: recovered.outcomeRef,
@@ -660,7 +688,8 @@ export function createOpenAiCompatibleExecutor({
         checkpointId: recovered.checkpointId,
         outcomeRef: recovered.outcomeRef,
         responseSha256: recovered.responseSha256,
-        evidenceStatus: recovered.evidenceStatus
+        evidenceStatus: recovered.evidenceStatus,
+        ...(recoveredReviewInvocation ? { reviewInvocation: recoveredReviewInvocation } : {})
       };
     }
     const outcomes = validateOutcomeMetadata(
@@ -720,6 +749,37 @@ export function createOpenAiCompatibleExecutor({
       if (Buffer.byteLength(requestBody, "utf8") > MAX_REQUEST_BYTES) {
         throw new RangeError("Serialized model request exceeds the 1 MiB limit");
       }
+      let baldrInvocationStart = null;
+      let baldrManifest = null;
+      if (role === "BALDR") {
+        if (typeof taskVault.beginBaldrReviewInvocation !== "function" ||
+            typeof taskVault.completeBaldrReviewInvocation !== "function" ||
+            typeof taskVault.getBaldrReviewInvocation !== "function") {
+          throw manualReconciliationError();
+        }
+        baldrManifest = createBaldrReviewManifest({
+          runId, taskReference, promptTurnId: task.promptTurnId,
+          outcomes, requestBody,
+          requestedProviderId: route.providerId,
+          requestedEndpointIdentity: route.endpoint,
+          requestedModelId: route.model
+        });
+        baldrInvocationStart = createBaldrInvocationStart({
+          runId, taskReference, threadId: task.threadId,
+          inputManifestSha256: baldrManifest.inputManifestSha256,
+          requestedProviderId: route.providerId,
+          requestedEndpointIdentity: route.endpoint,
+          requestedModelId: route.model,
+          invokedAt: clock().toISOString()
+        });
+        const started = await taskVault.beginBaldrReviewInvocation(taskReference, {
+          ...baldrInvocationStart
+        });
+        if (started?.durable !== true ||
+            started.reviewInvocationId !== baldrInvocationStart.reviewInvocationId) {
+          throw manualReconciliationError();
+        }
+      }
       const response = await fetchImpl(route.endpoint, {
         method: "POST",
         headers,
@@ -729,6 +789,8 @@ export function createOpenAiCompatibleExecutor({
       });
       if (!response || typeof response.status !== "number") throw new Error("Model transport returned no HTTP response");
       if (!response.ok) throw new Error("Model endpoint returned HTTP " + response.status);
+      const providerRequestId = response.headers?.get?.("x-request-id") ??
+        response.headers?.get?.("request-id") ?? null;
       const responseText = await readLimitedResponse(response, controller.signal);
       let envelope;
       try { envelope = JSON.parse(responseText); }
@@ -774,6 +836,7 @@ export function createOpenAiCompatibleExecutor({
           requestedModel: route.model,
           providerReportedModel,
           responseSha256: responseHash,
+          reviewInvocationId: baldrInvocationStart?.reviewInvocationId ?? null,
           reply,
           evidenceVerification,
           completedAt: clock().toISOString()
@@ -787,6 +850,32 @@ export function createOpenAiCompatibleExecutor({
       if (typeof checkpointId !== "string" ||
           !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
         throw manualReconciliationError();
+      }
+      let reviewInvocation = null;
+      if (role === "BALDR") {
+        const completedAt = clock().toISOString();
+        try {
+          const completion = {
+            reviewInvocationId: baldrInvocationStart.reviewInvocationId,
+            inputManifestSha256: baldrManifest.inputManifestSha256,
+            responseSha256: responseHash,
+            vaultTurnId: checkpointId,
+            providerRequestId,
+            provenanceLevel: "INVOCATION_ATTRIBUTED",
+            status: "COMPLETED",
+            completedAt
+          };
+          const savedReceipt = await taskVault.completeBaldrReviewInvocation(taskReference, completion);
+          if (savedReceipt?.durable !== true ||
+              savedReceipt.reviewInvocationId !== baldrInvocationStart.reviewInvocationId) {
+            throw new Error("Baldr invocation receipt was not durably completed");
+          }
+          reviewInvocation = validateBaldrInvocationCompletion(
+            baldrInvocationStart, completion
+          );
+        } catch {
+          throw manualReconciliationError();
+        }
       }
       await context.checkpoint({
         checkpointId,
@@ -803,7 +892,8 @@ export function createOpenAiCompatibleExecutor({
         checkpointId,
         outcomeRef: checkpointId,
         responseSha256: responseHash,
-        evidenceStatus: reply.evidence_status
+        evidenceStatus: reply.evidence_status,
+        ...(reviewInvocation ? { reviewInvocation } : {})
       };
     } finally {
       clearTimeout(timeout);
