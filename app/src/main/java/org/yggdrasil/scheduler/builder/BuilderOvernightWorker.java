@@ -106,7 +106,7 @@ public final class BuilderOvernightWorker extends Worker {
                 runStore.setStatus(runId, "COMPLETED", "No further full cycle fits in the eight-hour window.", System.currentTimeMillis());
                 return Result.success();
             }
-            state = runStore.beginCycle(runId, now);
+            state = runStore.beginCycle(runId, System.currentTimeMillis());
             int cycle = state.optInt("current_cycle");
             setForegroundAsync(foregroundInfo(runId, "Cycle " + cycle + " · nine Builders working"))
                     .get(15, TimeUnit.SECONDS);
