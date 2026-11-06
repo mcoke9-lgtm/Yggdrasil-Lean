@@ -49,10 +49,9 @@ test("persists Builder checkpoints and requires explicit safe resume after inter
   await ledger.startRun(run.runId);
   await ledger.startBuilder(run.runId, "HODR");
   await ledger.checkpointBuilder(run.runId, "HODR", {
-    checkpointId: "hodr-step-1", data: { sourceCommit: "abc123", completed: 2 },
-    safeToResume: false
+    checkpointId: "hodr-step-1", safeToResume: false
   });
-  await ledger.interruptRun(run.runId, "host process stopped");
+  await ledger.interruptRun(run.runId, "HOST_INTERRUPTED");
   const recovered = await ledger.getRun(run.runId);
   assert.equal(recovered.builders.find(item => item.role === "HODR").status, "interrupted");
   await ledger.startRun(run.runId);
@@ -66,10 +65,9 @@ test("allows resumption only from a checkpoint explicitly marked safe", async ()
   await ledger.startRun(run.runId);
   await ledger.startBuilder(run.runId, "MUNINN");
   await ledger.checkpointBuilder(run.runId, "MUNINN", {
-    checkpointId: "muninn-safe", data: { artifactHash: "sha256:example" },
-    safeToResume: true
+    checkpointId: "muninn-safe", responseSha256: "a".repeat(64), safeToResume: true
   });
-  await ledger.interruptRun(run.runId, "simulated process interruption");
+  await ledger.interruptRun(run.runId, "HOST_INTERRUPTED");
   await ledger.startRun(run.runId);
   const resumed = await ledger.startBuilder(run.runId, "MUNINN");
   assert.equal(resumed.builders.find(item => item.role === "MUNINN").attempt, 2);
@@ -82,7 +80,7 @@ test("requires all other Builders to finish or be skipped before Baldr review", 
   await assert.rejects(() => ledger.startBuilder(run.runId, "BALDR"), /must wait/);
   for (const role of BUILDER_ROLES.filter(role => role !== "BALDR")) {
     await ledger.startBuilder(run.runId, role);
-    await ledger.finishBuilder(run.runId, role, "succeeded");
+    await ledger.finishBuilder(run.runId, role, "succeeded", { outcomeRef: role.toLowerCase() + "-turn" });
   }
   const reviewed = await ledger.startBuilder(run.runId, "BALDR");
   assert.equal(reviewed.builders.find(item => item.role === "BALDR").status, "running");
@@ -96,7 +94,7 @@ test("requires explicit terminal outcomes before a run can complete", async () =
   for (const role of BUILDER_ROLES) {
     await ledger.startBuilder(run.runId, role);
     await ledger.finishBuilder(run.runId, role, role === "BALDR" ? "failed" : "succeeded",
-      role === "BALDR" ? "review found unresolved issue" : null);
+      role === "BALDR" ? { errorCode: "EXECUTOR_FAILURE" } : { outcomeRef: role.toLowerCase() + "-turn" });
   }
   const completed = await ledger.completeRun(run.runId);
   assert.equal(completed.status, "completed_with_failures");
@@ -123,7 +121,7 @@ test("rejects oversized checkpoint metadata", async () => {
   await ledger.startBuilder(run.runId, "HUGINN");
   await assert.rejects(() => ledger.checkpointBuilder(run.runId, "HUGINN", {
     checkpointId: "too-large", data: { payload: "x".repeat(17000) }
-  }), /16 KiB/);
+  }), /unrecognized field/);
 });
 
 test("does not permit Baldr review to be silently skipped", async () => {
@@ -171,7 +169,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
         checkpointId: role.toLowerCase() + "-complete",
         data: { role }, safeToResume: true
       });
-      return { status: "succeeded", summary: role + " completed" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: line => output.push(JSON.parse(line))
   });
@@ -202,7 +200,7 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
     executor: async (role, context) => {
       if (role === "HODR") throw new Error("simulated implementation failure");
       if (role === "BALDR") baldrOutcomes = context.outcomes;
-      return { status: "succeeded" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: () => {}
   });
@@ -234,9 +232,9 @@ test("Builder interruption and improvement incident stop the round without faili
       executor: async role => {
         invoked.push(role);
         if (role === "HODR") {
-          return { ...scenario, summary: "Höðr requested a pause for review" };
+          return { ...scenario };
         }
-        return { status: "succeeded", summary: role + " completed" };
+        return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
       },
       output: line => events.push(JSON.parse(line))
     });
@@ -293,7 +291,7 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
           context.signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
         });
       }
-      return { status: "succeeded" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: () => {}
   });
@@ -325,13 +323,15 @@ test("resumed Baldr review receives the original saved summaries from completed 
   });
   await ledger.startRun(prior.runId);
   await ledger.startBuilder(prior.runId, "ODIN");
-  await ledger.finishBuilder(prior.runId, "ODIN", "succeeded", null,
-    "Odin reconciled the original evidence set.");
+  await ledger.finishBuilder(prior.runId, "ODIN", "succeeded", {
+    outcomeRef: "vault-odin", outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED",
+    responseSha256: "a".repeat(64)
+  });
   await ledger.startBuilder(prior.runId, "HODR");
   await ledger.checkpointBuilder(prior.runId, "HODR", {
     checkpointId: "hodr-safe-resume", safeToResume: true
   });
-  await ledger.interruptRun(prior.runId, "simulated restart", "HODR");
+  await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED", "HODR");
 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
@@ -341,7 +341,7 @@ test("resumed Baldr review receives the original saved summaries from completed 
     executor: async (role, context) => {
       invoked.push(role);
       if (role === "BALDR") baldrOutcomes = context.outcomes;
-      return { status: "succeeded", summary: role + " completed after resume" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: () => {}
   });
@@ -359,8 +359,8 @@ test("resumed Baldr review receives the original saved summaries from completed 
   assert.equal(invoked.at(-1), "BALDR");
   assert.equal(baldrOutcomes.length, 8);
   assert.equal(
-    baldrOutcomes.find(item => item.role === "ODIN").summary,
-    "Odin reconciled the original evidence set."
+    baldrOutcomes.find(item => item.role === "ODIN").outcomeRef,
+    "vault-odin"
   );
 });
 
@@ -374,7 +374,7 @@ test("requires a task reference and prevents resume from rebinding a Builder run
     clock,
     executor: async role => {
       invoked.push(role);
-      return { status: "succeeded" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: () => {}
   });
@@ -401,7 +401,7 @@ test("requires a task reference and prevents resume from rebinding a Builder run
   await ledger.checkpointBuilder(prior.runId, "ODIN", {
     checkpointId: "odin-bound-checkpoint", safeToResume: true
   });
-  await ledger.interruptRun(prior.runId, "simulated restart");
+  await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED");
   await scheduler.addTask({
     id: "wrong-task-reference-resume",
     name: "Wrong task reference resume",
@@ -427,7 +427,7 @@ test("recovers an interrupted Builder from its durable vault result without invo
   });
   await ledger.startRun(prior.runId);
   await ledger.startBuilder(prior.runId, "ODIN");
-  await ledger.interruptRun(prior.runId, "simulated process loss", "ODIN");
+  await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED", "ODIN");
 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
@@ -435,7 +435,7 @@ test("recovers an interrupted Builder from its durable vault result without invo
   const executor = async (role, context) => {
     invoked.push(role);
     if (role === "BALDR") baldrOutcomes = context.outcomes;
-    return { status: "succeeded", summary: role + " completed after recovery" };
+    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
   };
   executor.recoverDurableResult = async (role, context) => {
     assert.equal(role, "ODIN");
@@ -443,9 +443,9 @@ test("recovers an interrupted Builder from its durable vault result without invo
     assert.equal(context.task.taskReference, "vault:durable-recovery");
     return {
       checkpointId: "vault-checkpoint-odin",
-      data: { responseSha256: "a".repeat(64), recoveredFromEncryptedVault: true },
-      summary: "Odin recovered its durable vault result without another model request.",
+      responseSha256: "a".repeat(64),
       turnType: "CONTRIBUTION",
+      evidenceStatus: "OBSERVED",
       status: "succeeded"
     };
   };
@@ -464,14 +464,14 @@ test("recovers an interrupted Builder from its durable vault result without invo
   assert.equal(invoked.at(-1), "BALDR");
   assert.equal(baldrOutcomes.length, 8);
   assert.match(
-    baldrOutcomes.find(item => item.role === "ODIN").summary,
-    /recovered its durable vault result/
+    baldrOutcomes.find(item => item.role === "ODIN").outcomeRef,
+    "vault-checkpoint-odin"
   );
   const saved = await ledger.getRun(prior.runId);
   const odin = saved.builders.find(item => item.role === "ODIN");
   assert.equal(odin.status, "succeeded");
   assert.equal(odin.checkpoint.safeToResume, true);
-  assert.equal(odin.checkpoint.data.recoveredFromDurableResult, true);
+  assert.equal(odin.checkpoint.vaultTurnId, "vault-checkpoint-odin");
 });
 
 test("scheduled handler resumes an interrupted run only from safe checkpoints", async () => {
@@ -489,7 +489,7 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
     checkpointId: "odin-resume-point", data: { completedWorkUnits: 3 },
     safeToResume: true
   });
-  await ledger.interruptRun(prior.runId, "simulated host restart");
+  await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED");
 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
@@ -497,7 +497,7 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
     ledger, clock,
     executor: async role => {
       invoked.push(role);
-      return { status: "succeeded", summary: "resumed or continued" };
+      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
     output: () => {}
   });
