@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { BUILDER_ROLES } from "./run-ledger.js";
 import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
+import { verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
 
 const ROLE_DETAILS = Object.freeze({
   ODIN: ["Odin", "coordination, orchestration, and integration"],
@@ -392,7 +393,8 @@ export function createOpenAiCompatibleExecutor({
   readSecret,
   fetchImpl = globalThis.fetch,
   timeoutMs = 120000,
-  clock = () => new Date()
+  clock = () => new Date(),
+  evidenceGateway = null
 } = {}) {
   const routes = validateRoutes(routeInput);
   if (!taskVault || typeof taskVault.getTask !== "function" ||
@@ -498,6 +500,17 @@ export function createOpenAiCompatibleExecutor({
       catch { throw new Error("Builder model content was not valid JSON"); }
       const reply = validateBuilderReply(rawReply);
       validateBuilderReplyAgainstHistory(reply, task.history, role, task.promptTurnId, task.prompt);
+      let evidenceVerification = null;
+      if (reply.turn_type === "CORRECTION_UPDATE") {
+        const correction = JSON.parse(reply.body);
+        evidenceVerification = await verifyBuilderEvidenceReference(
+          correction.artifact_reference, evidenceGateway
+        );
+        if (!evidenceVerification.verified) {
+          throw new Error("Correction evidence verification " + evidenceVerification.status +
+            ": " + evidenceVerification.reason);
+        }
+      }
       if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
       const responseHash = createHash("sha256").update(content, "utf8").digest("hex");
@@ -513,6 +526,7 @@ export function createOpenAiCompatibleExecutor({
         providerReportedModel,
         responseSha256: responseHash,
         reply,
+        evidenceVerification,
         completedAt: clock().toISOString()
       });
       if (saved?.durable !== true) {
