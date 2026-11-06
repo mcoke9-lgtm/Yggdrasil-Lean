@@ -47,6 +47,7 @@ export function registerBuilderRunHandler(
           !taskPayload.taskReference.trim() || taskPayload.taskReference.length > 256) {
         throw new TypeError("A persisted taskReference is required for every new Nine Builders run");
       }
+      taskPayload.taskReference = taskPayload.taskReference.trim();
       run = await ledger.createRun({
         runId: "builder:" + context.runId,
         scheduledFor: context.scheduledFor,
