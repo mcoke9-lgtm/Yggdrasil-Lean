@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "start": "node src/runner.js",
+    "start:nine-builders": "node src/builder-runner.js",
     "scheduler": "node src/cli.js",
     "approve-builder-task": "node src/approve-builder-task.js"
   },
