@@ -72,6 +72,28 @@ test("reclaims a stale lock only after serializing recovery and confirming the P
   }
 });
 
+test("waits briefly for a newly-created lock owner record to finish publishing", async () => {
+  const f = await fixture();
+  let release;
+  try {
+    await writeFile(f.lockPath, "", { mode: 0o600 });
+    const publishOwner = new Promise((resolve, reject) => {
+      setTimeout(() => writeFile(f.lockPath, JSON.stringify({
+        pid: 999999999, token: "publishing-owner",
+        createdAt: new Date().toISOString(), heartbeatAt: new Date().toISOString()
+      }), { mode: 0o600 }).then(resolve, reject), 25);
+    });
+    release = await acquireProcessLock(f.lockPath);
+    await publishOwner;
+    const owner = JSON.parse(await readFile(f.lockPath, "utf8"));
+    assert.equal(owner.pid, process.pid);
+    assert.equal(owner.token, release.token);
+  } finally {
+    if (release) await release();
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
 test("malformed or uninspectable locks fail closed", async () => {
   const f = await fixture();
   try {
