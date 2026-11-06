@@ -130,7 +130,7 @@ test("does not permit Baldr review to be silently skipped", async () => {
   await ledger.startRun(run.runId);
   for (const role of BUILDER_ROLES.filter(role => role !== "BALDR")) {
     await ledger.startBuilder(run.runId, role);
-    await ledger.finishBuilder(run.runId, role, "succeeded");
+    await ledger.finishBuilder(run.runId, role, "succeeded", { outcomeRef: role.toLowerCase() + "-turn" });
   }
   await ledger.startBuilder(run.runId, "BALDR");
   await assert.rejects(
