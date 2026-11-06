@@ -1,8 +1,8 @@
 # Baldr Independent Review Contract
 
-**Status:** Proposed design contract, version 1.0.0  
+**Status:** Partially implemented contract, version 1.0.0  
 **Scope:** Nine Builders final review of the other eight roles  
-**Implementation status:** Not implemented as a separately attributable reviewer service  
+**Implementation status:** Invocation receipt and encrypted vault linkage implemented in the reference executor; separate reviewer service and control-plane independence not implemented or verified  
 **Authority:** The user retains final authority for consequential commitments and adoption.
 
 ## 1. Purpose
@@ -93,7 +93,9 @@ A future implementation may use a fresh, isolated reviewer conversation/thread t
 
 ## 6. Persistence and ledger integration
 
-The protected vault is the source of truth for the complete review package, invocation receipt, and response. The plaintext run ledger may contain only allowlisted metadata:
+The protected vault is the source of truth for the complete review package, invocation receipt, and response. The reference implementation now appends an `INVOCATION_STARTED` event containing the exact serialized request body and ordered input manifest, then appends an `INVOCATION_COMPLETED` event only after the response turn is durably stored. Both events remain inside the encrypted vault. The reference executor refuses to call Baldr unless the vault exposes the three receipt methods, and refuses replay when a prior invocation is unresolved or already exists for the run. On recovery, a Baldr turn without a matching completion receipt requires manual reconciliation.
+
+The plaintext run ledger contains only allowlisted metadata and requires the receipt to match the exact outcome turn and response digest. The plaintext run ledger may contain only allowlisted metadata:
 - invocation ID;
 - input and response SHA-256 digests;
 - peer outcome references;
@@ -128,6 +130,6 @@ A later live integration test, if explicitly authorized, must be separately labe
 
 ## 8. Adoption boundary
 
-This document is a proposed contract only. It does not implement a separate reviewer service, authenticate provider ownership, create credentials, invoke a model, or authorize host activation. The current route-separated Baldr path remains useful as a final role in the orchestration, but its independence is **UNVERIFIED** until a distinct invocation and its provenance are recorded.
+The invocation-receipt portion of this contract is implemented in the reference executor and encrypted vault, but it has not yet been verified by CI on the final implementation commit. This does not create a separate reviewer service, authenticate provider ownership, create credentials, invoke a live model, or authorize host activation. The current implementation records a separately attributable invocation when the configured reference executor is used; provider-account/control-plane separation and independent governance remain **UNVERIFIED**. No claim of distinct model weights is supported.
 
 No host activation, provider credentials, live model calls, spending, deployment, merge, or device changes are authorized by this document.
