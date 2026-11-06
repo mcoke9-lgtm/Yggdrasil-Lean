@@ -3,6 +3,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BUILDER_ROLES } from "./run-ledger.js";
+import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
 
 const ROLE_DETAILS = Object.freeze({
   ODIN: ["Odin", "coordination, orchestration, and integration"],
@@ -123,7 +124,7 @@ export function createOvernightDisclosureFingerprint(routeInput, taskPrompt) {
   return fingerprintForValidatedRoutes(routes, prompt);
 }
 
-function roleSystemInstruction(role) {
+function roleSystemInstruction(role, task) {
   const detail = ROLE_DETAILS[role];
   let instruction = "You are " + detail[0] + ", one role in the Nine Builders collective. " +
     "Your responsibility is " + detail[1] + ". You are an AI role, not a separately running person. " +
@@ -172,6 +173,7 @@ function roleSystemInstruction(role) {
   instruction += " For INTERRUPTION or IMPROVEMENT_INCIDENT, address USER and reference an earlier turn. " +
     "For CORRECTION_PLAN or CORRECTION_UPDATE, address USER and reference the relevant earlier turn. " +
     "Never create a decision or claim user adoption.";
+  instruction += buildBuilderModeInstructions(role, task.prompt, task.history);
   return instruction;
 }
 
@@ -442,7 +444,7 @@ export function createOpenAiCompatibleExecutor({
       const requestBody = JSON.stringify({
         model: route.model,
         messages: [
-          { role: "system", content: roleSystemInstruction(role) },
+          { role: "system", content: roleSystemInstruction(role, task) },
           { role: "user", content: userMessage }
         ],
         max_tokens: MAX_OUTPUT_TOKENS,

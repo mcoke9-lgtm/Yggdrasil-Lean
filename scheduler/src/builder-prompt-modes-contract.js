@@ -15,8 +15,9 @@ const REVIEW_DUTIES = Object.freeze({
 
 export function buildBuilderModeInstructions(role, taskPrompt, history = []) {
   const last = history.length ? history[history.length - 1] : null;
-  const trigger = typeof last?.body === "string" ? last.body :
-    (typeof taskPrompt === "string" ? taskPrompt : "");
+  const trigger = typeof taskPrompt === "string" && taskPrompt.length
+    ? taskPrompt
+    : (typeof last?.body === "string" ? last.body : "");
   const instructions = [];
 
   if (trigger.startsWith(DIFFICULT_SPACES_MARKER)) {
