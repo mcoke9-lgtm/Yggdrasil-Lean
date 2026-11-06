@@ -202,7 +202,8 @@ export function createEncryptedTaskVault({
         }
         return { durable: true, checkpointId: prior.checkpointId };
       }
-      validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId);
+      validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId,
+        task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt));
       validateBuilderReplyAgainstHistory(reply, run.history, role, task.promptTurnId);
       const replyBody = reply.body;
       const checkpointId = "vault-" + randomBytes(16).toString("hex");
