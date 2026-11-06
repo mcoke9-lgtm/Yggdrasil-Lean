@@ -170,6 +170,71 @@ function correctionReviewFixture(routes, reply, evidenceGateway) {
   return { executor, context, saved, checkpoints };
 }
 
+test("executor recovers a durable same-run result without repeating a provider request", async () => {
+  const routes = makeRoutes();
+  const runId = "builder:recover-existing";
+  const threadId = "nine-builders:" + runId;
+  const prompt = "Continue the saved Nine Builders task safely.";
+  const body = JSON.stringify(makeReply());
+  const completedAt = "2026-11-05T20:00:01.000Z";
+  const responseSha256 = "a".repeat(64);
+  let providerCalls = 0;
+  let secretReads = 0;
+  const checkpoints = [];
+  const task = {
+    prompt, promptTurnId: "user-turn-001", promptCreatedAt: "2026-11-05T20:00:00.000Z",
+    threadId,
+    history: [{
+      protocolVersion: 4, runId, threadId,
+      turnId: "turn-hodr-001", checkpointId: "checkpoint-hodr-001",
+      speaker: "HODR", body, type: "CONTRIBUTION",
+      recipient: null, reply_to_turn_id: null, evidence_status: "PROPOSED",
+      timestampEpochMillis: Date.parse(completedAt), completedAt,
+      responseSha256, providerId: "provider-hodr", requestedModel: "model-hodr",
+      providerReportedModel: "model-hodr",
+      reply: {
+        body, turn_type: "CONTRIBUTION", evidence_status: "PROPOSED",
+        recipient: null, reply_to_turn_id: null
+      }
+    }],
+    consent: {
+      status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+      approvedAt: "2026-11-05T20:00:00.000Z",
+      fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+    }
+  };
+  const executor = createOpenAiCompatibleExecutor({
+    routes,
+    taskVault: {
+      async getTask(reference, options) {
+        assert.equal(reference, "vault:task-001");
+        assert.equal(options.runId, runId);
+        return task;
+      },
+      async appendBuilderResult() { throw new Error("A recovered result must not be appended again"); }
+    },
+    readSecret: async () => { secretReads += 1; return "unused"; },
+    fetchImpl: async () => { providerCalls += 1; throw new Error("Provider must not be called during recovery"); }
+  });
+  const context = {
+    runId, task: { taskReference: "vault:task-001" }, outcomes: [],
+    signal: new AbortController().signal,
+    checkpoint: async value => { checkpoints.push(value); }
+  };
+  const result = await executor("HODR", context);
+  assert.equal(result.status, "succeeded");
+  assert.match(result.summary, /no model request was repeated/);
+  assert.equal(providerCalls, 0);
+  assert.equal(secretReads, 0);
+  assert.equal(checkpoints.length, 1);
+  assert.equal(checkpoints[0].safeToResume, true);
+  const probe = await executor.recoverDurableResult("HODR", context);
+  assert.equal(probe.checkpointId, "checkpoint-hodr-001");
+  assert.equal(probe.status, "succeeded");
+  assert.equal(probe.data.responseSha256, responseSha256);
+  assert.equal(providerCalls, 0);
+});
+
 test("uses operator routes, secure task lookup, bounded JSON output, and durable checkpoints", async () => {
   let request;
   const h = makeHarness({
