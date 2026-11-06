@@ -764,8 +764,10 @@ export function createEncryptedTaskVault({
           turn.reviewInvocationId === invocationId &&
           turn.responseSha256 === completion.responseSha256
         ) : [];
-        if (matchingTurns.length !== 1) {
-          throw new Error("Baldr completion must reference exactly one matching durable vault turn");
+        if (matchingTurns.length !== 1 ||
+            typeof matchingTurns[0].completedAt !== "string" ||
+            Date.parse(matchingTurns[0].completedAt) < Date.parse(start.invokedAt)) {
+          throw new Error("Baldr completion must reference exactly one matching durable vault turn after invocation start");
         }
         const allowed = [
           "reviewInvocationId", "inputManifestSha256", "responseSha256",
