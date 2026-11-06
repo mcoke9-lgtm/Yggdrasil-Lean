@@ -181,6 +181,7 @@ Implemented in the repository:
 - The source-history digest remains inside the encrypted vault and trusted in-memory handoff; it is not copied into the plaintext ledger or emitted to logs.
 - Each continuation task supplies a stable `continuationId` (the CLI binds it to the one-shot task ID) so retries of the same task are idempotent. If an operator repairs the source history after a failed reconciliation, create a new continuation task ID; the existing fork target cannot be repurposed for a different source manifest.
 - The executor passes Baldr typed peer outcomes and the full successful turn history from the encrypted run thread, and checks each successful `outcomeRef` against exactly one matching turn.
+- Same-run v2 resume passes the exact saved checkpoint back to the executor. The reference executor declares `supportsVerifiedResumeCheckpoint` and verifies the referenced turn ID, response hash, turn type, and evidence status in the same run/thread before any provider call. Executors that do not declare this capability fail closed.
 
 Remaining verification and deployment gates:
 
