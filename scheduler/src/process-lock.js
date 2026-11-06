@@ -1,4 +1,4 @@
-import { open, readFile, unlink, rename } from "node:fs/promises";
+import { open, readFile, unlink, rename, lstat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -57,7 +57,15 @@ async function reclaimStaleLock(lockPath, expectedToken) {
 }
 
 export async function acquireProcessLock(lockPath) {
-  await mkdir(dirname(lockPath), { recursive: true, mode: 0o700 });
+  const directory = dirname(lockPath);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  if (process.platform !== "win32") {
+    const directoryInfo = await lstat(directory);
+    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink() ||
+        (directoryInfo.mode & 0o077) !== 0) {
+      throw new Error("Scheduler lock directory must be a regular owner-only directory (0700)");
+    }
+  }
   const token = randomUUID();
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
@@ -69,6 +77,10 @@ export async function acquireProcessLock(lockPath) {
         await handle.sync();
       } finally {
         await handle.close();
+      }
+      if (process.platform !== "win32") {
+        const directoryHandle = await open(directory, "r");
+        try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
       }
       let released = false;
       let queue = Promise.resolve();
@@ -85,6 +97,10 @@ export async function acquireProcessLock(lockPath) {
           return;
         }
         await unlink(lockPath);
+        if (process.platform !== "win32") {
+          const directoryHandle = await open(directory, "r");
+          try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+        }
         released = true;
       });
       release.heartbeat = () => serialize(async () => {
@@ -103,6 +119,10 @@ export async function acquireProcessLock(lockPath) {
           await temporary.close();
         }
         await rename(temporaryPath, lockPath);
+        if (process.platform !== "win32") {
+          const directoryHandle = await open(directory, "r");
+          try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+        }
         return updated.heartbeatAt;
       });
       release.token = token;
