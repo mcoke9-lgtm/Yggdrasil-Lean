@@ -102,7 +102,7 @@ test("Actions verification rejects partial success, skipped, or mismatched runs"
   const result = await verifyBuilderEvidenceReference(actionsRef, gateway);
   assert.equal(result.verified, false);
   assert.equal(result.status, "UNVERIFIED");
-  assert.match(result.reason, /at least one workflow job/);
+  assert.match(result.reason, /At least one workflow job/);
 });
 
 test("missing or incomplete gateways report UNAVAILABLE, never VERIFIED", async () => {
