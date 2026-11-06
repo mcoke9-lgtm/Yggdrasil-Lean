@@ -103,6 +103,7 @@ npm run scheduler -- add-weekly-heartbeat monday-check "Monday check" America/Ne
 npm run scheduler -- add-github-watch build-watch "Watch build failures" mcoke9-lgtm/Yggdrasil-Lean analysis-engine-prototype-001 America/New_York 9 0 "Analysis Engine" "Lean build and analysis engine checks"
 npm run scheduler -- add-nine-builders-run overnight-research "Nine Builders overnight research" America/New_York 22 0 vault:task-001
 npm run scheduler -- resume-nine-builders resume-overnight "Resume interrupted Nine Builders run" builder:run-id
+npm run scheduler -- continue-nine-builders continue-overnight "Continue legacy Nine Builders run" builder:legacy-run-id
 npm run scheduler -- pause morning-check
 npm run scheduler -- resume morning-check
 npm run scheduler -- runs morning-check
@@ -129,20 +130,26 @@ running process, but it means PID reuse or a crash during stale-lock recovery
 can require operator inspection. The store and lock remain designed for one
 local process and one host, not distributed workers.
 
-If the process stops while a handler is running, the run is marked interrupted
-after restart. It is not automatically replayed because the external outcome
-may be unknown. Task state uses fsynced atomic file replacement. Builder-run
-recovery marks abandoned runs interrupted/expired during host startup. Every
-new Builder run persists its opaque task-vault reference alongside the run ID,
-so explicit resume restores the original task binding and rejects any
-caller-supplied mismatch. The `resume-nine-builders` CLI command creates a
-one-shot task for a specified interrupted Builder run; it does not replay the
-run automatically. Completed Builder summaries are persisted and restored into Baldr's outcome
-set when a run resumes, so the independent review retains the original role
-results rather than generic placeholders. Resume still requires the saved run
-ID, an unexpired eight-hour deadline, and a safe per-Builder checkpoint; legacy
-runs without a persisted task reference require manual reconciliation. One-shot tasks become
-disabled after their single attempt and retain a visible terminal state.
+If the process stops while a handler is running, version-2 runs are marked
+interrupted or expired after restart. They are not automatically replayed
+because the external outcome may be unknown. Version-1 ledger records are
+left unchanged and remain read-only. Task state uses fsynced atomic file
+replacement. Every new Builder run persists its task-vault reference alongside
+the run ID, so explicit version-2 resume restores the original task binding
+and rejects any caller-supplied mismatch.
+
+The `resume-nine-builders` CLI command creates a one-shot task for a specified
+interrupted version-2 run. The `continue-nine-builders` command is for an
+interrupted or expired version-1 run: it asks the configured executor to
+validate the exact encrypted source history, fork it into a distinct run/thread,
+and reconcile every v1-successful role against its durable vault turn. It then
+creates a separate version-2 ledger run linked by `supersedesRunId`; the v1
+record and source vault thread remain unchanged. Missing or mismatched
+successful-role evidence fails closed for manual reconciliation. Baldr receives
+full successful turn bodies from the encrypted vault plus typed role outcome
+references, never plaintext summaries. Both commands create one-shot tasks;
+neither command silently replays the old run. One-shot tasks become disabled
+after their single attempt and retain a visible terminal state.
 
 ## Long-running task isolation
 
