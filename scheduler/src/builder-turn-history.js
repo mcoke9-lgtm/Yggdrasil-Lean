@@ -185,6 +185,23 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId) {
     if (turn.turnId != null && turn.checkpointId != null && turn.turnId !== turn.checkpointId) {
       throw new Error("Run history turnId and checkpointId must identify the same turn");
     }
+    if (turn.reply && turn.reply.body !== turn.body) {
+      throw new Error("Run history body and reply body must preserve the same content");
+    }
+    if (turn.reply && turn.type != null && turn.type !== turn.reply.turn_type) {
+      throw new Error("Run history top-level and reply turn types disagree");
+    }
+    if (turn.reply && Object.hasOwn(turn, "recipient") && turn.recipient !== turn.reply.recipient) {
+      throw new Error("Run history top-level and reply recipients disagree");
+    }
+    if (turn.reply && Object.hasOwn(turn, "reply_to_turn_id") &&
+        turn.reply_to_turn_id !== turn.reply.reply_to_turn_id) {
+      throw new Error("Run history top-level and reply references disagree");
+    }
+    if (turn.reply && turn.evidence_status != null &&
+        turn.evidence_status !== turn.reply.evidence_status) {
+      throw new Error("Run history top-level and reply evidence statuses disagree");
+    }
     const type = turnType(turn);
     const evidenceStatus = turnEvidenceStatus(turn);
     const recipient = turnRecipient(turn);
@@ -371,6 +388,12 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     }
     if (item.incident_turn_id !== replyTo) {
       throw new Error("Correction plan must reply directly to its referenced incident");
+    }
+    if (history.some(turn => {
+      if (turnType(turn) !== "CORRECTION_PLAN") return false;
+      return parseObject(turnBody(turn), "Prior correction plan").correction_id === item.correction_id;
+    })) {
+      throw new Error("Correction ID is already planned in this run: " + item.correction_id);
     }
     if (turnType(byId.get(item.incident_turn_id)?.turn) !== "IMPROVEMENT_INCIDENT") {
       throw new Error("Correction plan must reference a recorded improvement incident");
