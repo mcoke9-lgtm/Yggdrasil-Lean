@@ -540,9 +540,31 @@ export function createEncryptedTaskVault({
       if (!task) throw new Error("Task reference does not exist");
       const run = task.runs[runId];
       if (!run || run.threadId !== record.threadId) throw new Error("Builder result does not belong to an initialized run thread");
+      if (role === "BALDR") {
+        const invocationId = required(record.reviewInvocationId, "reviewInvocationId", 128);
+        const events = state.baldrReviewEvents ?? [];
+        const starts = events.filter(event =>
+          event.eventType === "INVOCATION_STARTED" &&
+          event.reviewInvocationId === invocationId &&
+          event.taskReference === reference && event.runId === runId &&
+          event.threadId === run.threadId
+        );
+        const completed = events.some(event =>
+          event.eventType === "INVOCATION_COMPLETED" &&
+          event.reviewInvocationId === invocationId
+        );
+        if (starts.length !== 1 || completed) {
+          throw new Error("Baldr result requires one active, matching encrypted invocation start");
+        }
+      } else if (record.reviewInvocationId != null) {
+        throw new Error("Only Baldr results may carry a reviewInvocationId");
+      }
       const reply = normalizedReply(record.reply);
       const prior = run.history.find(turn => turn.idempotencyKey === idempotencyKey);
       if (prior) {
+        if (role === "BALDR" && prior.reviewInvocationId !== record.reviewInvocationId) {
+          throw new Error("Baldr idempotency key is bound to a different invocation");
+        }
         if (JSON.stringify(normalizedReply(prior.reply)) !== JSON.stringify(reply)) {
           throw new Error("Idempotency key already exists with a different Builder result; manual reconciliation required");
         }
