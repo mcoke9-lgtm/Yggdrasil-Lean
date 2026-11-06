@@ -1162,13 +1162,13 @@ test("loads the host executor only from owner-protected config and operator modu
       );
       await chmod(evidenceGatewayPath, 0o600);
       await writeFile(taskVaultPath,
-        'export async function createTaskVault({ evidenceGateway }) {\\n' +
-        '  if (!evidenceGateway || typeof evidenceGateway.fetchCommit !== "function" || typeof evidenceGateway.fetchWorkflowJobs !== "function") throw new Error("vault did not receive the configured evidence gateway");\\n' +
-        '  return {\\n' +
-        '    async getTask() { return { prompt: "host task" }; },\\n' +
-        '    async appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\\n' +
-        '  };\\n' +
-        '}\\n', { mode: 0o600 });
+        'export async function createTaskVault({ evidenceGateway }) {\n' +
+        '  if (!evidenceGateway || typeof evidenceGateway.fetchCommit !== "function" || typeof evidenceGateway.fetchWorkflowJobs !== "function") throw new Error("vault did not receive the configured evidence gateway");\n' +
+        '  return {\n' +
+        '    async getTask() { return { prompt: "host task" }; },\n' +
+        '    async appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n' +
+        '  };\n' +
+        '}\n', { mode: 0o600 });
     }
     const executor = await createBuilderExecutor();
     assert.equal(typeof executor, "function");
