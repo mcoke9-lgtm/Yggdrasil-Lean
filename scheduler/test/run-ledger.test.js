@@ -27,6 +27,7 @@ test("creates a bounded run with all nine distinct Builder identities", async ()
   assert.equal(run.startedAt, null);
   assert.equal(run.deadlineAt, null);
   assert.equal(run.status, "queued");
+  assert.equal(run.schemaVersion, 2);
   time.advance(30 * 60 * 1000);
   const started = await ledger.startRun(run.runId);
   assert.equal(new Date(started.deadlineAt).getTime() - new Date(started.startedAt).getTime(),
@@ -362,6 +363,125 @@ test("resumed Baldr review receives the original saved summaries from completed 
     baldrOutcomes.find(item => item.role === "ODIN").outcomeRef,
     "vault-odin"
   );
+});
+
+test("new Builder runs use schema v2 metadata without free-text fields", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const run = await ledger.createRun({
+    runId: "metadata-only-v2",
+    taskReference: "vault:metadata-only"
+  });
+  assert.equal(run.schemaVersion, 2);
+  assert.equal(Object.hasOwn(run, "interruptionReason"), false);
+  assert.equal(Object.hasOwn(run.builders[0], "summary"), false);
+  assert.equal(Object.hasOwn(run.builders[0], "error"), false);
+  await ledger.startRun(run.runId);
+  await ledger.startBuilder(run.runId, "ODIN");
+  await assert.rejects(() => ledger.checkpointBuilder(run.runId, "ODIN", {
+    checkpointId: "checkpoint-free-text", safeToResume: true,
+    summary: "must never enter the plaintext ledger"
+  }), /unrecognized field/);
+  await assert.rejects(() => ledger.finishBuilder(run.runId, "ODIN", "succeeded"),
+    /outcomeRef/);
+});
+
+test("version-1 runs remain readable and immutable", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const created = await ledger.createRun({
+    runId: "legacy-v1-read-only", taskReference: "vault:legacy-v1"
+  });
+  await ledger.startRun(created.runId);
+  await ledger.startBuilder(created.runId, "ODIN");
+  await ledger.interruptRun(created.runId, "HOST_INTERRUPTED", "ODIN");
+  const state = await store.load();
+  const legacy = state.builderRuns.find(item => item.runId === created.runId);
+  legacy.schemaVersion = 1;
+  legacy.interruptionReason = "historical plaintext reason";
+  legacy.builders[0].summary = "historical plaintext summary";
+  legacy.builders[0].error = "historical plaintext error";
+  await store.save(state);
+  const before = await ledger.getRun(created.runId);
+  assert.equal(before.schemaVersion, 1);
+  assert.equal(before.builders[0].summary, "historical plaintext summary");
+  await assert.rejects(() => ledger.startRun(created.runId), /read-only/);
+  await assert.rejects(() => ledger.finishBuilder(created.runId, "ODIN", "failed", {
+    errorCode: "EXECUTOR_FAILURE"
+  }), /read-only/);
+  assert.deepEqual(await ledger.recoverAbandonedRuns(), []);
+  assert.deepEqual(await ledger.getRun(created.runId), before);
+});
+
+test("explicit v1 continuation forks history into a separate v2 run without mutating v1", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const source = await ledger.createRun({
+    runId: "legacy-v1-continue", taskReference: "vault:legacy-continue"
+  });
+  await ledger.startRun(source.runId);
+  await ledger.startBuilder(source.runId, "ODIN");
+  await ledger.checkpointBuilder(source.runId, "ODIN", {
+    checkpointId: "legacy-odin-turn", responseSha256: "a".repeat(64),
+    turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", safeToResume: true
+  });
+  await ledger.interruptRun(source.runId, "HOST_INTERRUPTED", "ODIN");
+  const state = await store.load();
+  const legacy = state.builderRuns.find(item => item.runId === source.runId);
+  legacy.schemaVersion = 1;
+  legacy.builders[0].status = "succeeded";
+  legacy.builders[0].checkpoint = {
+    checkpointId: "legacy-odin-turn", data: { responseSha256: "a".repeat(64) },
+    safeToResume: true, recordedAt: "2026-11-04T12:00:00.000Z"
+  };
+  legacy.builders[0].summary = "legacy summary stays in v1";
+  legacy.builders[0].error = null;
+  await store.save(state);
+  const legacyBefore = await ledger.getRun(source.runId);
+
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  const executor = async (role) => {
+    invoked.push(role);
+    return {
+      status: "succeeded",
+      outcomeRef: role === "ODIN" ? "legacy-odin-turn" : role.toLowerCase() + "-new-turn",
+      turnType: "CONTRIBUTION",
+      evidenceStatus: "OBSERVED",
+      responseSha256: "b".repeat(64)
+    };
+  };
+  executor.forkRunHistory = async args => {
+    assert.equal(args.sourceRunId, source.runId);
+    assert.equal(args.taskReference, "vault:legacy-continue");
+    assert.equal(args.sourceBuilders.find(item => item.role === "ODIN").checkpoint.checkpointId,
+      "legacy-odin-turn");
+    return {
+      durable: true,
+      sourceHistorySha256: "c".repeat(64),
+      sourceThreadId: "nine-builders:" + source.runId,
+      targetThreadId: "nine-builders:builder:continuation:test",
+      importedTurnCount: 1
+    };
+  };
+  registerBuilderRunHandler(scheduler, { ledger, clock, executor, output: () => {} });
+  await scheduler.addTask({
+    id: "continue-legacy-run",
+    name: "Continue legacy run",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { continueRunId: source.runId },
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.deepEqual(invoked, BUILDER_ROLES);
+  const allRuns = await ledger.listRuns();
+  const continuation = allRuns.find(item => item.schemaVersion === 2 &&
+    item.supersedesRunId === source.runId);
+  assert.ok(continuation);
+  assert.equal(continuation.sourceHistorySha256, "c".repeat(64));
+  assert.equal(continuation.taskReference, "vault:legacy-continue");
+  assert.deepEqual(await ledger.getRun(source.runId), legacyBefore);
 });
 
 test("requires a task reference and prevents resume from rebinding a Builder run to another vault task", async () => {
