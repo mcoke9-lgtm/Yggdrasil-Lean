@@ -9,6 +9,7 @@ import {
   createOpenAiCompatibleExecutor,
   createOvernightDisclosureFingerprint
 } from "../src/openai-compatible-executor.js";
+import { createEncryptedTaskVault } from "../src/encrypted-task-vault.js";
 
 function makeRoutes() {
   return Object.fromEntries(BUILDER_ROLES.map((role, index) => [role, {
@@ -380,6 +381,65 @@ test("passes through a schema-valid operational limits snapshot", async () => {
   assert.match(systemInstruction, /BLOCKED means do not retry or recommend only the exact operation in the recorded origin scope/);
   assert.match(systemInstruction, /An ADVISORY constraint with NO_DIRECT_BLOCK is not a prohibition/);
   assert.match(systemInstruction, /never promote an external recommendation or service-scoped quota into a collective prohibition/);
+});
+
+test("loads the persisted encrypted Constraint Register into Kvasir runtime context", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "nine-builders-runtime-register-"));
+  await chmod(directory, 0o700);
+  const filePath = join(directory, "tasks.vault");
+  const vault = createEncryptedTaskVault({ filePath, key: Buffer.alloc(32, 11) });
+  const routes = makeRoutes();
+  const prompt = "Investigate the next safe engineering step.";
+  let sentContext;
+  try {
+    await vault.initializeTask("vault:task-001", prompt);
+    await vault.approveTask(
+      "vault:task-001",
+      createOvernightDisclosureFingerprint(routes, prompt),
+      "2026-11-05T20:00:00.000Z"
+    );
+    const entry = {
+      constraint_id: "chatgpt-service-advisory-runtime-001",
+      origin_system: "ChatGPT automation service",
+      origin_scope: "CHATGPT_SERVICE",
+      source_reference: "https://help.openai.com/",
+      observed_at: "2026-11-04T12:00:00.000Z",
+      affected_capability: "Create another scheduled ChatGPT task",
+      affected_operation: "ChatGPT automation creation",
+      force: "ADVISORY",
+      evidence_state: "REPORTED",
+      operational_effect: "NO_DIRECT_BLOCK",
+      responsible_builder: "KVASIR",
+      decision_authority: "USER",
+      recheck_condition: "Recheck when automation capacity changes",
+      decision_status: "SCOPED"
+    };
+    await vault.appendOperationalConstraint("vault:task-001", entry, {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    });
+    const h = makeHarness({
+      routes,
+      taskVault: vault,
+      fetchImpl: async (_url, options) => {
+        sentContext = JSON.parse(options.body).messages;
+        return new Response(JSON.stringify({
+          model: "reported-model",
+          choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+        }), { status: 200 });
+      }
+    });
+    await h.executor("KVASIR", h.context("KVASIR"));
+    const context = JSON.parse(sentContext[1].content);
+    assert.equal(context.operational_limits_snapshot.register_status, "LOADED");
+    assert.deepEqual(context.operational_limits_snapshot.constraints, [entry]);
+    assert.match(sentContext[0].content, /ADVISORY constraint with NO_DIRECT_BLOCK is not a prohibition/);
+    assert.match(sentContext[0].content, /exact operation in the recorded origin scope/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("preserves a mandatory Nine Builders authorization boundary for Kvasir", async () => {
