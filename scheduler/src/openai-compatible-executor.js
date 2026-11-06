@@ -984,9 +984,33 @@ export function createOpenAiCompatibleExecutor({
     runThreads.set(runId, task.threadId);
     const existingTurn = findExistingBuilderTurn(task, role, runId);
     if (!existingTurn) return null;
-    return durableRecoveryRecord(task, role, existingTurn);
+    const recovered = durableRecoveryRecord(task, role, existingTurn);
+    if (role !== "BALDR") return recovered;
+    if (typeof taskVault.getBaldrReviewInvocation !== "function" ||
+        typeof existingTurn.reviewInvocationId !== "string") {
+      throw manualReconciliationError();
+    }
+    const savedInvocation = await taskVault.getBaldrReviewInvocation(taskReference, {
+      runId, reviewInvocationId: existingTurn.reviewInvocationId
+    });
+    if (!savedInvocation?.start || !savedInvocation?.completion) {
+      throw manualReconciliationError();
+    }
+    try {
+      const reviewInvocation = validateBaldrInvocationCompletion(
+        savedInvocation.start, savedInvocation.completion
+      );
+      if (reviewInvocation.vaultTurnId !== recovered.checkpointId ||
+          reviewInvocation.responseSha256 !== recovered.responseSha256) {
+        throw new Error("Baldr receipt does not match recovered durable turn");
+      }
+      return { ...recovered, reviewInvocation };
+    } catch {
+      throw manualReconciliationError();
+    }
   };
   executeBuilderRole.supportsVerifiedResumeCheckpoint = true;
+  executeBuilderRole.supportsAttributableBaldrReview = true;
   return executeBuilderRole;
 }
 
