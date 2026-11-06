@@ -183,7 +183,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
   });
   const result = await scheduler.runDue();
   assert.equal(result.runs[0].status, "succeeded");
-  assert.deepEqual(invoked, BUILDER_ROLES);
+  assert.deepEqual(invoked, BUILDER_ROLES.filter(role => role !== "MARI"));
   assert.equal(output[0].event, "nine_builders_run_completed");
   const saved = await ledger.listRuns();
   assert.equal(saved[0].status, "completed");
@@ -450,6 +450,7 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   };
   legacy.builders[0].summary = "legacy summary stays in v1";
   legacy.builders[0].error = null;
+  legacy.builders.find(item => item.role === "MARI").status = "skipped";
   await store.save(state);
   const legacyBefore = await ledger.getRun(source.runId);
 
@@ -495,6 +496,9 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   assert.ok(continuation);
   assert.equal(Object.hasOwn(continuation, "sourceHistorySha256"), false);
   assert.equal(continuation.taskReference, "vault:legacy-continue");
+  const carriedSkip = continuation.builders.find(item => item.role === "MARI");
+  assert.equal(carriedSkip.status, "skipped");
+  assert.equal(carriedSkip.attempt, 0);
   assert.deepEqual(await ledger.getRun(source.runId), legacyBefore);
 });
 
