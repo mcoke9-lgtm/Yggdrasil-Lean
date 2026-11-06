@@ -327,7 +327,7 @@ test("passes through a schema-valid operational limits snapshot", async () => {
       affected_capability: "Create another scheduled ChatGPT task",
       affected_operation: "ChatGPT automation creation",
       force: "ADVISORY",
-      evidence_state: "VERIFIED",
+      evidence_state: "REPORTED",
       operational_effect: "NO_DIRECT_BLOCK",
       responsible_builder: "KVASIR",
       decision_authority: "USER",
@@ -458,7 +458,7 @@ test("preserves a mandatory Nine Builders authorization boundary for Kvasir", as
       affected_capability: "Start an unattended overnight run",
       affected_operation: "Activate an unattended run without explicit user approval",
       force: "MANDATORY",
-      evidence_state: "VERIFIED",
+      evidence_state: "REPORTED",
       operational_effect: "BLOCKS_OPERATION",
       responsible_builder: "KVASIR",
       decision_authority: "TYR",
@@ -508,13 +508,75 @@ test("preserves a mandatory Nine Builders authorization boundary for Kvasir", as
   assert.equal(userContext.operational_limits_snapshot.register_status, "LOADED");
   assert.equal(constraint.origin_scope, "NINE_BUILDERS_GOVERNANCE");
   assert.equal(constraint.force, "MANDATORY");
-  assert.equal(constraint.evidence_state, "VERIFIED");
+  assert.equal(constraint.evidence_state, "REPORTED");
   assert.equal(constraint.operational_effect, "BLOCKS_OPERATION");
   assert.equal(constraint.affected_operation, "Activate an unattended run without explicit user approval");
   assert.equal(constraint.decision_authority, "TYR");
   assert.match(systemInstruction, /BLOCKED means do not retry or recommend only the exact operation in the recorded origin scope/);
   assert.match(systemInstruction, /never bypass a binding legal, safety, security, consent, access-control, contractual, or authorization boundary/);
   assert.match(systemInstruction, /the authority Týr must check/);
+});
+
+test("does not accept a caller-asserted VERIFIED constraint without source verification", async () => {
+  const routes = makeRoutes();
+  const prompt = "Check evidence status without overstating verification";
+  const snapshot = {
+    schema: "yggdrasil.operational-capacity-register",
+    schema_version: "1.0.0",
+    register_status: "LOADED",
+    constraints: [{
+      constraint_id: "unsupported-verified-claim",
+      origin_system: "External service",
+      origin_scope: "CHATGPT_SERVICE",
+      source_reference: "https://example.test/policy",
+      observed_at: "2026-11-04T12:00:00.000Z",
+      affected_capability: "Create scheduled tasks",
+      affected_operation: "Create a scheduled ChatGPT task",
+      force: "ADVISORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "NO_DIRECT_BLOCK",
+      responsible_builder: "KVASIR",
+      decision_authority: "USER",
+      recheck_condition: "Recheck the source through an independent verifier",
+      decision_status: "UNASSESSED"
+    }],
+    runtime_evaluation: {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    }
+  };
+  let sentContext;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt, threadId: "thread-" + runId, history: [],
+          operationalLimitsSnapshot: snapshot,
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "unverified-source-checkpoint" }; }
+    },
+    fetchImpl: async (_url, options) => {
+      sentContext = JSON.parse(options.body).messages;
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("KVASIR", h.context("KVASIR"));
+  const context = JSON.parse(sentContext[1].content);
+  assert.equal(context.operational_limits_snapshot.register_status, "UNAVAILABLE");
+  assert.match(context.operational_limits_snapshot.reason, /schema, constraint-entry, or freshness checks/);
 });
 
 test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
@@ -576,7 +638,7 @@ test("falls back to unavailable when a constraint entry is incomplete or stale",
       observed_at: "2026-11-05T12:00:00.000Z",
       affected_capability: "Test capability",
       force: "MANDATORY",
-      evidence_state: "VERIFIED",
+      evidence_state: "REPORTED",
       operational_effect: "BLOCKS_OPERATION",
       responsible_builder: "KVASIR",
       decision_authority: "TYR",
@@ -591,7 +653,7 @@ test("falls back to unavailable when a constraint entry is incomplete or stale",
       affected_capability: "Test capability",
       affected_operation: "Test operation",
       force: "MANDATORY",
-      evidence_state: "VERIFIED",
+      evidence_state: "REPORTED",
       operational_effect: "BLOCKS_OPERATION",
       responsible_builder: "KVASIR",
       decision_authority: "TYR",
