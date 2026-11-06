@@ -180,6 +180,9 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId) {
       previousTimestamp = timestamp;
     }
 
+    if (turn.turnId != null && turn.checkpointId != null && turn.turnId !== turn.checkpointId) {
+      throw new Error("Run history turnId and checkpointId must identify the same turn");
+    }
     const type = turnType(turn);
     const evidenceStatus = turnEvidenceStatus(turn);
     const recipient = turnRecipient(turn);
@@ -246,6 +249,9 @@ function validateCorrectionHistory(history, ids) {
       if (turnReplyTo(turn) !== incidentId) {
         throw new Error("Correction plan must reply directly to its referenced incident");
       }
+      for (const field of ["objective", "acceptance_criteria", "steps", "owner", "rollback_condition"]) {
+        nonEmpty(item[field], "Correction plan " + field, 4096);
+      }
       if (item.status !== "PROPOSED" || turnEvidenceStatus(turn) !== "PROPOSED" ||
           turnRecipient(turn) !== "USER" || turn.speaker === "USER") {
         throw new Error("Correction plan must be a Builder-authored USER-directed PROPOSED record");
@@ -275,6 +281,9 @@ function validateCorrectionHistory(history, ids) {
       if (!nonEmpty(item.artifact_reference, "User adoption artifact_reference", 2048).startsWith("user-adoption:")) {
         throw new Error("User adoption requires an explicit user-action artifact reference");
       }
+      nonEmpty(item.evidence, "User adoption evidence", 4096);
+      nonEmpty(item.acceptance_criteria_result, "User adoption acceptance_criteria_result", 4096);
+      nonEmpty(item.unresolved, "User adoption unresolved", 4096);
       if (plan.latestId == null || history[plan.stageIndex < 0 ? plan.planIndex :
           ids.get(plan.latestId)]?.speaker !== "BALDR") {
         throw new Error("User adoption must follow Baldr's independent verification");
@@ -349,6 +358,12 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
   }
   if (type === "CORRECTION_PLAN") {
     const item = parseObject(reply.body, "Correction plan");
+    for (const field of ["correction_id", "incident_turn_id", "objective", "acceptance_criteria", "steps", "owner", "rollback_condition"]) {
+      nonEmpty(item[field], "Correction plan " + field, 4096);
+    }
+    if (item.status !== "PROPOSED" || reply.evidence_status !== "PROPOSED") {
+      throw new Error("Correction plan status and evidence_status must remain PROPOSED");
+    }
     if (item.incident_turn_id !== replyTo) {
       throw new Error("Correction plan must reply directly to its referenced incident");
     }
