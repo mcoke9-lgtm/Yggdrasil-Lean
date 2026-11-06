@@ -70,6 +70,10 @@ export class Scheduler {
         schedule = validateCalendarSchedule(input.schedule);
         const reference = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
         nextRunAt = nextCalendarOccurrence(schedule, reference);
+      } else if (input.schedule?.kind === "once") {
+        const startAt = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
+        schedule = { kind: "once", startAt };
+        nextRunAt = startAt;
       } else {
         throw new TypeError("Schedule kind must be interval or calendar");
       }
@@ -99,6 +103,9 @@ export class Scheduler {
       const state = await this.store.load();
       const task = state.tasks.find(item => item.id === taskId);
       if (!task) throw new Error(`Task not found: ${taskId}`);
+      if (enabled && task.schedule.kind === "once" && task.nextRunAt == null) {
+        throw new Error("A completed one-time task cannot be re-enabled; create a new task for another run");
+      }
       task.enabled = enabled;
       task.updatedAt = this.clock().toISOString();
       await this.store.save(state);
@@ -133,6 +140,7 @@ export class Scheduler {
   }
 
   nextOccurrence(task, scheduledFor) {
+    if (task.schedule.kind === "once") return null;
     if (task.schedule.kind === "interval") {
       return new Date(new Date(scheduledFor).getTime() + task.schedule.intervalMs).toISOString();
     }
@@ -158,7 +166,8 @@ export class Scheduler {
         }
         if (recovered) await this.store.save(state);
         return state.tasks
-          .filter(task => task.enabled && new Date(task.nextRunAt).getTime() <= now.getTime())
+          .filter(task => task.enabled && typeof task.nextRunAt === "string" &&
+            new Date(task.nextRunAt).getTime() <= now.getTime())
           .sort((a, b) => a.nextRunAt.localeCompare(b.nextRunAt))
           .slice(0, this.maxRunsPerTick)
           .map(task => ({ id: task.id, scheduledFor: task.nextRunAt }));
@@ -175,6 +184,7 @@ export class Scheduler {
           const runId = `${task.id}:${scheduledFor}`;
           if (state.runs.some(run => run.id === runId)) {
             task.nextRunAt = this.nextOccurrence(task, scheduledFor);
+            if (task.schedule.kind === "once") task.enabled = false;
             task.updatedAt = this.clock().toISOString();
             await this.store.save(state);
             return null;
@@ -191,6 +201,7 @@ export class Scheduler {
           };
           state.runs.push(run);
           task.nextRunAt = this.nextOccurrence(task, scheduledFor);
+          if (task.schedule.kind === "once") task.enabled = false;
           task.updatedAt = this.clock().toISOString();
           await this.store.save(state);
           return { run: clone(run), payload: clone(task.payload) };
