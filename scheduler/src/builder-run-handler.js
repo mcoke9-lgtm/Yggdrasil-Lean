@@ -92,7 +92,6 @@ export function registerBuilderRunHandler(
       run = await ledger.getRun(targetRunId);
       if (run) {
         if (run.schemaVersion !== 2 || run.supersedesRunId !== source.runId ||
-            run.sourceHistorySha256 !== fork.sourceHistorySha256 ||
             run.taskReference !== source.taskReference) {
           throw new Error("MANUAL_RECONCILIATION_REQUIRED");
         }
@@ -102,8 +101,7 @@ export function registerBuilderRunHandler(
           scheduledFor: context.scheduledFor,
           durationMs,
           taskReference: source.taskReference,
-          supersedesRunId: source.runId,
-          sourceHistorySha256: fork.sourceHistorySha256
+          supersedesRunId: source.runId
         });
       }
     } else if (payload?.resumeRunId) {
