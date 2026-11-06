@@ -122,7 +122,7 @@ function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
  * Validate and retain the vault's original records. Missing timestamps on legacy
  * records remain missing; this function never manufactures historical time.
  */
-export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis, taskPrompt) {
+export function validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis, taskPrompt, taskReference) {
   if (!Array.isArray(history)) throw new TypeError("Run history must be an array");
   const ids = new Map();
   if (promptTurnId != null) {
@@ -207,6 +207,46 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId, p
     const evidenceStatus = turnEvidenceStatus(turn);
     const recipient = turnRecipient(turn);
     const replyTo = turnReplyTo(turn);
+    if (Object.hasOwn(turn, "origin")) {
+      const origin = turn.origin;
+      const originFields = ["kind", "sourceTaskReference", "sourceRunId", "sourceThreadId", "sourceTurnId"];
+      if (!origin || typeof origin !== "object" || Array.isArray(origin) ||
+          Object.keys(origin).sort().join(",") !== originFields.slice().sort().join(",") ||
+          origin.kind !== "ENCRYPTED_VAULT_RUN_FORK" ||
+          typeof origin.sourceTaskReference !== "string" || !origin.sourceTaskReference.trim() ||
+          typeof origin.sourceRunId !== "string" || !origin.sourceRunId.trim() ||
+          typeof origin.sourceThreadId !== "string" || !origin.sourceThreadId.trim() ||
+          typeof origin.sourceTurnId !== "string" || !origin.sourceTurnId.trim() ||
+          origin.sourceRunId === runId || origin.sourceThreadId === threadId ||
+          origin.sourceTurnId !== id ||
+          (taskReference != null && origin.sourceTaskReference !== taskReference)) {
+        throw new Error("Imported run history has an invalid or mismatched source-origin envelope");
+      }
+      if (turn.userAuthorization != null) {
+        const authorization = turn.userAuthorization;
+        if (!authorization || typeof authorization !== "object" || Array.isArray(authorization) ||
+            authorization.taskReference !== origin.sourceTaskReference ||
+            authorization.runId !== origin.sourceRunId ||
+            authorization.threadId !== origin.sourceThreadId ||
+            authorization.verificationMethod !== "ED25519_USER_ACTION_ASSERTION" ||
+            typeof authorization.signatureSha256 !== "string" ||
+            !/^[a-f0-9]{64}$/.test(authorization.signatureSha256)) {
+          throw new Error("Imported user authorization does not preserve its original source binding");
+        }
+      } else if (speaker === "USER" && type === "CORRECTION_UPDATE" && evidenceStatus === "ADOPTED") {
+        throw new Error("Imported user adoption is missing its verified authorization record");
+      }
+    } else if (turn.userAuthorization != null) {
+      const authorization = turn.userAuthorization;
+      if (!authorization || typeof authorization !== "object" || Array.isArray(authorization) ||
+          authorization.runId !== runId || authorization.threadId !== threadId ||
+          (taskReference != null && authorization.taskReference !== taskReference) ||
+          authorization.verificationMethod !== "ED25519_USER_ACTION_ASSERTION" ||
+          typeof authorization.signatureSha256 !== "string" ||
+          !/^[a-f0-9]{64}$/.test(authorization.signatureSha256)) {
+        throw new Error("User authorization does not match its original run-thread binding");
+      }
+    }
     if (turn.reply != null) {
       if (!turn.reply || typeof turn.reply !== "object" || Array.isArray(turn.reply)) {
         throw new Error("Run history reply envelope is malformed");
