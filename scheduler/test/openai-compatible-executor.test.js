@@ -713,6 +713,83 @@ test("falls back to unavailable when a constraint entry is incomplete or stale",
   }
 });
 
+test("rejects a VERIFIED source proof older than the register evidence-age limit", async () => {
+  const routes = makeRoutes();
+  const prompt = "Kvasir evaluates the freshness of a verified source proof";
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const sourceReference = "github+commit://github.com/acme/project/" + sha + "?branch=main";
+  const snapshot = {
+    schema: "yggdrasil.operational-capacity-register",
+    schema_version: "1.0.0",
+    register_status: "LOADED",
+    constraints: [{
+      constraint_id: "stale-verified-source",
+      origin_system: "Repository evidence",
+      origin_scope: "NINE_BUILDERS_GOVERNANCE",
+      source_reference: sourceReference,
+      observed_at: "2026-11-04T12:00:00.000Z",
+      affected_capability: "Evaluate a source-backed governance constraint",
+      affected_operation: "Apply the referenced governance constraint",
+      force: "MANDATORY",
+      evidence_state: "VERIFIED",
+      evidenceVerification: {
+        verified: true,
+        status: "VERIFIED",
+        verificationMethod: "READ_ONLY_GITHUB_GATEWAY",
+        kind: "COMMIT",
+        repository: "acme/project",
+        objectId: sha,
+        branch: "main",
+        workflow: null,
+        expectedSha: null,
+        checkedAt: "2026-10-20T12:00:00.000Z"
+      },
+      operational_effect: "BLOCKS_OPERATION",
+      responsible_builder: "KVASIR",
+      decision_authority: "TYR",
+      recheck_condition: "Recheck the referenced source",
+      decision_status: "SCOPED"
+    }],
+    runtime_evaluation: {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    }
+  };
+  let userContext;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [],
+          operationalLimitsSnapshot: snapshot,
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "stale-proof-checkpoint" }; }
+    },
+    fetchImpl: async (_url, options) => {
+      userContext = JSON.parse(JSON.parse(options.body).messages[1].content);
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("KVASIR", h.context("KVASIR"));
+  assert.equal(userContext.operational_limits_snapshot.register_status, "UNAVAILABLE");
+  assert.match(userContext.operational_limits_snapshot.reason, /freshness checks/);
+});
+
 test("falls back to unavailable when a supplied operational limits snapshot is malformed", async () => {
   const routes = makeRoutes();
   const prompt = "task with malformed limits";
