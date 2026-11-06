@@ -43,7 +43,7 @@ test("registers a host executor and keeps its Builder ledger in a separate durab
           createBuilderExecutor: async () => async (role, context) => {
             invoked.push(role);
             assert.equal(context.task.taskReference, "vault:overnight-task-001");
-            return { status: "succeeded", summary: "deterministic test executor" };
+            return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
           }
         };
       },
