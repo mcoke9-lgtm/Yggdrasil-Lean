@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, chmod, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, chmod, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BUILDER_ROLES } from "../src/run-ledger.js";
@@ -1138,14 +1138,20 @@ test("loads the host executor only from owner-protected config and operator modu
       await chmod(configPath, 0o644);
       await assert.rejects(() => createBuilderExecutor(), /Builder host config permissions are too broad/);
       await chmod(configPath, 0o600);
+      const configMode = (await stat(configPath)).mode & 0o777;
+      assert.equal(configMode, 0o600, `Config fixture mode after restoration: 0o${configMode.toString(8)}`);
 
       await chmod(credentialsPath, 0o644);
       await assert.rejects(() => createBuilderExecutor(), /Credentials module permissions are too broad/);
       await chmod(credentialsPath, 0o600);
+      const credentialsMode = (await stat(credentialsPath)).mode & 0o777;
+      assert.equal(credentialsMode, 0o600, `Credentials fixture mode after restoration: 0o${credentialsMode.toString(8)}`);
 
       await chmod(taskVaultPath, 0o644);
       await assert.rejects(() => createBuilderExecutor(), /Task vault module permissions are too broad/);
       await chmod(taskVaultPath, 0o600);
+      const taskVaultMode = (await stat(taskVaultPath)).mode & 0o777;
+      assert.equal(taskVaultMode, 0o600, `Task vault fixture mode after restoration: 0o${taskVaultMode.toString(8)}`);
     }
     const executor = await createBuilderExecutor();
     assert.equal(typeof executor, "function");
