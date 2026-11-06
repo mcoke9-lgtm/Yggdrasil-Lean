@@ -269,6 +269,10 @@ export function registerBuilderRunHandler(
         }
         if (controller.signal.aborted) await interrupt("CANCELLED");
         const status = result?.status ?? "succeeded";
+        const returnedErrorCode = status === "failed" ? errorCode(result, "EXECUTOR_FAILURE") : null;
+        if (returnedErrorCode && STOP_ERROR_CODES.has(returnedErrorCode)) {
+          await interrupt(returnedErrorCode, result?.turnType ?? null);
+        }
         const stopTurn = result?.turnType === "INTERRUPTION"
           || result?.turnType === "IMPROVEMENT_INCIDENT";
         if (status === "interrupted" || stopTurn) {
@@ -280,7 +284,7 @@ export function registerBuilderRunHandler(
         }
         try {
           await ledger.finishBuilder(runId, role, status, {
-            errorCode: status === "failed" ? errorCode(result, "EXECUTOR_FAILURE") : null,
+            errorCode: status === "failed" ? returnedErrorCode : null,
             outcomeRef: result?.outcomeRef ?? result?.checkpointId ?? null,
             outcomeType: result?.turnType ?? null,
             evidenceStatus: result?.evidenceStatus ?? null,
