@@ -831,6 +831,7 @@ test("persists append-only Baldr invocation start and completion receipts in the
     const inputManifest = {
       schema: "yggdrasil.baldr-review-manifest.v1",
       runId, taskReference, reviewerRole: "BALDR",
+      promptTurnId: task.promptTurnId,
       peerOutcomeRefs: ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"]
         .map(role => ({ role, status: "skipped", outcomeRef: null, errorCode: null })),
       requestedProviderId: "provider-baldr",
@@ -917,6 +918,7 @@ test("does not permit a second Baldr invocation for a run after the first comple
     const inputManifest = {
       schema: "yggdrasil.baldr-review-manifest.v1",
       runId, taskReference, reviewerRole: "BALDR",
+      promptTurnId: task.promptTurnId,
       peerOutcomeRefs: ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"]
         .map(role => ({ role, status: "skipped", outcomeRef: null, errorCode: null })),
       requestedProviderId: "provider-baldr",
