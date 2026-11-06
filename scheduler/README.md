@@ -192,10 +192,15 @@ so ledger writes cannot overwrite concurrent task and scheduler-run updates.
 **Storage confidentiality:** the scheduler and Builder-run JSON state files are
 not encrypted at rest. On POSIX systems the store enforces an owner-only
 directory (0700) and file (0600), but filesystem permissions are not encryption.
-Keep summaries and checkpoint metadata minimal; never place prompts, response
-bodies, access tokens, credentials, private keys, or unnecessary personal data
-in them. The encrypted task vault is the designated store for task text, consent,
-and full per-run conversation history. Protect and back up its encryption key
+The ledger stores run/task references, role statuses, timestamps, checkpoint
+IDs and checkpoint data, plus free-text summaries, errors, and interruption
+reasons. Those text fields are persisted as supplied (with length limits); the
+ledger does not detect or redact secrets or personal data. Checkpoint data is
+limited to 16 KiB of JSON, not to a safe schema. Use opaque non-sensitive
+references and minimal operational descriptions only. Never place prompts,
+response bodies, access tokens, credentials, private keys, or unnecessary
+personal data in the ledger. The encrypted task vault is the designated store
+for task text, consent, and full per-run conversation history. Protect and back up its encryption key
 separately.
 
 **Important limitation:** the ledger and adapter are now connected to the
