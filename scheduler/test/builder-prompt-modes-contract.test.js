@@ -37,4 +37,7 @@ test("review mode resolves the encrypted vault incident checkpoint identity", ()
   assert.match(result, /MUST NOT evaluate, approve, or certify its own correction/);
   assert.match(result, /Only an unaffected Baldr may issue VERIFIED/);
   assert.match(result, /Never issue ADOPTED/);
+  assert.match(result, /github\\+commit/);
+  assert.match(result, /github\\+actions/);
+  assert.match(result, /Never invent a SHA, run ID, workflow name, branch, or result/);
 });
