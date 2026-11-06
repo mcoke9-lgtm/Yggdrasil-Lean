@@ -102,6 +102,7 @@ public final class BuilderOvernightRunStore {
     }
 
     public synchronized JSONObject beginCycle(String runId, long nowMillis) {
+        synchronized (PROCESS_LOCK) {
         JSONObject state = requireRun(runId);
         if (!"RUNNING".equals(state.optString("status")))
             throw new IllegalStateException("Only an active overnight run can start a cycle");
@@ -116,9 +117,11 @@ public final class BuilderOvernightRunStore {
         } catch (JSONException impossible) { throw new IllegalStateException(impossible); }
         write(runId, state);
         return state;
+            }
     }
 
     public synchronized JSONObject finishCycle(String runId, String summary, long nowMillis) {
+        synchronized (PROCESS_LOCK) {
         JSONObject state = requireRun(runId);
         if (!"RUNNING".equals(state.optString("status")))
             throw new IllegalStateException("A cancelled or terminal run cannot complete another cycle");
@@ -133,6 +136,7 @@ public final class BuilderOvernightRunStore {
         } catch (JSONException impossible) { throw new IllegalStateException(impossible); }
         write(runId, state);
         return state;
+            }
     }
 
     public synchronized JSONObject setStatus(String runId, String status, String reason, long nowMillis) {
