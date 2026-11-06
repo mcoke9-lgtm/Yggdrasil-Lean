@@ -79,7 +79,8 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
     });
     const abandoned = await seededLedger.createRun({
       runId: "builder:abandoned-001",
-      scheduledFor: "2026-11-05T20:00:00.000Z"
+      scheduledFor: "2026-11-05T20:00:00.000Z",
+      taskReference: "vault:task-001"
     });
     await seededLedger.startRun(abandoned.runId);
     await seededLedger.startBuilder(abandoned.runId, "ODIN");
