@@ -41,7 +41,8 @@ export function buildBuilderModeInstructions(role, taskPrompt, history = []) {
     const valueEnd = trigger.indexOf("\n", valueStart);
     const incidentId = trigger.slice(valueStart, valueEnd < 0 ? undefined : valueEnd).trim();
     const incident = history.find(turn =>
-      turn?.turnId === incidentId && turn?.type === "IMPROVEMENT_INCIDENT"
+      (turn?.turnId === incidentId || turn?.checkpointId === incidentId) &&
+      (turn?.type === "IMPROVEMENT_INCIDENT" || turn?.reply?.turn_type === "IMPROVEMENT_INCIDENT")
     );
     if (!incident) throw new Error("Improvement review must reference a recorded incident in this run's thread");
     const affected = incident.speaker;
