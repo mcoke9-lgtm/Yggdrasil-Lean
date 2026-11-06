@@ -359,18 +359,29 @@ function validateTask(task, routes, runId, taskReference) {
   const promptTurnId = task.promptTurnId == null
     ? "task-prompt:" + runId
     : requiredText(task.promptTurnId, "Task prompt turn identity", 256);
+  let promptTimestampEpochMillis = null;
+  if (task.promptCreatedAt != null) {
+    const promptCreatedAt = requiredText(task.promptCreatedAt, "Task prompt creation timestamp", 64);
+    const parsedPromptTime = new Date(promptCreatedAt);
+    if (!Number.isFinite(parsedPromptTime.getTime()) || parsedPromptTime.toISOString() !== promptCreatedAt) {
+      throw new Error("Task prompt creation timestamp must be canonical ISO-8601");
+    }
+    promptTimestampEpochMillis = parsedPromptTime.getTime();
+  }
   for (const turn of history) {
     const speaker = requiredText(turn?.speaker, "Run history speaker", 32);
     if (speaker !== "USER" && !BUILDER_ROLES.includes(speaker)) {
       throw new Error("Task history contains an unknown speaker");
     }
   }
-  validateBuilderHistory(history, runId, threadId, promptTurnId);
+  validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis);
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
   return {
     prompt, promptTurnId,
     promptTurnIdSource: task.promptTurnId == null ? "DERIVED_LEGACY_RUN_ID" : "VAULT",
+    promptTimestampEpochMillis,
+    promptTimestampSource: promptTimestampEpochMillis == null ? "MISSING_LEGACY" : "VAULT",
     history, threadId, operationalLimitsSnapshot: limits, consentFingerprint: fingerprint
   };
 }
@@ -429,6 +440,8 @@ export function createOpenAiCompatibleExecutor({
       task_prompt: task.prompt,
       task_prompt_turn_id: task.promptTurnId,
       task_prompt_turn_id_source: task.promptTurnIdSource,
+      task_prompt_timestamp_epoch_millis: task.promptTimestampEpochMillis,
+      task_prompt_timestamp_source: task.promptTimestampSource,
       prior_turns_oldest_first: task.history,
       operational_limits_snapshot: task.operationalLimitsSnapshot,
       prior_builder_outcomes: outcomes
