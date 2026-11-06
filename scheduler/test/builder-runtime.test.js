@@ -4,7 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Scheduler } from "../src/scheduler.js";
-import { MemoryStore } from "../src/store.js";
+import { MemoryStore, JsonFileStore } from "../src/store.js";
+import { BuilderRunLedger } from "../src/run-ledger.js";
 import { registerOptionalBuilderRuntime } from "../src/builder-runtime.js";
 import { BUILDER_ROLES } from "../src/run-ledger.js";
 
@@ -60,6 +61,73 @@ test("registers a host executor and keeps its Builder ledger in a separate durab
     const execution = await scheduler.runDue();
     assert.equal(execution.runs[0].status, "succeeded");
     assert.deepEqual(invoked, BUILDER_ROLES);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("host startup recovers abandoned Builder work and explicit safe resume continues the same run", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "yggdrasil-builder-recovery-"));
+  try {
+    const schedulerStateFile = join(directory, "scheduler.json");
+    const builderStateFilePath = join(directory, "builder-runs.json");
+    const clock = () => new Date("2026-11-05T20:05:00.000Z");
+    const seededLedger = new BuilderRunLedger({
+      store: new JsonFileStore(builderStateFilePath),
+      clock: () => new Date("2026-11-05T20:00:00.000Z"),
+      idFactory: () => "builder:abandoned-001"
+    });
+    const abandoned = await seededLedger.createRun({
+      runId: "builder:abandoned-001",
+      scheduledFor: "2026-11-05T20:00:00.000Z"
+    });
+    await seededLedger.startRun(abandoned.runId);
+    await seededLedger.startBuilder(abandoned.runId, "ODIN");
+    await seededLedger.checkpointBuilder(abandoned.runId, "ODIN", {
+      checkpointId: "odin-safe-checkpoint",
+      data: { durable: true },
+      safeToResume: true
+    });
+
+    const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+    const invoked = [];
+    const events = [];
+    const runtime = await registerOptionalBuilderRuntime({
+      scheduler, schedulerStateFile, builderStateFilePath,
+      executorModulePath: join(directory, "host-executor.mjs"),
+      clock,
+      loadModule: async () => ({
+        createBuilderExecutor: async () => async role => {
+          invoked.push(role);
+          return { status: "succeeded", summary: "resumed after host recovery" };
+        }
+      }),
+      output: line => events.push(JSON.parse(line))
+    });
+    assert.deepEqual(runtime.recoveredRuns, ["builder:abandoned-001"]);
+    assert.equal(events[0].event, "nine_builders_abandoned_runs_recovered");
+
+    const recoveredLedger = new BuilderRunLedger({
+      store: new JsonFileStore(builderStateFilePath), clock
+    });
+    const recovered = await recoveredLedger.getRun("builder:abandoned-001");
+    assert.equal(recovered.status, "interrupted");
+    assert.equal(recovered.builders[0].status, "interrupted");
+    assert.equal(recovered.builders[0].checkpoint.safeToResume, true);
+
+    await scheduler.addTask({
+      id: "resume-overnight",
+      name: "Resume interrupted Nine Builders run",
+      handlerType: "nine-builders.run",
+      payload: { resumeRunId: "builder:abandoned-001", taskReference: "vault:task-001" },
+      schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-05T20:00:00.000Z" }
+    });
+    const execution = await scheduler.runDue();
+    assert.equal(execution.runs[0].status, "succeeded");
+    assert.deepEqual(invoked, BUILDER_ROLES);
+    const completed = await recoveredLedger.getRun("builder:abandoned-001");
+    assert.equal(completed.status, "completed");
+    assert.ok(completed.builders.every(builder => builder.status === "succeeded"));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
