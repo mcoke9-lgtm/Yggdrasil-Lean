@@ -1576,6 +1576,71 @@ test("Baldr requires and durably links a separately attributable invocation rece
   assert.equal(events.map(item => item.type).join(","), "START,TURN,COMPLETE");
 });
 
+test("an ambiguous Baldr provider failure blocks a second invocation for the same run", async () => {
+  const routes = makeRoutes();
+  const runId = "builder:baldr-ambiguous-outcome";
+  const threadId = "thread-" + runId;
+  const prompt = "Review all eight peer contributions.";
+  const promptTurnId = "prompt-baldr-ambiguous";
+  const peerRoles = BUILDER_ROLES.filter(role => role !== "BALDR");
+  const history = peerRoles.map((role, index) => {
+    const completedAt = new Date(Date.parse("2026-11-06T14:00:00.000Z") + index * 1000).toISOString();
+    const body = "Recorded contribution from " + role;
+    const reply = { body, turn_type: "CONTRIBUTION", evidence_status: "OBSERVED", recipient: null, reply_to_turn_id: null };
+    return {
+      protocolVersion: 4, runId, threadId, checkpointId: role.toLowerCase() + "-turn",
+      speaker: role, body, type: "CONTRIBUTION", recipient: null,
+      reply_to_turn_id: null, evidence_status: "OBSERVED", reply,
+      timestampEpochMillis: Date.parse(completedAt), completedAt
+    };
+  });
+  const outcomes = peerRoles.map(role => ({
+    role, status: "succeeded", attempt: 1, errorCode: null,
+    outcomeRef: role.toLowerCase() + "-turn",
+    outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED"
+  }));
+  const starts = [];
+  const taskVault = {
+    async getTask() {
+      return {
+        prompt, promptTurnId, threadId, history,
+        consent: {
+          status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+          approvedAt: "2026-11-06T13:00:00.000Z",
+          fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+        }
+      };
+    },
+    async beginBaldrReviewInvocation(_reference, receipt) {
+      if (starts.length) throw new Error("A prior Baldr invocation has an unknown outcome");
+      starts.push(receipt);
+      return { durable: true, reviewInvocationId: receipt.reviewInvocationId };
+    },
+    async appendBuilderResult() { throw new Error("No durable turn should exist after an ambiguous transport failure"); },
+    async completeBaldrReviewInvocation() { throw new Error("Completion must not be written"); },
+    async getBaldrReviewInvocation(_reference, { reviewInvocationId }) {
+      const start = starts.find(item => item.reviewInvocationId === reviewInvocationId);
+      return start ? { start, completion: null } : null;
+    }
+  };
+  let providerCalls = 0;
+  const h = makeHarness({
+    routes, taskVault,
+    fetchImpl: async () => {
+      providerCalls += 1;
+      throw new Error("Transport timed out after request dispatch; provider outcome is unknown");
+    }
+  });
+  const context = () => ({
+    runId, task: { taskReference: "vault:task-001" }, outcomes,
+    signal: new AbortController().signal, checkpoint: async () => {}
+  });
+  await assert.rejects(() => h.executor("BALDR", context()), /MANUAL_RECONCILIATION_REQUIRED/);
+  await assert.rejects(() => h.executor("BALDR", context()), /MANUAL_RECONCILIATION_REQUIRED/);
+  assert.equal(starts.length, 1, "the vault must retain one unresolved invocation start");
+  assert.equal(providerCalls, 1, "the provider must never be called a second time");
+});
+
 test("Baldr does not call a provider when the task vault lacks receipt support", async () => {
   const routes = makeRoutes();
   const runId = "builder:baldr-no-receipt";
