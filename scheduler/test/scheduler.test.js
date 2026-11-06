@@ -433,6 +433,7 @@ test("CLI creates a one-shot task for an explicit legacy Builder run continuatio
     const task = state.tasks.find(item => item.id === "continue-one");
     assert.equal(task.schedule.kind, "once");
     assert.equal(task.payload.continueRunId, "builder:legacy-run-123");
+    assert.equal(task.payload.continuationId, "continue-one");
     assert.equal(Object.hasOwn(task.payload, "resumeRunId"), false);
     assert.equal(task.enabled, true);
     assert.equal(typeof task.nextRunAt, "string");
