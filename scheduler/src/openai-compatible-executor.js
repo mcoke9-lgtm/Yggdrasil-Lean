@@ -558,7 +558,7 @@ export function createOpenAiCompatibleExecutor({
   function findExistingBuilderTurn(task, role, runId) {
     const matches = task.history.filter(turn => turn.runId === runId && turn.speaker === role);
     if (matches.length > 1) {
-      throw new Error("Run history contains multiple durable results for " + role);
+      throw manualReconciliationError();
     }
     return matches[0] ?? null;
   }
