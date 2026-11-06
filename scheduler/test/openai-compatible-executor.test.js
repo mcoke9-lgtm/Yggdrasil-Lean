@@ -290,7 +290,7 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
   const outcomes = [];
   for (const role of BUILDER_ROLES) {
     await h.executor(role, h.context(role, [...outcomes]));
-    outcomes.push({ role, status: "succeeded", attempt: 1, outcomeRef: role.toLowerCase() + "-turn", outcomeType: "CONTRIBUTION", evidenceStatus: "PROPOSED", errorCode: null });
+    outcomes.push({ role, status: "succeeded", attempt: 1, outcomeRef: "checkpoint-" + role.toLowerCase(), outcomeType: "CONTRIBUTION", evidenceStatus: "PROPOSED", errorCode: null });
   }
   assert.deepEqual(h.saved.map(item => item.role), BUILDER_ROLES);
   assert.equal(prompts.length, 9);
