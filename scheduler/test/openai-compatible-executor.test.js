@@ -322,7 +322,7 @@ test("passes through a schema-valid operational limits snapshot", async () => {
       origin_system: "ChatGPT automation service",
       origin_scope: "CHATGPT_SERVICE",
       source_reference: "https://help.openai.com/",
-      observed_at: "2026-11-05T12:00:00.000Z",
+      observed_at: "2026-11-04T12:00:00.000Z",
       affected_capability: "Create another scheduled ChatGPT task",
       affected_operation: "ChatGPT automation creation",
       force: "MANDATORY",
