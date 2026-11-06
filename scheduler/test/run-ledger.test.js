@@ -179,7 +179,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
     id: "nine-builder-task",
     name: "Nine Builders scheduled run",
     handlerType: BUILDER_RUN_HANDLER_TYPE,
-    payload: { durationMs: 60 * 60 * 1000 },
+    payload: { durationMs: 60 * 60 * 1000, taskReference: "vault:nine-builder-task" },
     schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
   });
   const result = await scheduler.runDue();
@@ -210,6 +210,7 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
     id: "nine-builder-failure",
     name: "Nine Builders failure run",
     handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { taskReference: "vault:nine-builder-failure" },
     schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
   });
   const result = await scheduler.runDue();
@@ -243,6 +244,7 @@ test("Builder interruption and improvement incident stop the round without faili
       id: "stop-on-builder-event-" + scenario.turnType.toLowerCase(),
       name: "Stop on Builder event",
       handlerType: BUILDER_RUN_HANDLER_TYPE,
+      payload: { taskReference: "vault:stop-on-" + scenario.turnType.toLowerCase() },
       schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
     });
     const result = await scheduler.runDue();
@@ -299,6 +301,7 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
     id: "cancel-builder-run",
     name: "Cancellable Nine Builders run",
     handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { taskReference: "vault:cancel-run" },
     schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
   });
   const execution = scheduler.runDue();
@@ -317,7 +320,8 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
   const prior = await ledger.createRun({
     runId: "resumable-builder-run",
     scheduledFor: "2026-11-04T12:00:00Z",
-    durationMs: 60 * 60 * 1000
+    durationMs: 60 * 60 * 1000,
+    taskReference: "vault:resumable-task"
   });
   await ledger.startRun(prior.runId);
   await ledger.startBuilder(prior.runId, "ODIN");
