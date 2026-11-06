@@ -817,3 +817,96 @@ test("preserves concurrent Builder-result appends to one run history across proc
     await rm(h.directory, { recursive: true, force: true });
   }
 });
+
+
+test("persists append-only Baldr invocation start and completion receipts in the encrypted vault", async () => {
+  const h = await fixture();
+  try {
+    const taskReference = "task:baldr-receipt";
+    const runId = "run-baldr-receipt";
+    await h.vault.initializeTask(taskReference, "Review the eight Builder outcomes.");
+    const task = await h.vault.getTask(taskReference, { runId });
+    const start = {
+      reviewInvocationId: "review-baldr-001",
+      runId, taskReference, threadId: task.threadId,
+      reviewerRole: "BALDR",
+      inputManifestSha256: "a".repeat(64),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      invokedAt: "2026-11-06T12:00:00.000Z",
+      provenanceLevel: "ROUTE_SEPARATED"
+    };
+    const started = await h.vault.beginBaldrReviewInvocation(taskReference, start);
+    assert.equal(started.durable, true);
+    await assert.rejects(
+      () => h.vault.beginBaldrReviewInvocation(taskReference, start),
+      /already in use/
+    );
+    const completion = {
+      reviewInvocationId: start.reviewInvocationId,
+      inputManifestSha256: start.inputManifestSha256,
+      responseSha256: "b".repeat(64),
+      vaultTurnId: "baldr-vault-turn-1",
+      providerRequestId: "req-123",
+      provenanceLevel: "INVOCATION_ATTRIBUTED",
+      status: "COMPLETED",
+      completedAt: "2026-11-06T12:00:01.000Z"
+    };
+    const completed = await h.vault.completeBaldrReviewInvocation(taskReference, completion);
+    assert.equal(completed.durable, true);
+    const saved = await h.vault.getBaldrReviewInvocation(taskReference, {
+      runId, reviewInvocationId: start.reviewInvocationId
+    });
+    assert.equal(saved.start.inputManifestSha256, start.inputManifestSha256);
+    assert.equal(saved.completion.vaultTurnId, completion.vaultTurnId);
+    await assert.rejects(
+      () => h.vault.completeBaldrReviewInvocation(taskReference, completion),
+      /already completed/
+    );
+    const encryptedBytes = await readFile(h.filePath);
+    assert.equal(encryptedBytes.includes(Buffer.from("INVOCATION_STARTED")), false);
+    assert.equal(encryptedBytes.includes(Buffer.from("baldr-vault-turn-1")), false);
+  } finally {
+    await rm(h.directory, { recursive: true, force: true });
+  }
+});
+
+test("does not permit a second Baldr invocation for a run after the first completes", async () => {
+  const h = await fixture();
+  try {
+    const taskReference = "task:baldr-single-review";
+    const runId = "run-baldr-single-review";
+    await h.vault.initializeTask(taskReference, "Review once.");
+    const task = await h.vault.getTask(taskReference, { runId });
+    const start = {
+      reviewInvocationId: "review-baldr-single",
+      runId, taskReference, threadId: task.threadId,
+      reviewerRole: "BALDR",
+      inputManifestSha256: "c".repeat(64),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      invokedAt: "2026-11-06T12:00:00.000Z",
+      provenanceLevel: "ROUTE_SEPARATED"
+    };
+    await h.vault.beginBaldrReviewInvocation(taskReference, start);
+    await h.vault.completeBaldrReviewInvocation(taskReference, {
+      reviewInvocationId: start.reviewInvocationId,
+      inputManifestSha256: start.inputManifestSha256,
+      responseSha256: "d".repeat(64),
+      vaultTurnId: "baldr-vault-turn-2",
+      provenanceLevel: "INVOCATION_ATTRIBUTED",
+      status: "COMPLETED",
+      completedAt: "2026-11-06T12:00:01.000Z"
+    });
+    await assert.rejects(
+      () => h.vault.beginBaldrReviewInvocation(taskReference, {
+        ...start, reviewInvocationId: "review-baldr-single-second"
+      }),
+      /already exists for this run/
+    );
+  } finally {
+    await rm(h.directory, { recursive: true, force: true });
+  }
+});
