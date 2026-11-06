@@ -126,4 +126,18 @@ public class BuilderOvernightRunStoreTest {
   assertEquals("CANCELLED",state.optString("status"));
  }
 
+ @Test public void cycleCannotBeginAfterEightHourDeadline() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  long t=1800000000000L;
+  s.beginOrRecover("deadline","thread-deadline","task",t);
+  try {
+   s.beginCycle("deadline",t+BuilderOvernightRunStore.MAX_DURATION_MILLIS);
+   fail("A cycle must not start at or beyond the deadline");
+  } catch (IllegalStateException expected) { }
+  assertEquals("RUNNING",s.read("deadline").optString("status"));
+  assertFalse(s.read("deadline").optBoolean("cycle_in_progress"));
+ }
+
 }
