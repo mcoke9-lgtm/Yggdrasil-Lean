@@ -72,7 +72,7 @@ export class BuilderRunLedger {
         updatedAt: created, interruptedAt: null, interruptionReason: null,
         builders: BUILDER_ROLES.map(role => ({
           role, status: "pending", attempt: 0, startedAt: null, finishedAt: null,
-          checkpoint: null, error: null
+          checkpoint: null, error: null, summary: null
         }))
       };
       state.builderRuns.push(run);
@@ -148,7 +148,7 @@ export class BuilderRunLedger {
     });
   }
 
-  async finishBuilder(runId, role, status, error = null) {
+  async finishBuilder(runId, role, status, error = null, summary = null) {
     return this.mutate(runId, run => {
       this.assertRunning(run);
       if (status !== "succeeded" && status !== "failed" && status !== "skipped") {
@@ -164,6 +164,7 @@ export class BuilderRunLedger {
       builder.status = status;
       builder.finishedAt = this.clock().toISOString();
       builder.error = error == null ? null : String(error).slice(0, 2000);
+      builder.summary = summary == null ? null : String(summary).slice(0, 1000);
     });
   }
 
