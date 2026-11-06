@@ -10,6 +10,10 @@ const stateFile = resolve(process.env.SCHEDULER_STATE_FILE || "./data/scheduler.
 const pollMs = Number(process.env.SCHEDULER_POLL_MS || 15000);
 const dashboardPort = Number(process.env.SCHEDULER_DASHBOARD_PORT || 4174);
 const dashboardHost = process.env.SCHEDULER_DASHBOARD_HOST || "127.0.0.1";
+const leaseHeartbeatMs = Number(process.env.SCHEDULER_LEASE_HEARTBEAT_MS || 15000);
+if (!Number.isInteger(leaseHeartbeatMs) || leaseHeartbeatMs < 1000 || leaseHeartbeatMs > 300000) {
+  throw new RangeError("SCHEDULER_LEASE_HEARTBEAT_MS must be between 1000 and 300000");
+}
 if (!Number.isInteger(pollMs) || pollMs < 1000 || pollMs > 300000) {
   throw new RangeError("SCHEDULER_POLL_MS must be between 1000 and 300000");
 }
@@ -51,6 +55,8 @@ let stopping = false;
 let tickActive = false;
 let activeTick = Promise.resolve();
 let timer;
+let leaseHeartbeatTimer;
+let heartbeatInFlight = false;
 
 // Install shutdown handlers before announcing readiness or awaiting the first tick.
 // A SIGTERM delivered at the scheduler_started boundary must never be lost.
@@ -83,11 +89,35 @@ async function tick() {
 
 try {
   const address = await dashboard.listen();
+  leaseHeartbeatTimer = setInterval(async () => {
+    if (stopping || heartbeatInFlight) return;
+    heartbeatInFlight = true;
+    try {
+      const heartbeatAt = await releaseLock.heartbeat();
+      process.stdout.write(JSON.stringify({
+        event: "scheduler_lease_heartbeat",
+        pid: releaseLock.pid,
+        token: releaseLock.token,
+        heartbeatAt
+      }) + "\\n");
+    } catch (error) {
+      process.stderr.write(JSON.stringify({
+        event: "scheduler_lease_lost",
+        error: String(error?.message || error)
+      }) + "\\n");
+      scheduler.abortActiveRuns("Scheduler process lease ownership was lost");
+      void shutdown("LOCK_LOST");
+    } finally {
+      heartbeatInFlight = false;
+    }
+  }, leaseHeartbeatMs);
+  leaseHeartbeatTimer.unref?.();
   const tasks = await scheduler.listTasks();
   process.stdout.write(JSON.stringify({
     event: "scheduler_started",
     stateFile,
     pollMs,
+    leaseHeartbeatMs,
     taskCount: tasks.length,
     dashboard: `http://127.0.0.1:${address.port}`,
     note: "Single process, loopback-only dashboard, registered handlers only."
