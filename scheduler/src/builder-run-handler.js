@@ -28,17 +28,30 @@ export function registerBuilderRunHandler(
     await ledger.recoverAbandonedRuns();
     const durationMs = payload?.durationMs ?? MAX_BUILDER_RUN_DURATION_MS;
     let run;
+    const taskPayload = structuredClone(payload ?? {});
     if (payload?.resumeRunId) {
       run = await ledger.getRun(payload.resumeRunId);
       if (!run) throw new Error("Requested Builder run checkpoint does not exist");
       if (run.status !== "interrupted") {
         throw new Error("Only an interrupted Builder run can be resumed");
       }
+      if (typeof run.taskReference !== "string" || !run.taskReference.trim()) {
+        throw new Error("Legacy Builder run has no persisted taskReference; manual reconciliation is required before resume");
+      }
+      if (taskPayload.taskReference != null && taskPayload.taskReference !== run.taskReference) {
+        throw new Error("Resume taskReference does not match the original Builder run");
+      }
+      taskPayload.taskReference = run.taskReference;
     } else {
+      if (typeof taskPayload.taskReference !== "string" ||
+          !taskPayload.taskReference.trim() || taskPayload.taskReference.length > 256) {
+        throw new TypeError("A persisted taskReference is required for every new Nine Builders run");
+      }
       run = await ledger.createRun({
         runId: "builder:" + context.runId,
         scheduledFor: context.scheduledFor,
-        durationMs
+        durationMs,
+        taskReference: taskPayload.taskReference
       });
     }
     const runId = run.runId;
@@ -96,7 +109,7 @@ export function registerBuilderRunHandler(
           const result = await executor(role, {
             runId,
             scheduledFor: context.scheduledFor,
-            task: structuredClone(payload),
+            task: structuredClone(taskPayload),
             outcomes: structuredClone(outcomes),
             checkpoint: details => ledger.checkpointBuilder(runId, role, details),
             signal: controller.signal
