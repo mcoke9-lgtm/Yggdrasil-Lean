@@ -317,7 +317,21 @@ test("passes through a schema-valid operational limits snapshot", async () => {
     schema: "yggdrasil.operational-capacity-register",
     schema_version: "1.0.0",
     register_status: "LOADED",
-    constraints: [],
+    constraints: [{
+      constraint_id: "chatgpt-automation-quota",
+      origin_system: "ChatGPT automation service",
+      origin_scope: "CHATGPT_SERVICE",
+      source_reference: "https://help.openai.com/",
+      observed_at: "2026-11-05T12:00:00.000Z",
+      affected_capability: "Create another scheduled ChatGPT task",
+      affected_operation: "ChatGPT automation creation",
+      force: "MANDATORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "BLOCKS_OPERATION",
+      responsible_builder: "KVASIR",
+      decision_authority: "USER",
+      recheck_condition: "A task slot becomes available"
+    }],
     runtime_evaluation: {
       evaluated_on: "2026-11-05",
       maximum_evidence_age_days: 7,
@@ -356,6 +370,8 @@ test("passes through a schema-valid operational limits snapshot", async () => {
   await h.executor("ODIN", h.context("ODIN"));
   assert.equal(userContext.operational_limits_snapshot.register_status, "LOADED");
   assert.equal(userContext.operational_limits_snapshot.runtime_evaluation.live_telemetry, false);
+  assert.equal(userContext.operational_limits_snapshot.constraints[0].origin_scope, "CHATGPT_SERVICE");
+  assert.equal(userContext.operational_limits_snapshot.constraints[0].operational_effect, "BLOCKS_OPERATION");
 });
 
 test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
@@ -405,6 +421,79 @@ test("rejects a task vault that changes the dedicated thread during one run", as
   await h.executor("ODIN", h.context("ODIN"));
   await assert.rejects(() => h.executor("HODR", h.context("HODR")), /changed the dedicated thread ID/);
   assert.equal(appends, 1);
+});
+
+test("falls back to unavailable when a constraint entry is incomplete or stale", async () => {
+  for (const constraint of [
+    {
+      constraint_id: "missing-operation",
+      origin_system: "Test service",
+      origin_scope: "PROVIDER_SERVICE",
+      source_reference: "https://example.invalid/source",
+      observed_at: "2026-11-05T12:00:00.000Z",
+      affected_capability: "Test capability",
+      force: "MANDATORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "BLOCKS_OPERATION",
+      responsible_builder: "KVASIR",
+      decision_authority: "TYR",
+      recheck_condition: "Recheck the provider"
+    },
+    {
+      constraint_id: "stale-evidence",
+      origin_system: "Test service",
+      origin_scope: "PROVIDER_SERVICE",
+      source_reference: "https://example.invalid/source",
+      observed_at: "2026-10-01T12:00:00.000Z",
+      affected_capability: "Test capability",
+      affected_operation: "Test operation",
+      force: "MANDATORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "BLOCKS_OPERATION",
+      responsible_builder: "KVASIR",
+      decision_authority: "TYR",
+      recheck_condition: "Recheck the provider"
+    }
+  ]) {
+    const routes = makeRoutes();
+    const prompt = "task with an invalid constraint entry";
+    let userContext;
+    const h = makeHarness({
+      routes,
+      taskVault: {
+        async getTask(_reference, { runId }) {
+          return {
+            prompt, threadId: "thread-" + runId, history: [],
+            operationalLimitsSnapshot: {
+              schema: "yggdrasil.operational-capacity-register",
+              schema_version: "1.0.0", register_status: "LOADED",
+              constraints: [constraint],
+              runtime_evaluation: {
+                evaluated_on: "2026-11-05", maximum_evidence_age_days: 7,
+                live_telemetry: false, unlisted_capability_decision: "RECHECK_REQUIRED"
+              }
+            },
+            consent: {
+              status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+              approvedAt: "2026-11-05T20:00:00.000Z",
+              fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+            }
+          };
+        },
+        async appendBuilderResult() { return { durable: true, checkpointId: "invalid-entry-fallback" }; }
+      },
+      fetchImpl: async (_url, options) => {
+        userContext = JSON.parse(JSON.parse(options.body).messages[1].content);
+        return new Response(JSON.stringify({
+          model: "reported-model",
+          choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+        }), { status: 200 });
+      }
+    });
+    await h.executor("ODIN", h.context("ODIN"));
+    assert.equal(userContext.operational_limits_snapshot.register_status, "UNAVAILABLE");
+    assert.equal(userContext.operational_limits_snapshot.unlisted_capability_decision, "RECHECK_REQUIRED");
+  }
 });
 
 test("falls back to unavailable when a supplied operational limits snapshot is malformed", async () => {
