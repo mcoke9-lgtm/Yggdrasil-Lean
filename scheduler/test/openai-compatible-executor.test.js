@@ -44,6 +44,7 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
       }
       return {
         prompt,
+        promptTurnId: "user-turn-001",
         threadId,
         history: [...runHistory.get(runId)],
         consent: {
