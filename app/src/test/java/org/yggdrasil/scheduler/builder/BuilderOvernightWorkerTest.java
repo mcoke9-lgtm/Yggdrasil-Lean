@@ -17,7 +17,7 @@ public class BuilderOvernightWorkerTest {
 
         assertEquals(NetworkType.CONNECTED,
                 request.getWorkSpec().constraints.getRequiredNetworkType());
-        assertEquals("run-1", request.getInputData().getString("builder_run_id"));
+        assertEquals("run-1", request.getWorkSpec().input.getString("builder_run_id"));
         assertEquals(TimeUnit.MINUTES.toMillis(15), request.getWorkSpec().initialDelay);
     }
 }
