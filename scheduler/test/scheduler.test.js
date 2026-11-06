@@ -490,6 +490,7 @@ test("abortActiveRuns propagates cooperative cancellation to the active handler"
     if (context.signal.aborted) observedAbort(context.signal.reason);
     else context.signal.addEventListener("abort", () => observedAbort(context.signal.reason), { once: true });
     await aborted;
+    throw context.signal.reason;
   });
   await scheduler.addTask({
     id: "cooperative-cancel",
