@@ -218,10 +218,19 @@ export function createEncryptedTaskVault({
         const expectedEvidence = parseBuilderEvidenceReference(correction.artifact_reference);
         if (!evidenceVerification || evidenceVerification.verified !== true ||
             evidenceVerification.status !== "VERIFIED" ||
+            evidenceVerification.verificationMethod !== "READ_ONLY_GITHUB_GATEWAY" ||
             evidenceVerification.kind !== expectedEvidence.kind ||
             evidenceVerification.repository !== expectedEvidence.repository ||
-            evidenceVerification.objectId !== expectedEvidence.objectId) {
+            evidenceVerification.objectId !== expectedEvidence.objectId ||
+            evidenceVerification.branch !== expectedEvidence.branch ||
+            evidenceVerification.workflow !== expectedEvidence.workflow ||
+            evidenceVerification.expectedSha !== expectedEvidence.expectedSha) {
           throw new Error("Correction update cannot be persisted without matching successful evidence-gateway verification");
+        }
+        const checkedAt = required(evidenceVerification.checkedAt, "Evidence verification checkedAt", 64);
+        const checkedAtDate = new Date(checkedAt);
+        if (!Number.isFinite(checkedAtDate.getTime()) || checkedAtDate.toISOString() !== checkedAt) {
+          throw new TypeError("Evidence verification checkedAt must be canonical ISO-8601");
         }
       }
       const replyBody = reply.body;
