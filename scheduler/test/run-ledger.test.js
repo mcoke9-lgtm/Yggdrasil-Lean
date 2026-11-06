@@ -416,6 +416,64 @@ test("requires a task reference and prevents resume from rebinding a Builder run
   assert.equal((await ledger.getRun(prior.runId)).status, "interrupted");
 });
 
+test("recovers an interrupted Builder from its durable vault result without invoking it again", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const prior = await ledger.createRun({
+    runId: "durable-recovery-run",
+    scheduledFor: "2026-11-04T12:00:00Z",
+    durationMs: 60 * 60 * 1000,
+    taskReference: "vault:durable-recovery"
+  });
+  await ledger.startRun(prior.runId);
+  await ledger.startBuilder(prior.runId, "ODIN");
+  await ledger.interruptRun(prior.runId, "simulated process loss", "ODIN");
+
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  let baldrOutcomes = null;
+  const executor = async (role, context) => {
+    invoked.push(role);
+    if (role === "BALDR") baldrOutcomes = context.outcomes;
+    return { status: "succeeded", summary: role + " completed after recovery" };
+  };
+  executor.recoverDurableResult = async (role, context) => {
+    assert.equal(role, "ODIN");
+    assert.equal(context.runId, prior.runId);
+    assert.equal(context.task.taskReference, "vault:durable-recovery");
+    return {
+      checkpointId: "vault-checkpoint-odin",
+      data: { responseSha256: "a".repeat(64), recoveredFromEncryptedVault: true },
+      summary: "Odin recovered its durable vault result without another model request.",
+      turnType: "CONTRIBUTION",
+      status: "succeeded"
+    };
+  };
+  registerBuilderRunHandler(scheduler, { ledger, clock, executor, output: () => {} });
+  await scheduler.addTask({
+    id: "resume-durable-recovery",
+    name: "Resume from durable vault result",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { resumeRunId: prior.runId },
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.equal(invoked.includes("ODIN"), false);
+  assert.equal(invoked[0], "HODR");
+  assert.equal(invoked.at(-1), "BALDR");
+  assert.equal(baldrOutcomes.length, 8);
+  assert.match(
+    baldrOutcomes.find(item => item.role === "ODIN").summary,
+    /recovered its durable vault result/
+  );
+  const saved = await ledger.getRun(prior.runId);
+  const odin = saved.builders.find(item => item.role === "ODIN");
+  assert.equal(odin.status, "succeeded");
+  assert.equal(odin.checkpoint.safeToResume, true);
+  assert.equal(odin.checkpoint.data.recoveredFromDurableResult, true);
+});
+
 test("scheduled handler resumes an interrupted run only from safe checkpoints", async () => {
   const store = new MemoryStore();
   const ledger = new BuilderRunLedger({ store, clock });
