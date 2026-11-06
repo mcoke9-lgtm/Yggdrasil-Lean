@@ -4,10 +4,13 @@ import { dirname, resolve } from "node:path";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
 import { verifyUserAdoptionAuthorization } from "./user-adoption-authorization.js";
+import { acquireProcessLock } from "./process-lock.js";
 
 const MAGIC = "YGGDRASIL-BUILDER-VAULT";
 const VERSION = 1;
 const MAX_VAULT_BYTES = 8 * 1024 * 1024;
+const MUTATION_LOCK_MAX_WAIT_MS = 30000;
+const mutationQueues = new Map();
 
 function required(value, label, max = 4096) {
   if (typeof value !== "string" || !value.trim() || value.length > max) {
@@ -89,10 +92,40 @@ export function createEncryptedTaskVault({
     throw new RangeError("User authorization max age must be between 1 second and 15 minutes");
   }
   const authorizationKeys = Object.freeze({ ...userAuthorizationPublicKeys });
-  let mutationTail = Promise.resolve();
+  async function acquireMutationLock() {
+    const lockPath = path + ".mutation.lock";
+    const deadline = Date.now() + MUTATION_LOCK_MAX_WAIT_MS;
+    let delayMs = 10;
+    while (true) {
+      try {
+        return await acquireProcessLock(lockPath);
+      } catch (error) {
+        const message = String(error?.message || error);
+        const contention = /already appears to be running as PID|stale-lock recovery is already in progress|Could not acquire scheduler process lock/.test(message);
+        if (!contention || Date.now() >= deadline) {
+          throw new Error("Encrypted task vault mutation lock unavailable; no mutation was committed: " + message);
+        }
+        await new Promise(resolveDelay => setTimeout(resolveDelay, delayMs));
+        delayMs = Math.min(250, Math.ceil(delayMs * 1.5));
+      }
+    }
+  }
+
   function serializeMutation(operation) {
-    const result = mutationTail.then(operation, operation);
-    mutationTail = result.catch(() => {});
+    const prior = mutationQueues.get(path) ?? Promise.resolve();
+    const result = prior.then(async () => {
+      const release = await acquireMutationLock();
+      try {
+        return await operation();
+      } finally {
+        await release();
+      }
+    });
+    const settled = result.catch(() => {});
+    mutationQueues.set(path, settled);
+    void settled.then(() => {
+      if (mutationQueues.get(path) === settled) mutationQueues.delete(path);
+    });
     return result;
   }
 
