@@ -1,6 +1,6 @@
 # Nine Builders overnight runs
 
-The Android app now has a scheduled-run path built on WorkManager.
+The Android app now has a scheduled-run path built on WorkManager. Scheduling first persists a `SCHEDULED` checkpoint containing the run/thread identity and approved-prompt digest; the worker changes it to `RUNNING` only when execution begins. The eight-hour deadline starts at that transition, not at queue time. A queued run can therefore be durably cancelled before its first worker invocation.
 
 ## Behavior
 
