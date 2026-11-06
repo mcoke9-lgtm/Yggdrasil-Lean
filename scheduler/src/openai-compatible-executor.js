@@ -794,15 +794,30 @@ export function createOpenAiCompatibleExecutor({
       const matches = targetTask.history.filter(turn => turn.speaker === savedBuilder.role);
       if (matches.length > 1) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
       const actualTurnId = matches[0]?.checkpointId ?? matches[0]?.turnId;
+      if (savedBuilder.role === "BALDR" && savedBuilder.status === "skipped") {
+        throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+      }
       if (savedBuilder.status === "succeeded") {
         const expectedTurnId = savedBuilder.checkpoint?.checkpointId;
         if (typeof expectedTurnId !== "string" || matches.length !== 1 ||
             actualTurnId !== expectedTurnId) {
           throw new Error("MANUAL_RECONCILIATION_REQUIRED");
         }
+        try {
+          if (durableRecoveryRecord(targetTask, savedBuilder.role, matches[0]).status !== "succeeded") {
+            throw new Error("stop-turn");
+          }
+        } catch {
+          throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+        }
       } else if (["failed", "interrupted", "running"].includes(savedBuilder.status)) {
         // An uncertain provider call may only be recovered from its exact durable turn.
         if (matches.length !== 1) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+        try {
+          durableRecoveryRecord(targetTask, savedBuilder.role, matches[0]);
+        } catch {
+          throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+        }
       } else if (["skipped", "pending"].includes(savedBuilder.status)) {
         if (matches.length !== 0) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
       } else {
