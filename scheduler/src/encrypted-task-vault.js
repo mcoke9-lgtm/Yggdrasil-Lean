@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { mkdir, open, readFile, rename, lstat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
-import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
+import { parseBuilderEvidenceReference, verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
 import { verifyUserAdoptionAuthorization } from "./user-adoption-authorization.js";
 import { acquireProcessLock } from "./process-lock.js";
 
@@ -79,6 +79,8 @@ export function createEncryptedTaskVault({
   key = keyFromEnvironment(),
   userAuthorizationPublicKeys = {},
   userAuthorizationMaxAgeMs = 300000,
+  evidenceGateway = null,
+  evidenceTimeoutMs = 15000,
   clock = () => new Date()
 } = {}) {
   const path = resolve(required(filePath, "BUILDER_TASK_VAULT_FILE", 4096));
@@ -92,6 +94,12 @@ export function createEncryptedTaskVault({
     throw new RangeError("User authorization max age must be between 1 second and 15 minutes");
   }
   const authorizationKeys = Object.freeze({ ...userAuthorizationPublicKeys });
+  if (evidenceGateway != null && (typeof evidenceGateway !== "object" || Array.isArray(evidenceGateway))) {
+    throw new TypeError("Evidence gateway must be a read-only gateway object");
+  }
+  if (!Number.isSafeInteger(evidenceTimeoutMs) || evidenceTimeoutMs < 1000 || evidenceTimeoutMs > 300000) {
+    throw new RangeError("Evidence timeout must be between 1 second and 5 minutes");
+  }
   async function acquireMutationLock() {
     const lockPath = path + ".mutation.lock";
     const deadline = Date.now() + MUTATION_LOCK_MAX_WAIT_MS;
@@ -166,6 +174,75 @@ export function createEncryptedTaskVault({
       const handle = await open(directory, "r");
       try { await handle.sync(); } finally { await handle.close(); }
     }
+  }
+
+  async function persistOperationalConstraint(taskReference, entry, runtimeEvaluation, evidenceVerification = null) {
+    return serializeMutation(async () => {
+      const reference = required(taskReference, "taskReference", 256);
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError("Operational constraint entry is required");
+      }
+      const constraintId = required(entry.constraint_id, "constraint_id", 256);
+      if (!runtimeEvaluation || typeof runtimeEvaluation !== "object" ||
+          Array.isArray(runtimeEvaluation)) {
+        throw new TypeError("Operational constraint runtime evaluation is required");
+      }
+      const evaluatedOn = required(runtimeEvaluation.evaluated_on, "evaluated_on", 10);
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluatedOn) ||
+          !Number.isFinite(Date.parse(evaluatedOn + "T00:00:00.000Z")) ||
+          new Date(evaluatedOn + "T00:00:00.000Z").toISOString().slice(0, 10) !== evaluatedOn) {
+        throw new TypeError("Operational constraint evaluated_on must be a valid YYYY-MM-DD date");
+      }
+      const maximumAge = runtimeEvaluation.maximum_evidence_age_days;
+      if (!Number.isFinite(maximumAge) || maximumAge < 0 ||
+          runtimeEvaluation.live_telemetry !== false ||
+          runtimeEvaluation.unlisted_capability_decision !== "RECHECK_REQUIRED") {
+        throw new TypeError("Operational constraint runtime evaluation is invalid");
+      }
+      const storedEntry = JSON.parse(JSON.stringify(entry));
+      if (evidenceVerification) storedEntry.evidenceVerification = evidenceVerification;
+      if (storedEntry.constraint_id !== constraintId) {
+        throw new TypeError("Operational constraint ID must be a trimmed stable string");
+      }
+      const state = await readState();
+      const task = state.tasks[reference];
+      if (!task) throw new Error("Task reference does not exist");
+      const register = task.operationalConstraintRegister ??= {
+        schema: "yggdrasil.operational-capacity-register",
+        schema_version: "1.0.0",
+        constraints: [],
+        runtime_evaluation: {
+          evaluated_on: evaluatedOn,
+          maximum_evidence_age_days: maximumAge,
+          live_telemetry: false,
+          unlisted_capability_decision: "RECHECK_REQUIRED"
+        }
+      };
+      if (register.schema !== "yggdrasil.operational-capacity-register" ||
+          register.schema_version !== "1.0.0" || !Array.isArray(register.constraints)) {
+        throw new Error("Stored operational constraint register is malformed");
+      }
+      const prior = register.constraints.find(item => item?.constraint_id === constraintId);
+      if (prior) {
+        const priorStable = { ...prior };
+        const incomingStable = { ...storedEntry };
+        delete priorStable.evidenceVerification;
+        delete incomingStable.evidenceVerification;
+        if (JSON.stringify(priorStable) !== JSON.stringify(incomingStable)) {
+          throw new Error("Operational constraint ID already exists with different content; append a new ID instead");
+        }
+        return { durable: true, duplicate: true, constraintId, count: register.constraints.length };
+      }
+      register.constraints.push(storedEntry);
+      register.runtime_evaluation = {
+        evaluated_on: evaluatedOn,
+        maximum_evidence_age_days: maximumAge,
+        live_telemetry: false,
+        unlisted_capability_decision: "RECHECK_REQUIRED"
+      };
+      await writeState(state);
+      return { durable: true, duplicate: false, constraintId, count: register.constraints.length };
+    });
   }
 
   return Object.freeze({
@@ -250,69 +327,35 @@ export function createEncryptedTaskVault({
     },
 
     async appendOperationalConstraint(taskReference, entry, runtimeEvaluation) {
-      return serializeMutation(async () => {
-        const reference = required(taskReference, "taskReference", 256);
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-          throw new TypeError("Operational constraint entry is required");
-        }
-        const constraintId = required(entry.constraint_id, "constraint_id", 256);
-        if (!runtimeEvaluation || typeof runtimeEvaluation !== "object" ||
-            Array.isArray(runtimeEvaluation)) {
-          throw new TypeError("Operational constraint runtime evaluation is required");
-        }
-        const evaluatedOn = required(runtimeEvaluation.evaluated_on, "evaluated_on", 10);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(evaluatedOn) ||
-            !Number.isFinite(Date.parse(evaluatedOn + "T00:00:00.000Z")) ||
-            new Date(evaluatedOn + "T00:00:00.000Z").toISOString().slice(0, 10) !== evaluatedOn) {
-          throw new TypeError("Operational constraint evaluated_on must be a valid YYYY-MM-DD date");
-        }
-        const maximumAge = runtimeEvaluation.maximum_evidence_age_days;
-        if (!Number.isFinite(maximumAge) || maximumAge < 0 ||
-            runtimeEvaluation.live_telemetry !== false ||
-            runtimeEvaluation.unlisted_capability_decision !== "RECHECK_REQUIRED") {
-          throw new TypeError("Operational constraint runtime evaluation is invalid");
-        }
-        const serializedEntry = JSON.stringify(entry);
-        if (typeof serializedEntry !== "string") throw new TypeError("Operational constraint entry is not serializable");
-        const storedEntry = JSON.parse(serializedEntry);
-        if (storedEntry.constraint_id !== constraintId) {
-          throw new TypeError("Operational constraint ID must be a trimmed stable string");
-        }
-        const state = await readState();
-        const task = state.tasks[reference];
-        if (!task) throw new Error("Task reference does not exist");
-        const register = task.operationalConstraintRegister ??= {
-          schema: "yggdrasil.operational-capacity-register",
-          schema_version: "1.0.0",
-          constraints: [],
-          runtime_evaluation: {
-            evaluated_on: evaluatedOn,
-            maximum_evidence_age_days: maximumAge,
-            live_telemetry: false,
-            unlisted_capability_decision: "RECHECK_REQUIRED"
-          }
-        };
-        if (register.schema !== "yggdrasil.operational-capacity-register" ||
-            register.schema_version !== "1.0.0" || !Array.isArray(register.constraints)) {
-          throw new Error("Stored operational constraint register is malformed");
-        }
-        const prior = register.constraints.find(item => item?.constraint_id === constraintId);
-        if (prior) {
-          if (JSON.stringify(prior) !== serializedEntry) {
-            throw new Error("Operational constraint ID already exists with different content; append a new ID instead");
-          }
-          return { durable: true, duplicate: true, constraintId, count: register.constraints.length };
-        }
-        register.constraints.push(storedEntry);
-        register.runtime_evaluation = {
-          evaluated_on: evaluatedOn,
-          maximum_evidence_age_days: maximumAge,
-          live_telemetry: false,
-          unlisted_capability_decision: "RECHECK_REQUIRED"
-        };
-        await writeState(state);
-        return { durable: true, duplicate: false, constraintId, count: register.constraints.length };
-      });
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) ||
+          entry.evidence_state === "VERIFIED" || entry.evidenceVerification != null) {
+        throw new Error("VERIFIED constraint evidence can only be written through the configured read-only evidence verifier");
+      }
+      return persistOperationalConstraint(taskReference, entry, runtimeEvaluation);
+    },
+
+    async verifyAndAppendOperationalConstraint(taskReference, entry, runtimeEvaluation) {
+      if (!evidenceGateway) {
+        throw new Error("No trusted read-only evidence gateway is configured; constraint remains unverified");
+      }
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) ||
+          Object.hasOwn(entry, "evidence_state") || Object.hasOwn(entry, "evidenceVerification")) {
+        throw new TypeError("Verified constraint input must not supply its own evidence status or verification proof");
+      }
+      const verification = await verifyBuilderEvidenceReference(
+        entry.source_reference, evidenceGateway, { timeoutMs: evidenceTimeoutMs }
+      );
+      if (!verification.verified || verification.status !== "VERIFIED" ||
+          verification.verificationMethod !== "READ_ONLY_GITHUB_GATEWAY") {
+        throw new Error("Constraint source verification " + verification.status + ": " + verification.reason);
+      }
+      const checkedAt = clock();
+      if (!(checkedAt instanceof Date) || !Number.isFinite(checkedAt.getTime())) {
+        throw new TypeError("Vault clock must return a valid Date for evidence verification");
+      }
+      const verifiedEntry = { ...entry, evidence_state: "VERIFIED" };
+      const evidenceVerification = { ...verification, checkedAt: checkedAt.toISOString() };
+      return persistOperationalConstraint(taskReference, verifiedEntry, runtimeEvaluation, evidenceVerification);
     },
 
     async appendBuilderResult(taskReference, record) {
