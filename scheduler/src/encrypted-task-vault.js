@@ -3,6 +3,7 @@ import { mkdir, open, readFile, rename, lstat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
+import { verifyUserAdoptionAuthorization } from "./user-adoption-authorization.js";
 
 const MAGIC = "YGGDRASIL-BUILDER-VAULT";
 const VERSION = 1;
@@ -72,10 +73,28 @@ function decrypt(data, key) {
 
 export function createEncryptedTaskVault({
   filePath = process.env.BUILDER_TASK_VAULT_FILE,
-  key = keyFromEnvironment()
+  key = keyFromEnvironment(),
+  userAuthorizationPublicKeys = {},
+  userAuthorizationMaxAgeMs = 300000,
+  clock = () => new Date()
 } = {}) {
   const path = resolve(required(filePath, "BUILDER_TASK_VAULT_FILE", 4096));
   if (!Buffer.isBuffer(key) || key.length !== 32) throw new TypeError("Task vault key must be exactly 32 bytes");
+  if (!userAuthorizationPublicKeys || typeof userAuthorizationPublicKeys !== "object" ||
+      Array.isArray(userAuthorizationPublicKeys)) {
+    throw new TypeError("User authorization public keys must be a key-ID map");
+  }
+  if (!Number.isSafeInteger(userAuthorizationMaxAgeMs) ||
+      userAuthorizationMaxAgeMs < 1000 || userAuthorizationMaxAgeMs > 900000) {
+    throw new RangeError("User authorization max age must be between 1 second and 15 minutes");
+  }
+  const authorizationKeys = Object.freeze({ ...userAuthorizationPublicKeys });
+  let mutationTail = Promise.resolve();
+  function serializeMutation(operation) {
+    const result = mutationTail.then(operation, operation);
+    mutationTail = result.catch(() => {});
+    return result;
+  }
 
   async function readState() {
     try {
@@ -118,6 +137,7 @@ export function createEncryptedTaskVault({
 
   return Object.freeze({
     async initializeTask(taskReference, prompt) {
+      return serializeMutation(async () => {
       const reference = required(taskReference, "taskReference", 256);
       const taskPrompt = required(prompt, "task prompt", 32000);
       const state = await readState();
@@ -139,9 +159,11 @@ export function createEncryptedTaskVault({
       };
       await writeState(state);
       return { taskReference: reference, approvalRequired: true };
+      });
     },
 
     async approveTask(taskReference, fingerprint, approvedAt = new Date().toISOString()) {
+      return serializeMutation(async () => {
       const reference = required(taskReference, "taskReference", 256);
       const digest = required(fingerprint, "consent fingerprint", 64);
       if (!/^[a-f0-9]{64}$/.test(digest)) throw new TypeError("Consent fingerprint must be SHA-256 hex");
@@ -156,9 +178,11 @@ export function createEncryptedTaskVault({
       };
       await writeState(state);
       return { approved: true, taskReference: reference, approvedAt: task.consent.approvedAt };
+      });
     },
 
-    async getTask(taskReference, { runId } = {}) {
+    async getTask(taskReference, {
+      return serializeMutation(async () => { runId } = {}) {
       const reference = required(taskReference, "taskReference", 256);
       const id = required(runId, "runId", 120);
       const state = await readState();
@@ -187,9 +211,11 @@ export function createEncryptedTaskVault({
         consent: task.consent,
         operationalLimitsSnapshot: null
       };
+      });
     },
 
     async appendBuilderResult(taskReference, record) {
+      return serializeMutation(async () => {
       const reference = required(taskReference, "taskReference", 256);
       if (!record || typeof record !== "object") throw new TypeError("Builder result record is required");
       const runId = required(record.runId, "runId", 120);
@@ -289,13 +315,149 @@ export function createEncryptedTaskVault({
       });
       await writeState(state);
       return { durable: true, checkpointId };
+      });
+    }
+
+    async appendUserAdoption(taskReference, {
+      runId,
+      correctionId,
+      authorization
+    } = {}) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        const id = required(runId, "runId", 120);
+        const correction = required(correctionId, "correctionId", 256);
+        const nowDate = new Date(clock());
+        if (!Number.isFinite(nowDate.getTime())) throw new TypeError("Vault clock must return a valid date");
+        const verifiedAction = verifyUserAdoptionAuthorization(authorization, {
+          publicKeys: authorizationKeys,
+          now: nowDate.getTime(),
+          maxAgeMs: userAuthorizationMaxAgeMs
+        });
+        if (verifiedAction.taskReference !== reference || verifiedAction.runId !== id ||
+            verifiedAction.correctionId !== correction) {
+          throw new Error("Signed user action does not match the requested task, run, and correction");
+        }
+
+        const state = await readState();
+        const task = state.tasks[reference];
+        if (!task) throw new Error("Task reference does not exist");
+        const run = task.runs[id];
+        if (!run || run.threadId !== verifiedAction.threadId) {
+          throw new Error("Signed user action does not match an initialized run thread");
+        }
+        validateBuilderHistory(run.history, id, run.threadId, task.promptTurnId,
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt);
+
+        if (!state.usedUserActionNonces || typeof state.usedUserActionNonces !== "object" ||
+            Array.isArray(state.usedUserActionNonces)) state.usedUserActionNonces = {};
+        const priorUse = state.usedUserActionNonces[verifiedAction.nonce];
+        if (priorUse) {
+          const priorTurn = run.history.find(turn =>
+            turn.userAuthorization?.nonce === verifiedAction.nonce &&
+            turn.userAuthorization?.signatureSha256 === verifiedAction.signatureSha256
+          );
+          if (priorTurn) {
+            return {
+              durable: true,
+              turnId: priorTurn.turnId,
+              adoptedAt: priorTurn.completedAt,
+              idempotentReplay: true
+            };
+          }
+          throw new Error("User action nonce has already been consumed");
+        }
+        if (Object.keys(state.usedUserActionNonces).length >= 10000) {
+          throw new RangeError("User action replay ledger reached its 10,000-entry safety limit");
+        }
+
+        let latest = null;
+        let latestBody = null;
+        for (const turn of run.history) {
+          if (turn.type !== "CORRECTION_UPDATE") continue;
+          let body;
+          try { body = JSON.parse(turn.body); } catch { continue; }
+          if (body?.correction_id === correction) {
+            latest = turn;
+            latestBody = body;
+          }
+        }
+        if (!latest || latestBody?.stage !== "VERIFIED" || latest.speaker !== "BALDR" ||
+            latest.evidenceVerification?.verified !== true ||
+            latest.evidenceVerification?.status !== "VERIFIED") {
+          throw new Error("Only the latest independently verified Baldr correction can be adopted");
+        }
+        const adoptedAt = verifiedAction.issuedAt;
+        const adoptedMillis = verifiedAction.issuedAtEpochMillis;
+        const priorTurn = run.history.at(-1);
+        const priorMillis = priorTurn
+          ? (Number.isSafeInteger(priorTurn.timestampEpochMillis)
+              ? priorTurn.timestampEpochMillis
+              : Date.parse(priorTurn.completedAt))
+          : (task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt));
+        if (priorMillis != null && adoptedMillis <= priorMillis) {
+          throw new Error("Signed user-action timestamp must follow the latest run-thread record");
+        }
+
+        const adoptionBody = JSON.stringify({
+          correction_id: correction,
+          incident_turn_id: required(latestBody.incident_turn_id, "Verified incident ID", 256),
+          stage: "ADOPTED",
+          evidence: "The authenticated user explicitly accepted this verified correction record.",
+          artifact_reference: "user-adoption:" + verifiedAction.nonce,
+          acceptance_criteria_result: "The authenticated user accepted the latest Baldr-verified correction as project practice.",
+          unresolved: required(latestBody.unresolved, "Verified correction unresolved", 4096)
+        });
+        const turnId = "user-adoption-" + verifiedAction.nonce;
+        const adoptionTurn = {
+          protocolVersion: 4,
+          runId: id,
+          threadId: run.threadId,
+          turnId,
+          speaker: "USER",
+          body: adoptionBody,
+          type: "CORRECTION_UPDATE",
+          recipient: null,
+          reply_to_turn_id: latest.turnId,
+          evidence_status: "ADOPTED",
+          timestampEpochMillis: adoptedMillis,
+          completedAt: adoptedAt,
+          userAuthorization: verifiedAction
+        };
+        validateBuilderHistory([...run.history, adoptionTurn], id, run.threadId,
+          task.promptTurnId,
+          task.promptCreatedAt == null ? null : Date.parse(task.promptCreatedAt), task.prompt);
+        run.history.push(adoptionTurn);
+        state.usedUserActionNonces[verifiedAction.nonce] = {
+          taskReference: reference,
+          runId: id,
+          threadId: run.threadId,
+          correctionId: correction,
+          userId: verifiedAction.userId,
+          signatureSha256: verifiedAction.signatureSha256,
+          issuedAt: verifiedAction.issuedAt
+        };
+        await writeState(state);
+        return { durable: true, turnId, adoptedAt, userId: verifiedAction.userId };
+      });
     }
   });
 }
 
 let defaultVault;
 function configuredVault() {
-  if (!defaultVault) defaultVault = createEncryptedTaskVault();
+  if (!defaultVault) {
+    let userAuthorizationPublicKeys = {};
+    const encodedKeys = process.env.BUILDER_USER_AUTHORIZATION_PUBLIC_KEYS_JSON;
+    if (encodedKeys) {
+      userAuthorizationPublicKeys = JSON.parse(encodedKeys);
+      if (!userAuthorizationPublicKeys || typeof userAuthorizationPublicKeys !== "object" ||
+          Array.isArray(userAuthorizationPublicKeys)) {
+        throw new TypeError("BUILDER_USER_AUTHORIZATION_PUBLIC_KEYS_JSON must be a key-ID map");
+      }
+    }
+    defaultVault = createEncryptedTaskVault({ userAuthorizationPublicKeys });
+  }
   return defaultVault;
 }
 export async function getTask(taskReference, context) {
@@ -303,4 +465,8 @@ export async function getTask(taskReference, context) {
 }
 export async function appendBuilderResult(taskReference, record) {
   return configuredVault().appendBuilderResult(taskReference, record);
+}
+
+export async function appendUserAdoption(taskReference, request) {
+  return configuredVault().appendUserAdoption(taskReference, request);
 }
