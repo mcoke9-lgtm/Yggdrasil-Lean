@@ -1,0 +1,182 @@
+{
+  "registry_schema_version": "0.1.0",
+  "registry_id": "yggdrasil-app-registry",
+  "purpose": "Canonical inventory of Yggdrasil applications, components, builds, installations, signing identity, and verification evidence.",
+  "principles": [
+    "accountability",
+    "transparency",
+    "honesty"
+  ],
+  "status_vocabulary": {
+    "planned": "Intended but no implementation evidence recorded.",
+    "built": "A build artifact or source implementation exists; installation is not implied.",
+    "user_reported_installed": "The user reports installation; device-side verification has not yet confirmed it.",
+    "device_verified_installed": "A device-side observation confirms the installed package and version at the recorded time.",
+    "unverified": "Evidence is insufficient to assign a stronger status."
+  },
+  "verification_rules": [
+    "Never infer installation from a successful build or artifact download.",
+    "Keep user-reported installation distinct from device-verified installation.",
+    "Record package ID, version, source commit, artifact SHA-256, and signer SHA-256 independently.",
+    "A build-time signing fingerprint does not establish the signer of an installed package.",
+    "Unknown values remain null or explicitly unknown; do not fill them by inference.",
+    "Record evidence source and observation time for every status change."
+  ],
+  "devices": [
+    {
+      "device_id": "galaxy-s21-plus-primary",
+      "display_name": "Samsung Galaxy S21+ 5G",
+      "model": "SM-G996U",
+      "android_version": "15",
+      "role": "First local model/runtime test host",
+      "verification_status": "user_reported_device",
+      "notes": "Device model and Android version are available from session context; installed package inventory has not been independently read from the device."
+    },
+    {
+      "device_id": "intel-nuc5i5ryh-future",
+      "display_name": "Intel NUC5i5RYH",
+      "role": "Potential later persistent coordination, memory, communications, and recovery host",
+      "verification_status": "planned"
+    }
+  ],
+  "applications": [
+    {
+      "app_id": "builder-host",
+      "display_name": "Yggdrasil Builder Host",
+      "purpose": "Android Builder runtime host and conversation interface.",
+      "package_id": "org.yggdrasil.builderhost",
+      "repository": "mcoke9-lgtm/Yggdrasil-Lean",
+      "source_path": "app/",
+      "source_branch": "independent-builder-runtime-foundation-001",
+      "installation": {
+        "status": "user_reported_installed",
+        "device_id": "galaxy-s21-plus-primary",
+        "evidence": "User report in conversation; not independently device-verified."
+      },
+      "build": {
+        "status": "source_and_prior_build_evidence",
+        "version_name": "0.2.0",
+        "version_code": 2
+      },
+      "signing": {
+        "installed_signer_sha256": null,
+        "historical_artifact_signer_sha256": "91:C4:25:17:E8:E8:73:B9:FD:C2:85:63:10:07:C9:8F:46:0B:0C:8B:95:5B:99:24:0F:55:2F:DB:DB:EC:2B:3A",
+        "status": "historical_artifact_only"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "evidence_notes": "Application ID and version are verified from app/build.gradle on the foundation branch. User reports installation; installed version and signer remain unverified."
+    },
+    {
+      "app_id": "key-steward",
+      "display_name": "Builder Key Steward",
+      "purpose": "Key and signing material stewardship.",
+      "package_id": "org.yggdrasil.keysteward",
+      "repository": "mcoke9-lgtm/Yggdrasil-Lean",
+      "source_path": "key-steward/",
+      "source_branch": "keysteward-signing-isolation-integration-001",
+      "installation": {
+        "status": "user_reported_installed",
+        "device_id": "galaxy-s21-plus-primary",
+        "evidence": "User report in conversation; not independently device-verified."
+      },
+      "build": {
+        "status": "built_artifact_evidence",
+        "version_name": "1.0.0",
+        "version_code": 1
+      },
+      "signing": {
+        "installed_signer_sha256": null,
+        "artifact_signer_sha256": null,
+        "status": "unknown"
+      },
+      "permissions": [],
+      "evidence_notes": "Package ID and version are verified from key-steward/build.gradle. A prior artifact was built; its existence does not verify the installed signer."
+    },
+    {
+      "app_id": "yggdrasil-scheduler",
+      "display_name": "Yggdrasil Scheduler",
+      "purpose": "Independent scheduling and build monitoring prototype.",
+      "package_id": null,
+      "repository": "mcoke9-lgtm/Yggdrasil-Lean",
+      "source_path": "app/",
+      "source_branch": "android-scheduler-host-prototype-001",
+      "installation": {
+        "status": "unverified",
+        "device_id": "galaxy-s21-plus-primary",
+        "evidence": "Prior context records a retrieved and checksum-verified APK; installation and continuous operation were not verified."
+      },
+      "build": {
+        "status": "built_artifact_evidence",
+        "artifact_name": "yggdrasil-scheduler-debug-apk",
+        "source_commit": "a0dd9b7b46fbf11f14d8c687f4a8185bbbdc5200",
+        "artifact_sha256": null
+      },
+      "signing": {
+        "installed_signer_sha256": null,
+        "artifact_signer_sha256": null,
+        "status": "unknown"
+      },
+      "permissions": null,
+      "evidence_notes": "Package ID, complete artifact digest, and installed state must be recovered from primary build metadata or device observation. Do not assume it is the third installed app."
+    },
+    {
+      "app_id": "installed-signer-diagnostic",
+      "display_name": "Installed Signer Diagnostic",
+      "purpose": "Read-only inspection of installed signing certificates for Builder Host and Key Steward.",
+      "package_id": "org.yggdrasil.signingdiagnostic",
+      "repository": "mcoke9-lgtm/Yggdrasil-Lean",
+      "source_path": "signing-diagnostic/",
+      "source_branch": "installed-signer-diagnostic-001",
+      "installation": {
+        "status": "unverified",
+        "device_id": "galaxy-s21-plus-primary",
+        "evidence": "CI build artifact retrieved and locally inspected; installation on Galaxy S21+ has not been performed or verified."
+      },
+      "build": {
+        "status": "ci_build_verified",
+        "source_commit": "5f6c7f498faf409b3dd49361aa402f334bd21668",
+        "workflow_run_id": 42060148545,
+        "artifact_id": 13431701343,
+        "artifact_name": "installed-signer-diagnostic-apk",
+        "artifact_archive_sha256": "36e32ae1797964659c7b89a8083659ede3786168da15f87ed94840e5252c57d4",
+        "apk_sha256": "887ee4de78b8d61f7323737d42e74e22bb12eceb5d6c1b26fcef7d4f3395a41b",
+        "artifact_expires_at": "2026-11-19T15:58:09Z"
+      },
+      "signing": {
+        "installed_signer_sha256": null,
+        "artifact_signer_sha256": null,
+        "status": "unknown"
+      },
+      "permissions": [],
+      "evidence_notes": "Corrected build passed all 8 workflow steps, including package identity, exact query scope, offline permission checks, and artifact upload. APK archive contents and APK SHA-256 independently inspected. Not installed."
+    }
+  ],
+  "relationships": [
+    {
+      "from": "installed-signer-diagnostic",
+      "to": "builder-host",
+      "type": "reads-installed-signing-metadata-for"
+    },
+    {
+      "from": "installed-signer-diagnostic",
+      "to": "key-steward",
+      "type": "reads-installed-signing-metadata-for"
+    },
+    {
+      "from": "yggdrasil-scheduler",
+      "to": "builder-host",
+      "type": "intended-monitoring-and-coordination"
+    }
+  ],
+  "audit": {
+    "created_on": "2026-11-05",
+    "created_from": "conversation context and repository source inspection",
+    "last_device_inventory": null,
+    "notes": "Initial seed only. All app installation states require device-side confirmation before being upgraded to device_verified_installed.",
+    "last_updated_on": "2026-11-05"
+  }
+}
