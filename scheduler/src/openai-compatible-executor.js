@@ -313,6 +313,46 @@ function unavailableOperationalLimitsSnapshot(reason) {
   };
 }
 
+const CONSTRAINT_ORIGINS = new Set([
+  "CHATGPT_SERVICE", "PROVIDER_SERVICE", "HOST_OR_DEVICE",
+  "NETWORK_OR_INFRASTRUCTURE", "NINE_BUILDERS_GOVERNANCE",
+  "PHYSICAL_OR_TEMPORAL", "UNKNOWN_SCOPE"
+]);
+const CONSTRAINT_FORCES = new Set(["MANDATORY", "ADVISORY", "UNVERIFIED"]);
+const CONSTRAINT_EVIDENCE = new Set(["VERIFIED", "REPORTED", "INFERRED", "UNKNOWN"]);
+const CONSTRAINT_EFFECTS = new Set([
+  "BLOCKS_OPERATION", "RESTRICTS_OPERATION", "REDUCES_CAPABILITY",
+  "NO_DIRECT_BLOCK", "RECHECK_REQUIRED"
+]);
+const CONSTRAINT_ROLES = new Set(BUILDER_ROLES);
+
+function nonEmptyConstraintText(value) {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= 2048;
+}
+
+function validateConstraintEntry(entry, evaluation) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+  const requiredTextFields = [
+    "constraint_id", "origin_system", "source_reference",
+    "affected_capability", "affected_operation", "decision_authority",
+    "recheck_condition"
+  ];
+  if (!requiredTextFields.every(key => nonEmptyConstraintText(entry[key]))) return false;
+  if (!CONSTRAINT_ORIGINS.has(entry.origin_scope) ||
+      !CONSTRAINT_FORCES.has(entry.force) ||
+      !CONSTRAINT_EVIDENCE.has(entry.evidence_state) ||
+      !CONSTRAINT_EFFECTS.has(entry.operational_effect) ||
+      !CONSTRAINT_ROLES.has(entry.responsible_builder)) return false;
+  const observedAt = Date.parse(entry.observed_at);
+  const evaluatedAt = Date.parse(evaluation.evaluated_on + "T00:00:00.000Z");
+  if (!Number.isFinite(observedAt) || !Number.isFinite(evaluatedAt) ||
+      observedAt > evaluatedAt) return false;
+  const maximumAgeDays = evaluation.maximum_evidence_age_days;
+  if (!Number.isFinite(maximumAgeDays) || maximumAgeDays < 0) return false;
+  const ageDays = (evaluatedAt - observedAt) / 86400000;
+  return ageDays <= maximumAgeDays;
+}
+
 function validateOperationalLimitsSnapshot(value) {
   if (value == null) return unavailableOperationalLimitsSnapshot("No host operational-limits snapshot was supplied.");
   if (!value || typeof value !== "object" || Array.isArray(value) ||
@@ -332,8 +372,11 @@ function validateOperationalLimitsSnapshot(value) {
         !evaluation || typeof evaluation !== "object" ||
         evaluation.live_telemetry !== false ||
         evaluation.unlisted_capability_decision !== "RECHECK_REQUIRED" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(evaluation.evaluated_on || "")) {
-      return unavailableOperationalLimitsSnapshot("Loaded snapshot failed schema or freshness metadata checks; availability remains unknown.");
+        !/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluation.evaluated_on || "") ||
+        !Number.isFinite(evaluation.maximum_evidence_age_days) ||
+        evaluation.maximum_evidence_age_days < 0 ||
+        !value.constraints.every(entry => validateConstraintEntry(entry, evaluation))) {
+      return unavailableOperationalLimitsSnapshot("Loaded snapshot failed schema, constraint-entry, or freshness checks; availability remains unknown.");
     }
     return value;
   }
