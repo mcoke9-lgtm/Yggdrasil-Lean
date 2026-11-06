@@ -191,7 +191,7 @@ public final class BuilderOvernightWorker extends Worker {
     private static String safeMessage(Exception failure) {
         String message = failure.getMessage();
         String value = message == null ? failure.getClass().getSimpleName() : message;
-        value = value.replace('\\r', ' ').replace('\\n', ' ');
+        value = value.replace('\r', ' ').replace('\n', ' ');
         return value.substring(0, Math.min(500, value.length()));
     }
 }
