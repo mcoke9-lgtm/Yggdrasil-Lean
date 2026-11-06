@@ -1110,12 +1110,12 @@ test("loads the host executor only from owner-protected config and operator modu
       '    async getTask() { return { prompt: "host task" }; },\n' +
       '    async appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n' +
       '  };\n' +
-      '}\n');
+      '}\n', { mode: 0o600 });
     await writeFile(credentialsPath, [
       'let calls = 0;',
       'export async function readSecret() { calls += 1; if (calls > 1) throw new Error("unexpected secret read"); return "host-secret"; }',
       ''
-    ].join("\n"));
+    ].join("\n"), { mode: 0o600 });
     await writeFile(evidenceGatewayPath, [
       'export async function createEvidenceGateway({ readSecret, secretRef }) {',
       '  if (typeof readSecret !== "function" || secretRef !== "github-evidence-read-only") throw new Error("invalid gateway factory inputs");',
@@ -1136,8 +1136,16 @@ test("loads the host executor only from owner-protected config and operator modu
 
     if (process.platform !== "win32") {
       await chmod(configPath, 0o644);
-      await assert.rejects(() => createBuilderExecutor(), /permissions are too broad/);
+      await assert.rejects(() => createBuilderExecutor(), /Builder host config permissions are too broad/);
       await chmod(configPath, 0o600);
+
+      await chmod(credentialsPath, 0o644);
+      await assert.rejects(() => createBuilderExecutor(), /Credentials module permissions are too broad/);
+      await chmod(credentialsPath, 0o600);
+
+      await chmod(taskVaultPath, 0o644);
+      await assert.rejects(() => createBuilderExecutor(), /Task vault module permissions are too broad/);
+      await chmod(taskVaultPath, 0o600);
     }
     const executor = await createBuilderExecutor();
     assert.equal(typeof executor, "function");
@@ -1147,7 +1155,7 @@ test("loads the host executor only from owner-protected config and operator modu
       'export async function getTask() { return { prompt: "legacy host task" }; }',
       'export async function appendBuilderResult() { return { durable: true, checkpointId: "legacy-checkpoint" }; }',
       ''
-    ].join("\n"));
+    ].join("\n"), { mode: 0o600 });
     process.env.BUILDER_TASK_VAULT_MODULE = legacyTaskVaultPath;
     await assert.rejects(
       () => createBuilderExecutor(),
