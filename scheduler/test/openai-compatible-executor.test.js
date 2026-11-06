@@ -387,7 +387,19 @@ test("loads the persisted encrypted Constraint Register into Kvasir runtime cont
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-runtime-register-"));
   await chmod(directory, 0o700);
   const filePath = join(directory, "tasks.vault");
-  const vault = createEncryptedTaskVault({ filePath, key: Buffer.alloc(32, 11) });
+  const verifiedSha = "0123456789abcdef0123456789abcdef01234567";
+  const verifiedReference = "github+commit://github.com/acme/project/" + verifiedSha + "?branch=main";
+  const vault = createEncryptedTaskVault({
+    filePath,
+    key: Buffer.alloc(32, 11),
+    evidenceGateway: {
+      async fetchCommit(repository, sha) { return { repository, sha }; },
+      async branchContainsCommit(repository, branch, sha) {
+        return repository === "acme/project" && branch === "main" && sha === verifiedSha;
+      }
+    },
+    clock: () => new Date("2026-11-05T12:00:00.000Z")
+  });
   const routes = makeRoutes();
   const prompt = "Investigate the next safe engineering step.";
   let sentContext;
@@ -402,19 +414,18 @@ test("loads the persisted encrypted Constraint Register into Kvasir runtime cont
       constraint_id: "chatgpt-service-advisory-runtime-001",
       origin_system: "ChatGPT automation service",
       origin_scope: "CHATGPT_SERVICE",
-      source_reference: "https://help.openai.com/",
+      source_reference: verifiedReference,
       observed_at: "2026-11-04T12:00:00.000Z",
       affected_capability: "Create another scheduled ChatGPT task",
       affected_operation: "ChatGPT automation creation",
       force: "ADVISORY",
-      evidence_state: "REPORTED",
       operational_effect: "NO_DIRECT_BLOCK",
       responsible_builder: "KVASIR",
       decision_authority: "USER",
       recheck_condition: "Recheck when automation capacity changes",
       decision_status: "SCOPED"
     };
-    await vault.appendOperationalConstraint("vault:task-001", entry, {
+    await vault.verifyAndAppendOperationalConstraint("vault:task-001", entry, {
       evaluated_on: "2026-11-05",
       maximum_evidence_age_days: 7,
       live_telemetry: false,
@@ -434,7 +445,8 @@ test("loads the persisted encrypted Constraint Register into Kvasir runtime cont
     await h.executor("KVASIR", h.context("KVASIR"));
     const context = JSON.parse(sentContext[1].content);
     assert.equal(context.operational_limits_snapshot.register_status, "LOADED");
-    assert.deepEqual(context.operational_limits_snapshot.constraints, [entry]);
+    assert.equal(context.operational_limits_snapshot.constraints[0].evidence_state, "VERIFIED");
+    assert.equal(context.operational_limits_snapshot.constraints[0].evidenceVerification.objectId, verifiedSha);
     assert.match(sentContext[0].content, /ADVISORY constraint with NO_DIRECT_BLOCK is not a prohibition/);
     assert.match(sentContext[0].content, /exact operation in the recorded origin scope/);
   } finally {
