@@ -7,7 +7,7 @@ import {
 
 const runId = "run-1";
 const threadId = "nine-builders:run-1";
-const reviewPrompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1";
+const reviewPrompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1";
 
 function turn(checkpointId, speaker, type, replyTo = null, body = "record", evidenceStatus = "OBSERVED", recipient) {
   const directed = [
