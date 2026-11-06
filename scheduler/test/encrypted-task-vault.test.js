@@ -900,7 +900,7 @@ test("persists append-only Baldr invocation start and completion receipts in the
     );
     const encryptedBytes = await readFile(h.filePath);
     assert.equal(encryptedBytes.includes(Buffer.from("INVOCATION_STARTED")), false);
-    assert.equal(encryptedBytes.includes(Buffer.from("baldr-vault-turn-1")), false);
+    assert.equal(encryptedBytes.includes(Buffer.from(appendedTurn.checkpointId)), false);
   } finally {
     await rm(h.directory, { recursive: true, force: true });
   }
