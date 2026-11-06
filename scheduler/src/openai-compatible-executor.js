@@ -320,7 +320,8 @@ const CONSTRAINT_ORIGINS = new Set([
   "PHYSICAL_OR_TEMPORAL", "UNKNOWN_SCOPE"
 ]);
 const CONSTRAINT_FORCES = new Set(["MANDATORY", "ADVISORY", "UNVERIFIED"]);
-const CONSTRAINT_EVIDENCE = new Set(["VERIFIED", "REPORTED", "INFERRED", "UNKNOWN"]);
+// VERIFIED is intentionally excluded until a trusted source-verification path can issue attestations.
+const CONSTRAINT_EVIDENCE = new Set(["REPORTED", "INFERRED", "UNKNOWN"]);
 const CONSTRAINT_EFFECTS = new Set([
   "BLOCKS_OPERATION", "RESTRICTS_OPERATION", "REDUCES_CAPABILITY",
   "NO_DIRECT_BLOCK", "RECHECK_REQUIRED"
