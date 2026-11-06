@@ -314,6 +314,56 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
   assert.equal(saved[0].builders.find(item => item.role === "ODIN").status, "interrupted");
 });
 
+test("resumed Baldr review receives the original saved summaries from completed Builders", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const prior = await ledger.createRun({
+    runId: "summary-resume-run",
+    scheduledFor: "2026-11-04T12:00:00Z",
+    durationMs: 60 * 60 * 1000,
+    taskReference: "vault:summary-resume"
+  });
+  await ledger.startRun(prior.runId);
+  await ledger.startBuilder(prior.runId, "ODIN");
+  await ledger.finishBuilder(prior.runId, "ODIN", "succeeded", null,
+    "Odin reconciled the original evidence set.");
+  await ledger.startBuilder(prior.runId, "HODR");
+  await ledger.checkpointBuilder(prior.runId, "HODR", {
+    checkpointId: "hodr-safe-resume", safeToResume: true
+  });
+  await ledger.interruptRun(prior.runId, "simulated restart", "HODR");
+
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  let baldrOutcomes = null;
+  registerBuilderRunHandler(scheduler, {
+    ledger, clock,
+    executor: async (role, context) => {
+      invoked.push(role);
+      if (role === "BALDR") baldrOutcomes = context.outcomes;
+      return { status: "succeeded", summary: role + " completed after resume" };
+    },
+    output: () => {}
+  });
+  await scheduler.addTask({
+    id: "resume-with-summaries",
+    name: "Resume with preserved summaries",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { resumeRunId: prior.runId },
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "succeeded");
+  assert.equal(invoked.includes("ODIN"), false);
+  assert.equal(invoked[0], "HODR");
+  assert.equal(invoked.at(-1), "BALDR");
+  assert.equal(baldrOutcomes.length, 8);
+  assert.equal(
+    baldrOutcomes.find(item => item.role === "ODIN").summary,
+    "Odin reconciled the original evidence set."
+  );
+});
+
 test("requires a task reference and prevents resume from rebinding a Builder run to another vault task", async () => {
   const store = new MemoryStore();
   const ledger = new BuilderRunLedger({ store, clock });
