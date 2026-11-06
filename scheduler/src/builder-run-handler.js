@@ -226,8 +226,9 @@ export function registerBuilderRunHandler(
 
         activeRole = role;
         await ledger.startBuilder(runId, role);
+        let result;
         try {
-          const result = await executor(role, {
+          result = await executor(role, {
             runId,
             scheduledFor: context.scheduledFor,
             task: structuredClone(taskPayload),
@@ -235,16 +236,28 @@ export function registerBuilderRunHandler(
             checkpoint: details => ledger.checkpointBuilder(runId, role, details),
             signal: controller.signal
           });
+        } catch (error) {
           if (controller.signal.aborted) await interrupt("CANCELLED");
-          const status = result?.status ?? "succeeded";
-          const stopTurn = result?.turnType === "INTERRUPTION"
-            || result?.turnType === "IMPROVEMENT_INCIDENT";
-          if (status === "interrupted" || stopTurn) {
-            await interrupt("BUILDER_REQUESTED_INTERRUPTION", result?.turnType ?? null);
-          }
-          if (status === "skipped" && role === "BALDR") {
-            throw new Error("Baldr review cannot be skipped");
-          }
+          await ledger.finishBuilder(runId, role, "failed", {
+            errorCode: errorCode(error, "EXECUTOR_FAILURE")
+          });
+          activeRole = null;
+          const failed = await ledger.getRun(runId);
+          outcomes.push(outcomeMetadata(failed.builders.find(item => item.role === role)));
+          continue;
+        }
+        if (controller.signal.aborted) await interrupt("CANCELLED");
+        const status = result?.status ?? "succeeded";
+        const stopTurn = result?.turnType === "INTERRUPTION"
+          || result?.turnType === "IMPROVEMENT_INCIDENT";
+        if (status === "interrupted" || stopTurn) {
+          await interrupt("BUILDER_REQUESTED_INTERRUPTION", result?.turnType ?? null);
+        }
+        if (status === "skipped" && role === "BALDR") {
+          await ledger.finishBuilder(runId, role, "failed", { errorCode: "EXECUTOR_FAILURE" });
+          throw new Error("INTERNAL_ERROR");
+        }
+        try {
           await ledger.finishBuilder(runId, role, status, {
             errorCode: status === "failed" ? errorCode(result, "EXECUTOR_FAILURE") : null,
             outcomeRef: result?.outcomeRef ?? result?.checkpointId ?? null,
@@ -252,19 +265,12 @@ export function registerBuilderRunHandler(
             evidenceStatus: result?.evidenceStatus ?? null,
             responseSha256: result?.responseSha256 ?? null
           });
-          activeRole = null;
-          const finished = await ledger.getRun(runId);
-          outcomes.push(outcomeMetadata(finished.builders.find(item => item.role === role)));
-        } catch (error) {
-          if (controller.signal.aborted) await interrupt("CANCELLED");
-          if (error?.name === "BuilderRequestedInterruption") throw error;
-          await ledger.finishBuilder(runId, role, "failed", {
-            errorCode: errorCode(error, "EXECUTOR_FAILURE")
-          });
-          activeRole = null;
-          const failed = await ledger.getRun(runId);
-          outcomes.push(outcomeMetadata(failed.builders.find(item => item.role === role)));
+        } catch {
+          throw new Error("INTERNAL_ERROR");
         }
+        activeRole = null;
+        const finished = await ledger.getRun(runId);
+        outcomes.push(outcomeMetadata(finished.builders.find(item => item.role === role)));
       }
 
       const completed = await ledger.completeRun(runId);
