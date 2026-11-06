@@ -46,20 +46,36 @@ async function loadTasks() {
   for (const task of tasks) {
     const card = element("article", "task");
     const heading = element("div", "task-title", task.name);
-    const state = element("span", "status " + (task.enabled ? "good" : ""), task.enabled ? "Active" : "Paused");
+    const oneShot = task.schedule?.kind === "once";
+    const oneShotState = {
+      pending: task.enabled ? "Active" : "Paused",
+      running: "Running",
+      succeeded: "Completed",
+      failed: "Failed",
+      interrupted: "Interrupted",
+      "already-run": "Already run"
+    };
+    const stateLabel = oneShot && task.nextRunAt == null
+      ? (oneShotState[task.oneShotStatus] || "Consumed")
+      : (task.enabled ? "Active" : "Paused");
+    const state = element("span", "status " + (task.enabled || stateLabel === "Completed" ? "good" : ""), stateLabel);
     card.append(heading, state);
     card.append(element("div", "meta", `ID: ${task.id} · Handler: ${task.handlerType}`));
-    card.append(element("div", "meta", `Next run: ${localDate(task.nextRunAt)}`));
-    card.append(element("div", "meta", task.schedule?.kind === "calendar"
-      ? `${task.schedule.frequency} · ${String(task.schedule.hour).padStart(2,"0")}:${String(task.schedule.minute).padStart(2,"0")} · ${task.schedule.timeZone}`
-      : `Interval: ${task.schedule?.intervalMs ?? "—"} ms`));
+    card.append(element("div", "meta", `Next run: ${task.nextRunAt ? localDate(task.nextRunAt) : "—"}`));
+    card.append(element("div", "meta", oneShot
+      ? "One-time schedule"
+      : task.schedule?.kind === "calendar"
+        ? `${task.schedule.frequency} · ${String(task.schedule.hour).padStart(2,"0")}:${String(task.schedule.minute).padStart(2,"0")} · ${task.schedule.timeZone}`
+        : `Interval: ${task.schedule?.intervalMs ?? "—"} ms`));
     const actions = element("div", "actions");
-    actions.append(makeButton(task.enabled ? "Pause" : "Resume", "secondary", async () => {
-      await api(`/api/tasks/${encodeURIComponent(task.id)}`, {
-        method: "PATCH", body: JSON.stringify({ enabled: !task.enabled })
-      });
-      await loadTasks();
-    }));
+    if (!(oneShot && task.nextRunAt == null)) {
+      actions.append(makeButton(task.enabled ? "Pause" : "Resume", "secondary", async () => {
+        await api(`/api/tasks/${encodeURIComponent(task.id)}`, {
+          method: "PATCH", body: JSON.stringify({ enabled: !task.enabled })
+        });
+        await loadTasks();
+      }));
+    }
     actions.append(makeButton("View runs", "secondary", async () => {
       selectedTaskId = task.id;
       await loadRuns();
