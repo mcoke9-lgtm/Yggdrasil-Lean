@@ -55,7 +55,7 @@ test("reclaims a stale lock only after serializing recovery and confirming the P
     await writeFile(f.lockPath, JSON.stringify({
       pid: 999999999, token: "stale-owner", createdAt: "2026-01-01T00:00:00.000Z",
       heartbeatAt: "2026-01-01T00:00:00.000Z"
-    }));
+    }), { mode: 0o600 });
     const results = await Promise.allSettled([
       acquireProcessLock(f.lockPath),
       acquireProcessLock(f.lockPath)
@@ -74,9 +74,9 @@ test("reclaims a stale lock only after serializing recovery and confirming the P
 test("malformed or uninspectable locks fail closed", async () => {
   const f = await fixture();
   try {
-    await writeFile(f.lockPath, "{not-json");
+    await writeFile(f.lockPath, "{not-json", { mode: 0o600 });
     await assert.rejects(() => acquireProcessLock(f.lockPath), /cannot be safely inspected/);
-    await writeFile(f.lockPath, JSON.stringify({ pid: 0, token: "bad" }));
+    await writeFile(f.lockPath, JSON.stringify({ pid: 0, token: "bad" }), { mode: 0o600 });
     await assert.rejects(() => acquireProcessLock(f.lockPath), /malformed/);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
