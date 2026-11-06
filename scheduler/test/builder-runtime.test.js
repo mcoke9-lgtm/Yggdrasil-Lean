@@ -99,8 +99,9 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
       clock,
       loadModule: async () => ({
         createBuilderExecutor: async () => {
-          const executor = async role => {
+          const executor = async (role, context) => {
             invoked.push(role);
+            if (role === "ODIN") assert.equal(context.resumeCheckpoint.vaultTurnId, "odin-safe-checkpoint");
             return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
           };
           executor.supportsVerifiedResumeCheckpoint = true;
