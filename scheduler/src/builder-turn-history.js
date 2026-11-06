@@ -148,11 +148,16 @@ function validateCorrectionHistory(history, ids) {
 }
 
 /** Validate a new model reply against already persisted turns before it is appended. */
-export function validateBuilderReplyAgainstHistory(reply, history, speaker) {
+export function validateBuilderReplyAgainstHistory(reply, history, speaker, promptTurnId) {
   if (!reply || typeof reply !== "object") throw new TypeError("Builder reply is required");
   const type = reply.turn_type;
   const replyTo = reply.reply_to_turn_id;
   const byId = new Map();
+  if (promptTurnId != null) {
+    byId.set(nonEmpty(promptTurnId, "Task prompt turn identity", 256), {
+      turn: { speaker: "USER", type: "TASK_PROMPT" }, index: -1
+    });
+  }
   for (let index = 0; index < history.length; index += 1) {
     const id = turnId(history[index]);
     if (id) byId.set(id, { turn: history[index], index });
