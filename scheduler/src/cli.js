@@ -18,6 +18,7 @@ function usage() {
     "  add-weekly-heartbeat <id> <name> <IANA-time-zone> <hour> <minute> <days:0,1,...,6>",
     "  add-github-watch <id> <name> <owner/repo> <branch> <IANA-time-zone> <hour> <minute> <workflow-name> [workflow-name...]",
     "  add-nine-builders-run <id> <name> <IANA-time-zone> <hour> <minute> <task-reference>",
+    "  resume-nine-builders <task-id> <name> <builder-run-id>",
     ""
   ].join("\n"));
 }
@@ -62,6 +63,19 @@ try {
         kind: "calendar", frequency: "daily", timeZone,
         hour: Number(hourText), minute: Number(minuteText)
       }
+    });
+    process.stdout.write(JSON.stringify(task, null, 2) + "\n");
+  } else if (command === "resume-nine-builders") {
+    const [id, name, builderRunId] = args;
+    if (!builderRunId || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(builderRunId)) {
+      throw new Error("Supply the exact persisted Builder run ID to resume");
+    }
+    const task = await scheduler.addTask({
+      id,
+      name,
+      handlerType: "nine-builders.run",
+      payload: { resumeRunId: builderRunId },
+      schedule: { kind: "once", startAt: new Date().toISOString() }
     });
     process.stdout.write(JSON.stringify(task, null, 2) + "\n");
   } else if (command === "add-github-watch") {
