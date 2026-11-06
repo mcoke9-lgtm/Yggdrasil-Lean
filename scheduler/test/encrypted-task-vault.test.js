@@ -1,4 +1,6 @@
 import test from "node:test";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -131,6 +133,44 @@ async function correctionReadyFixture({ includeVerification = true } = {}) {
   }
   return { directory, filePath, key, vault, taskReference, runId, fixedNow, authorize, verified };
 }
+
+test("serializes vault mutations from separate processes without losing concurrent task creation", async () => {
+  const h = await fixture();
+  const modulePath = fileURLToPath(new URL("../src/encrypted-task-vault.js", import.meta.url));
+  const script = `
+    import { createEncryptedTaskVault } from ${JSON.stringify(modulePath)};
+    const [filePath, encodedKey, taskReference, prompt] = process.argv.slice(1);
+    const vault = createEncryptedTaskVault({
+      filePath, key: Buffer.from(encodedKey, "base64")
+    });
+    await vault.initializeTask(taskReference, prompt);
+  `;
+  function createInChild(taskReference, prompt) {
+    return new Promise((resolveChild, rejectChild) => {
+      const child = spawn(process.execPath, [
+        "--input-type=module", "-e", script,
+        h.filePath, h.key.toString("base64"), taskReference, prompt
+      ], { stdio: ["ignore", "ignore", "pipe"] });
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", chunk => { stderr += chunk; });
+      child.once("error", rejectChild);
+      child.once("close", code => {
+        if (code === 0) resolveChild();
+        else rejectChild(new Error("Vault child exited " + code + ": " + stderr));
+      });
+    });
+  }
+  await Promise.all([
+    createInChild("task-from-process-a", "prompt A"),
+    createInChild("task-from-process-b", "prompt B")
+  ]);
+  const a = await h.vault.getTask("task-from-process-a", { runId: "run-a" });
+  const b = await h.vault.getTask("task-from-process-b", { runId: "run-b" });
+  assert.equal(a.prompt, "prompt A");
+  assert.equal(b.prompt, "prompt B");
+  await rm(h.directory, { recursive: true, force: true });
+});
 
 test("encrypted vault requires explicit approval and preserves isolated run history", async () => {
   const f = await fixture();
