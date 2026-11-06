@@ -104,7 +104,7 @@ function correctionReviewFixture(routes, reply, evidenceGateway) {
   const runId = "builder:correction-test";
   const threadId = "nine-builders:" + runId;
   const promptTurnId = "task-prompt-correction";
-  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1\\nReview the recorded incident.";
+  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview the recorded incident.";
   const incidentBody = JSON.stringify({
     incident_summary: "A test regression", observed_behavior: "Observed A",
     expected_behavior: "Expected B", evidence: "A failing test was recorded",
