@@ -394,7 +394,8 @@ export function createOpenAiCompatibleExecutor({
   fetchImpl = globalThis.fetch,
   timeoutMs = 120000,
   clock = () => new Date(),
-  evidenceGateway = null
+  evidenceGateway = null,
+  evidenceTimeoutMs = 15000
 } = {}) {
   const routes = validateRoutes(routeInput);
   if (!taskVault || typeof taskVault.getTask !== "function" ||
@@ -405,6 +406,9 @@ export function createOpenAiCompatibleExecutor({
   if (typeof fetchImpl !== "function") throw new TypeError("A Fetch-compatible transport is required");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 300000) {
     throw new RangeError("timeoutMs must be between 1 second and 5 minutes");
+  }
+  if (!Number.isSafeInteger(evidenceTimeoutMs) || evidenceTimeoutMs < 1000 || evidenceTimeoutMs > 300000) {
+    throw new RangeError("evidenceTimeoutMs must be between 1 second and 5 minutes");
   }
 
   const runThreads = new Map();
@@ -504,7 +508,8 @@ export function createOpenAiCompatibleExecutor({
       if (reply.turn_type === "CORRECTION_UPDATE") {
         const correction = JSON.parse(reply.body);
         const verification = await verifyBuilderEvidenceReference(
-          correction.artifact_reference, evidenceGateway
+          correction.artifact_reference, evidenceGateway,
+          { signal: context.signal, timeoutMs: evidenceTimeoutMs }
         );
         if (!verification.verified) {
           throw new Error("Correction evidence verification " + verification.status +
@@ -604,6 +609,7 @@ export async function createBuilderExecutor() {
     if (process.platform !== "win32" && (gatewayInfo.mode & 0o077) !== 0) {
       throw new Error("Evidence gateway module permissions are too broad; use owner-only read/write permissions (0600)");
     }
+    if (gatewayInfo.size > 65536) throw new RangeError("Evidence gateway module exceeds 64 KiB");
     const gatewayModule = await import(pathToFileURL(gatewayFile).href);
     const candidate = typeof gatewayModule.createEvidenceGateway === "function"
       ? await gatewayModule.createEvidenceGateway({ readSecret: credentialsModule.readSecret })
@@ -623,6 +629,7 @@ export async function createBuilderExecutor() {
     routes: config.routes,
     taskVault: taskVaultModule,
     readSecret: credentialsModule.readSecret,
-    evidenceGateway
+    evidenceGateway,
+    evidenceTimeoutMs: config.evidenceTimeoutMs ?? 15000
   });
 }
