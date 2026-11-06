@@ -112,6 +112,30 @@ test("missing or incomplete gateways report UNAVAILABLE, never VERIFIED", async 
   })).status, "UNAVAILABLE");
 });
 
+test("evidence gateway calls time out instead of hanging a Builder run", async () => {
+  const gateway = {
+    async fetchCommit() { return new Promise(() => {}); },
+    async branchContainsCommit() { return true; }
+  };
+  const result = await verifyBuilderEvidenceReference(commitRef, gateway, { timeoutMs: 1000 });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.equal(result.reason, "Evidence source verification timed out.");
+});
+
+test("evidence gateway calls observe run cancellation", async () => {
+  const controller = new AbortController();
+  controller.abort(new Error("run cancelled"));
+  const gateway = {
+    async fetchCommit() { return new Promise(() => {}); },
+    async branchContainsCommit() { return true; }
+  };
+  const result = await verifyBuilderEvidenceReference(commitRef, gateway, {
+    signal: controller.signal, timeoutMs: 1000
+  });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.equal(result.reason, "Evidence source verification was cancelled.");
+});
+
 test("transport failures report UNAVAILABLE without exposing error details", async () => {
   const gateway = {
     async fetchCommit() { const error = new Error("secret-bearing transport detail"); error.name = "FetchError"; throw error; },
