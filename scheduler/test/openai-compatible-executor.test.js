@@ -266,7 +266,6 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(h.saved.length, 1);
   assert.equal(h.saved[0].idempotencyKey, "builder:test-run:ODIN");
   assert.equal(h.saved[0].threadId, "thread-builder:test-run");
-  assert.equal(h.checkpoints[0].value.threadId, "thread-builder:test-run");
   assert.equal(h.saved[0].providerReportedModel, "reported-odin-v2");
   assert.equal(h.saved[0].requestedProviderId, "provider-odin");
   assert.equal(h.saved[0].reply.body, "A bounded, evidence-labelled contribution.");
@@ -274,6 +273,7 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(h.checkpoints.length, 1);
   assert.equal(h.checkpoints[0].value.safeToResume, true);
   assert.equal(h.checkpoints[0].value.checkpointId, "checkpoint-odin");
+  assert.deepEqual(Object.keys(h.checkpoints[0].value).sort(), ["checkpointId", "evidenceStatus", "responseSha256", "safeToResume", "turnType", "vaultTurnId"].sort());
 });
 
 test("invokes all nine canonical roles with distinct responsibilities and Baldr last", async () => {
