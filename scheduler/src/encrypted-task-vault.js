@@ -938,6 +938,18 @@ export async function appendBuilderResult(taskReference, record) {
   return configuredVault().appendBuilderResult(taskReference, record);
 }
 
+export async function beginBaldrReviewInvocation(taskReference, receipt) {
+  return configuredVault().beginBaldrReviewInvocation(taskReference, receipt);
+}
+
+export async function completeBaldrReviewInvocation(taskReference, completion) {
+  return configuredVault().completeBaldrReviewInvocation(taskReference, completion);
+}
+
+export async function getBaldrReviewInvocation(taskReference, context) {
+  return configuredVault().getBaldrReviewInvocation(taskReference, context);
+}
+
 export async function appendUserAdoption(taskReference, request) {
   return configuredVault().appendUserAdoption(taskReference, request);
 }
