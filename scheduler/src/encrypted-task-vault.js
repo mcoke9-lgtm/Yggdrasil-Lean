@@ -242,8 +242,75 @@ export function createEncryptedTaskVault({
         threadId: run.threadId,
         history: structuredClone(run.history),
         consent: task.consent,
-        operationalLimitsSnapshot: null
+        operationalLimitsSnapshot: task.operationalConstraintRegister
+          ? { ...structuredClone(task.operationalConstraintRegister), register_status: "LOADED" }
+          : null
       };
+      });
+    },
+
+    async appendOperationalConstraint(taskReference, entry, runtimeEvaluation) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          throw new TypeError("Operational constraint entry is required");
+        }
+        const constraintId = required(entry.constraint_id, "constraint_id", 256);
+        if (!runtimeEvaluation || typeof runtimeEvaluation !== "object" ||
+            Array.isArray(runtimeEvaluation)) {
+          throw new TypeError("Operational constraint runtime evaluation is required");
+        }
+        const evaluatedOn = required(runtimeEvaluation.evaluated_on, "evaluated_on", 10);
+        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluatedOn) ||
+            !Number.isFinite(Date.parse(evaluatedOn + "T00:00:00.000Z"))) {
+          throw new TypeError("Operational constraint evaluated_on must be a valid YYYY-MM-DD date");
+        }
+        const maximumAge = runtimeEvaluation.maximum_evidence_age_days;
+        if (!Number.isFinite(maximumAge) || maximumAge < 0 ||
+            runtimeEvaluation.live_telemetry !== false ||
+            runtimeEvaluation.unlisted_capability_decision !== "RECHECK_REQUIRED") {
+          throw new TypeError("Operational constraint runtime evaluation is invalid");
+        }
+        const serializedEntry = JSON.stringify(entry);
+        if (typeof serializedEntry !== "string") throw new TypeError("Operational constraint entry is not serializable");
+        const storedEntry = JSON.parse(serializedEntry);
+        if (storedEntry.constraint_id !== constraintId) {
+          throw new TypeError("Operational constraint ID must be a trimmed stable string");
+        }
+        const state = await readState();
+        const task = state.tasks[reference];
+        if (!task) throw new Error("Task reference does not exist");
+        const register = task.operationalConstraintRegister ??= {
+          schema: "yggdrasil.operational-capacity-register",
+          schema_version: "1.0.0",
+          constraints: [],
+          runtime_evaluation: {
+            evaluated_on: evaluatedOn,
+            maximum_evidence_age_days: maximumAge,
+            live_telemetry: false,
+            unlisted_capability_decision: "RECHECK_REQUIRED"
+          }
+        };
+        if (register.schema !== "yggdrasil.operational-capacity-register" ||
+            register.schema_version !== "1.0.0" || !Array.isArray(register.constraints)) {
+          throw new Error("Stored operational constraint register is malformed");
+        }
+        const prior = register.constraints.find(item => item?.constraint_id === constraintId);
+        if (prior) {
+          if (JSON.stringify(prior) !== serializedEntry) {
+            throw new Error("Operational constraint ID already exists with different content; append a new ID instead");
+          }
+          return { durable: true, duplicate: true, constraintId, count: register.constraints.length };
+        }
+        register.constraints.push(storedEntry);
+        register.runtime_evaluation = {
+          evaluated_on: evaluatedOn,
+          maximum_evidence_age_days: maximumAge,
+          live_telemetry: false,
+          unlisted_capability_decision: "RECHECK_REQUIRED"
+        };
+        await writeState(state);
+        return { durable: true, duplicate: false, constraintId, count: register.constraints.length };
       });
     },
 
@@ -495,6 +562,9 @@ function configuredVault() {
 }
 export async function getTask(taskReference, context) {
   return configuredVault().getTask(taskReference, context);
+}
+export async function appendOperationalConstraint(taskReference, entry, runtimeEvaluation) {
+  return configuredVault().appendOperationalConstraint(taskReference, entry, runtimeEvaluation);
 }
 export async function appendBuilderResult(taskReference, record) {
   return configuredVault().appendBuilderResult(taskReference, record);
