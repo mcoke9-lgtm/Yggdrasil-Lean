@@ -290,7 +290,7 @@ test("invokes all nine canonical roles with distinct responsibilities and Baldr 
   const outcomes = [];
   for (const role of BUILDER_ROLES) {
     await h.executor(role, h.context(role, [...outcomes]));
-    outcomes.push({ role, status: "succeeded", summary: role + " completed" });
+    outcomes.push({ role, status: "succeeded", attempt: 1, outcomeRef: role.toLowerCase() + "-turn", outcomeType: "CONTRIBUTION", evidenceStatus: "PROPOSED", errorCode: null });
   }
   assert.deepEqual(h.saved.map(item => item.role), BUILDER_ROLES);
   assert.equal(prompts.length, 9);
@@ -978,7 +978,7 @@ test("Baldr cannot run until all eight other Builder outcomes and their recorded
   const routes = makeRoutes();
   const prompt = "Review all peer outputs.";
   const outcomes = BUILDER_ROLES.filter(role => role !== "BALDR")
-    .map(role => ({ role, status: "succeeded", summary: role + " checkpointed" }));
+    .map(role => ({ role, status: "succeeded", attempt: 1, outcomeRef: "peer-" + role, outcomeType: "CONTRIBUTION", evidenceStatus: "OBSERVED", errorCode: null }));
   const h = makeHarness({
     routes,
     taskVault: {
@@ -990,7 +990,7 @@ test("Baldr cannot run until all eight other Builder outcomes and their recorded
           threadId,
           history: outcomes.map(item => ({
             runId, threadId, checkpointId: "peer-" + item.role,
-            speaker: item.role, body: item.summary
+            speaker: item.role, body: "recorded peer turn " + item.role
           })),
           consent: {
             status: "USER_APPROVED",
