@@ -82,3 +82,62 @@ test("malformed or uninspectable locks fail closed", async () => {
     await rm(f.directory, { recursive: true, force: true });
   }
 });
+
+
+test("fails closed when a stale-lock recovery marker already exists", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(f.lockPath, JSON.stringify({
+      pid: 999999999, token: "stale-owner",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      heartbeatAt: "2026-01-01T00:00:00.000Z"
+    }), { mode: 0o600 });
+    await writeFile(f.lockPath + ".recovery", "recovery-in-progress", { mode: 0o600 });
+    await assert.rejects(
+      () => acquireProcessLock(f.lockPath),
+      /stale-lock recovery is already in progress/
+    );
+    const stillPresent = JSON.parse(await readFile(f.lockPath, "utf8"));
+    assert.equal(stillPresent.token, "stale-owner");
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("reclaims a process lock after its owner exits abruptly without leaving recovery debris", async () => {
+  const f = await fixture();
+  const modulePath = new URL("../src/process-lock.js", import.meta.url).href;
+  const script = `
+    import { acquireProcessLock } from ${JSON.stringify(modulePath)};
+    await acquireProcessLock(process.argv[1]);
+    process.exit(0);
+  `;
+  try {
+    await new Promise((resolveChild, rejectChild) => {
+      const child = spawn(process.execPath, ["--input-type=module", "-e", script, f.lockPath], {
+        stdio: ["ignore", "ignore", "pipe"]
+      });
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", chunk => { stderr += chunk; });
+      child.once("error", rejectChild);
+      child.once("close", code => code === 0
+        ? resolveChild()
+        : rejectChild(new Error("Lock owner child exited " + code + ": " + stderr)));
+    });
+    const release = await acquireProcessLock(f.lockPath);
+    try {
+      const owner = JSON.parse(await readFile(f.lockPath, "utf8"));
+      assert.equal(owner.pid, process.pid);
+      assert.equal(owner.token, release.token);
+      await assert.rejects(
+        () => readFile(f.lockPath + ".recovery"),
+        error => error.code === "ENOENT"
+      );
+    } finally {
+      await release();
+    }
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
