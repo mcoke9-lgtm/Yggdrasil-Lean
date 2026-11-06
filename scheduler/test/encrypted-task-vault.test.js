@@ -62,6 +62,10 @@ test("Builder result persistence is durable and idempotent by run-role key", asy
     assert.equal(task.history[0].protocolVersion, 4);
     assert.equal(task.history[0].turnId, task.history[0].checkpointId);
     assert.equal(task.history[0].timestampEpochMillis, Date.parse(task.history[0].completedAt));
+    assert.equal(task.history[0].type, "CONTRIBUTION");
+    assert.equal(task.history[0].evidence_status, "PROPOSED");
+    assert.equal(task.history[0].recipient, null);
+    assert.equal(task.history[0].reply_to_turn_id, null);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
