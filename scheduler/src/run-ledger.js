@@ -252,7 +252,8 @@ export class BuilderRunLedger {
   }
 
   async recoverBuilder(runId, role, {
-    checkpointId, responseSha256, turnType = null, evidenceStatus = null
+    checkpointId, responseSha256, turnType = null, evidenceStatus = null,
+    reviewInvocation = null
   } = {}) {
     return this.mutate(runId, run => {
       this.assertRunning(run);
@@ -270,6 +271,9 @@ export class BuilderRunLedger {
       builder.outcomeRef = checkpoint.vaultTurnId;
       builder.outcomeType = checkpoint.turnType;
       builder.evidenceStatus = checkpoint.evidenceStatus;
+      builder.reviewInvocation = role === "BALDR"
+        ? safeReviewInvocation(reviewInvocation, checkpoint.vaultTurnId, responseSha256)
+        : null;
       builder.checkpoint = checkpoint;
     });
   }
