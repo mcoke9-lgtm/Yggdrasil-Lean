@@ -340,3 +340,83 @@ test("task setup can safely retry the same prompt but rejects a changed prompt",
     await rm(f.directory, { recursive: true, force: true });
   }
 });
+
+
+test("preserves concurrent Builder-result appends to one run history across processes", async () => {
+  const h = await fixture();
+  try {
+    await h.vault.initializeTask("task:concurrent-append", "Concurrent append test prompt.");
+    await h.vault.getTask("task:concurrent-append", { runId: "run-shared" });
+    const modulePath = fileURLToPath(new URL("../src/encrypted-task-vault.js", import.meta.url));
+    const script = `
+      import { createEncryptedTaskVault } from ${JSON.stringify(modulePath)};
+      const [filePath, encodedKey, role, offset] = process.argv.slice(1);
+      const vault = createEncryptedTaskVault({
+        filePath, key: Buffer.from(encodedKey, "base64")
+      });
+      let completedAt = new Date(Date.now() + Number(offset)).toISOString();
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const task = await vault.getTask("task:concurrent-append", { runId: "run-shared" });
+        const record = {
+          idempotencyKey: "run-shared:" + role,
+          runId: "run-shared",
+          threadId: task.threadId,
+          role,
+          requestedProviderId: "fixture-provider",
+          requestedModel: role.toLowerCase() + "-fixture",
+          providerReportedModel: role.toLowerCase() + "-fixture",
+          responseSha256: (role === "ODIN" ? "c" : "d").repeat(64),
+          reply: {
+            body: role + " concurrent result",
+            turn_type: "CONTRIBUTION",
+            evidence_status: "PROPOSED"
+          },
+          completedAt
+        };
+        try {
+          await vault.appendBuilderResult("task:concurrent-append", record);
+          process.exit(0);
+        } catch (error) {
+          if (!/completion timestamp must increase strictly/.test(String(error?.message || error))) {
+            throw error;
+          }
+          const latest = await vault.getTask("task:concurrent-append", { runId: "run-shared" });
+          const last = latest.history.at(-1);
+          const lastMillis = last
+            ? (Number.isSafeInteger(last.timestampEpochMillis)
+                ? last.timestampEpochMillis : Date.parse(last.completedAt))
+            : Date.parse(latest.promptCreatedAt);
+          completedAt = new Date(lastMillis + 1).toISOString();
+        }
+      }
+      throw new Error("Concurrent append could not reconcile run-thread timestamp order");
+    `;
+    function appendInChild(role, offset) {
+      return new Promise((resolveChild, rejectChild) => {
+        const child = spawn(process.execPath, [
+          "--input-type=module", "-e", script,
+          h.filePath, h.key.toString("base64"), role, String(offset)
+        ], { stdio: ["ignore", "ignore", "pipe"] });
+        let stderr = "";
+        child.stderr.setEncoding("utf8");
+        child.stderr.on("data", chunk => { stderr += chunk; });
+        child.once("error", rejectChild);
+        child.once("close", code => {
+          if (code === 0) resolveChild();
+          else rejectChild(new Error("Vault append child exited " + code + ": " + stderr));
+        });
+      });
+    }
+    await Promise.all([
+      appendInChild("ODIN", 1000),
+      appendInChild("HODR", 2000)
+    ]);
+    const result = await h.vault.getTask("task:concurrent-append", { runId: "run-shared" });
+    assert.equal(result.history.length, 2);
+    assert.deepEqual(result.history.map(turn => turn.speaker).sort(), ["HODR", "ODIN"]);
+    assert.equal(new Set(result.history.map(turn => turn.idempotencyKey)).size, 2);
+    assert.ok(result.history[1].timestampEpochMillis > result.history[0].timestampEpochMillis);
+  } finally {
+    await rm(h.directory, { recursive: true, force: true });
+  }
+});
