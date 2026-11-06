@@ -44,6 +44,19 @@ function requiredText(value, label, maxLength = 4096) {
   return value.trim();
 }
 
+async function assertOwnerProtectedRegularFile(path, label, maxBytes = 65536) {
+  const filePath = resolve(requiredText(path, label, 4096));
+  const info = await lstat(filePath);
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error(label + " must be a regular, non-symlink file");
+  }
+  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
+    throw new Error(label + " permissions are too broad; use owner-only read/write permissions (0600)");
+  }
+  if (info.size > maxBytes) throw new RangeError(label + " exceeds 64 KiB");
+  return filePath;
+}
+
 function validateEndpoint(value) {
   const raw = requiredText(value, "route.endpoint", 2048);
   let url;
@@ -726,19 +739,15 @@ export async function createBuilderExecutor() {
   const taskVaultPath = requiredText(process.env.BUILDER_TASK_VAULT_MODULE, "BUILDER_TASK_VAULT_MODULE", 4096);
   const credentialsPath = requiredText(process.env.BUILDER_CREDENTIALS_MODULE, "BUILDER_CREDENTIALS_MODULE", 4096);
 
-  const configFile = resolve(configPath);
-  const info = await lstat(configFile);
-  if (!info.isFile() || info.isSymbolicLink()) throw new Error("Builder host config must be a regular, non-symlink file");
-  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
-    throw new Error("Builder host config permissions are too broad; use owner-only read/write permissions (0600)");
-  }
+  const configFile = await assertOwnerProtectedRegularFile(configPath, "Builder host config");
   const configText = await readFile(configFile, "utf8");
-  if (Buffer.byteLength(configText, "utf8") > 65536) throw new RangeError("Builder host config exceeds 64 KiB");
   const config = JSON.parse(configText);
   if (config?.version !== 1) throw new Error("Builder host config version must be 1");
 
-  const taskVaultModule = await import(pathToFileURL(resolve(taskVaultPath)).href);
-  const credentialsModule = await import(pathToFileURL(resolve(credentialsPath)).href);
+  const taskVaultFile = await assertOwnerProtectedRegularFile(taskVaultPath, "Task vault module");
+  const credentialsFile = await assertOwnerProtectedRegularFile(credentialsPath, "Credentials module");
+  const taskVaultModule = await import(pathToFileURL(taskVaultFile).href);
+  const credentialsModule = await import(pathToFileURL(credentialsFile).href);
   if (typeof credentialsModule.readSecret !== "function") {
     throw new TypeError("Credentials module must export readSecret(secretRef)");
   }
@@ -751,17 +760,9 @@ export async function createBuilderExecutor() {
   }
   let evidenceGateway = null;
   if (evidenceGatewayPath) {
-    const gatewayFile = resolve(requiredText(
-      evidenceGatewayPath, "BUILDER_EVIDENCE_GATEWAY_MODULE", 4096
-    ));
-    const gatewayInfo = await lstat(gatewayFile);
-    if (!gatewayInfo.isFile() || gatewayInfo.isSymbolicLink()) {
-      throw new Error("Evidence gateway module must be a regular, non-symlink file");
-    }
-    if (process.platform !== "win32" && (gatewayInfo.mode & 0o077) !== 0) {
-      throw new Error("Evidence gateway module permissions are too broad; use owner-only read/write permissions (0600)");
-    }
-    if (gatewayInfo.size > 65536) throw new RangeError("Evidence gateway module exceeds 64 KiB");
+    const gatewayFile = await assertOwnerProtectedRegularFile(
+      evidenceGatewayPath, "Evidence gateway module"
+    );
     const gatewayModule = await import(pathToFileURL(gatewayFile).href);
     const evidenceSecretRef = requiredText(
       config.evidenceGatewaySecretRef, "evidenceGatewaySecretRef", 256
