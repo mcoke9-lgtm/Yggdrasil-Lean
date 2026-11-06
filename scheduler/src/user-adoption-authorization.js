@@ -58,6 +58,9 @@ export function verifyUserAdoptionAuthorization(assertion, {
     throw new Error("User adoption authorization version or action is unsupported");
   }
   const keyId = required(assertion.keyId, "User authorization keyId", 64);
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(keyId)) {
+    throw new Error("User authorization keyId has an invalid format");
+  }
   const userId = required(assertion.userId, "Authenticated user ID", 256);
   const taskReference = required(assertion.taskReference, "Authorized task reference", 256);
   const runId = required(assertion.runId, "Authorized run ID", 120);
