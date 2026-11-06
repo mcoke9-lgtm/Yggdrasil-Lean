@@ -38,7 +38,7 @@ function outcomeMetadata(builder) {
  */
 export function registerBuilderRunHandler(
   scheduler,
-  { ledger, executor, output = line => process.stdout.write(line + "\n"), clock = () => new Date() }
+  { ledger, executor, output = line => process.stdout.write(line + "\n"), clock = ledger?.clock ?? (() => new Date()) }
 ) {
   if (!scheduler || typeof scheduler.registerHandler !== "function") {
     throw new TypeError("A scheduler with registerHandler is required");
