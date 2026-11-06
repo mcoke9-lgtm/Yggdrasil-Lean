@@ -314,6 +314,58 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
   assert.equal(saved[0].builders.find(item => item.role === "ODIN").status, "interrupted");
 });
 
+test("requires a task reference and prevents resume from rebinding a Builder run to another vault task", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  registerBuilderRunHandler(scheduler, {
+    ledger,
+    clock,
+    executor: async role => {
+      invoked.push(role);
+      return { status: "succeeded" };
+    },
+    output: () => {}
+  });
+
+  await scheduler.addTask({
+    id: "missing-task-reference",
+    name: "Missing vault task reference",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const missing = await scheduler.runDue();
+  assert.equal(missing.runs[0].status, "failed");
+  assert.match(missing.runs[0].error, /taskReference is required/);
+  assert.equal((await ledger.listRuns()).length, 0);
+
+  const prior = await ledger.createRun({
+    runId: "task-bound-resume",
+    scheduledFor: "2026-11-04T12:00:00Z",
+    durationMs: 60 * 60 * 1000,
+    taskReference: "vault:original-task"
+  });
+  await ledger.startRun(prior.runId);
+  await ledger.startBuilder(prior.runId, "ODIN");
+  await ledger.checkpointBuilder(prior.runId, "ODIN", {
+    checkpointId: "odin-bound-checkpoint", safeToResume: true
+  });
+  await ledger.interruptRun(prior.runId, "simulated restart");
+  await scheduler.addTask({
+    id: "wrong-task-reference-resume",
+    name: "Wrong task reference resume",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { resumeRunId: prior.runId, taskReference: "vault:other-task" },
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const wrong = await scheduler.runDue();
+  assert.equal(wrong.runs[0].status, "failed");
+  assert.match(wrong.runs[0].error, /does not match the original Builder run/);
+  assert.deepEqual(invoked, []);
+  assert.equal((await ledger.getRun(prior.runId)).status, "interrupted");
+});
+
 test("scheduled handler resumes an interrupted run only from safe checkpoints", async () => {
   const store = new MemoryStore();
   const ledger = new BuilderRunLedger({ store, clock });
