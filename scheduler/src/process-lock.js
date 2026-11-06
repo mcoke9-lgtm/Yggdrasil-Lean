@@ -26,6 +26,25 @@ async function inspectOwner(lockPath) {
   return owner;
 }
 
+/**
+ * A newly-created lock pathname is visible before its owner finishes writing
+ * the JSON record. Retry that brief publication window; persistent malformed,
+ * unsafe, or unreadable locks still fail closed.
+ */
+async function inspectOwnerAfterContention(lockPath) {
+  let lastError;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      return await inspectOwner(lockPath);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 9) break;
+      await new Promise(resolveDelay => setTimeout(resolveDelay, 10));
+    }
+  }
+  throw lastError;
+}
+
 function assertOwnerStopped(owner) {
   try {
     process.kill(owner.pid, 0);
@@ -139,7 +158,7 @@ export async function acquireProcessLock(lockPath) {
       return release;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      const existing = await inspectOwner(lockPath);
+      const existing = await inspectOwnerAfterContention(lockPath);
       if (!existing) continue;
       try {
         assertOwnerStopped(existing);
