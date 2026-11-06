@@ -478,13 +478,17 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   const invoked = [];
   const executor = async (role) => {
     invoked.push(role);
-    return {
-      status: "succeeded",
-      outcomeRef: role === "ODIN" ? "legacy-odin-turn" : role.toLowerCase() + "-new-turn",
-      turnType: "CONTRIBUTION",
-      evidenceStatus: "OBSERVED",
-      responseSha256: "b".repeat(64)
-    };
+    const result = mockBuilderResult(role);
+    result.outcomeRef = role === "ODIN" ? "legacy-odin-turn" : role.toLowerCase() + "-new-turn";
+    result.responseSha256 = "b".repeat(64);
+    if (role === "BALDR") {
+      result.reviewInvocation = {
+        ...result.reviewInvocation,
+        vaultTurnId: result.outcomeRef,
+        responseSha256: result.responseSha256
+      };
+    }
+    return result;
   };
   executor.forkRunHistory = async args => {
     assert.equal(args.sourceRunId, source.runId);
