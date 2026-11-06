@@ -145,7 +145,6 @@ export async function verifyBuilderEvidenceReference(value, gateway, {
     error.name = "TimeoutError";
     controller.abort(error);
   }, timeoutMs);
-  timeout.unref?.();
   let rejectAbort;
   const aborted = new Promise((_, reject) => { rejectAbort = reject; });
   const onAbort = () => rejectAbort(controller.signal.reason || new Error("Evidence verification aborted"));
