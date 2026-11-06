@@ -382,6 +382,81 @@ test("passes through a schema-valid operational limits snapshot", async () => {
   assert.match(systemInstruction, /never promote an external recommendation or service-scoped quota into a collective prohibition/);
 });
 
+test("preserves a mandatory Nine Builders authorization boundary for Kvasir", async () => {
+  const routes = makeRoutes();
+  const prompt = "Kvasir assesses a mandatory authorization boundary";
+  const snapshot = {
+    schema: "yggdrasil.operational-capacity-register",
+    schema_version: "1.0.0",
+    register_status: "LOADED",
+    constraints: [{
+      constraint_id: "unattended-run-user-authorization",
+      origin_system: "Nine Builders governance",
+      origin_scope: "NINE_BUILDERS_GOVERNANCE",
+      source_reference: "https://github.com/mcoke9-lgtm/Yggdrasil-Lean/issues/39",
+      observed_at: "2026-11-05T12:00:00.000Z",
+      affected_capability: "Start an unattended overnight run",
+      affected_operation: "Activate an unattended run without explicit user approval",
+      force: "MANDATORY",
+      evidence_state: "VERIFIED",
+      operational_effect: "BLOCKS_OPERATION",
+      responsible_builder: "KVASIR",
+      decision_authority: "TYR",
+      recheck_condition: "Obtain explicit user authorization for the specified run",
+      decision_status: "SCOPED"
+    }],
+    runtime_evaluation: {
+      evaluated_on: "2026-11-05",
+      maximum_evidence_age_days: 7,
+      live_telemetry: false,
+      unlisted_capability_decision: "RECHECK_REQUIRED"
+    }
+  };
+  let userContext;
+  let systemInstruction;
+  const h = makeHarness({
+    routes,
+    taskVault: {
+      async getTask(_reference, { runId }) {
+        return {
+          prompt,
+          threadId: "thread-" + runId,
+          history: [],
+          operationalLimitsSnapshot: snapshot,
+          consent: {
+            status: "USER_APPROVED",
+            scope: "NINE_BUILDERS_OVERNIGHT",
+            approvedAt: "2026-11-05T20:00:00.000Z",
+            fingerprint: createOvernightDisclosureFingerprint(routes, prompt)
+          }
+        };
+      },
+      async appendBuilderResult() { return { durable: true, checkpointId: "authorization-boundary-checkpoint" }; }
+    },
+    fetchImpl: async (_url, options) => {
+      const messages = JSON.parse(options.body).messages;
+      systemInstruction = messages[0].content;
+      userContext = JSON.parse(messages[1].content);
+      return new Response(JSON.stringify({
+        model: "reported-model",
+        choices: [{ message: { content: JSON.stringify(makeReply()) } }]
+      }), { status: 200 });
+    }
+  });
+  await h.executor("KVASIR", h.context("KVASIR"));
+  const constraint = userContext.operational_limits_snapshot.constraints[0];
+  assert.equal(userContext.operational_limits_snapshot.register_status, "LOADED");
+  assert.equal(constraint.origin_scope, "NINE_BUILDERS_GOVERNANCE");
+  assert.equal(constraint.force, "MANDATORY");
+  assert.equal(constraint.evidence_state, "VERIFIED");
+  assert.equal(constraint.operational_effect, "BLOCKS_OPERATION");
+  assert.equal(constraint.affected_operation, "Activate an unattended run without explicit user approval");
+  assert.equal(constraint.decision_authority, "TYR");
+  assert.match(systemInstruction, /BLOCKED means do not retry or recommend only the exact operation in the recorded origin scope/);
+  assert.match(systemInstruction, /never bypass a binding legal, safety, security, consent, access-control, contractual, or authorization boundary/);
+  assert.match(systemInstruction, /the authority Týr must check/);
+});
+
 test("blocks provider disclosure when the task vault has no explicit user approval", async () => {
   let calls = 0;
   let secretReads = 0;
