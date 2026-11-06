@@ -573,7 +573,11 @@ test("loads the host executor only from owner-protected config and operator modu
   const configPath = join(directory, "routes.json");
   const taskVaultPath = join(directory, "task-vault.mjs");
   const credentialsPath = join(directory, "credentials.mjs");
-  const names = ["BUILDER_HOST_CONFIG_FILE", "BUILDER_TASK_VAULT_MODULE", "BUILDER_CREDENTIALS_MODULE"];
+  const evidenceGatewayPath = join(directory, "evidence-gateway.mjs");
+  const names = [
+    "BUILDER_HOST_CONFIG_FILE", "BUILDER_TASK_VAULT_MODULE",
+    "BUILDER_CREDENTIALS_MODULE", "BUILDER_EVIDENCE_GATEWAY_MODULE"
+  ];
   const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
   try {
     await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes() }), { mode: 0o600 });
@@ -585,6 +589,7 @@ test("loads the host executor only from owner-protected config and operator modu
     process.env.BUILDER_HOST_CONFIG_FILE = configPath;
     process.env.BUILDER_TASK_VAULT_MODULE = taskVaultPath;
     process.env.BUILDER_CREDENTIALS_MODULE = credentialsPath;
+    process.env.BUILDER_EVIDENCE_GATEWAY_MODULE = evidenceGatewayPath;
 
     if (process.platform !== "win32") {
       await chmod(configPath, 0o644);
