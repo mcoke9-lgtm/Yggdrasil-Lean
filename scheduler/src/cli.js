@@ -18,7 +18,8 @@ function usage() {
     "  add-weekly-heartbeat <id> <name> <IANA-time-zone> <hour> <minute> <days:0,1,...,6>",
     "  add-github-watch <id> <name> <owner/repo> <branch> <IANA-time-zone> <hour> <minute> <workflow-name> [workflow-name...]",
     "  add-nine-builders-run <id> <name> <IANA-time-zone> <hour> <minute> <task-reference>",
-    "  resume-nine-builders <task-id> <name> <builder-run-id>",
+    "  resume-nine-builders <task-id> <name> <builder-run-id> (version-2 run)",
+    "  continue-nine-builders <task-id> <name> <legacy-version-1-run-id>",
     ""
   ].join("\n"));
 }
@@ -75,6 +76,19 @@ try {
       name,
       handlerType: "nine-builders.run",
       payload: { resumeRunId: builderRunId },
+      schedule: { kind: "once", startAt: new Date().toISOString() }
+    });
+    process.stdout.write(JSON.stringify(task, null, 2) + "\n");
+  } else if (command === "continue-nine-builders") {
+    const [id, name, legacyBuilderRunId] = args;
+    if (!legacyBuilderRunId || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(legacyBuilderRunId)) {
+      throw new Error("Supply the exact persisted version-1 Builder run ID to continue after vault reconciliation");
+    }
+    const task = await scheduler.addTask({
+      id,
+      name,
+      handlerType: "nine-builders.run",
+      payload: { continueRunId: legacyBuilderRunId },
       schedule: { kind: "once", startAt: new Date().toISOString() }
     });
     process.stdout.write(JSON.stringify(task, null, 2) + "\n");
