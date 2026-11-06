@@ -5,7 +5,16 @@ import { mkdir } from "node:fs/promises";
 
 async function inspectOwner(lockPath) {
   let owner;
-  try { owner = JSON.parse(await readFile(lockPath, "utf8")); }
+  try {
+    const info = await lstat(lockPath);
+    if (!info.isFile() || info.isSymbolicLink()) {
+      throw new Error("Scheduler lock must be a regular non-symlink file");
+    }
+    if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
+      throw new Error("Scheduler lock permissions are too broad; use 0600");
+    }
+    owner = JSON.parse(await readFile(lockPath, "utf8"));
+  }
   catch (error) {
     if (error.code === "ENOENT") return null;
     throw new Error("Scheduler lock exists but cannot be safely inspected; do not delete it until the scheduler process is confirmed stopped.");
