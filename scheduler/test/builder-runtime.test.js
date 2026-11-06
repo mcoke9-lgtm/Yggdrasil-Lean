@@ -86,7 +86,7 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
     await seededLedger.startBuilder(abandoned.runId, "ODIN");
     await seededLedger.checkpointBuilder(abandoned.runId, "ODIN", {
       checkpointId: "odin-safe-checkpoint",
-      data: { durable: true },
+      responseSha256: "a".repeat(64),
       safeToResume: true
     });
 
@@ -100,7 +100,7 @@ test("host startup recovers abandoned Builder work and explicit safe resume cont
       loadModule: async () => ({
         createBuilderExecutor: async () => async role => {
           invoked.push(role);
-          return { status: "succeeded", summary: "resumed after host recovery" };
+          return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
         }
       }),
       output: line => events.push(JSON.parse(line))
