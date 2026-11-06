@@ -71,8 +71,14 @@ export function registerBuilderRunHandler(
         throw new Error("TASK_VAULT_UNAVAILABLE");
       }
       taskPayload.taskReference = source.taskReference;
+      const continuationId = typeof taskPayload.continuationId === "string" &&
+        taskPayload.continuationId.trim() ? taskPayload.continuationId.trim() : context.runId;
+      if (typeof continuationId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(continuationId)) {
+        throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+      }
       const targetRunId = "builder:continuation:" +
-        createHash("sha256").update(source.runId, "utf8").digest("hex").slice(0, 32);
+        createHash("sha256").update(source.runId + ":" + continuationId, "utf8").digest("hex").slice(0, 32);
       let fork;
       try {
         fork = await executor.forkRunHistory({
