@@ -142,11 +142,17 @@ public final class BuilderOvernightWorker extends Worker {
         }
     }
 
-    private void enqueueContinuation(String runId, long interval) {
-        OneTimeWorkRequest next = new OneTimeWorkRequest.Builder(BuilderOvernightWorker.class)
-                .setInputData(getInputData())
+    static OneTimeWorkRequest continuationRequest(Data inputData, long interval) {
+        return new OneTimeWorkRequest.Builder(BuilderOvernightWorker.class)
+                .setInputData(inputData)
+                .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setInitialDelay(interval, TimeUnit.MILLISECONDS)
                 .addTag("nine-builders-overnight").build();
+    }
+
+    private void enqueueContinuation(String runId, long interval) {
+        OneTimeWorkRequest next = continuationRequest(getInputData(), interval);
         WorkManager.getInstance(getApplicationContext()).enqueueUniqueWork(
                 BuilderOvernightScheduler.workName(runId),
                 ExistingWorkPolicy.APPEND_OR_REPLACE, next);
