@@ -276,14 +276,15 @@ test("legacy continuation blocks uncertain failed roles without a matching durab
     },
     async forkRunHistory(_reference, options) {
       assert.equal(options.sourceRunId, sourceRunId);
-      assert.equal(options.targetRunId, targetRunId);
+      const actualTargetRunId = options.targetRunId;
+      const actualTargetThreadId = "nine-builders:" + actualTargetRunId;
       targetTask = {
         ...sourceTask,
-        threadId: targetThreadId,
+        threadId: actualTargetThreadId,
         history: sourceHistory.map(turn => ({
           ...turn,
-          runId: targetRunId,
-          threadId: targetThreadId,
+          runId: actualTargetRunId,
+          threadId: actualTargetThreadId,
           origin: {
             kind: "ENCRYPTED_VAULT_RUN_FORK",
             sourceTaskReference: "vault:task-001",
@@ -294,7 +295,7 @@ test("legacy continuation blocks uncertain failed roles without a matching durab
         }))
       };
       return {
-        durable: true, duplicate: false, sourceThreadId, targetThreadId,
+        durable: true, duplicate: false, sourceThreadId, targetThreadId: actualTargetThreadId,
         sourceHistorySha256: "b".repeat(64), importedTurnCount: sourceHistory.length
       };
     },
@@ -333,8 +334,10 @@ test("legacy continuation blocks uncertain failed roles without a matching durab
     responseSha256: "c".repeat(64),
     reply: { body: "Recovered Höðr contribution", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" }
   });
+  const recoveredTargetRunId = "builder:legacy-target-recovered";
   const recoveredFork = await executor.forkRunHistory({
-    taskReference: "vault:task-001", sourceRunId, targetRunId, sourceBuilders
+    taskReference: "vault:task-001", sourceRunId,
+    targetRunId: recoveredTargetRunId, sourceBuilders
   });
   assert.equal(recoveredFork.durable, true);
   assert.equal(recoveredFork.importedTurnCount, 2,
