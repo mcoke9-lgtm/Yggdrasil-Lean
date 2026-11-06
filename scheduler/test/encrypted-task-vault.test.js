@@ -109,7 +109,7 @@ async function correctionReadyFixture({ includeVerification = true } = {}) {
     ).toString("base64url");
     return assertion;
   }
-  return { directory, vault, taskReference, runId, task, fixedNow, authorize, verified };
+  return { directory, filePath, key, vault, taskReference, runId, task, fixedNow, authorize, verified };
 }
 
 test("encrypted vault requires explicit approval and preserves isolated run history", async () => {
