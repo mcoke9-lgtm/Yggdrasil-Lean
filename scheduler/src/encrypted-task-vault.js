@@ -316,7 +316,7 @@ export function createEncryptedTaskVault({
       await writeState(state);
       return { durable: true, checkpointId };
       });
-    }
+    },
 
     async appendUserAdoption(taskReference, {
       runId,
