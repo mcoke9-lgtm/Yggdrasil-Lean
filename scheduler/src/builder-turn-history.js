@@ -2,6 +2,15 @@ const DIRECTED_TYPES = new Set([
   "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
   "INTERRUPTION", "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN"
 ]);
+const SUPPORTED_TURN_TYPES = new Set([
+  "CONTRIBUTION", "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF",
+  "ACKNOWLEDGEMENT", "RECONCILIATION", "INTERRUPTION",
+  "IMPROVEMENT_INCIDENT", "CORRECTION_PLAN", "CORRECTION_UPDATE", "DECISION"
+]);
+const SUPPORTED_EVIDENCE_STATUSES = new Set([
+  "PROPOSED", "OBSERVED", "IMPLEMENTED", "TESTED", "VERIFIED",
+  "ADOPTED", "USER_CONFIRMED", "DISPUTED", "UNKNOWN"
+]);
 const REFERENCE_TYPES = new Set([
   "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
   "RECONCILIATION", "INTERRUPTION", "IMPROVEMENT_INCIDENT",
@@ -88,11 +97,15 @@ function parseEvidenceReference(value, expectedKind, stage) {
 }
 
 function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
-  if (type === "DECISION") throw new Error("Builders cannot create DECISION turns");
-  if (evidenceStatus === "ADOPTED") throw new Error("Only USER may record ADOPTED");
-  if (DIRECTED_TYPES.has(type) && recipient == null) {
+  if (!SUPPORTED_TURN_TYPES.has(type)) throw new Error("Run history contains an unsupported turn type");
+  if (!SUPPORTED_EVIDENCE_STATUSES.has(evidenceStatus)) throw new Error("Run history contains an unsupported evidence status");
+  if (type === "DECISION" && speaker !== "USER") throw new Error("Builders cannot create DECISION turns");
+  const userAdoption = type === "CORRECTION_UPDATE" && speaker === "USER" && evidenceStatus === "ADOPTED";
+  if (evidenceStatus === "ADOPTED" && !userAdoption) throw new Error("Only USER may record ADOPTED");
+  if ((DIRECTED_TYPES.has(type) || (type === "CORRECTION_UPDATE" && speaker !== "USER")) && recipient == null) {
     throw new Error(type + " must name a recipient");
   }
+  if (userAdoption && recipient != null) throw new Error("User correction adoption must not have a recipient");
   if (REFERENCE_TYPES.has(type) && !replyTo) {
     throw new Error(type + " must reference an earlier turn");
   }
@@ -100,7 +113,7 @@ function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
     throw new Error("A participant cannot address a turn to itself");
   }
   if ((type === "INTERRUPTION" || type === "IMPROVEMENT_INCIDENT" ||
-       type === "CORRECTION_PLAN" || type === "CORRECTION_UPDATE") &&
+       type === "CORRECTION_PLAN" || (type === "CORRECTION_UPDATE" && !userAdoption)) &&
       recipient !== "USER") {
     throw new Error(type + " must be addressed to USER");
   }
