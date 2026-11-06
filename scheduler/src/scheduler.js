@@ -238,6 +238,11 @@ export class Scheduler {
             scheduledFor: run.scheduledFor,
             signal: controller.signal
           });
+          if (controller.signal.aborted) {
+            status = "failed";
+            oneShotOutcome = "interrupted";
+            errorMessage = "Cancellation was requested, but the handler returned without acknowledging it; external outcome is unknown.";
+          }
         } catch (error) {
           status = "failed";
           oneShotOutcome = controller.signal.aborted || error?.name === "BuilderRequestedInterruption"

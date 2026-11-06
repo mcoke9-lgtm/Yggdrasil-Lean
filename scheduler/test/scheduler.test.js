@@ -479,6 +479,31 @@ function lineExists(output) {
   });
 }
 
+test("handler return after cancellation is not reported as success", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let handlerStarted;
+  const started = new Promise(resolve => { handlerStarted = resolve; });
+  let releaseHandler;
+  const gate = new Promise(resolve => { releaseHandler = resolve; });
+  scheduler.registerHandler("test.ignores-cancel", async (_payload, context) => {
+    handlerStarted();
+    await gate; // Deliberately ignores the cancellation signal.
+  });
+  await scheduler.addTask({
+    id: "ignored-cancel",
+    name: "Ignored cancellation",
+    handlerType: "test.ignores-cancel",
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-04T12:00:00Z" }
+  });
+  const execution = scheduler.runDue();
+  await started;
+  assert.equal(scheduler.abortActiveRuns("test shutdown"), 1);
+  releaseHandler();
+  const result = await execution;
+  assert.equal(result.runs[0].status, "failed");
+  assert.match(result.runs[0].error, /external outcome is unknown/);
+});
+
 test("abortActiveRuns propagates cooperative cancellation to the active handler", async () => {
   const scheduler = new Scheduler({ store: new MemoryStore(), clock });
   let handlerStarted;
