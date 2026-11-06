@@ -215,10 +215,19 @@ export function createEncryptedTaskVault({
         Number.isSafeInteger(turn.timestampEpochMillis) ? turn.timestampEpochMillis > 0 :
           (typeof turn.completedAt === "string" && Number.isFinite(Date.parse(turn.completedAt)))
       );
+      let promptTimestampMillis = null;
+      if (task.promptCreatedAt != null) {
+        const promptCreatedAt = required(task.promptCreatedAt, "promptCreatedAt", 64);
+        const promptDate = new Date(promptCreatedAt);
+        if (!Number.isFinite(promptDate.getTime()) || promptDate.toISOString() !== promptCreatedAt) {
+          throw new TypeError("promptCreatedAt must be a canonical ISO-8601 timestamp");
+        }
+        promptTimestampMillis = promptDate.getTime();
+      }
       const priorTimestampMillis = priorTimestamp
         ? (Number.isSafeInteger(priorTimestamp.timestampEpochMillis)
             ? priorTimestamp.timestampEpochMillis : Date.parse(priorTimestamp.completedAt))
-        : (typeof task.promptCreatedAt === "string" ? Date.parse(task.promptCreatedAt) : null);
+        : promptTimestampMillis;
       if (priorTimestampMillis != null && completedDate.getTime() <= priorTimestampMillis) {
         throw new Error("Builder completion timestamp must increase strictly in run-thread order");
       }
