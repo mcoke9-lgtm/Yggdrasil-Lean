@@ -28,6 +28,7 @@ By default, the service:
 Configuration:
 - `SCHEDULER_STATE_FILE`: persistent state-file path.
 - `SCHEDULER_POLL_MS`: 1,000–300,000 milliseconds.
+- `SCHEDULER_LEASE_HEARTBEAT_MS`: process-lock heartbeat interval, 1,000–300,000 milliseconds; defaults to 15,000.
 - `SCHEDULER_DASHBOARD_PORT`: dashboard port, default 4174.
 - `SCHEDULER_DASHBOARD_HOST`: must remain `127.0.0.1`, `::1`, or `localhost`.
 - `SCHEDULER_DASHBOARD_TOKEN`: optional bearer token protecting management APIs.
@@ -85,15 +86,26 @@ Weekly days use 0=Sunday through 6=Saturday.
 
 The runner is a foreground Node.js process, not yet an installed operating-system
 service. It handles SIGINT and SIGTERM, waits for the active tick, closes the
-dashboard, and releases its process lock. A process lock prevents two scheduler
-runners from writing the same state concurrently. If a process is killed
-uncleanly and leaves a stale lock, the next start checks whether the recorded
-process ID still exists before removing it; malformed locks fail closed.
+dashboard, and releases its process lock. The lock records an owner PID, random
+ownership token, creation time, and heartbeat time. The runner refreshes the
+heartbeat every 15 seconds by default; if it cannot prove continued ownership,
+it aborts active handlers and shuts down rather than continuing as a second
+writer. The lock directory must be owner-only on POSIX hosts. Stale-lock
+reclamation is serialized through a separate recovery file and rechecks the
+owner token and PID; malformed locks or a competing recovery fail closed.
+
+The heartbeat is a local process-liveness signal, not a time-expiring
+distributed lease or a fencing token. A live PID is never displaced solely
+because its heartbeat is old. This avoids stealing a lock from a slow but still
+running process, but it means PID reuse or a crash during stale-lock recovery
+can require operator inspection. The store and lock remain designed for one
+local process and one host, not distributed workers.
 
 If the process stops while a handler is running, the run is marked interrupted
 after restart. It is not automatically replayed because the external outcome
-may be unknown. Task state uses atomic file replacement. The store and lock are
-designed for one local process and one host, not distributed workers.
+may be unknown. Task state uses atomic file replacement. Builder-run recovery
+marks abandoned runs interrupted/expired; explicit resume still requires the
+saved run ID and a safe per-Builder checkpoint.
 
 ## Long-running task isolation
 
