@@ -9,6 +9,25 @@ import {
 
 const clock = () => new Date("2026-11-04T12:00:00.000Z");
 
+function mockBuilderResult(role) {
+  const outcomeRef = role.toLowerCase() + "-turn";
+  const responseSha256 = "a".repeat(64);
+  return {
+    status: "succeeded", outcomeRef, turnType: "CONTRIBUTION",
+    evidenceStatus: "OBSERVED", responseSha256,
+    ...(role === "BALDR" ? {
+      reviewInvocation: {
+        reviewInvocationId: "review-" + outcomeRef,
+        inputManifestSha256: "b".repeat(64),
+        responseSha256, vaultTurnId: outcomeRef,
+        provenanceLevel: "INVOCATION_ATTRIBUTED",
+        providerRequestId: null, status: "COMPLETED",
+        completedAt: "2026-11-04T12:00:00.000Z"
+      }
+    } : {})
+  };
+}
+
 function clockAt(value) {
   let current = new Date(value);
   return {
@@ -170,7 +189,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
         checkpointId: role.toLowerCase() + "-complete",
         safeToResume: true
       });
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+      return mockBuilderResult(role);
     },
     output: line => output.push(JSON.parse(line))
   });
@@ -202,7 +221,7 @@ test("scheduler records a Builder failure and still gives Baldr the full outcome
     executor: async (role, context) => {
       if (role === "HODR") throw new Error("PRIVATE PROVIDER FAILURE TEXT");
       if (role === "BALDR") baldrOutcomes = context.outcomes;
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+      return mockBuilderResult(role);
     },
     output: line => emitted.push(JSON.parse(line))
   });
@@ -245,7 +264,7 @@ test("Builder interruption and improvement incident stop the round without faili
         if (role === "HODR") {
           return { ...scenario };
         }
-        return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+        return mockBuilderResult(role);
       },
       output: line => events.push(JSON.parse(line))
     });
@@ -306,7 +325,7 @@ test("scheduler shutdown cooperatively cancels a Builder executor and preserves 
           context.signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
         });
       }
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+      return mockBuilderResult(role);
     },
     output: () => {}
   });
@@ -355,7 +374,7 @@ test("resumed Baldr review receives typed references from completed Builders", a
     invoked.push(role);
     if (role === "HODR") assert.equal(context.resumeCheckpoint.vaultTurnId, "hodr-safe-resume");
     if (role === "BALDR") baldrOutcomes = context.outcomes;
-    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+    return mockBuilderResult(role);
   };
   executor.supportsVerifiedResumeCheckpoint = true;
   registerBuilderRunHandler(scheduler, {
@@ -564,7 +583,7 @@ test("requires a task reference and prevents resume from rebinding a Builder run
     clock,
     executor: async role => {
       invoked.push(role);
-      return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+      return mockBuilderResult(role);
     },
     output: () => {}
   });
@@ -625,7 +644,7 @@ test("recovers an interrupted Builder from its durable vault result without invo
   const executor = async (role, context) => {
     invoked.push(role);
     if (role === "BALDR") baldrOutcomes = context.outcomes;
-    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+    return mockBuilderResult(role);
   };
   executor.recoverDurableResult = async (role, context) => {
     assert.equal(role, "ODIN");
@@ -686,7 +705,7 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
   const executor = async (role, context) => {
     invoked.push(role);
     if (role === "ODIN") assert.equal(context.resumeCheckpoint.vaultTurnId, "odin-resume-point");
-    return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
+    return mockBuilderResult(role);
   };
   executor.supportsVerifiedResumeCheckpoint = true;
   registerBuilderRunHandler(scheduler, {
