@@ -372,7 +372,7 @@ function validateOperationalLimitsSnapshot(value) {
         !evaluation || typeof evaluation !== "object" ||
         evaluation.live_telemetry !== false ||
         evaluation.unlisted_capability_decision !== "RECHECK_REQUIRED" ||
-        !/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluation.evaluated_on || "") ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(evaluation.evaluated_on || "") ||
         !Number.isFinite(evaluation.maximum_evidence_age_days) ||
         evaluation.maximum_evidence_age_days < 0 ||
         !value.constraints.every(entry => validateConstraintEntry(entry, evaluation))) {
