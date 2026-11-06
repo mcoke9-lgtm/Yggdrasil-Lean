@@ -132,7 +132,7 @@ A pause is not a permanent prohibition. A stop is not lifted merely because a di
 
 This document establishes the proposed governance contract and prompt expectations. It does not claim that a persistent, fully validated Constraint Register, live telemetry feed, independent Builder process, or authorization engine already exists. Those capabilities must be implemented and tested separately.
 
-The current executor's UNAVAILABLE fallback remains fail-closed for unknown capability state. A future schema validator should validate individual constraint entries, evidence freshness, and scope; until then, a loaded snapshot must not be represented as independently verified merely because its top-level shape is accepted.
+The current executor's UNAVAILABLE fallback remains fail-closed for unknown capability state. The current schema validator checks each loaded constraint entry for required identity, origin scope, source, affected capability and operation, force, evidence state, operational effect, responsible Builder, decision authority, recheck condition, and evidence age against the declared evaluation date. Invalid, future-dated, or stale entries cause the entire snapshot to fall back to UNAVAILABLE. This validates structure and declared evidence freshness; it does not independently authenticate source references or prove that the source is authoritative.
 
 ## 10. Integrity rule
 
