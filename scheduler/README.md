@@ -110,9 +110,11 @@ new Builder run persists its opaque task-vault reference alongside the run ID,
 so explicit resume restores the original task binding and rejects any
 caller-supplied mismatch. The `resume-nine-builders` CLI command creates a
 one-shot task for a specified interrupted Builder run; it does not replay the
-run automatically. Resume still requires the saved run ID, an unexpired
-eight-hour deadline, and a safe per-Builder checkpoint; legacy runs without a
-persisted task reference require manual reconciliation. One-shot tasks become
+run automatically. Completed Builder summaries are persisted and restored into Baldr's outcome
+set when a run resumes, so the independent review retains the original role
+results rather than generic placeholders. Resume still requires the saved run
+ID, an unexpired eight-hour deadline, and a safe per-Builder checkpoint; legacy
+runs without a persisted task reference require manual reconciliation. One-shot tasks become
 disabled after their single attempt and retain a visible terminal state.
 
 ## Long-running task isolation
