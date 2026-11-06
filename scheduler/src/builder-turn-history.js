@@ -351,6 +351,9 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     }
   }
   validateReplyShape(type, speaker, recipient, replyTo, reply.evidence_status);
+  if (recipient != null && recipient !== "USER" && !BUILDER_ROLES.includes(recipient)) {
+    throw new Error("Builder reply names an unknown recipient");
+  }
   if (REFERENCE_TYPES.has(type)) {
     const target = byId.get(replyTo);
     if (!target || target.index >= history.length) {
