@@ -430,7 +430,9 @@ export function createOpenAiCompatibleExecutor({
     if (typeof turnType !== "string" || !turnType.trim()) {
       throw new Error("Durable Builder result has no typed turn classification");
     }
+    const stopTurn = STOP_TYPES.has(turnType);
     return {
+      status: stopTurn ? "interrupted" : "succeeded",
       checkpointId,
       data: {
         threadId: task.threadId,
@@ -475,9 +477,8 @@ export function createOpenAiCompatibleExecutor({
         ...recovered.data,
         safeToResume: true
       });
-      const stopTurn = STOP_TYPES.has(recovered.turnType);
       return {
-        status: stopTurn ? "interrupted" : "succeeded",
+        status: recovered.status,
         turnType: recovered.turnType,
         summary: recovered.summary
       };
