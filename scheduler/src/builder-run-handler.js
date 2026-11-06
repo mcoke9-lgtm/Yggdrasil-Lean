@@ -235,6 +235,10 @@ export function registerBuilderRunHandler(
         const resumeCheckpoint = savedBuilder.status === "interrupted" &&
           savedBuilder.checkpoint?.safeToResume === true
           ? structuredClone(savedBuilder.checkpoint) : null;
+        if (resumeCheckpoint && executor.supportsVerifiedResumeCheckpoint !== true) {
+          activeRole = role;
+          await interrupt("RESUME_NOT_SAFE");
+        }
         await ledger.startBuilder(runId, role);
         let result;
         try {
