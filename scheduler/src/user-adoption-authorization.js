@@ -1,7 +1,7 @@
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
 
 const ASSERTION_FIELDS = [
-  "version", "action", "keyId", "userId", "runId", "threadId",
+  "version", "action", "keyId", "userId", "taskReference", "runId", "threadId",
   "correctionId", "nonce", "issuedAt", "signature"
 ];
 
@@ -18,6 +18,7 @@ export function serializeUserAdoptionPayload(assertion) {
     action: assertion.action,
     keyId: assertion.keyId,
     userId: assertion.userId,
+    taskReference: assertion.taskReference,
     runId: assertion.runId,
     threadId: assertion.threadId,
     correctionId: assertion.correctionId,
@@ -58,6 +59,7 @@ export function verifyUserAdoptionAuthorization(assertion, {
   }
   const keyId = required(assertion.keyId, "User authorization keyId", 64);
   const userId = required(assertion.userId, "Authenticated user ID", 256);
+  const taskReference = required(assertion.taskReference, "Authorized task reference", 256);
   const runId = required(assertion.runId, "Authorized run ID", 120);
   const threadId = required(assertion.threadId, "Authorized thread ID", 256);
   const correctionId = required(assertion.correctionId, "Authorized correction ID", 256);
@@ -101,6 +103,7 @@ export function verifyUserAdoptionAuthorization(assertion, {
     action: "ADOPT_CORRECTION",
     keyId,
     userId,
+    taskReference,
     runId,
     threadId,
     correctionId,
