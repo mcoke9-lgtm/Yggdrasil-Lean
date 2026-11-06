@@ -374,7 +374,7 @@ function validateTask(task, routes, runId, taskReference) {
       throw new Error("Task history contains an unknown speaker");
     }
   }
-  validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis);
+  validateBuilderHistory(history, runId, threadId, promptTurnId, promptTimestampEpochMillis, prompt);
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
   return {
@@ -497,7 +497,7 @@ export function createOpenAiCompatibleExecutor({
       try { rawReply = JSON.parse(content); }
       catch { throw new Error("Builder model content was not valid JSON"); }
       const reply = validateBuilderReply(rawReply);
-      validateBuilderReplyAgainstHistory(reply, task.history, role, task.promptTurnId);
+      validateBuilderReplyAgainstHistory(reply, task.history, role, task.promptTurnId, task.prompt);
       if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
       const responseHash = createHash("sha256").update(content, "utf8").digest("hex");
