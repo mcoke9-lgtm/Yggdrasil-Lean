@@ -1078,7 +1078,7 @@ test("blocks disclosure when the approved prompt or any route changes", async ()
     },
     fetchImpl: async () => { calls++; return new Response("{}"); }
   });
-  await assert.rejects(() => promptChanged.executor("ODIN", promptChanged.context("ODIN")), /changed after user approval/);
+  await assert.rejects(() => promptChanged.executor("ODIN", promptChanged.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(calls, 0);
 });
 
