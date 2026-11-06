@@ -86,6 +86,7 @@ export class Scheduler {
         payload: clone(input.payload ?? {}),
         schedule,
         nextRunAt,
+        ...(schedule.kind === "once" ? { oneShotStatus: "pending" } : {}),
         createdAt,
         updatedAt: createdAt
       };
@@ -161,6 +162,13 @@ export class Scheduler {
             run.status = "interrupted";
             run.finishedAt = nowIso;
             run.error = "Process stopped before the handler outcome was recorded; automatic replay is disabled.";
+            const task = state.tasks.find(item => item.id === run.taskId);
+            if (task?.schedule?.kind === "once") {
+              task.enabled = false;
+              task.nextRunAt = null;
+              task.oneShotStatus = "interrupted";
+              task.updatedAt = nowIso;
+            }
             recovered = true;
           }
         }
@@ -184,7 +192,10 @@ export class Scheduler {
           const runId = `${task.id}:${scheduledFor}`;
           if (state.runs.some(run => run.id === runId)) {
             task.nextRunAt = this.nextOccurrence(task, scheduledFor);
-            if (task.schedule.kind === "once") task.enabled = false;
+            if (task.schedule.kind === "once") {
+              task.enabled = false;
+              task.oneShotStatus = "already-run";
+            }
             task.updatedAt = this.clock().toISOString();
             await this.store.save(state);
             return null;
@@ -201,7 +212,10 @@ export class Scheduler {
           };
           state.runs.push(run);
           task.nextRunAt = this.nextOccurrence(task, scheduledFor);
-          if (task.schedule.kind === "once") task.enabled = false;
+          if (task.schedule.kind === "once") {
+            task.enabled = false;
+            task.oneShotStatus = "running";
+          }
           task.updatedAt = this.clock().toISOString();
           await this.store.save(state);
           return { run: clone(run), payload: clone(task.payload) };
@@ -212,6 +226,7 @@ export class Scheduler {
         started.push(run.id);
         const handler = this.handlers.get(run.handlerType);
         let status = "succeeded";
+        let oneShotOutcome = "succeeded";
         let errorMessage = null;
         const controller = new AbortController();
         this.activeControllers.add(controller);
@@ -225,6 +240,9 @@ export class Scheduler {
           });
         } catch (error) {
           status = "failed";
+          oneShotOutcome = controller.signal.aborted || error?.name === "BuilderRequestedInterruption"
+            ? "interrupted"
+            : "failed";
           errorMessage = String(error?.message || error).slice(0, 2000);
         } finally {
           this.activeControllers.delete(controller);
@@ -238,6 +256,13 @@ export class Scheduler {
             storedRun.status = status;
             storedRun.error = errorMessage;
             storedRun.finishedAt = this.clock().toISOString();
+            const task = state.tasks.find(item => item.id === storedRun.taskId);
+            if (task?.schedule?.kind === "once") {
+              task.enabled = false;
+              task.nextRunAt = null;
+              task.oneShotStatus = oneShotOutcome;
+              task.updatedAt = storedRun.finishedAt;
+            }
             await this.store.save(state);
           }
           return clone(storedRun);
