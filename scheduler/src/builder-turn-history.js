@@ -48,9 +48,12 @@ function turnBody(turn) {
  * Validate and retain the vault's original records. Missing timestamps on legacy
  * records remain missing; this function never manufactures historical time.
  */
-export function validateBuilderHistory(history, runId, threadId) {
+export function validateBuilderHistory(history, runId, threadId, promptTurnId) {
   if (!Array.isArray(history)) throw new TypeError("Run history must be an array");
   const ids = new Map();
+  if (promptTurnId != null) {
+    ids.set(nonEmpty(promptTurnId, "Task prompt turn identity", 256), -1);
+  }
   for (let index = 0; index < history.length; index += 1) {
     const turn = history[index];
     if (!turn || typeof turn !== "object" || Array.isArray(turn)) {
@@ -62,10 +65,9 @@ export function validateBuilderHistory(history, runId, threadId) {
     nonEmpty(turn.speaker, "Run history speaker", 32);
     nonEmpty(turn.body, "Run history body", 16000);
     const id = turnId(turn);
-    if (id) {
-      if (ids.has(id)) throw new Error("Run history contains duplicate turn identity " + id);
-      ids.set(id, index);
-    }
+    if (!id) throw new Error("Run history turn is missing its stable checkpointId or turnId");
+    if (ids.has(id)) throw new Error("Run history contains duplicate turn identity " + id);
+    ids.set(id, index);
     if (turn.completedAt != null) {
       const timestamp = nonEmpty(turn.completedAt, "Run history completedAt", 64);
       const parsed = new Date(timestamp);
@@ -160,7 +162,10 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
   }
   for (let index = 0; index < history.length; index += 1) {
     const id = turnId(history[index]);
-    if (id) byId.set(id, { turn: history[index], index });
+    if (id) {
+      if (byId.has(id)) throw new Error("Task prompt and run history share a turn identity");
+      byId.set(id, { turn: history[index], index });
+    }
   }
   if (DIRECTED_TYPES.has(type) && !reply.recipient) {
     throw new Error(type + " must name a recipient");
