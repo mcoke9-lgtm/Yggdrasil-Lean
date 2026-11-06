@@ -142,6 +142,9 @@ export function createEncryptedTaskVault({
       const state = await readState();
       const task = state.tasks[reference];
       if (!task) throw new Error("Task reference does not exist");
+      if (typeof task.promptTurnId !== "string" || !task.promptTurnId.trim()) {
+        task.promptTurnId = "task-prompt-" + randomBytes(16).toString("hex");
+      }
       const run = task.runs[id] ??= {
         threadId: "nine-builders:" + id,
         history: []
@@ -155,6 +158,7 @@ export function createEncryptedTaskVault({
       await writeState(state);
       return {
         prompt: task.prompt,
+        promptTurnId: task.promptTurnId,
         threadId: run.threadId,
         history: structuredClone(run.history),
         consent: task.consent,
