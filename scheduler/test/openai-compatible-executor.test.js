@@ -763,7 +763,7 @@ test("blocks provider disclosure when the task vault has no explicit user approv
     readSecret: async () => { secretReads++; return "token"; },
     fetchImpl: async () => { calls++; return new Response("{}"); }
   });
-  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /no explicit user approval/);
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(secretReads, 0);
   assert.equal(calls, 0);
 });
@@ -1023,7 +1023,7 @@ test("rejects history that does not belong to the current run-specific thread", 
     },
     fetchImpl: async () => { calls++; return new Response("{}"); }
   });
-  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /outside this scheduled run/);
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(calls, 0);
 });
 
@@ -1052,7 +1052,7 @@ test("blocks disclosure when the approved prompt or any route changes", async ()
     },
     fetchImpl: async () => { calls++; return new Response("{}"); }
   });
-  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /changed after user approval/);
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(calls, 0);
 
   const promptRoutes = makeRoutes();
@@ -1436,6 +1436,6 @@ test("rejects a task vault that does not confirm durable result persistence", as
       async appendBuilderResult() { return { checkpointId: "not-durable" }; }
     }
   });
-  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /did not confirm durable persistence/);
+  await assert.rejects(() => h.executor("ODIN", h.context("ODIN")), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.equal(h.checkpoints.length, 0);
 });
