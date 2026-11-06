@@ -41,6 +41,46 @@ test("runs a due handler and records success", async () => {
   assert.equal(result.runs[0].status, "succeeded");
 });
 
+test("runs a one-time task once, then disables it with no next run", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let calls = 0;
+  scheduler.registerHandler("test.once", async () => { calls += 1; });
+  const task = await scheduler.addTask({
+    id: "one-time-check",
+    name: "One-time check",
+    handlerType: "test.once",
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  assert.equal(task.schedule.kind, "once");
+  assert.equal(task.nextRunAt, "2026-11-04T12:00:00.000Z");
+  const first = await scheduler.runDue();
+  assert.equal(first.runs[0].status, "succeeded");
+  assert.equal(calls, 1);
+  const saved = (await scheduler.listTasks())[0];
+  assert.equal(saved.enabled, false);
+  assert.equal(saved.nextRunAt, null);
+  const second = await scheduler.runDue();
+  assert.deepEqual(second.runs, []);
+  assert.equal(calls, 1);
+  await assert.rejects(() => scheduler.setEnabled("one-time-check", true),
+    /completed one-time task cannot be re-enabled/);
+});
+
+test("does not run a one-time task before its start time", async () => {
+  const scheduler = new Scheduler({ store: new MemoryStore(), clock });
+  let calls = 0;
+  scheduler.registerHandler("test.once", async () => { calls += 1; });
+  await scheduler.addTask({
+    id: "future-one-time",
+    name: "Future one-time check",
+    handlerType: "test.once",
+    schedule: { kind: "once", startAt: "2026-11-04T12:01:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.deepEqual(result.runs, []);
+  assert.equal(calls, 0);
+});
+
 test("records a failed handler", async () => {
   const scheduler = new Scheduler({ store: new MemoryStore(), clock });
   scheduler.registerHandler("test.fail", async () => { throw new Error("expected failure"); });
@@ -62,7 +102,7 @@ test("rejects unsupported schedule kinds", async () => {
     name: "Unsupported",
     handlerType: "test.check",
     schedule: { kind: "cron" }
-  }), /Schedule kind must be interval or calendar/);
+  }), /Schedule kind must be interval, calendar, or once/);
 });
 
 test("supports daily wall-clock schedules in an IANA timezone", async () => {
