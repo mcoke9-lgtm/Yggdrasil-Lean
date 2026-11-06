@@ -266,6 +266,10 @@ test("Builder interruption and improvement incident stop the round without faili
     assert.equal(saved.builders.find(item => item.role === "LOKI").status, "pending");
     assert.ok(events.some(event => event.event === "nine_builders_run_interrupted"
       && event.role === "HODR" && event.turnType === scenario.turnType));
+    const interruptionEvent = events.find(event => event.event === "nine_builders_run_interrupted");
+    assert.equal(interruptionEvent.errorCode, "BUILDER_REQUESTED_INTERRUPTION");
+    assert.equal(Object.hasOwn(interruptionEvent, "reason"), false);
+    assert.equal(Object.hasOwn(saved, "interruptionReason"), false);
   }
 });
 
