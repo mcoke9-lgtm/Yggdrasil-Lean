@@ -73,11 +73,11 @@ function turnBody(turn) {
 
 function reviewIncidentIdFromPrompt(prompt) {
   if (typeof prompt !== "string") return null;
-  const marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=";
+  const marker = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=";
   const markerIndex = prompt.indexOf(marker);
   if (markerIndex < 0) return null;
   const start = markerIndex + marker.length;
-  const end = prompt.indexOf("\\n", start);
+  const end = prompt.indexOf("\n", start);
   const value = (end < 0 ? prompt.slice(start) : prompt.slice(start, end)).trim();
   return value || null;
 }
