@@ -98,10 +98,52 @@ export function registerBuilderRunHandler(
           continue;
         }
         if (savedBuilder.status === "interrupted" && !savedBuilder.checkpoint?.safeToResume) {
-          await ledger.interruptRun(runId,
-            "Manual reconciliation required: interrupted Builder has no safe resume checkpoint",
-            role);
-          throw new Error("Cannot resume " + role + ": no explicitly safe checkpoint");
+          activeRole = role;
+          if (typeof executor.recoverDurableResult !== "function") {
+            const reason = "Manual reconciliation required: executor cannot inspect durable Builder results";
+            await ledger.interruptRun(runId, reason, role);
+            throw new Error("Cannot recover " + role + ": " + reason);
+          }
+          if (controller.signal.aborted) await interrupt();
+          let recovered;
+          try {
+            recovered = await executor.recoverDurableResult(role, {
+              runId,
+              scheduledFor: context.scheduledFor,
+              task: structuredClone(taskPayload),
+              outcomes: structuredClone(outcomes),
+              signal: controller.signal
+            });
+          } catch (error) {
+            await ledger.interruptRun(runId,
+              "Durable-result recovery failed; manual reconciliation required: " +
+                String(error?.message || error).slice(0, 800),
+              role);
+            throw error;
+          }
+          if (controller.signal.aborted) await interrupt();
+          if (!recovered) {
+            const reason = "No durable result exists in the encrypted task vault; manual reconciliation required";
+            await ledger.interruptRun(runId, reason, role);
+            throw new Error("Cannot recover " + role + ": " + reason);
+          }
+          try {
+            const recoveredRun = await ledger.recoverBuilder(runId, role, recovered);
+            const recoveredBuilder = recoveredRun.builders.find(item => item.role === role);
+            activeRole = null;
+            outcomes.push({
+              role,
+              status: "succeeded",
+              summary: recoveredBuilder.summary
+            });
+            continue;
+          } catch (error) {
+            await ledger.interruptRun(runId,
+              "Could not persist durable-result recovery; manual reconciliation required: " +
+                String(error?.message || error).slice(0, 800),
+              role);
+            throw error;
+          }
         }
 
         activeRole = role;
