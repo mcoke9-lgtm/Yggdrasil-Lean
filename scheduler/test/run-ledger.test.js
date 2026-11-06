@@ -503,6 +503,57 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   assert.deepEqual(await ledger.getRun(source.runId), legacyBefore);
 });
 
+test("manual reconciliation errors stop a resumed v2 run before later Builders", async () => {
+  const store = new MemoryStore();
+  const ledger = new BuilderRunLedger({ store, clock });
+  const prior = await ledger.createRun({
+    runId: "manual-resume-run",
+    scheduledFor: "2026-11-04T12:00:00Z",
+    durationMs: 60 * 60 * 1000,
+    taskReference: "vault:manual-resume"
+  });
+  await ledger.startRun(prior.runId);
+  await ledger.startBuilder(prior.runId, "ODIN");
+  await ledger.checkpointBuilder(prior.runId, "ODIN", {
+    checkpointId: "missing-durable-turn",
+    responseSha256: "a".repeat(64),
+    turnType: "CONTRIBUTION",
+    evidenceStatus: "OBSERVED",
+    safeToResume: true
+  });
+  await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED", "ODIN");
+  const scheduler = new Scheduler({ store, clock });
+  const invoked = [];
+  const events = [];
+  const executor = async role => {
+    invoked.push(role);
+    const error = new Error("MANUAL_RECONCILIATION_REQUIRED");
+    error.code = "MANUAL_RECONCILIATION_REQUIRED";
+    throw error;
+  };
+  executor.supportsVerifiedResumeCheckpoint = true;
+  registerBuilderRunHandler(scheduler, {
+    ledger, clock, executor, output: line => events.push(JSON.parse(line))
+  });
+  await scheduler.addTask({
+    id: "resume-manual-check",
+    name: "Resume with missing durable turn",
+    handlerType: BUILDER_RUN_HANDLER_TYPE,
+    payload: { resumeRunId: prior.runId },
+    schedule: { kind: "once", startAt: "2026-11-04T12:00:00Z" }
+  });
+  const result = await scheduler.runDue();
+  assert.equal(result.runs[0].status, "failed");
+  assert.deepEqual(invoked, ["ODIN"]);
+  const saved = await ledger.getRun(prior.runId);
+  assert.equal(saved.status, "interrupted");
+  assert.equal(saved.interruptionCode, "MANUAL_RECONCILIATION_REQUIRED");
+  assert.equal(saved.builders.find(item => item.role === "ODIN").errorCode,
+    "MANUAL_RECONCILIATION_REQUIRED");
+  assert.equal(saved.builders.find(item => item.role === "HODR").status, "pending");
+  assert.equal(events[0].errorCode, "MANUAL_RECONCILIATION_REQUIRED");
+});
+
 test("requires a task reference and prevents resume from rebinding a Builder run to another vault task", async () => {
   const store = new MemoryStore();
   const ledger = new BuilderRunLedger({ store, clock });
