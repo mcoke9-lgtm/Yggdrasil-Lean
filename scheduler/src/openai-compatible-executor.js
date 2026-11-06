@@ -902,6 +902,13 @@ export function createOpenAiCompatibleExecutor({
         evidenceStatus: reply.evidence_status,
         ...(reviewInvocation ? { reviewInvocation } : {})
       };
+    } catch (error) {
+      // Once the encrypted start event exists, any uncompleted provider outcome is ambiguous.
+      // Do not let the handler record an ordinary failure or replay this invocation.
+      if (role === "BALDR" && baldrInvocationStart) {
+        throw manualReconciliationError();
+      }
+      throw error;
     } finally {
       clearTimeout(timeout);
       context.signal?.removeEventListener("abort", abortFromRun);
