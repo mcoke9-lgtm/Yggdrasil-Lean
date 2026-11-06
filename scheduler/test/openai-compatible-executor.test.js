@@ -100,6 +100,76 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
   };
 }
 
+function correctionReviewFixture(routes, reply, evidenceGateway) {
+  const runId = "builder:correction-test";
+  const threadId = "nine-builders:" + runId;
+  const promptTurnId = "task-prompt-correction";
+  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1\\nReview the recorded incident.";
+  const incidentBody = JSON.stringify({
+    incident_summary: "A test regression", observed_behavior: "Observed A",
+    expected_behavior: "Expected B", evidence: "A failing test was recorded",
+    unknowns: "No unknowns recorded", suspected_causes: "A mapping error",
+    proposed_next_step: "Review the mapping", status: "OPEN_REVIEW"
+  });
+  const planBody = JSON.stringify({
+    correction_id: "correction-1", incident_turn_id: "incident-1",
+    objective: "Correct the mapping", acceptance_criteria: "The regression test passes",
+    steps: "Update the mapping and rerun tests", owner: "HODR",
+    rollback_condition: "Any regression appears", status: "PROPOSED"
+  });
+  const implementedBody = JSON.stringify({
+    correction_id: "correction-1", incident_turn_id: "incident-1",
+    stage: "IMPLEMENTED", evidence: "The code change is recorded",
+    artifact_reference: "github+commit://github.com/acme/project/0123456789abcdef0123456789abcdef01234567?branch=correction",
+    acceptance_criteria_result: "The implementation matches the intended change",
+    unresolved: "Testing remains"
+  });
+  const makeTurn = (checkpointId, speaker, body, turnType, evidenceStatus, recipient, replyTo) => ({
+    runId, threadId, checkpointId, speaker, body,
+    reply: {
+      body, turn_type: turnType, evidence_status: evidenceStatus,
+      recipient, reply_to_turn_id: replyTo
+    }
+  });
+  const history = [
+    makeTurn("incident-1", "HODR", incidentBody, "IMPROVEMENT_INCIDENT", "OBSERVED", "USER", promptTurnId),
+    makeTurn("plan-1", "TYR", planBody, "CORRECTION_PLAN", "PROPOSED", "USER", "incident-1"),
+    makeTurn("implemented-1", "HODR", implementedBody, "CORRECTION_UPDATE", "IMPLEMENTED", "USER", "plan-1")
+  ];
+  const routesPrompt = createOvernightDisclosureFingerprint(routes, prompt);
+  const saved = [];
+  const checkpoints = [];
+  const taskVault = {
+    async getTask() {
+      return {
+        prompt, promptTurnId, threadId, history,
+        consent: {
+          status: "USER_APPROVED", scope: "NINE_BUILDERS_OVERNIGHT",
+          approvedAt: "2026-11-05T20:00:00.000Z", fingerprint: routesPrompt
+        }
+      };
+    },
+    async appendBuilderResult(_reference, record) {
+      saved.push(record);
+      return { durable: true, checkpointId: "tested-correction-checkpoint" };
+    }
+  };
+  const executor = createOpenAiCompatibleExecutor({
+    routes, taskVault, evidenceGateway,
+    readSecret: async () => "test-token",
+    fetchImpl: async () => new Response(JSON.stringify({
+      model: "test-model",
+      choices: [{ message: { content: JSON.stringify(reply) } }]
+    }), { status: 200 })
+  });
+  const context = {
+    runId, task: { taskReference: "vault:task-001" },
+    outcomes: [], signal: new AbortController().signal,
+    checkpoint: async value => { checkpoints.push(value); }
+  };
+  return { executor, context, saved, checkpoints };
+}
+
 test("uses operator routes, secure task lookup, bounded JSON output, and durable checkpoints", async () => {
   let request;
   const h = makeHarness({
@@ -606,6 +676,61 @@ test("loads the host executor only from owner-protected config and operator modu
     }
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("correction updates fail closed when no evidence gateway is configured", async () => {
+  const routes = makeRoutes();
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const reply = makeReply({
+    body: JSON.stringify({
+      correction_id: "correction-1", incident_turn_id: "incident-1",
+      stage: "TESTED", evidence: "The scheduler tests completed",
+      artifact_reference: "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=" + sha,
+      acceptance_criteria_result: "The regression test passed",
+      unresolved: "No unresolved test failures"
+    }),
+    turn_type: "CORRECTION_UPDATE", evidence_status: "TESTED",
+    recipient: "USER", reply_to_turn_id: "implemented-1"
+  });
+  const h = correctionReviewFixture(routes, reply, null);
+  await assert.rejects(() => h.executor("HUGINN", h.context),
+    /Correction evidence verification UNAVAILABLE/);
+  assert.equal(h.saved.length, 0);
+  assert.equal(h.checkpoints.length, 0);
+});
+
+test("correction updates persist only after the read-only gateway verifies the exact successful run", async () => {
+  const routes = makeRoutes();
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const reply = makeReply({
+    body: JSON.stringify({
+      correction_id: "correction-1", incident_turn_id: "incident-1",
+      stage: "TESTED", evidence: "The scheduler tests completed",
+      artifact_reference: "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=" + sha,
+      acceptance_criteria_result: "The regression test passed",
+      unresolved: "No unresolved test failures"
+    }),
+    turn_type: "CORRECTION_UPDATE", evidence_status: "TESTED",
+    recipient: "USER", reply_to_turn_id: "implemented-1"
+  });
+  const gateway = {
+    async fetchWorkflowRun(repository, runId) {
+      return {
+        repository, runId, workflow: "scheduler-tests", headSha: sha,
+        status: "completed", conclusion: "success"
+      };
+    },
+    async fetchWorkflowJobs() {
+      return [{ status: "completed", conclusion: "success" }];
+    }
+  };
+  const h = correctionReviewFixture(routes, reply, gateway);
+  const result = await h.executor("HUGINN", h.context);
+  assert.equal(result.status, "succeeded");
+  assert.equal(h.saved.length, 1);
+  assert.equal(h.saved[0].evidenceVerification.verified, true);
+  assert.equal(h.saved[0].evidenceVerification.status, "VERIFIED");
+  assert.equal(h.checkpoints.length, 1);
 });
 
 test("rejects a task vault that does not confirm durable result persistence", async () => {
