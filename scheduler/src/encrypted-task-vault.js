@@ -261,8 +261,9 @@ export function createEncryptedTaskVault({
           throw new TypeError("Operational constraint runtime evaluation is required");
         }
         const evaluatedOn = required(runtimeEvaluation.evaluated_on, "evaluated_on", 10);
-        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(evaluatedOn) ||
-            !Number.isFinite(Date.parse(evaluatedOn + "T00:00:00.000Z"))) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(evaluatedOn) ||
+            !Number.isFinite(Date.parse(evaluatedOn + "T00:00:00.000Z")) ||
+            new Date(evaluatedOn + "T00:00:00.000Z").toISOString().slice(0, 10) !== evaluatedOn) {
           throw new TypeError("Operational constraint evaluated_on must be a valid YYYY-MM-DD date");
         }
         const maximumAge = runtimeEvaluation.maximum_evidence_age_days;
