@@ -148,6 +148,38 @@ export class BuilderRunLedger {
     });
   }
 
+  async recoverBuilder(runId, role, {
+    checkpointId,
+    data = {},
+    summary,
+    turnType = null
+  } = {}) {
+    return this.mutate(runId, run => {
+      this.assertRunning(run);
+      const builder = this.builder(run, role);
+      if (builder.status !== "interrupted") {
+        throw new Error("Only an interrupted Builder can recover from a durable result");
+      }
+      if (typeof checkpointId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
+        throw new TypeError("Recovered checkpointId must be a stable, safe identifier");
+      }
+      if (typeof summary !== "string" || !summary.trim()) {
+        throw new TypeError("Recovered Builder summary is required");
+      }
+      builder.status = "succeeded";
+      builder.finishedAt = this.clock().toISOString();
+      builder.error = null;
+      builder.summary = summary.slice(0, 1000);
+      builder.checkpoint = {
+        checkpointId,
+        data: safeCheckpoint({ ...data, recoveredFromDurableResult: true, turnType }),
+        safeToResume: true,
+        recordedAt: this.clock().toISOString()
+      };
+    });
+  }
+
   async finishBuilder(runId, role, status, error = null, summary = null) {
     return this.mutate(runId, run => {
       this.assertRunning(run);
