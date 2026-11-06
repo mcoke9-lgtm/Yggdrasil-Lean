@@ -569,9 +569,9 @@ export function createOpenAiCompatibleExecutor({
   }
 
   function durableRecoveryRecord(task, role, turn) {
-    const checkpointId = requiredText(turn.checkpointId ?? turn.turnId,
-      "durable vault checkpointId", 120);
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
+    const checkpointId = turn.checkpointId ?? turn.turnId;
+    if (typeof checkpointId !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
       throw manualReconciliationError();
     }
     const responseSha256 = requiredText(turn.responseSha256, "durable response SHA-256", 64);
