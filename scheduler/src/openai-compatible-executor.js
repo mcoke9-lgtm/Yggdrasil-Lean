@@ -562,16 +562,29 @@ export function createOpenAiCompatibleExecutor({
     }
     return matches[0] ?? null;
   }
+  function manualReconciliationError() {
+    const error = new Error("MANUAL_RECONCILIATION_REQUIRED");
+    error.code = "MANUAL_RECONCILIATION_REQUIRED";
+    return error;
+  }
+
   function durableRecoveryRecord(task, role, turn) {
     const checkpointId = requiredText(turn.checkpointId ?? turn.turnId,
-      "durable vault checkpointId", 256);
+      "durable vault checkpointId", 120);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(checkpointId)) {
+      throw manualReconciliationError();
+    }
     const responseSha256 = requiredText(turn.responseSha256, "durable response SHA-256", 64);
     if (!/^[a-f0-9]{64}$/.test(responseSha256)) {
-      throw new Error("Durable Builder result has an invalid response hash");
+      throw manualReconciliationError();
     }
     const turnType = turn.type ?? turn.reply?.turn_type;
-    if (typeof turnType !== "string" || !turnType.trim()) {
-      throw new Error("Durable Builder result has no typed turn classification");
+    if (typeof turnType !== "string" || !TURN_TYPES.has(turnType)) {
+      throw manualReconciliationError();
+    }
+    const evidenceStatus = turn.evidence_status ?? turn.reply?.evidence_status ?? null;
+    if (evidenceStatus != null && !EVIDENCE_STATUSES.has(evidenceStatus)) {
+      throw manualReconciliationError();
     }
     const stopTurn = STOP_TYPES.has(turnType);
     return {
@@ -579,7 +592,7 @@ export function createOpenAiCompatibleExecutor({
       checkpointId,
       outcomeRef: checkpointId,
       responseSha256,
-      evidenceStatus: turn.evidence_status ?? turn.reply?.evidence_status ?? null,
+      evidenceStatus,
       turnType
     };
   }
