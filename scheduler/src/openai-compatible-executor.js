@@ -412,7 +412,41 @@ export function createOpenAiCompatibleExecutor({
   }
 
   const runThreads = new Map();
-  return async function executeBuilderRole(role, context) {
+  function findExistingBuilderTurn(task, role, runId) {
+    const matches = task.history.filter(turn => turn.runId === runId && turn.speaker === role);
+    if (matches.length > 1) {
+      throw new Error("Run history contains multiple durable results for " + role);
+    }
+    return matches[0] ?? null;
+  }
+  function durableRecoveryRecord(task, role, turn) {
+    const checkpointId = requiredText(turn.checkpointId ?? turn.turnId,
+      "durable vault checkpointId", 256);
+    const responseSha256 = requiredText(turn.responseSha256, "durable response SHA-256", 64);
+    if (!/^[a-f0-9]{64}$/.test(responseSha256)) {
+      throw new Error("Durable Builder result has an invalid response hash");
+    }
+    const turnType = turn.type ?? turn.reply?.turn_type;
+    if (typeof turnType !== "string" || !turnType.trim()) {
+      throw new Error("Durable Builder result has no typed turn classification");
+    }
+    return {
+      checkpointId,
+      data: {
+        threadId: task.threadId,
+        providerId: turn.providerId ?? null,
+        requestedModel: turn.requestedModel ?? null,
+        providerReportedModel: turn.providerReportedModel ?? null,
+        responseSha256,
+        recoveredFromEncryptedVault: true
+      },
+      summary: role + " recovered durable vault result " + checkpointId +
+        "; no model request was repeated.",
+      turnType
+    };
+  }
+
+  const executeBuilderRole = async function executeBuilderRole(role, context) {
     if (!BUILDER_ROLES.includes(role)) throw new Error("Unknown Builder role: " + role);
     if (!context || typeof context !== "object") throw new TypeError("Builder execution context is required");
     const runId = requiredText(context.runId, "runId", 120);
@@ -433,6 +467,21 @@ export function createOpenAiCompatibleExecutor({
       throw new Error("Task vault changed the dedicated thread ID during a scheduled run");
     }
     runThreads.set(runId, task.threadId);
+    const existingTurn = findExistingBuilderTurn(task, role, runId);
+    if (existingTurn) {
+      const recovered = durableRecoveryRecord(task, role, existingTurn);
+      await context.checkpoint({
+        checkpointId: recovered.checkpointId,
+        ...recovered.data,
+        safeToResume: true
+      });
+      const stopTurn = STOP_TYPES.has(recovered.turnType);
+      return {
+        status: stopTurn ? "interrupted" : "succeeded",
+        turnType: recovered.turnType,
+        summary: recovered.summary
+      };
+    }
     const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
     if (role === "BALDR") {
       const successfulRoles = outcomes.filter(item => item.status === "succeeded").map(item => item.role);
@@ -549,7 +598,7 @@ export function createOpenAiCompatibleExecutor({
         requestedModel: route.model,
         providerReportedModel,
         responseSha256: responseHash,
-        safeToResume: false
+        safeToResume: true
       });
       const stopRequested = STOP_TYPES.has(reply.turn_type);
       return {
@@ -564,6 +613,26 @@ export function createOpenAiCompatibleExecutor({
       context.signal?.removeEventListener("abort", abortFromRun);
     }
   };
+
+  executeBuilderRole.recoverDurableResult = async function recoverDurableResult(role, context) {
+    if (!BUILDER_ROLES.includes(role)) throw new Error("Unknown Builder role: " + role);
+    if (!context || typeof context !== "object") throw new TypeError("Builder recovery context is required");
+    const runId = requiredText(context.runId, "runId", 120);
+    const taskReference = requiredText(context.task?.taskReference, "opaque taskReference", 256);
+    if (context.signal?.aborted) throw context.signal.reason || new Error("Builder recovery cancelled");
+    const task = validateTask(await taskVault.getTask(taskReference, { runId }),
+      routes, runId, taskReference);
+    if (context.signal?.aborted) throw context.signal.reason || new Error("Builder recovery cancelled");
+    const previousThreadId = runThreads.get(runId);
+    if (previousThreadId && previousThreadId !== task.threadId) {
+      throw new Error("Task vault changed the dedicated thread ID during durable-result recovery");
+    }
+    runThreads.set(runId, task.threadId);
+    const existingTurn = findExistingBuilderTurn(task, role, runId);
+    if (!existingTurn) return null;
+    return durableRecoveryRecord(task, role, existingTurn);
+  };
+  return executeBuilderRole;
 }
 
 /**
