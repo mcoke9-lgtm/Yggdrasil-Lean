@@ -41,6 +41,33 @@ in its access field. The page and static assets are served without the token so
 the user can enter it; task and history APIs require it. The token is held in the
 page's memory and is not saved to browser storage.
 
+## Dedicated Nine Builders runner
+
+Use `npm run start:nine-builders` for the overnight Builder workload rather than
+adding it to the general scheduler. This entry point refuses to start unless
+its state file, lock file, and loopback dashboard port are explicitly separated
+from the general scheduler, and an operator-owned Builder executor module is
+configured. It fails before importing the shared runner or loading host code
+when these requirements are missing or conflicting.
+
+Example (choose private paths and an unused local port on the host):
+
+```sh
+NINE_BUILDERS_SCHEDULER_STATE_FILE="$HOME/.yggdrasil/nine-builders/scheduler.json" \
+NINE_BUILDERS_DASHBOARD_PORT=4175 \
+BUILDER_EXECUTOR_MODULE="$HOME/.yggdrasil/host/builder-executor.mjs" \
+npm run start:nine-builders
+```
+
+If the general scheduler uses a non-default state file or dashboard port, also
+set `NINE_BUILDERS_GENERAL_STATE_FILE` and
+`NINE_BUILDERS_GENERAL_DASHBOARD_PORT` to those exact values. The dedicated
+runner still uses the normal loopback-only dashboard, process lock, recovery,
+and shutdown behavior. This provides same-host process/state separation; it
+does not supervise either process, guarantee overnight uptime, or provide
+distributed execution. The operator remains responsible for keeping both
+processes alive and monitoring their health.
+
 ## Dashboard
 
 The dashboard provides:
