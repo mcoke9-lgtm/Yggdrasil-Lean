@@ -116,7 +116,10 @@ function verified(reference, reason) {
  *
  * A missing gateway or transport failure is UNAVAILABLE, never a pass.
  */
-export async function verifyBuilderEvidenceReference(value, gateway) {
+export async function verifyBuilderEvidenceReference(value, gateway, {
+  signal,
+  timeoutMs = 15000
+} = {}) {
   let reference;
   try { reference = parseBuilderEvidenceReference(value); }
   catch (error) {
@@ -129,17 +132,43 @@ export async function verifyBuilderEvidenceReference(value, gateway) {
   if (!gateway || methods.some(method => typeof gateway[method] !== "function")) {
     return unavailable("No complete read-only GitHub evidence gateway is configured.");
   }
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 300000) {
+    return unavailable("Evidence gateway timeout must be between 1 second and 5 minutes.");
+  }
+
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(signal?.reason || new Error("Evidence verification cancelled"));
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = setTimeout(() => {
+    const error = new Error("Evidence verification timed out");
+    error.name = "TimeoutError";
+    controller.abort(error);
+  }, timeoutMs);
+  timeout.unref?.();
+  let rejectAbort;
+  const aborted = new Promise((_, reject) => { rejectAbort = reject; });
+  const onAbort = () => rejectAbort(controller.signal.reason || new Error("Evidence verification aborted"));
+  controller.signal.addEventListener("abort", onAbort, { once: true });
+  const call = (method, ...args) => {
+    if (controller.signal.aborted) throw controller.signal.reason || new Error("Evidence verification aborted");
+    return Promise.race([
+      Promise.resolve().then(() => method(...args, controller.signal)),
+      aborted
+    ]);
+  };
 
   try {
     if (reference.kind === "COMMIT") {
-      const commit = await gateway.fetchCommit(reference.repository, reference.objectId);
+      const commit = await call(gateway.fetchCommit.bind(gateway), reference.repository, reference.objectId);
       if (!commit) return unverified("Commit was not found.", reference);
       if (commit.repository !== reference.repository ||
           typeof commit.sha !== "string" ||
           commit.sha.toLowerCase() !== reference.objectId) {
         return unverified("Fetched commit identity does not match the reference.", reference);
       }
-      const onBranch = await gateway.branchContainsCommit(
+      const onBranch = await call(
+        gateway.branchContainsCommit.bind(gateway),
         reference.repository, reference.branch, reference.objectId
       );
       if (onBranch !== true) {
@@ -149,7 +178,7 @@ export async function verifyBuilderEvidenceReference(value, gateway) {
     }
 
     const runId = Number(reference.objectId);
-    const run = await gateway.fetchWorkflowRun(reference.repository, runId);
+    const run = await call(gateway.fetchWorkflowRun.bind(gateway), reference.repository, runId);
     if (!run) return unverified("Workflow run was not found.", reference);
     if (run.repository !== reference.repository || run.runId !== runId) {
       return unverified("Workflow run identity does not match the reference.", reference);
@@ -164,7 +193,7 @@ export async function verifyBuilderEvidenceReference(value, gateway) {
     if (run.status !== "completed" || run.conclusion !== "success") {
       return unverified("Workflow run did not complete successfully.", reference);
     }
-    const jobs = await gateway.fetchWorkflowJobs(reference.repository, runId);
+    const jobs = await call(gateway.fetchWorkflowJobs.bind(gateway), reference.repository, runId);
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return unverified("Workflow run has no retrievable jobs.", reference);
     }
@@ -173,7 +202,17 @@ export async function verifyBuilderEvidenceReference(value, gateway) {
     }
     return verified(reference, "Workflow identity, tested SHA, run conclusion, and all jobs confirmed.");
   } catch (error) {
+    if (controller.signal.aborted) {
+      const reason = controller.signal.reason;
+      return unavailable(reason?.name === "TimeoutError"
+        ? "Evidence source verification timed out."
+        : "Evidence source verification was cancelled.");
+    }
     return unavailable("Evidence source unavailable: " +
       (error && typeof error.name === "string" ? error.name : "UnknownError"));
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
+    controller.signal.removeEventListener("abort", onAbort);
   }
 }
