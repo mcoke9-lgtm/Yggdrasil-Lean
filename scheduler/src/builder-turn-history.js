@@ -105,7 +105,9 @@ function validateCorrectionHistory(history, ids) {
       if (turnReplyTo(turn) !== incidentId) {
         throw new Error("Correction plan must reply directly to its referenced incident");
       }
-      if (item.status !== "PROPOSED") throw new Error("Correction plan must remain PROPOSED");
+      if (item.status !== "PROPOSED" || turn.reply?.evidence_status !== "PROPOSED") {
+        throw new Error("Correction plan status and evidence_status must remain PROPOSED");
+      }
       plans.set(correctionId, { incidentId, planIndex: index, stageIndex: -1, latestId: turnId(turn) });
       latestByCorrection.set(correctionId, turnId(turn));
       continue;
@@ -126,7 +128,11 @@ function validateCorrectionHistory(history, ids) {
       throw new Error("Correction stages must advance exactly IMPLEMENTED, TESTED, VERIFIED");
     }
     const speaker = turn.speaker;
-    if (item.stage === "VERIFIED" && (speaker !== "BALDR" || speaker === history[plan.planIndex].speaker)) {
+    const incident = history[ids.get(plan.incidentId)];
+    if (turn.reply?.evidence_status !== item.stage) {
+      throw new Error("Correction update evidence_status must match its lifecycle stage");
+    }
+    if (item.stage === "VERIFIED" && (speaker !== "BALDR" || speaker === incident.speaker)) {
       throw new Error("Only unaffected Baldr may issue VERIFIED");
     }
     if (item.stage === "IMPLEMENTED" && !nonEmpty(item.artifact_reference, "Correction implementation artifact_reference", 2048)) {
@@ -189,8 +195,12 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker) {
       .map(turn => parseObject(turnBody(turn), "Prior correction update").stage);
     const nextStage = CORRECTION_STAGES[completedStages.length];
     if (item.stage !== nextStage) throw new Error("Correction stages must advance exactly IMPLEMENTED, TESTED, VERIFIED");
-    if (item.stage === "VERIFIED" && speaker !== "BALDR") {
+    const incident = byId.get(item.incident_turn_id)?.turn;
+    if (item.stage === "VERIFIED" && (speaker !== "BALDR" || speaker === incident?.speaker)) {
       throw new Error("Only unaffected Baldr may issue VERIFIED");
+    }
+    if (reply.evidence_status !== item.stage) {
+      throw new Error("Correction update evidence_status must match its lifecycle stage");
     }
     if (item.stage === "IMPLEMENTED" || item.stage === "TESTED") {
       nonEmpty(item.artifact_reference, "Correction update artifact_reference", 2048);
