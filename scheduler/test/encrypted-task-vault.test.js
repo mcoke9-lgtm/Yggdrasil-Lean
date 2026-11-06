@@ -25,7 +25,8 @@ test("encrypted vault requires explicit approval and preserves isolated run hist
     assert.ok(Number.isFinite(Date.parse(before.promptCreatedAt)));
     const promptTurnId = before.promptTurnId;
     const promptCreatedAt = before.promptCreatedAt;
-    await f.vault.approveTask("task:pilot", "a".repeat(64), "2026-11-05T20:00:00.000Z");
+    await f.vault.approveTask("task:pilot", "a".repeat(64),
+      new Date(Date.parse(promptCreatedAt) + 500).toISOString());
     const approved = await f.vault.getTask("task:pilot", { runId: "run-001" });
     assert.equal(approved.consent.status, "USER_APPROVED");
     assert.equal(approved.consent.fingerprint, "a".repeat(64));
@@ -46,14 +47,14 @@ test("Builder result persistence is durable and idempotent by run-role key", asy
   const f = await fixture();
   try {
     await f.vault.initializeTask("task:pilot", "Task prompt.");
-    await f.vault.getTask("task:pilot", { runId: "run-001" });
+    const initialTask = await f.vault.getTask("task:pilot", { runId: "run-001" });
     const record = {
       idempotencyKey: "run-001:ODIN", runId: "run-001",
       threadId: "nine-builders:run-001", role: "ODIN",
       requestedProviderId: "provider", requestedModel: "odin-model",
       providerReportedModel: "reported-model", responseSha256: "b".repeat(64),
       reply: { body: "Odin result", turn_type: "CONTRIBUTION", evidence_status: "PROPOSED" },
-      completedAt: "2026-11-05T20:00:00.000Z"
+      completedAt: new Date(Date.parse(initialTask.promptCreatedAt) + 1000).toISOString()
     };
     const first = await f.vault.appendBuilderResult("task:pilot", record);
     const second = await f.vault.appendBuilderResult("task:pilot", record);
