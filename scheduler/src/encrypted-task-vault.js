@@ -613,6 +613,7 @@ export function createEncryptedTaskVault({
         turnId: checkpointId,
         timestampEpochMillis: completedDate.getTime(),
         speaker: role,
+        reviewInvocationId: record.reviewInvocationId ?? null,
         body: replyBody,
         type: reply.turn_type,
         recipient: reply.recipient,
@@ -649,6 +650,19 @@ export function createEncryptedTaskVault({
         if (!Array.isArray(state.baldrReviewEvents) ||
             state.baldrReviewEvents.some(event => event.reviewInvocationId === invocationId)) {
           throw new Error("Baldr review invocation ID is already in use");
+        }
+        const priorStarts = state.baldrReviewEvents.filter(event =>
+          event.eventType === "INVOCATION_STARTED" &&
+          event.taskReference === reference && event.runId === runId
+        );
+        const completedIds = new Set(state.baldrReviewEvents
+          .filter(event => event.eventType === "INVOCATION_COMPLETED")
+          .map(event => event.reviewInvocationId));
+        if (priorStarts.some(event => !completedIds.has(event.reviewInvocationId))) {
+          throw new Error("A prior Baldr invocation has an unknown outcome; manual reconciliation required");
+        }
+        if (priorStarts.length > 0) {
+          throw new Error("A Baldr invocation already exists for this run; review is not repeatable");
         }
         const allowed = [
           "reviewInvocationId", "runId", "taskReference", "threadId", "reviewerRole",
