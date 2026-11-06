@@ -681,10 +681,22 @@ export function createEncryptedTaskVault({
             manifestSha256 !== receipt.inputManifestSha256 ||
             !manifest || manifest.schema !== "yggdrasil.baldr-review-manifest.v1" ||
             manifest.runId !== runId || manifest.taskReference !== reference ||
-            manifest.reviewerRole !== "BALDR" || manifest.requestedProviderId !== receipt.requestedProviderId ||
+            manifest.reviewerRole !== "BALDR" || typeof manifest.promptTurnId !== "string" ||
+            !manifest.promptTurnId.trim() ||
+            manifest.requestedProviderId !== receipt.requestedProviderId ||
             manifest.requestedEndpointIdentity !== receipt.requestedEndpointIdentity ||
             manifest.requestedModelId !== receipt.requestedModelId ||
             !Array.isArray(manifest.peerOutcomeRefs) || manifest.peerOutcomeRefs.length !== 8 ||
+            manifest.peerOutcomeRefs.some((item, index) => {
+              const roles = ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"];
+              if (!item || item.role !== roles[index] ||
+                  !["succeeded", "failed", "skipped"].includes(item.status)) return true;
+              if (item.status === "succeeded") {
+                return typeof item.outcomeRef !== "string" ||
+                  !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(item.outcomeRef);
+              }
+              return item.outcomeRef != null;
+            }) ||
             reviewInputSha256 !== manifest.requestBodySha256 ||
             !["BALDR"].includes(receipt.reviewerRole)) {
           throw new TypeError("Baldr invocation start receipt contains invalid or unrecognized metadata");
