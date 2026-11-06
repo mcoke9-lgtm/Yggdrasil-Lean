@@ -47,6 +47,10 @@ function parseObject(body, label) {
   return value;
 }
 
+function itemStage(body) {
+  try { return JSON.parse(body).stage; } catch { return null; }
+}
+
 function turnId(turn) {
   const id = turn?.turnId ?? turn?.checkpointId;
   return typeof id === "string" && id.trim() ? id.trim() : null;
@@ -211,6 +215,18 @@ export function validateBuilderHistory(history, runId, threadId, promptTurnId, p
     } else if (turn.type != null) {
       // Android protocol-v4 turns store these fields at the top level.
       validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus);
+    }
+    if (protocolVersion >= CURRENT_PROTOCOL_VERSION && type === "CORRECTION_UPDATE" &&
+        speaker !== "USER" && itemStage(turnBody(turn)) !== "ADOPTED") {
+      const item = parseObject(turnBody(turn), "Correction update");
+      const expectedEvidence = parseBuilderEvidenceReference(item.artifact_reference);
+      const actualEvidence = turn.evidenceVerification;
+      if (!actualEvidence || actualEvidence.verified !== true || actualEvidence.status !== "VERIFIED" ||
+          actualEvidence.kind !== expectedEvidence.kind ||
+          actualEvidence.repository !== expectedEvidence.repository ||
+          actualEvidence.objectId !== expectedEvidence.objectId) {
+        throw new Error("Current protocol correction updates require matching successful gateway verification");
+      }
     }
     if (recipient != null &&
         recipient !== "USER" && !BUILDER_ROLES.includes(recipient)) {
