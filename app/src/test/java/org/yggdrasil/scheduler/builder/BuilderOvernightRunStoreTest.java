@@ -9,6 +9,45 @@ import android.content.Context;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
 public class BuilderOvernightRunStoreTest {
+ @Test public void scheduledRunIsDurableBeforeWorkerStarts() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  long scheduledAt=1800000000000L;
+  org.json.JSONObject queued=s.createScheduled("queued","thread-q","approved task",scheduledAt);
+  assertEquals("SCHEDULED",queued.optString("status"));
+  assertEquals(scheduledAt,queued.optLong("scheduled_at_epoch_millis"));
+  assertEquals(0,queued.optLong("deadline_epoch_millis"));
+  org.json.JSONObject running=s.beginOrRecover("queued","thread-q","approved task",scheduledAt+60000);
+  assertEquals("RUNNING",running.optString("status"));
+  assertEquals(scheduledAt+60000,running.optLong("started_at_epoch_millis"));
+  assertEquals(scheduledAt+60000+BuilderOvernightRunStore.MAX_DURATION_MILLIS,
+    running.optLong("deadline_epoch_millis"));
+ }
+
+ @Test public void queuedRunCanBeCancelledBeforeWorkerStarts() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  s.createScheduled("queued-cancel","thread-q","approved task",1800000000000L);
+  s.setStatus("queued-cancel","CANCELLED","cancelled before execution",1800000001000L);
+  org.json.JSONObject state=s.beginOrRecover("queued-cancel","thread-q","approved task",1800000002000L);
+  assertEquals("CANCELLED",state.optString("status"));
+  try {
+   s.beginCycle("queued-cancel",1800000003000L);
+   fail("Cancelled queued work must not start a cycle");
+  } catch (IllegalStateException expected) { }
+ }
+
+ @Test public void queuedRunCanBeMarkedFailedWithoutStartingExecution() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore s=new BuilderOvernightRunStore(c);
+  s.createScheduled("queued-failed","thread-q","approved task",1800000000000L);
+  s.setStatus("queued-failed","FAILED","enqueue rejected",1800000001000L);
+  assertEquals("FAILED",s.read("queued-failed").optString("status"));
+ }
+
  @Test public void recordsEightHourWindowAndCompletedCycle() {
   Context c=RuntimeEnvironment.getApplication();
   c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
