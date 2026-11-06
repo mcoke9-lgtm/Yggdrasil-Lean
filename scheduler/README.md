@@ -227,8 +227,13 @@ the plaintext ledger.
 persistent runner through an optional host module, but this is not yet a
 production model executor or a verified unattended host. The runner does not
 ship provider routes or credentials. A checkpoint is resumable only when the
-worker explicitly records `safeToResume: true`; otherwise recovery must stop
-for reconciliation. When no module is configured, the runner logs
+worker explicitly records `safeToResume: true`. The handler also requires the
+executor to declare `supportsVerifiedResumeCheckpoint = true` and passes the
+exact checkpoint metadata back to it. Before any provider call, the executor
+must verify that the referenced turn still exists in the same run/thread and
+that its turn ID, response hash, type, and evidence status match. The reference
+OpenAI-compatible executor performs this check; a custom executor without the
+capability fails closed. Otherwise recovery stops for reconciliation. When no module is configured, the runner logs
 `nine_builders_executor_unconfigured`; a due Nine Builders task then fails
 visibly with “No handler registered” rather than pretending work occurred.
 
