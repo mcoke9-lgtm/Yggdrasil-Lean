@@ -772,9 +772,14 @@ export function createOpenAiCompatibleExecutor({
           requestedModelId: route.model,
           invokedAt: clock().toISOString()
         });
-        const started = await taskVault.beginBaldrReviewInvocation(taskReference, {
-          ...baldrInvocationStart
-        });
+        let started;
+        try {
+          started = await taskVault.beginBaldrReviewInvocation(taskReference, {
+            ...baldrInvocationStart
+          });
+        } catch {
+          throw manualReconciliationError();
+        }
         if (started?.durable !== true ||
             started.reviewInvocationId !== baldrInvocationStart.reviewInvocationId) {
           throw manualReconciliationError();
