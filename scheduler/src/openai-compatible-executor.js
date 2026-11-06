@@ -599,7 +599,7 @@ export function createOpenAiCompatibleExecutor({
         requestedModel: route.model,
         providerReportedModel,
         responseSha256: responseHash,
-        safeToResume: true
+        safeToResume: !STOP_TYPES.has(reply.turn_type)
       });
       const stopRequested = STOP_TYPES.has(reply.turn_type);
       return {
