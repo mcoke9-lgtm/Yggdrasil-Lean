@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { mkdir, open, readFile, rename, lstat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 
 const MAGIC = "YGGDRASIL-BUILDER-VAULT";
 const VERSION = 1;
@@ -185,11 +186,28 @@ export function createEncryptedTaskVault({
         }
         return { durable: true, checkpointId: prior.checkpointId };
       }
+      validateBuilderHistory(run.history, runId, run.threadId, task.promptTurnId);
+      if (!record.reply || typeof record.reply !== "object" || Array.isArray(record.reply)) {
+        throw new TypeError("Builder result reply envelope is required");
+      }
+      const replyBody = required(record.reply.body, "Builder result body", 8000);
+      validateBuilderReplyAgainstHistory(record.reply, run.history, role, task.promptTurnId);
       const checkpointId = "vault-" + randomBytes(16).toString("hex");
       const completedAt = required(record.completedAt, "completedAt", 64);
       const completedDate = new Date(completedAt);
       if (!Number.isFinite(completedDate.getTime()) || completedDate.toISOString() !== completedAt) {
         throw new TypeError("completedAt must be a canonical ISO-8601 timestamp");
+      }
+      const priorTimestamp = [...run.history].reverse().find(turn =>
+        Number.isSafeInteger(turn.timestampEpochMillis) ? turn.timestampEpochMillis > 0 :
+          (typeof turn.completedAt === "string" && Number.isFinite(Date.parse(turn.completedAt)))
+      );
+      const priorTimestampMillis = priorTimestamp
+        ? (Number.isSafeInteger(priorTimestamp.timestampEpochMillis)
+            ? priorTimestamp.timestampEpochMillis : Date.parse(priorTimestamp.completedAt))
+        : null;
+      if (priorTimestampMillis != null && completedDate.getTime() <= priorTimestampMillis) {
+        throw new Error("Builder completion timestamp must increase strictly in run-thread order");
       }
       run.history.push({
         protocolVersion: 4,
