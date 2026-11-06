@@ -40,7 +40,10 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
       const prompt = "Investigate the next safe engineering step.";
       const threadId = "thread-" + runId;
       if (!runHistory.has(runId)) {
-        runHistory.set(runId, [{ runId, threadId, speaker: "USER", body: "Continue carefully." }]);
+        runHistory.set(runId, [{
+          runId, threadId, checkpointId: "prior-user-turn", speaker: "USER",
+          body: "Continue carefully."
+        }]);
       }
       return {
         prompt,
@@ -61,6 +64,7 @@ function makeHarness({ routes = makeRoutes(), fetchImpl, taskVault, readSecret, 
       runHistory.get(record.runId).push({
         runId: record.runId,
         threadId: record.threadId,
+        checkpointId: "checkpoint-" + record.role.toLowerCase(),
         speaker: record.role,
         body: record.reply.body
       });
