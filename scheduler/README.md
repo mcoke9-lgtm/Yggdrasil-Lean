@@ -294,3 +294,10 @@ npm test
 Tests cover schedule recurrence and daylight-saving transitions, GitHub failure
 detection, persistent state, task controls, concurrency during handler execution,
 dashboard access controls, process locking, and service startup/shutdown.
+
+
+## Environment–Operations Boundary Protocol
+
+The Nine Builders distinguish external environment conditions from their own governance and operations. A ChatGPT feature limit, provider quota, host restriction, recommendation, or warning must be scoped to the exact system and operation it affects; it must not silently become a collective prohibition. Binding legal, safety, security, consent, access-control, contractual, and authorization requirements remain binding and must not be bypassed.
+
+See [the Environment–Operations Boundary Protocol](../docs/nine-builders-environment-operations-boundary.md) for constraint classifications, evidence requirements, Builder responsibilities, Kvasir's assessment sequence, interruption/resumption rules, and the Constraint Register record contract. The current operational-limits snapshot is not live telemetry; unavailable or unverified capability state remains unknown and requires an authoritative recheck. The document is a governance contract, not a claim that a persistent validated register or live telemetry feed already exists.
