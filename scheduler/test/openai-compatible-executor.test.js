@@ -394,7 +394,7 @@ test("preserves a mandatory Nine Builders authorization boundary for Kvasir", as
       origin_system: "Nine Builders governance",
       origin_scope: "NINE_BUILDERS_GOVERNANCE",
       source_reference: "https://github.com/mcoke9-lgtm/Yggdrasil-Lean/issues/39",
-      observed_at: "2026-11-05T12:00:00.000Z",
+      observed_at: "2026-11-04T12:00:00.000Z",
       affected_capability: "Start an unattended overnight run",
       affected_operation: "Activate an unattended run without explicit user approval",
       force: "MANDATORY",
