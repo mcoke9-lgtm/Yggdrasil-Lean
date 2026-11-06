@@ -353,6 +353,7 @@ test("resumed Baldr review receives typed references from completed Builders", a
   let baldrOutcomes = null;
   const executor = async (role, context) => {
     invoked.push(role);
+    if (role === "HODR") assert.equal(context.resumeCheckpoint.vaultTurnId, "hodr-safe-resume");
     if (role === "BALDR") baldrOutcomes = context.outcomes;
     return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
   };
@@ -631,8 +632,9 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
 
   const scheduler = new Scheduler({ store, clock });
   const invoked = [];
-  const executor = async role => {
+  const executor = async (role, context) => {
     invoked.push(role);
+    if (role === "ODIN") assert.equal(context.resumeCheckpoint.vaultTurnId, "odin-resume-point");
     return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
   };
   executor.supportsVerifiedResumeCheckpoint = true;
