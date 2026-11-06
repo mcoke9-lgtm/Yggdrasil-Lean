@@ -282,13 +282,18 @@ export function registerBuilderRunHandler(
           await ledger.finishBuilder(runId, role, "failed", { errorCode: "EXECUTOR_FAILURE" });
           throw new Error("INTERNAL_ERROR");
         }
+        if (role === "BALDR" && status === "succeeded" &&
+            (!result?.reviewInvocation || result.reviewInvocation.status !== "COMPLETED")) {
+          await interrupt("MANUAL_RECONCILIATION_REQUIRED", result?.turnType ?? null);
+        }
         try {
           await ledger.finishBuilder(runId, role, status, {
             errorCode: status === "failed" ? returnedErrorCode : null,
             outcomeRef: result?.outcomeRef ?? result?.checkpointId ?? null,
             outcomeType: result?.turnType ?? null,
             evidenceStatus: result?.evidenceStatus ?? null,
-            responseSha256: result?.responseSha256 ?? null
+            responseSha256: result?.responseSha256 ?? null,
+            reviewInvocation: result?.reviewInvocation ?? null
           });
         } catch {
           throw new Error("INTERNAL_ERROR");
