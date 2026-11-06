@@ -64,13 +64,13 @@ test("REST gateway reads exact workflow identity and paginates every job", async
           repository: { full_name: "acme/project" }
         }), { status: 200 });
       }
-      if (String(url).includes("page=1")) {
+      if (String(url).includes("&page=1")) {
         return new Response(JSON.stringify({
           total_count: 101,
           jobs: Array.from({ length: 100 }, () => ({ status: "completed", conclusion: "success" }))
         }), { status: 200 });
       }
-      if (String(url).includes("page=2")) {
+      if (String(url).includes("&page=2")) {
         return new Response(JSON.stringify({
           total_count: 101,
           jobs: [{ status: "completed", conclusion: "success" }]
