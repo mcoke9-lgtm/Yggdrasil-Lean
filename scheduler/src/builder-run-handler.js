@@ -93,7 +93,7 @@ export function registerBuilderRunHandler(
           outcomes.push({
             role,
             status: savedBuilder.status,
-            summary: savedBuilder.error ?? "Previously completed checkpoint"
+            summary: savedBuilder.summary ?? savedBuilder.error ?? "Previously completed checkpoint"
           });
           continue;
         }
@@ -134,13 +134,13 @@ export function registerBuilderRunHandler(
           if (status === "skipped" && role === "BALDR") {
             throw new Error("Baldr review cannot be skipped");
           }
-          await ledger.finishBuilder(runId, role, status, result?.error ?? null);
+          await ledger.finishBuilder(runId, role, status, result?.error ?? null, result?.summary ?? null);
           activeRole = null;
           outcomes.push({ role, status, summary: result?.summary ?? null });
         } catch (error) {
           if (controller.signal.aborted) await interrupt();
           if (error instanceof BuilderRequestedInterruption) throw error;
-          await ledger.finishBuilder(runId, role, "failed", error?.message || error);
+          await ledger.finishBuilder(runId, role, "failed", error?.message || error, null);
           activeRole = null;
           outcomes.push({ role, status: "failed", summary: String(error?.message || error).slice(0, 1000) });
         }
