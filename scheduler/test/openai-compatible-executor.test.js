@@ -317,6 +317,28 @@ test("legacy continuation blocks uncertain failed roles without a matching durab
     taskReference: "vault:task-001", sourceRunId, targetRunId, sourceBuilders
   }), /MANUAL_RECONCILIATION_REQUIRED/);
   assert.ok(targetTask, "encrypted source history was forked before reconciliation");
+
+  sourceHistory.push({
+    protocolVersion: 4,
+    runId: sourceRunId,
+    threadId: sourceThreadId,
+    turnId: "legacy-hodr-turn",
+    checkpointId: "legacy-hodr-turn",
+    speaker: "HODR",
+    body: "Recovered Höðr contribution",
+    type: "CONTRIBUTION",
+    evidence_status: "OBSERVED",
+    timestampEpochMillis: Date.parse("2026-11-05T20:00:02.000Z"),
+    completedAt: "2026-11-05T20:00:02.000Z",
+    responseSha256: "c".repeat(64),
+    reply: { body: "Recovered Höðr contribution", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" }
+  });
+  const recoveredFork = await executor.forkRunHistory({
+    taskReference: "vault:task-001", sourceRunId, targetRunId, sourceBuilders
+  });
+  assert.equal(recoveredFork.durable, true);
+  assert.equal(recoveredFork.importedTurnCount, 2,
+    "an uncertain failed role is recoverable only when its exact durable turn exists");
 });
 
 test("uses operator routes, secure task lookup, bounded JSON output, and durable checkpoints", async () => {
