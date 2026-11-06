@@ -161,3 +161,39 @@ test("rejects a shared scheduler and Builder ledger file", async () => {
   }), /separate state file/);
   assert.equal(moduleLoaded, false, "Invalid storage configuration must fail before loading host code");
 });
+
+import { configureDedicatedBuilderRunner } from "../src/builder-runner-config.js";
+
+test("dedicated runner requires explicit separate state, lock, and dashboard port", () => {
+  const env = {
+    NINE_BUILDERS_SCHEDULER_STATE_FILE: "/tmp/yggdrasil/nine-builders.json",
+    NINE_BUILDERS_DASHBOARD_PORT: "4175",
+    BUILDER_EXECUTOR_MODULE: "/tmp/yggdrasil/host/executor.mjs"
+  };
+  const configured = configureDedicatedBuilderRunner(env, "/tmp");
+  assert.equal(configured.schedulerStateFile, "/tmp/yggdrasil/nine-builders.json");
+  assert.equal(configured.schedulerLockFile, "/tmp/yggdrasil/nine-builders.json.lock");
+  assert.equal(configured.dashboardPort, 4175);
+  assert.equal(env.SCHEDULER_STATE_FILE, configured.schedulerStateFile);
+  assert.equal(env.SCHEDULER_DASHBOARD_PORT, "4175");
+  assert.equal(env.BUILDER_EXECUTOR_MODULE, "/tmp/yggdrasil/host/executor.mjs");
+});
+
+test("dedicated runner refuses missing configuration and shared state or dashboard port", () => {
+  assert.throws(() => configureDedicatedBuilderRunner({}, "/tmp"), /NINE_BUILDERS_SCHEDULER_STATE_FILE is required/);
+  assert.throws(() => configureDedicatedBuilderRunner({
+    NINE_BUILDERS_SCHEDULER_STATE_FILE: "./data/scheduler.json",
+    NINE_BUILDERS_DASHBOARD_PORT: "4175",
+    BUILDER_EXECUTOR_MODULE: "./host.mjs"
+  }, "/tmp"), /must differ from the general scheduler state file/);
+  assert.throws(() => configureDedicatedBuilderRunner({
+    NINE_BUILDERS_SCHEDULER_STATE_FILE: "./data/nine-builders.json",
+    NINE_BUILDERS_DASHBOARD_PORT: "4174",
+    BUILDER_EXECUTOR_MODULE: "./host.mjs"
+  }, "/tmp"), /dashboard port must differ/);
+  assert.throws(() => configureDedicatedBuilderRunner({
+    NINE_BUILDERS_SCHEDULER_STATE_FILE: "./data/nine-builders.json",
+    NINE_BUILDERS_DASHBOARD_PORT: "0",
+    BUILDER_EXECUTOR_MODULE: "./host.mjs"
+  }, "/tmp"), /between 1 and 65535/);
+});
