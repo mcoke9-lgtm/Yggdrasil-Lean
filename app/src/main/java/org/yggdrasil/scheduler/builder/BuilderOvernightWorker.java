@@ -73,14 +73,7 @@ public final class BuilderOvernightWorker extends Worker {
             // Never rewrite an already-terminal state or mutate a checkpoint when
             // beginOrRecover rejected mismatched run identity/input.
             if (checkpointLoaded) {
-                try {
-                    org.json.JSONObject checkpoint = runStore.read(runId);
-                    if (checkpoint != null && "RUNNING".equals(checkpoint.optString("status"))) {
-                        runStore.setStatus(runId, "INTERRUPTED",
-                                "Worker could not enter foreground execution: " + safeMessage(failure),
-                                System.currentTimeMillis());
-                    }
-                } catch (Exception ignored) { }
+                markStartupFailureIfRunning(runStore, runId, failure, System.currentTimeMillis());
             }
             return Result.failure();
         }
@@ -157,6 +150,20 @@ public final class BuilderOvernightWorker extends Worker {
             return Result.failure();
         } finally {
             if (journal != null) journal.close();
+        }
+    }
+
+    static void markStartupFailureIfRunning(BuilderOvernightRunStore runStore,
+            String runId, Exception failure, long nowMillis) {
+        try {
+            org.json.JSONObject checkpoint = runStore.read(runId);
+            if (checkpoint != null && "RUNNING".equals(checkpoint.optString("status"))) {
+                runStore.setStatus(runId, "INTERRUPTED",
+                        "Worker could not enter foreground execution: " + safeMessage(failure),
+                        nowMillis);
+            }
+        } catch (Exception ignored) {
+            // Preserve fail-closed behavior when the checkpoint itself is unavailable.
         }
     }
 
