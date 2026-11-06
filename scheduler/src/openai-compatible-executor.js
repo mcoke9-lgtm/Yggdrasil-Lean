@@ -739,10 +739,6 @@ export async function createBuilderExecutor() {
 
   const taskVaultModule = await import(pathToFileURL(resolve(taskVaultPath)).href);
   const credentialsModule = await import(pathToFileURL(resolve(credentialsPath)).href);
-  if (typeof taskVaultModule.getTask !== "function" ||
-      typeof taskVaultModule.appendBuilderResult !== "function") {
-    throw new TypeError("Task vault module must export getTask() and appendBuilderResult()");
-  }
   if (typeof credentialsModule.readSecret !== "function") {
     throw new TypeError("Credentials module must export readSecret(secretRef)");
   }
@@ -782,9 +778,24 @@ export async function createBuilderExecutor() {
     ])));
   }
 
+  if (evidenceGateway && typeof taskVaultModule.createTaskVault !== "function") {
+    throw new TypeError(
+      "Task vault module must export createTaskVault({ evidenceGateway }) when a GitHub evidence gateway is configured"
+    );
+  }
+  const taskVault = typeof taskVaultModule.createTaskVault === "function"
+    ? await taskVaultModule.createTaskVault({ evidenceGateway })
+    : taskVaultModule;
+  if (!taskVault || typeof taskVault.getTask !== "function" ||
+      typeof taskVault.appendBuilderResult !== "function") {
+    throw new TypeError(
+      "Task vault module must export getTask()/appendBuilderResult() or createTaskVault() returning both"
+    );
+  }
+
   return createOpenAiCompatibleExecutor({
     routes: config.routes,
-    taskVault: taskVaultModule,
+    taskVault,
     readSecret: credentialsModule.readSecret,
     evidenceGateway,
     evidenceTimeoutMs: config.evidenceTimeoutMs ?? 15000
