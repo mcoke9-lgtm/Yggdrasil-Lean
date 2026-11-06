@@ -121,6 +121,28 @@ A distinct v2 continuation consequently requires a vault-side, encrypted, atomic
 
 This fork is a new required vault capability, not an existing feature. Until it is implemented and tested, the design's distinct-run continuation path is incomplete and v1 runs must remain read-only/manual-reconciliation cases.
 
+#### Proposed imported-turn envelope and atomicity
+
+For each copied turn, retain its original `turnId`, `checkpointId`, body, reply target, timestamps, protocol fields, evidence proof, provider/model fields, response hash, and idempotency key. Rebind only the enclosing turn's `runId` and `threadId` to the target run/thread, and add a reserved import-origin object:
+
+```json
+{
+  "origin": {
+    "kind": "ENCRYPTED_VAULT_RUN_FORK",
+    "sourceRunId": "legacy-run-id",
+    "sourceThreadId": "nine-builders:legacy-run-id",
+    "sourceTurnId": "original-turn-id"
+  }
+}
+```
+
+The task prompt turn ID and task prompt creation timestamp remain task-scoped and unchanged. The fork must preserve turn ordering and all reply links; retaining the original turn IDs avoids rewriting the directed conversation graph. For a copied USER adoption turn, the normalized `userAuthorization` record remains source-bound exactly as stored. The history validator must require that its taskReference, runId, and threadId match the fork's source identity, while the enclosing turn's runId/threadId match the target. This is a narrowly typed exception, not permission for arbitrary cross-run history.
+
+The fork API should execute inside the vault's existing cross-process mutation lock and one atomic encrypted-file replacement. Suggested contract: `forkRunHistory(taskReference, { sourceRunId, targetRunId, expectedSourceThreadId, expectedSourceHistorySha256 })`. It validates the source history before cloning, computes a canonical source-history digest while holding the lock, and rejects if the caller's expected digest differs. A repeated request for the same target and same source digest returns the existing fork result; target-ID reuse with a different source or digest fails closed. The target thread is created only once, and the source thread is never modified. The digest is a compare-and-swap integrity token, not a privacy mechanism or evidence of content safety; it should remain inside the trusted host/vault handoff and never be emitted to logs or the plaintext ledger.
+
+This contract also requires tests for same-task binding, source-history mutation between read and fork, concurrent competing forks, identical idempotent retry, conflicting target reuse, preservation of turn order/reply links, signed-adoption source binding, and target-thread append after import.
+
+
 ## 7. v1 compatibility and migration
 
 - Treat each existing v1 run as immutable legacy data. A schema upgrade must not rewrite, truncate, delete, or silently reinterpret its free-text fields.
