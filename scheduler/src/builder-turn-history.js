@@ -286,6 +286,9 @@ function validateCorrectionHistory(history, ids, reviewIncidentId) {
           turnType(history[incidentIndex]) !== "IMPROVEMENT_INCIDENT") {
         throw new Error("Correction plan must reference an earlier recorded incident in this run");
       }
+      if (history[incidentIndex].speaker === "USER") {
+        throw new Error("An improvement incident must be authored by a Builder");
+      }
       if (turnReplyTo(turn) !== incidentId) {
         throw new Error("Correction plan must reply directly to its referenced incident");
       }
@@ -423,8 +426,9 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     })) {
       throw new Error("Correction ID is already planned in this run: " + item.correction_id);
     }
-    if (turnType(byId.get(item.incident_turn_id)?.turn) !== "IMPROVEMENT_INCIDENT") {
-      throw new Error("Correction plan must reference a recorded improvement incident");
+    const incidentTurn = byId.get(item.incident_turn_id)?.turn;
+    if (turnType(incidentTurn) !== "IMPROVEMENT_INCIDENT" || incidentTurn.speaker === "USER") {
+      throw new Error("Correction plan must reference a Builder-authored improvement incident");
     }
   }
   if (type === "CORRECTION_UPDATE") {
@@ -453,6 +457,7 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     const nextStage = CORRECTION_STAGES[completedStages.length];
     if (item.stage !== nextStage) throw new Error("Correction stages must advance exactly IMPLEMENTED, TESTED, VERIFIED");
     const incident = byId.get(item.incident_turn_id)?.turn;
+    if (incident?.speaker === "USER") throw new Error("An improvement incident must be authored by a Builder");
     if (item.stage === "VERIFIED" && (speaker !== "BALDR" || speaker === incident?.speaker)) {
       throw new Error("Only unaffected Baldr may issue VERIFIED");
     }
