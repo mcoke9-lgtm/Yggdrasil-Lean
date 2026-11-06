@@ -1016,7 +1016,7 @@ test("stores the Baldr invocation ID on the encrypted durable review turn", asyn
         turn_type: "CONTRIBUTION", evidence_status: "OBSERVED",
         recipient: null, reply_to_turn_id: null
       },
-      completedAt: new Date(Date.now() + 1000).toISOString()
+      completedAt: "2026-11-06T12:00:00.500Z"
     });
     assert.equal(saved.durable, true);
     const reloaded = await h.vault.getTask(taskReference, { runId });
