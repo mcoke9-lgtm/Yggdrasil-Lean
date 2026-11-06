@@ -16,6 +16,31 @@ public final class BuilderOvernightRunStore {
                 "builder_overnight_runs", Context.MODE_PRIVATE);
     }
 
+    /** Persist consent-bound identity before WorkManager receives the request. */
+    public synchronized JSONObject createScheduled(String runId, String threadId,
+            String taskPrompt, long nowMillis) {
+        requireText(runId, "runId");
+        requireText(threadId, "threadId");
+        requireText(taskPrompt, "taskPrompt");
+        if (read(runId) != null)
+            throw new IllegalStateException("Overnight run checkpoint already exists");
+        JSONObject state = new JSONObject();
+        try {
+            state.put("run_id", runId);
+            state.put("thread_id", threadId);
+            state.put("task_prompt_sha256", BuilderDisclosureFingerprint.digest(taskPrompt));
+            state.put("status", "SCHEDULED");
+            state.put("scheduled_at_epoch_millis", nowMillis);
+            state.put("completed_cycles", 0);
+            state.put("cycle_in_progress", false);
+            state.put("updated_at_epoch_millis", nowMillis);
+        } catch (JSONException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+        write(runId, state);
+        return state;
+    }
+
     public synchronized JSONObject beginOrRecover(String runId, String threadId,
             String taskPrompt, long nowMillis) {
         requireText(runId, "runId");
@@ -23,6 +48,8 @@ public final class BuilderOvernightRunStore {
         requireText(taskPrompt, "taskPrompt");
         JSONObject state = read(runId);
         if (state == null) {
+            // Compatibility for work enqueued by an older app version before
+            // scheduled checkpoints were introduced.
             state = new JSONObject();
             try {
                 state.put("run_id", runId);
@@ -45,14 +72,24 @@ public final class BuilderOvernightRunStore {
                         state.optString("task_prompt_sha256"))) {
             throw new IllegalStateException("Run identity, thread, or approved task prompt changed");
         }
+        if ("SCHEDULED".equals(state.optString("status"))) {
+            try {
+                state.put("status", "RUNNING");
+                state.put("started_at_epoch_millis", nowMillis);
+                state.put("deadline_epoch_millis", nowMillis + MAX_DURATION_MILLIS);
+                state.put("updated_at_epoch_millis", nowMillis);
+            } catch (JSONException impossible) { throw new IllegalStateException(impossible); }
+            write(runId, state);
+            return state;
+        }
+        if (!"RUNNING".equals(state.optString("status"))) return state;
         if (state.optBoolean("cycle_in_progress", false)) {
             state = status(state, "INTERRUPTED", nowMillis,
                     "Host stopped during a Builder cycle; partial work requires review and will not be replayed.");
             write(runId, state);
             return state;
         }
-        if ("RUNNING".equals(state.optString("status"))
-                && nowMillis >= state.optLong("deadline_epoch_millis")) {
+        if (nowMillis >= state.optLong("deadline_epoch_millis")) {
             state = status(state, "EXPIRED", nowMillis, "Eight-hour execution window elapsed.");
             write(runId, state);
         }
@@ -96,7 +133,7 @@ public final class BuilderOvernightRunStore {
     public synchronized JSONObject setStatus(String runId, String status, String reason, long nowMillis) {
         JSONObject state = requireRun(runId);
         String current = state.optString("status");
-        if (!"RUNNING".equals(current) && !current.equals(status))
+        if (!"RUNNING".equals(current) && !"SCHEDULED".equals(current) && !current.equals(status))
             throw new IllegalStateException("Terminal run state " + current + " cannot be overwritten by " + status);
         state = status(state, status, nowMillis, reason);
         write(runId, state);
