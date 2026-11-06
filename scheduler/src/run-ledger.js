@@ -50,6 +50,46 @@ function safeErrorCode(value, label = "errorCode") {
   return value;
 }
 
+
+function safeReviewInvocation(value, outcomeRef, responseSha256) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("A completed Baldr review invocation receipt is required");
+  }
+  const allowed = [
+    "reviewInvocationId", "inputManifestSha256", "responseSha256",
+    "vaultTurnId", "provenanceLevel", "providerRequestId", "status", "completedAt"
+  ];
+  if (Object.keys(value).some(key => !allowed.includes(key))) {
+    throw new TypeError("Baldr invocation metadata contains an unrecognized field");
+  }
+  safeIdentifier(value.reviewInvocationId, "reviewInvocationId");
+  safeIdentifier(value.vaultTurnId, "vaultTurnId");
+  if (value.vaultTurnId !== outcomeRef ||
+      typeof value.inputManifestSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.inputManifestSha256) ||
+      typeof value.responseSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.responseSha256) ||
+      (responseSha256 != null && value.responseSha256 !== responseSha256) ||
+      value.status !== "COMPLETED" ||
+      value.provenanceLevel !== "INVOCATION_ATTRIBUTED") {
+    throw new TypeError("Baldr invocation receipt does not match the durable outcome");
+  }
+  if (value.providerRequestId != null &&
+      (typeof value.providerRequestId !== "string" ||
+       !/^[A-Za-z0-9._:-]{1,256}$/.test(value.providerRequestId))) {
+    throw new TypeError("Baldr providerRequestId is invalid");
+  }
+  const completedAt = iso(value.completedAt, "Baldr completedAt");
+  return {
+    reviewInvocationId: value.reviewInvocationId,
+    inputManifestSha256: value.inputManifestSha256,
+    responseSha256: value.responseSha256,
+    vaultTurnId: value.vaultTurnId,
+    provenanceLevel: value.provenanceLevel,
+    providerRequestId: value.providerRequestId ?? null,
+    status: value.status,
+    completedAt
+  };
+}
+
 function safeCheckpoint(value, recordedAt) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Checkpoint metadata must be a typed object");
@@ -141,7 +181,7 @@ export class BuilderRunLedger {
             role, status: skipped ? "skipped" : "pending", attempt: 0,
             startedAt: null, finishedAt: skipped ? created : null,
             checkpoint: null, errorCode: null, outcomeRef: null,
-            outcomeType: null, evidenceStatus: null
+            outcomeType: null, evidenceStatus: null, reviewInvocation: null
           };
         })
       };
@@ -236,7 +276,7 @@ export class BuilderRunLedger {
 
   async finishBuilder(runId, role, status, {
     errorCode = null, outcomeRef = null, outcomeType = null,
-    evidenceStatus = null, responseSha256 = null
+    evidenceStatus = null, responseSha256 = null, reviewInvocation = null
   } = {}) {
     return this.mutate(runId, run => {
       this.assertRunning(run);
@@ -275,6 +315,13 @@ export class BuilderRunLedger {
       builder.outcomeRef = safeOutcomeRef;
       builder.outcomeType = safeOutcomeType;
       builder.evidenceStatus = safeEvidenceStatus;
+      if (status === "succeeded" && role === "BALDR") {
+        builder.reviewInvocation = safeReviewInvocation(reviewInvocation, safeOutcomeRef, safeHash);
+      } else if (reviewInvocation != null) {
+        throw new TypeError("Only a successful Baldr result may carry review invocation metadata");
+      } else {
+        builder.reviewInvocation = null;
+      }
       if (status === "succeeded") {
         builder.checkpoint = safeCheckpoint({
           checkpointId: safeOutcomeRef,
