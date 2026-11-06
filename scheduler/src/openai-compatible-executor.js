@@ -365,6 +365,9 @@ function validateConstraintEntry(entry, evaluation) {
     if (!Number.isFinite(checkedAt) || new Date(checkedAt).toISOString() !== proof.checkedAt) return false;
     const evaluationEnd = Date.parse(evaluation.evaluated_on + "T23:59:59.999Z");
     if (!Number.isFinite(evaluationEnd) || checkedAt > evaluationEnd) return false;
+    const maximumProofAgeDays = evaluation.maximum_evidence_age_days;
+    if (!Number.isFinite(maximumProofAgeDays) || maximumProofAgeDays < 0 ||
+        (evaluationEnd - checkedAt) / 86400000 > maximumProofAgeDays) return false;
   } else if (entry.evidenceVerification != null) {
     return false;
   }
