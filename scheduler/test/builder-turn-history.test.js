@@ -198,6 +198,38 @@ test("correction history enforces incident linkage and ordered lifecycle", () =>
   assert.throws(() => validateBuilderHistory(outOfOrder, runId, threadId, "task-prompt-1", null, reviewPrompt), /stages must advance exactly/);
 });
 
+test("protocol-v4 correction history requires matching gateway evidence and source check time", () => {
+  const history = correctionHistory().map((turn, index) => {
+    const timestamp = Date.parse("2026-11-05T12:00:0" + (index + 1) + ".000Z");
+    return {
+      ...turn, protocolVersion: 4, turnId: turn.checkpointId,
+      completedAt: new Date(timestamp).toISOString(),
+      timestampEpochMillis: timestamp
+    };
+  });
+  const promptTime = Date.parse("2026-11-05T12:00:00.000Z");
+  assert.throws(() => validateBuilderHistory(
+    history, runId, threadId, "task-prompt-1", promptTime, reviewPrompt
+  ), /matching successful gateway verification/);
+
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  history[2].evidenceVerification = {
+    verified: true, status: "VERIFIED", verificationMethod: "READ_ONLY_GITHUB_GATEWAY",
+    kind: "COMMIT", repository: "acme/project", objectId: sha,
+    branch: "correction", workflow: null, expectedSha: null,
+    checkedAt: "2026-11-05T12:00:02.500Z"
+  };
+  history[3].evidenceVerification = {
+    verified: true, status: "VERIFIED", verificationMethod: "READ_ONLY_GITHUB_GATEWAY",
+    kind: "ACTIONS_RUN", repository: "acme/project", objectId: "12345",
+    branch: null, workflow: "scheduler-tests", expectedSha: sha,
+    checkedAt: "2026-11-05T12:00:03.500Z"
+  };
+  assert.doesNotThrow(() => validateBuilderHistory(
+    history, runId, threadId, "task-prompt-1", promptTime, reviewPrompt
+  ));
+});
+
 test("only unaffected Baldr can issue VERIFIED after TESTED", () => {
   const history = correctionHistory();
   const verifiedBody = JSON.stringify({
