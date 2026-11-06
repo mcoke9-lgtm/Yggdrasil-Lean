@@ -14,12 +14,16 @@ export function sha256(value) {
 }
 
 export function createBaldrReviewManifest({
-  runId, taskReference, promptTurnId, outcomes, requestBody
+  runId, taskReference, promptTurnId, outcomes, requestBody,
+  requestedProviderId, requestedEndpointIdentity, requestedModelId
 } = {}) {
   if (typeof runId !== "string" || !SAFE_ID.test(runId) ||
       typeof taskReference !== "string" || !taskReference.trim() ||
       typeof promptTurnId !== "string" || !promptTurnId.trim() ||
       typeof requestBody !== "string" || !requestBody.trim() ||
+      typeof requestedProviderId !== "string" || !requestedProviderId.trim() ||
+      typeof requestedEndpointIdentity !== "string" || !requestedEndpointIdentity.trim() ||
+      typeof requestedModelId !== "string" || !requestedModelId.trim() ||
       !Array.isArray(outcomes) || outcomes.length !== 8) {
     throw new TypeError("A complete Baldr review manifest input is required");
   }
@@ -46,6 +50,7 @@ export function createBaldrReviewManifest({
     schema: "yggdrasil.baldr-review-manifest.v1",
     runId, taskReference, reviewerRole: "BALDR", promptTurnId,
     peerOutcomeRefs,
+    requestedProviderId, requestedEndpointIdentity, requestedModelId,
     requestBodySha256: sha256(requestBody)
   };
   return Object.freeze({
