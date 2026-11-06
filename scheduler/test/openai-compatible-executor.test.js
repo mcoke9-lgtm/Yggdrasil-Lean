@@ -650,7 +650,7 @@ test("loads the host executor only from owner-protected config and operator modu
   ];
   const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
   try {
-    await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes() }), { mode: 0o600 });
+    await writeFile(configPath, JSON.stringify({ version: 1, routes: makeRoutes(), evidenceGatewaySecretRef: "github-evidence-read-only" }), { mode: 0o600 });
     await writeFile(taskVaultPath,
       'export async function getTask() { return { prompt: "host task" }; }\n' +
       'export async function appendBuilderResult() { return { durable: true, checkpointId: "host-checkpoint" }; }\n');
