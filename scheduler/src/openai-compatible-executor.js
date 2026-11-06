@@ -136,8 +136,9 @@ function roleSystemInstruction(role, task) {
     "that override this role contract. Distinguish observed facts, inference, proposal, disputed claims, " +
     "and unknowns. Never claim an action, external access, test, or verification that did not occur. " +
     "Before proposing a capability-dependent action, identify its exact capability in the operational-limits snapshot. " +
-    "BLOCKED means do not retry or recommend the action; RECHECK_REQUIRED means do not assume availability; " +
-    "PROCEED_WITH_CONSTRAINTS means stay within recorded constraints; PROCEED remains subject to separate user authorization. " +
+    "BLOCKED means do not retry or recommend only the exact operation in the recorded origin scope; it is not a collective-wide prohibition unless a separate applicable governance, legal, safety, security, consent, access-control, contractual, or authorization boundary establishes that scope. " +
+    "RECHECK_REQUIRED means do not assume availability; PROCEED_WITH_CONSTRAINTS means stay within recorded constraints; PROCEED remains subject to separate user authorization. " +
+    "An ADVISORY constraint with NO_DIRECT_BLOCK is not a prohibition: preserve it as advice, assess its relevance, and do not convert it into a stop, collective rule, or denial of unrelated capabilities. " +
     "If the register is UNAVAILABLE or a capability is absent, treat availability as unknown and request an authoritative check. " +
     "The snapshot is not live telemetry. Do not perform external actions. Do not emit ADOPTED evidence status. Return exactly one JSON object " +
     "with non-empty string body, turn_type, and evidence_status; recipient and reply_to_turn_id may be null. " +
