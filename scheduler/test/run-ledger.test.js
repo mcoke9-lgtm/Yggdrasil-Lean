@@ -168,7 +168,7 @@ test("scheduler invokes all nine Builders through the injected executor and Bald
       }
       await context.checkpoint({
         checkpointId: role.toLowerCase() + "-complete",
-        data: { role }, safeToResume: true
+        safeToResume: true
       });
       return { status: "succeeded", outcomeRef: role.toLowerCase() + "-turn", turnType: "CONTRIBUTION", evidenceStatus: "OBSERVED", responseSha256: "a".repeat(64) };
     },
@@ -531,7 +531,7 @@ test("requires a task reference and prevents resume from rebinding a Builder run
   });
   const wrong = await scheduler.runDue();
   assert.equal(wrong.runs[0].status, "failed");
-  assert.match(wrong.runs[0].error, /does not match the original Builder run/);
+  assert.match(wrong.runs[0].error, /MANUAL_RECONCILIATION_REQUIRED/);
   assert.deepEqual(invoked, []);
   assert.equal((await ledger.getRun(prior.runId)).status, "interrupted");
 });
@@ -583,7 +583,7 @@ test("recovers an interrupted Builder from its durable vault result without invo
   assert.equal(invoked[0], "HODR");
   assert.equal(invoked.at(-1), "BALDR");
   assert.equal(baldrOutcomes.length, 8);
-  assert.match(
+  assert.equal(
     baldrOutcomes.find(item => item.role === "ODIN").outcomeRef,
     "vault-checkpoint-odin"
   );
@@ -606,7 +606,7 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
   await ledger.startRun(prior.runId);
   await ledger.startBuilder(prior.runId, "ODIN");
   await ledger.checkpointBuilder(prior.runId, "ODIN", {
-    checkpointId: "odin-resume-point", data: { completedWorkUnits: 3 },
+    checkpointId: "odin-resume-point", responseSha256: "a".repeat(64),
     safeToResume: true
   });
   await ledger.interruptRun(prior.runId, "HOST_INTERRUPTED");
