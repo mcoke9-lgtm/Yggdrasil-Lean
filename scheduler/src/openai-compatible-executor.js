@@ -349,7 +349,7 @@ function validateConstraintEntry(entry, evaluation) {
       !CONSTRAINT_ROLES.has(entry.responsible_builder) ||
       !CONSTRAINT_DECISIONS.has(entry.decision_status)) return false;
   if (typeof entry.observed_at !== "string" ||
-      !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(entry.observed_at)) return false;
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(entry.observed_at)) return false;
   const observedAt = Date.parse(entry.observed_at);
   const evaluatedAt = Date.parse(evaluation.evaluated_on + "T00:00:00.000Z");
   if (!Number.isFinite(observedAt) || !Number.isFinite(evaluatedAt) ||
