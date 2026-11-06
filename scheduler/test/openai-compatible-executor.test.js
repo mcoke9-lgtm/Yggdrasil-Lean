@@ -1132,7 +1132,7 @@ test("loads the host executor only from owner-protected config and operator modu
       'export async function getTask() { return { prompt: "legacy host task" }; }',
       'export async function appendBuilderResult() { return { durable: true, checkpointId: "legacy-checkpoint" }; }',
       ''
-    ].join("\\n"));
+    ].join("\n"));
     process.env.BUILDER_TASK_VAULT_MODULE = legacyTaskVaultPath;
     await assert.rejects(
       () => createBuilderExecutor(),
