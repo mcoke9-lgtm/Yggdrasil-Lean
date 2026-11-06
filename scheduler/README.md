@@ -175,7 +175,7 @@ and platform-specific service installation. The current service has no remote
 push notification channel and is not yet installed on a user's computer or
 Android device.
 
-## Nine Builders bounded-run ledger (prototype)
+## Nine Builders bounded-run ledger (version 2)
 
 The `src/run-ledger.js` module adds a durable metadata contract for a Nine Builders
 work window. It records all nine role identities, an eight-hour maximum deadline,
@@ -192,16 +192,26 @@ so ledger writes cannot overwrite concurrent task and scheduler-run updates.
 **Storage confidentiality:** the scheduler and Builder-run JSON state files are
 not encrypted at rest. On POSIX systems the store enforces an owner-only
 directory (0700) and file (0600), but filesystem permissions are not encryption.
-The ledger stores run/task references, role statuses, timestamps, checkpoint
-IDs and checkpoint data, plus free-text summaries, errors, and interruption
-reasons. Those text fields are persisted as supplied (with length limits); the
-ledger does not detect or redact secrets or personal data. Checkpoint data is
-limited to 16 KiB of JSON, not to a safe schema. Use opaque non-sensitive
-references and minimal operational descriptions only. Never place prompts,
-response bodies, access tokens, credentials, private keys, or unnecessary
-personal data in the ledger. The encrypted task vault is the designated store
-for task text, consent, and full per-run conversation history. Protect and back up its encryption key
-separately.
+New version-2 Builder records contain typed statuses/error codes, timestamps,
+opaque vault-turn references, and a strict checkpoint allowlist; they do not
+persist free-text summaries, exception messages, or interruption reasons.
+Builder completion/interruption stdout events are metadata-only as well.
+Checkpoint metadata is not arbitrary JSON. Use opaque non-semantic task
+references only. Never place prompts, response bodies, access tokens,
+credentials, private keys, or unnecessary personal data in scheduler state.
+The encrypted task vault is the designated store for task text, consent, full
+per-run conversation history, and detailed diagnostics. Protect and back up
+its encryption key separately.
+
+Version-1 Builder records remain readable legacy plaintext and are immutable:
+the runtime does not rewrite or automatically migrate them. Same-run
+`resume-nine-builders` applies only to version-2 runs. For a version-1 run,
+use `continue-nine-builders` to request a separate version-2 continuation.
+That path requires the executor and task vault to verify and fork the exact
+encrypted source thread, and to reconcile each v1-successful role against one
+matching durable vault turn. Missing or mismatched evidence fails closed.
+The source-history digest remains encrypted in the vault; it is not copied into
+the plaintext ledger.
 
 **Important limitation:** the ledger and adapter are now connected to the
 persistent runner through an optional host module, but this is not yet a
@@ -217,16 +227,19 @@ visibly with “No handler registered” rather than pretending work occurred.
 `src/builder-run-handler.js` registers the `nine-builders.run` handler when
 the host supplies both a `BuilderRunLedger` and an explicit executor function.
 It invokes the nine roles in the canonical sequence, records per-role checkpoints
-and outcomes, and passes the first eight outcomes to Baldr for the final review
-pass. A failed role is recorded and does not erase the remaining roles' chance
-to contribute.
+and outcomes, and passes the first eight typed outcomes to Baldr for the final review
+pass. Each successful outcome reference must match exactly one turn in the
+encrypted run history. Baldr receives the full turn history from the vault,
+not summaries copied from the plaintext ledger. A failed role is represented
+by a typed error code and does not erase the remaining roles' chance to contribute.
 
 The adapter deliberately requires the host to inject the executor. It does not
 invent provider routes, credentials, consent, or model identity. It passes a
 cooperative cancellation signal to each role executor, enforces the recorded
-eight-hour deadline, and records abandoned active runs as interrupted on recovery.
-Executors must honor the signal; a provider adapter that ignores cancellation
-cannot be forcibly stopped by this in-process contract. The repository does not ship a production provider executor. The host module is an
+eight-hour deadline, and records abandoned version-2 active runs as interrupted on recovery. Version-1
+records are left unchanged for manual continuation. Executors must honor the
+signal; a provider adapter that ignores cancellation cannot be forcibly stopped
+by this in-process contract. The repository does not ship a production provider executor. The host module is an
 explicit integration boundary; it must resolve the opaque task reference, enforce
 provider-specific consent and disclosure, and implement role-specific prompts,
 provenance, bounded output, and cancellation. Automated tests use a deterministic
@@ -260,13 +273,22 @@ export async function createBuilderExecutor() {
       signal: context.signal
     });
 
-    // Mark safeToResume true only when the checkpoint is genuinely idempotent.
+    // Persist only typed references and metadata, never arbitrary checkpoint text.
     await context.checkpoint({
       checkpointId: result.checkpointId,
-      data: result.checkpointMetadata,
+      vaultTurnId: result.checkpointId,
+      responseSha256: result.responseSha256,
+      turnType: result.turnType,
+      evidenceStatus: result.evidenceStatus,
       safeToResume: result.safeToResume === true
     });
-    return { status: "succeeded", summary: result.summary };
+    return {
+      status: "succeeded",
+      outcomeRef: result.checkpointId,
+      turnType: result.turnType,
+      evidenceStatus: result.evidenceStatus,
+      responseSha256: result.responseSha256
+    };
   };
 }
 ```
@@ -285,7 +307,7 @@ Set these host-only environment variables when starting a dedicated Builder runn
 
 - `BUILDER_EXECUTOR_MODULE`: absolute path to this module, for example `./src/openai-compatible-executor.js`.
 - `BUILDER_HOST_CONFIG_FILE`: absolute path to an operator-owned JSON route file.
-- `BUILDER_TASK_VAULT_MODULE`: absolute path to an operator-owned ES module exporting `createTaskVault({ evidenceGateway })` and returning an object with `getTask(taskReference)` and `appendBuilderResult(taskReference, record)`. When `BUILDER_EVIDENCE_GATEWAY_MODULE` is configured, this factory is required so the encrypted task vault receives the same verified read-only gateway used by the executor. Without a gateway, legacy direct `getTask`/`appendBuilderResult` exports remain supported. A trusted user-action host may separately expose `appendUserAdoption(taskReference, request)` to its authenticated user interface, never to Builder model routes.
+- `BUILDER_TASK_VAULT_MODULE`: absolute path to an operator-owned ES module exporting `createTaskVault({ evidenceGateway })` and returning an object with `getTask(taskReference)` and `appendBuilderResult(taskReference, record)`. For version-1 continuation it must additionally expose `getRunHistoryManifest(taskReference, { runId })` and `forkRunHistory(taskReference, options)`; the encrypted local vault provides these methods. Older custom vault modules remain usable for ordinary v2 runs but fail closed for v1 continuation. When `BUILDER_EVIDENCE_GATEWAY_MODULE` is configured, this factory is required so the encrypted task vault receives the same verified read-only gateway used by the executor. Without a gateway, legacy direct exports remain supported. A trusted user-action host may separately expose `appendUserAdoption(taskReference, request)` to its authenticated user interface, never to Builder model routes.
 - `BUILDER_CREDENTIALS_MODULE`: absolute path to an operator-owned ES module exporting `readSecret(secretRef)`.
 - `BUILDER_EVIDENCE_GATEWAY_MODULE`: optional absolute path to an owner-only ES module implementing the read-only GitHub evidence gateway contract described above. Its factory is called with the host credential resolver and configured `evidenceGatewaySecretRef`; the resulting gateway is injected into both the executor and `createTaskVault`.
 - `BUILDER_USER_AUTHORIZATION_PUBLIC_KEYS_JSON`: optional JSON object mapping operator-managed key IDs to Ed25519 public-key PEM strings. It enables vault-side verification of signed user adoption actions; it does not contain private signing keys.
@@ -294,7 +316,7 @@ A secret-free route-file example is in `examples/builder-host-config.example.jso
 
 The task-vault module owns task contents, approval records, dedicated run threads, and result history. `getTask(taskReference, { runId })` must create or retrieve one dedicated thread for that scheduled run and return an object containing a non-empty `prompt`, `threadId`, optional `history` array, and a consent record with `status: "USER_APPROVED"`, `scope: "NINE_BUILDERS_OVERNIGHT"`, a valid `approvedAt` timestamp, and a 64-character `fingerprint`. Every returned history item must carry the same `runId` and `threadId`; the adapter rejects history from other runs/threads and rejects a thread ID that changes during one run. Do not import unrelated chat history. Use the exported `createOvernightDisclosureFingerprint(routes, prompt)` helper when the user explicitly approves the task. The fingerprint binds the exact task prompt and all nine provider IDs, endpoints, and model IDs. If the prompt or any route changes after approval, the adapter blocks disclosure and requires fresh user approval. The adapter does not provide an approval UI; the operator-owned task vault must record an actual user confirmation and return only an approved task. Android-app consent records are not automatically transferable to this Node host; approval must be recorded in the Node task vault.
 
-`appendBuilderResult(taskReference, record)` must durably persist the role result in the same run-specific thread, make that Builder turn visible in subsequent `getTask` history, and return `{ durable: true, checkpointId: "..." }`. Baldr is blocked unless every successful peer role's recorded turn is present in the dedicated run history as well as its outcome ledger. The record includes a stable `runId:ROLE` idempotency key, `threadId`, requested provider/model, provider-reported model when present, response hash, validated reply, and completion time. Store this data in an operator-controlled protected location; do not put prompts or full responses in scheduler task payloads or the scheduler ledger. The task vault should enforce the idempotency key and return the existing result rather than creating a duplicate if the same key is submitted again.
+`appendBuilderResult(taskReference, record)` must durably persist the role result in the same run-specific thread, make that Builder turn visible in subsequent `getTask` history, and return `{ durable: true, checkpointId: "..." }`. Baldr is blocked unless every successful peer role's `outcomeRef` matches exactly one recorded turn in the dedicated run history. The record includes a stable `runId:ROLE` idempotency key, `threadId`, requested provider/model, provider-reported model when present, response hash, validated reply, and completion time. Store this data in an operator-controlled protected location; do not put prompts or full responses in scheduler task payloads or the scheduler ledger. The task vault should enforce the idempotency key and return the existing result rather than creating a duplicate if the same key is submitted again.
 
 The credentials module resolves each `secretRef` from an OS keychain or another operator-managed secret store. It returns a short-lived token string; the adapter never writes the token to scheduler state or logs. If a route has no `secretRef`, the endpoint is treated as an unauthenticated local service. Use HTTPS for remote endpoints; HTTP is accepted only for loopback development.
 
