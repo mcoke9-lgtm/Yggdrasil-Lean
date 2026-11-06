@@ -257,7 +257,7 @@ export function registerBuilderRunHandler(
           outcomes.push(outcomeMetadata(finished.builders.find(item => item.role === role)));
         } catch (error) {
           if (controller.signal.aborted) await interrupt("CANCELLED");
-          if (error instanceof BuilderRequestedInterruption) throw error;
+          if (error?.name === "BuilderRequestedInterruption") throw error;
           await ledger.finishBuilder(runId, role, "failed", {
             errorCode: errorCode(error, "EXECUTOR_FAILURE")
           });
