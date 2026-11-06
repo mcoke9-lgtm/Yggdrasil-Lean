@@ -9,6 +9,7 @@ import { createCipheriv, generateKeyPairSync, randomBytes, sign } from "node:cry
 import { writeFile } from "node:fs/promises";
 import { createEncryptedTaskVault } from "../src/encrypted-task-vault.js";
 import { serializeUserAdoptionPayload } from "../src/user-adoption-authorization.js";
+import { sha256 } from "../src/baldr-review-invocation.js";
 
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-vault-"));
@@ -826,16 +827,28 @@ test("persists append-only Baldr invocation start and completion receipts in the
     const runId = "run-baldr-receipt";
     await h.vault.initializeTask(taskReference, "Review the eight Builder outcomes.");
     const task = await h.vault.getTask(taskReference, { runId });
+    const reviewInput = '{"model":"baldr-model","messages":[]}';
+    const inputManifest = {
+      schema: "yggdrasil.baldr-review-manifest.v1",
+      runId, taskReference, reviewerRole: "BALDR",
+      peerOutcomeRefs: ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"]
+        .map(role => ({ role, status: "skipped", outcomeRef: null, errorCode: null })),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      requestBodySha256: sha256(reviewInput)
+    };
     const start = {
       reviewInvocationId: "review-baldr-001",
       runId, taskReference, threadId: task.threadId,
       reviewerRole: "BALDR",
-      inputManifestSha256: "a".repeat(64),
+      inputManifestSha256: sha256(inputManifest),
       requestedProviderId: "provider-baldr",
       requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
       requestedModelId: "baldr-model",
       invokedAt: "2026-11-06T12:00:00.000Z",
-      provenanceLevel: "ROUTE_SEPARATED"
+      provenanceLevel: "ROUTE_SEPARATED",
+      inputManifest, reviewInput
     };
     const started = await h.vault.beginBaldrReviewInvocation(taskReference, start);
     assert.equal(started.durable, true);
@@ -879,16 +892,28 @@ test("does not permit a second Baldr invocation for a run after the first comple
     const runId = "run-baldr-single-review";
     await h.vault.initializeTask(taskReference, "Review once.");
     const task = await h.vault.getTask(taskReference, { runId });
+    const reviewInput = '{"model":"baldr-model","messages":[]}';
+    const inputManifest = {
+      schema: "yggdrasil.baldr-review-manifest.v1",
+      runId, taskReference, reviewerRole: "BALDR",
+      peerOutcomeRefs: ["ODIN", "HODR", "LOKI", "MUNINN", "HUGINN", "KVASIR", "MARI", "TYR"]
+        .map(role => ({ role, status: "skipped", outcomeRef: null, errorCode: null })),
+      requestedProviderId: "provider-baldr",
+      requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
+      requestedModelId: "baldr-model",
+      requestBodySha256: sha256(reviewInput)
+    };
     const start = {
       reviewInvocationId: "review-baldr-single",
       runId, taskReference, threadId: task.threadId,
       reviewerRole: "BALDR",
-      inputManifestSha256: "c".repeat(64),
+      inputManifestSha256: sha256(inputManifest),
       requestedProviderId: "provider-baldr",
       requestedEndpointIdentity: "https://example.invalid/v1/chat/completions",
       requestedModelId: "baldr-model",
       invokedAt: "2026-11-06T12:00:00.000Z",
-      provenanceLevel: "ROUTE_SEPARATED"
+      provenanceLevel: "ROUTE_SEPARATED",
+      inputManifest, reviewInput
     };
     await h.vault.beginBaldrReviewInvocation(taskReference, start);
     await h.vault.completeBaldrReviewInvocation(taskReference, {
