@@ -568,6 +568,17 @@ export function createOpenAiCompatibleExecutor({
     return error;
   }
 
+  async function loadValidatedTask(taskReference, runId) {
+    try {
+      return validateTask(
+        await taskVault.getTask(taskReference, { runId }),
+        routes, runId, taskReference
+      );
+    } catch {
+      throw manualReconciliationError();
+    }
+  }
+
   function durableRecoveryRecord(task, role, turn) {
     const checkpointId = turn.checkpointId ?? turn.turnId;
     if (typeof checkpointId !== "string" ||
@@ -612,7 +623,7 @@ export function createOpenAiCompatibleExecutor({
     }
 
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
-    const task = validateTask(await taskVault.getTask(taskReference, { runId }), routes, runId, taskReference);
+    const task = await loadValidatedTask(taskReference, runId);
     const previousThreadId = runThreads.get(runId);
     if (previousThreadId && previousThreadId !== task.threadId) {
       throw new Error("Task vault changed the dedicated thread ID during a scheduled run");
@@ -813,10 +824,7 @@ export function createOpenAiCompatibleExecutor({
       expectedSourceThreadId: manifest.threadId,
       expectedSourceHistorySha256: manifest.historySha256
     });
-    const targetTask = validateTask(
-      await taskVault.getTask(reference, { runId: targetId }),
-      routes, targetId, reference
-    );
+    const targetTask = await loadValidatedTask(reference, targetId);
     for (const savedBuilder of sourceBuilders) {
       const matches = targetTask.history.filter(turn => turn.speaker === savedBuilder.role);
       if (matches.length > 1) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
