@@ -84,6 +84,22 @@ public class BuilderOvernightRunStoreTest {
   } catch (IllegalStateException expected) { }
   assertEquals("CANCELLED",s.read("r3").optString("status"));
  }
+ @Test public void cancellationAcrossStoreInstancesPreventsLateCycleCommit() {
+  Context c=RuntimeEnvironment.getApplication();
+  c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
+  BuilderOvernightRunStore workerStore=new BuilderOvernightRunStore(c);
+  BuilderOvernightRunStore cancelStore=new BuilderOvernightRunStore(c);
+  long t=1800000000000L;
+  workerStore.beginOrRecover("cross-store","thread","task",t);
+  workerStore.beginCycle("cross-store",t+1000);
+  cancelStore.setStatus("cross-store","CANCELLED","notification stop",t+1500);
+  try {
+   workerStore.finishCycle("cross-store","late response",t+2000);
+   fail("Cancellation through another store instance must win");
+  } catch (IllegalStateException expected) { }
+  assertEquals("CANCELLED",workerStore.read("cross-store").optString("status"));
+ }
+
  @Test public void terminalRunStatusCannotBeReplacedByCompletion() {
   Context c=RuntimeEnvironment.getApplication();
   c.getSharedPreferences("builder_overnight_runs",Context.MODE_PRIVATE).edit().clear().commit();
