@@ -726,3 +726,48 @@ test("scheduled handler resumes an interrupted run only from safe checkpoints", 
   assert.equal(saved.status, "completed");
   assert.equal(saved.builders.find(item => item.role === "ODIN").attempt, 2);
 });
+
+
+test("requires a completed attributable invocation receipt before Baldr can succeed", async () => {
+  const ledger = new BuilderRunLedger({ store: new MemoryStore(), clock });
+  const run = await ledger.createRun({ runId: "baldr-receipt-ledger" });
+  await ledger.startRun(run.runId);
+  for (const role of BUILDER_ROLES.filter(role => role !== "BALDR")) {
+    await ledger.startBuilder(run.runId, role);
+    await ledger.finishBuilder(run.runId, role, "succeeded", {
+      outcomeRef: role.toLowerCase() + "-turn"
+    });
+  }
+  await ledger.startBuilder(run.runId, "BALDR");
+  const outcomeRef = "baldr-vault-turn";
+  const responseSha256 = "a".repeat(64);
+  await assert.rejects(
+    () => ledger.finishBuilder(run.runId, "BALDR", "succeeded", {
+      outcomeRef, responseSha256
+    }),
+    /completed Baldr review invocation receipt/
+  );
+  const reviewInvocation = {
+    reviewInvocationId: "review-ledger-001",
+    inputManifestSha256: "b".repeat(64),
+    responseSha256, vaultTurnId: outcomeRef,
+    provenanceLevel: "INVOCATION_ATTRIBUTED",
+    providerRequestId: "request-001",
+    status: "COMPLETED",
+    completedAt: "2026-11-04T12:00:00.000Z"
+  };
+  const finished = await ledger.finishBuilder(run.runId, "BALDR", "succeeded", {
+    outcomeRef, responseSha256, reviewInvocation
+  });
+  assert.deepEqual(
+    finished.builders.find(item => item.role === "BALDR").reviewInvocation,
+    reviewInvocation
+  );
+  await assert.rejects(
+    () => ledger.finishBuilder(run.runId, "BALDR", "succeeded", {
+      outcomeRef, responseSha256,
+      reviewInvocation: { ...reviewInvocation, vaultTurnId: "different-turn" }
+    }),
+    /not in a finishable state/
+  );
+});
