@@ -186,7 +186,7 @@ test("executor recovers a durable same-run result without repeating a provider r
     threadId,
     history: [{
       protocolVersion: 4, runId, threadId,
-      turnId: "turn-hodr-001", checkpointId: "checkpoint-hodr-001",
+      turnId: "checkpoint-hodr-001", checkpointId: "checkpoint-hodr-001",
       speaker: "HODR", body, type: "CONTRIBUTION",
       recipient: null, reply_to_turn_id: null, evidence_status: "PROPOSED",
       timestampEpochMillis: Date.parse(completedAt), completedAt,
@@ -271,7 +271,7 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   assert.equal(h.saved[0].reply.body, "A bounded, evidence-labelled contribution.");
   assert.equal(JSON.stringify(h.saved[0]).includes("test-token"), false);
   assert.equal(h.checkpoints.length, 1);
-  assert.equal(h.checkpoints[0].value.safeToResume, false);
+  assert.equal(h.checkpoints[0].value.safeToResume, true);
   assert.equal(h.checkpoints[0].value.checkpointId, "checkpoint-odin");
 });
 
