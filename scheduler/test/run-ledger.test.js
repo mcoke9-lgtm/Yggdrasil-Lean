@@ -479,7 +479,7 @@ test("explicit v1 continuation forks history into a separate v2 run without muta
   const continuation = allRuns.find(item => item.schemaVersion === 2 &&
     item.supersedesRunId === source.runId);
   assert.ok(continuation);
-  assert.equal(continuation.sourceHistorySha256, "c".repeat(64));
+  assert.equal(Object.hasOwn(continuation, "sourceHistorySha256"), false);
   assert.equal(continuation.taskReference, "vault:legacy-continue");
   assert.deepEqual(await ledger.getRun(source.runId), legacyBefore);
 });
