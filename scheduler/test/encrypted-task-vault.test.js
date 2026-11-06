@@ -202,6 +202,80 @@ test("encrypted vault requires explicit approval and preserves isolated run hist
   }
 });
 
+test("only the configured read-only evidence gateway can mark a constraint VERIFIED", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "nine-builders-verified-constraint-"));
+  await chmod(directory, 0o700);
+  const filePath = join(directory, "tasks.vault");
+  const key = Buffer.alloc(32, 13);
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const sourceReference = "github+commit://github.com/acme/project/" + sha + "?branch=main";
+  const gateway = {
+    async fetchCommit(repository, requestedSha) {
+      return { repository, sha: requestedSha };
+    },
+    async branchContainsCommit(repository, branch, requestedSha) {
+      return repository === "acme/project" && branch === "main" && requestedSha === sha;
+    }
+  };
+  const vault = createEncryptedTaskVault({
+    filePath, key, evidenceGateway: gateway,
+    clock: () => new Date("2026-11-05T12:00:00.000Z")
+  });
+  const evaluation = {
+    evaluated_on: "2026-11-05",
+    maximum_evidence_age_days: 7,
+    live_telemetry: false,
+    unlisted_capability_decision: "RECHECK_REQUIRED"
+  };
+  const entry = {
+    constraint_id: "verified-commit-backed-constraint",
+    origin_system: "Repository evidence",
+    origin_scope: "NINE_BUILDERS_GOVERNANCE",
+    source_reference: sourceReference,
+    observed_at: "2026-11-04T12:00:00.000Z",
+    affected_capability: "Use a repository-backed governance rule",
+    affected_operation: "Evaluate a constraint against its cited commit",
+    force: "MANDATORY",
+    operational_effect: "BLOCKS_OPERATION",
+    responsible_builder: "KVASIR",
+    decision_authority: "TYR",
+    recheck_condition: "Recheck when the cited branch changes",
+    decision_status: "SCOPED"
+  };
+  try {
+    await vault.initializeTask("task:verified-constraint", "Verify a source-backed constraint");
+    await assert.rejects(
+      () => vault.appendOperationalConstraint("task:verified-constraint", {
+        ...entry, evidence_state: "VERIFIED"
+      }, evaluation),
+      /only be written through the configured read-only evidence verifier/
+    );
+    const saved = await vault.verifyAndAppendOperationalConstraint(
+      "task:verified-constraint", entry, evaluation
+    );
+    assert.equal(saved.durable, true);
+    const task = await vault.getTask("task:verified-constraint", { runId: "run:verified-constraint" });
+    const constraint = task.operationalLimitsSnapshot.constraints[0];
+    assert.equal(constraint.evidence_state, "VERIFIED");
+    assert.equal(constraint.evidenceVerification.verified, true);
+    assert.equal(constraint.evidenceVerification.status, "VERIFIED");
+    assert.equal(constraint.evidenceVerification.verificationMethod, "READ_ONLY_GITHUB_GATEWAY");
+    assert.equal(constraint.evidenceVerification.objectId, sha);
+    assert.equal(constraint.evidenceVerification.checkedAt, "2026-11-05T12:00:00.000Z");
+    const noGatewayVault = createEncryptedTaskVault({ filePath, key });
+    await assert.rejects(
+      () => noGatewayVault.verifyAndAppendOperationalConstraint(
+        "task:verified-constraint",
+        { ...entry, constraint_id: "no-gateway-constraint" },
+        evaluation
+      ),
+      /No trusted read-only evidence gateway is configured/
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("operational constraint register persists append-only entries across vault instances", async () => {
   const f = await fixture();
   try {
