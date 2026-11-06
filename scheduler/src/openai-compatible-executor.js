@@ -364,7 +364,7 @@ function validateTask(task, routes, runId, taskReference) {
       throw new Error("Task history contains an unknown speaker");
     }
   }
-  validateBuilderHistory(history, runId, threadId);
+  validateBuilderHistory(history, runId, threadId, promptTurnId);
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
   return {
