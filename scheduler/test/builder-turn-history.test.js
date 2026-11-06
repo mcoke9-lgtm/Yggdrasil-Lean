@@ -107,7 +107,10 @@ test("Android protocol v4 timestamps increase strictly and retain source identit
     completedAt: "2026-11-05T12:00:01.000Z",
     timestampEpochMillis: Date.parse("2026-11-05T12:00:01.000Z")
   };
-  assert.doesNotThrow(() => validateBuilderHistory([first, second], runId, threadId));
+  const promptTime = Date.parse("2026-11-05T11:59:59.000Z");
+  assert.doesNotThrow(() => validateBuilderHistory([first, second], runId, threadId, "prompt-1", promptTime));
+  assert.throws(() => validateBuilderHistory([first, second], runId, threadId, "prompt-1",
+    Date.parse("2026-11-05T12:00:01.000Z")), /timestamps must increase strictly/);
   assert.throws(() => validateBuilderHistory([
     first, { ...second, completedAt: first.completedAt, timestampEpochMillis: first.timestampEpochMillis }
   ], runId, threadId), /timestamps must increase strictly/);
