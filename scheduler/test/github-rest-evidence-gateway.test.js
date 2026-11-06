@@ -102,6 +102,125 @@ test("REST gateway rejects malformed repository identities and missing secret re
   await assert.rejects(() => gateway.fetchCommit("acme/project/extra", sha), /owner\/name/);
 });
 
+
+test("retries idempotent GitHub GET requests on transient 5xx with bounded backoff", async () => {
+  let calls = 0;
+  const gateway = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 50,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls < 3) return new Response("temporary", { status: 503 });
+      return new Response(JSON.stringify({
+        sha, html_url: "https://github.com/acme/project/commit/" + sha
+      }), { status: 200 });
+    }
+  });
+  assert.deepEqual(await gateway.fetchCommit("acme/project", sha), {
+    repository: "acme/project", sha
+  });
+  assert.equal(calls, 3);
+});
+
+test("honors a short Retry-After for rate limits but does not retry permission failures", async () => {
+  let rateLimitCalls = 0;
+  const rateLimited = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 2, baseDelayMs: 0, maxDelayMs: 100,
+    fetchImpl: async () => {
+      rateLimitCalls += 1;
+      if (rateLimitCalls === 1) {
+        return new Response("rate limited", {
+          status: 429, headers: { "Retry-After": "0" }
+        });
+      }
+      return new Response(JSON.stringify({
+        sha, html_url: "https://github.com/acme/project/commit/" + sha
+      }), { status: 200 });
+    }
+  });
+  assert.equal((await rateLimited.fetchCommit("acme/project", sha)).sha, sha);
+  assert.equal(rateLimitCalls, 2);
+
+  let forbiddenCalls = 0;
+  const forbidden = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    fetchImpl: async () => {
+      forbiddenCalls += 1;
+      return new Response("forbidden", { status: 403 });
+    }
+  });
+  await assert.rejects(() => forbidden.fetchCommit("acme/project", sha), error => {
+    assert.equal(error.name, "GitHubEvidenceHttpError");
+    assert.equal(error.status, 403);
+    return true;
+  });
+  assert.equal(forbiddenCalls, 1);
+});
+
+test("bounds Retry-After and the total retry budget", async () => {
+  let calls = 0;
+  const tooLong = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 3, maxDelayMs: 5,
+    fetchImpl: async () => new Response("rate limited", {
+      status: 429, headers: { "Retry-After": "10" }
+    })
+  });
+  await assert.rejects(() => tooLong.fetchCommit("acme/project", sha), error =>
+    error.name === "GitHubEvidenceRetryDelayExceededError"
+  );
+
+  const exhausted = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 2, baseDelayMs: 0, maxDelayMs: 5,
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response("unavailable", { status: 503 });
+    }
+  });
+  await assert.rejects(() => exhausted.fetchCommit("acme/project", sha), error =>
+    error.name === "GitHubEvidenceHttpError" && error.status === 503
+  );
+  assert.equal(calls, 2);
+});
+
+test("retries safe transport errors and observes cancellation during backoff", async () => {
+  let calls = 0;
+  const retrying = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 2, baseDelayMs: 0, maxDelayMs: 10,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError("temporary network failure");
+      return new Response(JSON.stringify({
+        sha, html_url: "https://github.com/acme/project/commit/" + sha
+      }), { status: 200 });
+    }
+  });
+  assert.equal((await retrying.fetchCommit("acme/project", sha)).sha, sha);
+  assert.equal(calls, 2);
+
+  const controller = new AbortController();
+  const waiting = await createEvidenceGateway({
+    readSecret: async () => "token",
+    secretRef: "read-only",
+    maxAttempts: 3, maxDelayMs: 2000,
+    fetchImpl: async () => new Response("rate limited", {
+      status: 429, headers: { "Retry-After": "1" }
+    })
+  });
+  const pending = waiting.fetchCommit("acme/project", sha, controller.signal);
+  setTimeout(() => controller.abort(new Error("cancelled")), 10);
+  await assert.rejects(() => pending, /cancelled/);
+});
+
 test("REST gateway maps HTTP failures to a non-secret error type", async () => {
   const gateway = await createEvidenceGateway({
     readSecret: async () => "token",
