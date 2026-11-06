@@ -631,6 +631,126 @@ export function createEncryptedTaskVault({
       });
     },
 
+    async beginBaldrReviewInvocation(taskReference, receipt) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        if (!receipt || typeof receipt !== "object" || receipt.reviewerRole !== "BALDR") {
+          throw new TypeError("A typed Baldr invocation start receipt is required");
+        }
+        const runId = required(receipt.runId, "runId", 120);
+        const threadId = required(receipt.threadId, "threadId", 256);
+        const invocationId = required(receipt.reviewInvocationId, "reviewInvocationId", 128);
+        const state = await readState();
+        const task = state.tasks[reference];
+        if (!task || !task.runs[runId] || task.runs[runId].threadId !== threadId) {
+          throw new Error("Baldr invocation does not match an initialized vault run");
+        }
+        state.baldrReviewEvents ??= [];
+        if (!Array.isArray(state.baldrReviewEvents) ||
+            state.baldrReviewEvents.some(event => event.reviewInvocationId === invocationId)) {
+          throw new Error("Baldr review invocation ID is already in use");
+        }
+        const allowed = [
+          "reviewInvocationId", "runId", "taskReference", "threadId", "reviewerRole",
+          "inputManifestSha256", "requestedProviderId", "requestedEndpointIdentity",
+          "requestedModelId", "invokedAt", "provenanceLevel"
+        ];
+        if (Object.keys(receipt).some(key => !allowed.includes(key)) ||
+            receipt.taskReference !== reference || receipt.provenanceLevel !== "ROUTE_SEPARATED" ||
+            !/^[a-f0-9]{64}$/.test(receipt.inputManifestSha256 || "") ||
+            !["BALDR"].includes(receipt.reviewerRole)) {
+          throw new TypeError("Baldr invocation start receipt contains invalid or unrecognized metadata");
+        }
+        const invokedAt = required(receipt.invokedAt, "invokedAt", 64);
+        if (new Date(invokedAt).toISOString() !== invokedAt) {
+          throw new TypeError("Baldr invokedAt must be canonical ISO-8601");
+        }
+        state.baldrReviewEvents.push({
+          eventType: "INVOCATION_STARTED",
+          ...structuredClone(receipt)
+        });
+        await writeState(state);
+        return { durable: true, reviewInvocationId: invocationId };
+      });
+    },
+
+    async completeBaldrReviewInvocation(taskReference, completion) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        if (!completion || typeof completion !== "object") {
+          throw new TypeError("Baldr invocation completion is required");
+        }
+        const invocationId = required(completion.reviewInvocationId, "reviewInvocationId", 128);
+        const state = await readState();
+        const events = state.baldrReviewEvents ?? [];
+        const start = events.find(event =>
+          event.eventType === "INVOCATION_STARTED" &&
+          event.reviewInvocationId === invocationId &&
+          event.taskReference === reference
+        );
+        if (!start || events.some(event =>
+          event.eventType === "INVOCATION_COMPLETED" &&
+          event.reviewInvocationId === invocationId
+        )) {
+          throw new Error("Baldr invocation start is missing or already completed");
+        }
+        const allowed = [
+          "reviewInvocationId", "inputManifestSha256", "responseSha256",
+          "vaultTurnId", "providerRequestId", "provenanceLevel",
+          "status", "completedAt"
+        ];
+        if (Object.keys(completion).some(key => !allowed.includes(key)) ||
+            completion.inputManifestSha256 !== start.inputManifestSha256 ||
+            completion.status !== "COMPLETED" ||
+            completion.provenanceLevel !== "INVOCATION_ATTRIBUTED" ||
+            !/^[a-f0-9]{64}$/.test(completion.responseSha256 || "") ||
+            !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(completion.vaultTurnId || "")) {
+          throw new TypeError("Baldr invocation completion is invalid or does not match its start");
+        }
+        const completedAt = required(completion.completedAt, "completedAt", 64);
+        const completedDate = new Date(completedAt);
+        if (!Number.isFinite(completedDate.getTime()) ||
+            completedDate.toISOString() !== completedAt ||
+            completedDate.getTime() < Date.parse(start.invokedAt)) {
+          throw new TypeError("Baldr completion timestamp is invalid");
+        }
+        if (completion.providerRequestId != null &&
+            (typeof completion.providerRequestId !== "string" ||
+             !/^[A-Za-z0-9._:-]{1,256}$/.test(completion.providerRequestId))) {
+          throw new TypeError("Provider request ID is invalid");
+        }
+        events.push({
+          eventType: "INVOCATION_COMPLETED",
+          ...structuredClone(completion),
+          taskReference: reference,
+          runId: start.runId
+        });
+        await writeState(state);
+        return { durable: true, reviewInvocationId: invocationId };
+      });
+    },
+
+    async getBaldrReviewInvocation(taskReference, { runId, reviewInvocationId } = {}) {
+      return serializeMutation(async () => {
+        const reference = required(taskReference, "taskReference", 256);
+        const id = required(runId, "runId", 120);
+        const invocationId = required(reviewInvocationId, "reviewInvocationId", 128);
+        const state = await readState();
+        const events = (state.baldrReviewEvents ?? []).filter(event =>
+          event.taskReference === reference &&
+          event.runId === id &&
+          event.reviewInvocationId === invocationId
+        );
+        const start = events.find(event => event.eventType === "INVOCATION_STARTED");
+        const completion = events.find(event => event.eventType === "INVOCATION_COMPLETED");
+        if (!start) return null;
+        return {
+          start: structuredClone(start),
+          completion: completion ? structuredClone(completion) : null
+        };
+      });
+    },
+
     async appendUserAdoption(taskReference, {
       runId,
       correctionId,
