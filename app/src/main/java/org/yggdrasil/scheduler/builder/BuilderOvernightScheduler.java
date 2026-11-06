@@ -38,6 +38,7 @@ public final class BuilderOvernightScheduler {
         if (initialDelayMillis < 0 || initialDelayMillis > TimeUnit.DAYS.toMillis(7))
             throw new IllegalArgumentException("Initial delay must be between now and seven days");
 
+        Context app = context.getApplicationContext();
         String runId = UUID.randomUUID().toString();
         String threadId = UUID.randomUUID().toString();
         String workName = workName(runId);
@@ -47,7 +48,7 @@ public final class BuilderOvernightScheduler {
         Data input = new Data.Builder()
                 .putString(BuilderOvernightWorker.KEY_RUN_ID, runId)
                 .putString(BuilderOvernightWorker.KEY_THREAD_ID, threadId)
-                 .putString(BuilderOvernightWorker.KEY_TASK_PROMPT_CIPHERTEXT, sealed.ciphertext)
+                .putString(BuilderOvernightWorker.KEY_TASK_PROMPT_CIPHERTEXT, sealed.ciphertext)
                 .putString(BuilderOvernightWorker.KEY_TASK_PROMPT_IV, sealed.iv)
                 .putString(BuilderOvernightWorker.KEY_DISCLOSURE_HASH, disclosureFingerprint)
                 .putLong(BuilderOvernightWorker.KEY_CYCLE_INTERVAL, DEFAULT_CYCLE_INTERVAL_MILLIS)
@@ -58,15 +59,25 @@ public final class BuilderOvernightScheduler {
                 .setInputData(input).setConstraints(constraints)
                 .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
                 .addTag("nine-builders-overnight").build();
-        boolean saved = context.getApplicationContext()
-                .getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
+
+        BuilderOvernightRunStore store = new BuilderOvernightRunStore(app);
+        store.createScheduled(runId, threadId, taskPrompt.trim(), System.currentTimeMillis());
+        boolean saved = app.getSharedPreferences("builder_overnight_runs", Context.MODE_PRIVATE)
                 .edit().putString("last_scheduled_run_id", runId).commit();
-        if (!saved) throw new IllegalStateException("Could not persist scheduled run identifier");
-        WorkManager.getInstance(context.getApplicationContext())
-                .enqueueUniqueWork(workName, ExistingWorkPolicy.KEEP, request);
+        if (!saved) {
+            store.setStatus(runId, "FAILED", "Could not persist scheduled run identifier.",
+                    System.currentTimeMillis());
+            throw new IllegalStateException("Could not persist scheduled run identifier");
+        }
+        try {
+            WorkManager.getInstance(app).enqueueUniqueWork(workName, ExistingWorkPolicy.KEEP, request);
+        } catch (RuntimeException failure) {
+            store.setStatus(runId, "FAILED", "WorkManager rejected the scheduled request.",
+                    System.currentTimeMillis());
+            throw failure;
+        }
         return new ScheduledRun(runId, threadId, workName);
     }
-
 
     public static boolean cancelLast(Context context) {
         if (context == null) throw new IllegalArgumentException("Context is required");
@@ -77,7 +88,8 @@ public final class BuilderOvernightScheduler {
         BuilderOvernightRunStore store = new BuilderOvernightRunStore(app);
         org.json.JSONObject state = store.read(runId);
         if (state != null) {
-            if (!"RUNNING".equals(state.optString("status"))) return false;
+            String status = state.optString("status");
+            if (!"RUNNING".equals(status) && !"SCHEDULED".equals(status)) return false;
             store.setStatus(runId, "CANCELLED",
                     "Cancelled by the user from the Builder Conversation screen.",
                     System.currentTimeMillis());
