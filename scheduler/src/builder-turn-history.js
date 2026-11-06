@@ -1,4 +1,5 @@
 import { BUILDER_ROLES } from "./run-ledger.js";
+import { parseBuilderEvidenceReference } from "./builder-evidence-reference.js";
 
 const DIRECTED_TYPES = new Set([
   "QUESTION", "CHALLENGE", "RESPONSE", "HANDOFF", "ACKNOWLEDGEMENT",
@@ -82,31 +83,12 @@ function reviewIncidentIdFromPrompt(prompt) {
   return value || null;
 }
 
-function parseEvidenceReference(value, expectedKind, stage) {
-  const raw = nonEmpty(value, "Correction " + stage + " artifact_reference", 2048);
-  let url;
-  try { url = new URL(raw); }
-  catch { throw new Error(stage + " requires a typed GitHub evidence reference"); }
-  if (url.hostname !== "github.com") {
-    throw new Error(stage + " evidence reference must identify github.com");
+function requireEvidenceReference(value, expectedKind, stage) {
+  const reference = parseBuilderEvidenceReference(value);
+  if (reference.kind !== expectedKind) {
+    throw new Error(stage + " requires a typed " + expectedKind + " GitHub evidence reference");
   }
-  const parts = url.pathname.split("/");
-  if (url.protocol === "github+commit:" && expectedKind === "COMMIT") {
-    if (parts.length !== 4 || !/^[0-9a-fA-F]{40}$/.test(parts[3]) ||
-        !url.searchParams.get("branch")?.trim()) {
-      throw new Error("IMPLEMENTED requires a typed full-SHA GitHub commit reference with branch");
-    }
-    return { kind: "COMMIT" };
-  }
-  if (url.protocol === "github+actions:" && expectedKind === "ACTIONS_RUN") {
-    if (parts.length !== 5 || parts[3] !== "runs" || !/^[1-9][0-9]*$/.test(parts[4]) ||
-        !url.searchParams.get("workflow")?.trim() ||
-        !/^[0-9a-fA-F]{40}$/.test(url.searchParams.get("sha") || "")) {
-      throw new Error(stage + " requires a typed GitHub Actions run reference with workflow and tested SHA");
-    }
-    return { kind: "ACTIONS_RUN" };
-  }
-  throw new Error(stage + " requires a typed " + expectedKind + " GitHub evidence reference");
+  return reference;
 }
 
 function validateReplyShape(type, speaker, recipient, replyTo, evidenceStatus) {
@@ -355,10 +337,10 @@ function validateCorrectionHistory(history, ids, reviewIncidentId) {
       throw new Error("Only unaffected Baldr may issue VERIFIED");
     }
     if (item.stage === "IMPLEMENTED") {
-      parseEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
+      requireEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
     }
     if (item.stage === "TESTED" || item.stage === "VERIFIED") {
-      parseEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
+      requireEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
     }
     const evidence = nonEmpty(item.evidence, "Correction update evidence", 4096);
     const criteria = nonEmpty(item.acceptance_criteria_result, "Correction update acceptance_criteria_result", 4096);
@@ -464,9 +446,9 @@ export function validateBuilderReplyAgainstHistory(reply, history, speaker, prom
     if (reply.evidence_status !== item.stage) {
       throw new Error("Correction update evidence_status must match its lifecycle stage");
     }
-    if (item.stage === "IMPLEMENTED") parseEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
+    if (item.stage === "IMPLEMENTED") requireEvidenceReference(item.artifact_reference, "COMMIT", item.stage);
     if (item.stage === "TESTED" || item.stage === "VERIFIED") {
-      parseEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
+      requireEvidenceReference(item.artifact_reference, "ACTIONS_RUN", item.stage);
     }
     const evidence = nonEmpty(item.evidence, "Correction update evidence", 4096);
     const criteria = nonEmpty(item.acceptance_criteria_result, "Correction update acceptance_criteria_result", 4096);
