@@ -171,7 +171,9 @@ function roleSystemInstruction(role, task) {
       "outputs against the task and available evidence. Do not review or certify your own work. Identify unsupported " +
       "claims, missing evidence, failures, and unresolved risks. Do not equate model self-report with verification.";
   }
-  instruction += " For INTERRUPTION or IMPROVEMENT_INCIDENT, address USER and reference an earlier turn. " +
+  instruction += " The current user task prompt has stable turn identity " + task.promptTurnId +
+    ". When replying to the task prompt, use that exact reply_to_turn_id. " +
+    " For INTERRUPTION or IMPROVEMENT_INCIDENT, address USER and reference an earlier turn. " +
     "For CORRECTION_PLAN or CORRECTION_UPDATE, address USER and reference the relevant earlier turn. " +
     "Never create a decision or claim user adoption.";
   instruction += buildBuilderModeInstructions(role, task.prompt, task.history);
@@ -328,7 +330,7 @@ function validateOperationalLimitsSnapshot(value) {
   return unavailableOperationalLimitsSnapshot("Unknown operational-limits register status; availability remains unknown.");
 }
 
-function validateTask(task, routes, runId) {
+function validateTask(task, routes, runId, taskReference) {
   if (!task || typeof task !== "object" || Array.isArray(task)) {
     throw new TypeError("Secure task vault returned no task object");
   }
@@ -353,6 +355,9 @@ function validateTask(task, routes, runId) {
   }
 
   const threadId = requiredText(task.threadId, "Run-specific threadId", 256);
+  const promptTurnId = task.promptTurnId == null
+    ? "task-prompt:" + runId
+    : requiredText(task.promptTurnId, "Task prompt turn identity", 256);
   for (const turn of history) {
     const speaker = requiredText(turn?.speaker, "Run history speaker", 32);
     if (speaker !== "USER" && !BUILDER_ROLES.includes(speaker)) {
@@ -362,7 +367,11 @@ function validateTask(task, routes, runId) {
   validateBuilderHistory(history, runId, threadId);
   const limits = validateOperationalLimitsSnapshot(task.operationalLimitsSnapshot);
   if (JSON.stringify(limits).length > 16384) throw new RangeError("Operational-limits snapshot exceeds 16 KiB");
-  return { prompt, history, threadId, operationalLimitsSnapshot: limits, consentFingerprint: fingerprint };
+  return {
+    prompt, promptTurnId,
+    promptTurnIdSource: task.promptTurnId == null ? "DERIVED_LEGACY_RUN_ID" : "VAULT",
+    history, threadId, operationalLimitsSnapshot: limits, consentFingerprint: fingerprint
+  };
 }
 
 export function createOpenAiCompatibleExecutor({
@@ -400,7 +409,7 @@ export function createOpenAiCompatibleExecutor({
     }
 
     if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
-    const task = validateTask(await taskVault.getTask(taskReference, { runId }), routes, runId);
+    const task = validateTask(await taskVault.getTask(taskReference, { runId }), routes, runId, taskReference);
     const previousThreadId = runThreads.get(runId);
     if (previousThreadId && previousThreadId !== task.threadId) {
       throw new Error("Task vault changed the dedicated thread ID during a scheduled run");
@@ -417,6 +426,8 @@ export function createOpenAiCompatibleExecutor({
     }
     const userMessage = JSON.stringify({
       task_prompt: task.prompt,
+      task_prompt_turn_id: task.promptTurnId,
+      task_prompt_turn_id_source: task.promptTurnIdSource,
       prior_turns_oldest_first: task.history,
       operational_limits_snapshot: task.operationalLimitsSnapshot,
       prior_builder_outcomes: outcomes
@@ -472,7 +483,7 @@ export function createOpenAiCompatibleExecutor({
       try { rawReply = JSON.parse(content); }
       catch { throw new Error("Builder model content was not valid JSON"); }
       const reply = validateBuilderReply(rawReply);
-      validateBuilderReplyAgainstHistory(reply, task.history, role);
+      validateBuilderReplyAgainstHistory(reply, task.history, role, task.promptTurnId);
       if (context.signal?.aborted) throw context.signal.reason || new Error("Builder run cancelled");
 
       const responseHash = createHash("sha256").update(content, "utf8").digest("hex");
