@@ -202,6 +202,178 @@ test("encrypted vault requires explicit approval and preserves isolated run hist
   }
 });
 
+test("forks encrypted run history atomically while preserving turns and reply links", async () => {
+  const f = await fixture();
+  try {
+    const taskReference = "task:history-fork";
+    const sourceRunId = "legacy-run-001";
+    const targetRunId = "continuation-run-001";
+    await f.vault.initializeTask(taskReference, "Continue the recorded task.");
+    const sourceTask = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    const firstAt = new Date(Date.parse(sourceTask.promptCreatedAt) + 1000).toISOString();
+    const first = await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":ODIN",
+      runId: sourceRunId, threadId: sourceTask.threadId, role: "ODIN",
+      requestedProviderId: "fixture-provider", requestedModel: "odin-fixture",
+      providerReportedModel: "odin-fixture", responseSha256: "a".repeat(64),
+      reply: { body: "Original root contribution", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" },
+      completedAt: firstAt
+    });
+    const secondAt = new Date(Date.parse(firstAt) + 1000).toISOString();
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":HODR",
+      runId: sourceRunId, threadId: sourceTask.threadId, role: "HODR",
+      requestedProviderId: "fixture-provider", requestedModel: "hodr-fixture",
+      providerReportedModel: "hodr-fixture", responseSha256: "b".repeat(64),
+      reply: {
+        body: "A response linked to Odin",
+        turn_type: "RESPONSE", evidence_status: "OBSERVED",
+        recipient: "ODIN", reply_to_turn_id: first.checkpointId
+      },
+      completedAt: secondAt
+    });
+    const sourceBefore = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    const manifest = await f.vault.getRunHistoryManifest(taskReference, { runId: sourceRunId });
+    const fork = await f.vault.forkRunHistory(taskReference, {
+      sourceRunId, targetRunId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    });
+    assert.equal(fork.durable, true);
+    assert.equal(fork.duplicate, false);
+    assert.equal(fork.importedTurnCount, 2);
+    assert.notEqual(fork.targetThreadId, fork.sourceThreadId);
+
+    const target = await f.vault.getTask(taskReference, { runId: targetRunId });
+    assert.equal(target.threadId, fork.targetThreadId);
+    assert.equal(target.promptTurnId, sourceBefore.promptTurnId);
+    assert.equal(target.promptCreatedAt, sourceBefore.promptCreatedAt);
+    assert.equal(target.history.length, sourceBefore.history.length);
+    for (let index = 0; index < sourceBefore.history.length; index += 1) {
+      const imported = structuredClone(target.history[index]);
+      const origin = imported.origin;
+      delete imported.origin;
+      imported.runId = sourceBefore.history[index].runId;
+      imported.threadId = sourceBefore.history[index].threadId;
+      assert.deepEqual(imported, sourceBefore.history[index]);
+      assert.deepEqual(origin, {
+        kind: "ENCRYPTED_VAULT_RUN_FORK",
+        sourceTaskReference: taskReference,
+        sourceRunId,
+        sourceThreadId: sourceBefore.threadId,
+        sourceTurnId: sourceBefore.history[index].turnId
+      });
+    }
+    assert.equal(target.history[1].reply_to_turn_id, target.history[0].turnId);
+    assert.equal(target.history[0].idempotencyKey, sourceBefore.history[0].idempotencyKey);
+
+    const retry = await f.vault.forkRunHistory(taskReference, {
+      sourceRunId, targetRunId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    });
+    assert.equal(retry.duplicate, true);
+
+    const nextAt = new Date(Date.parse(secondAt) + 1000).toISOString();
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: targetRunId + ":TYR",
+      runId: targetRunId, threadId: target.threadId, role: "TYR",
+      requestedProviderId: "fixture-provider", requestedModel: "tyr-fixture",
+      providerReportedModel: "tyr-fixture", responseSha256: "c".repeat(64),
+      reply: { body: "New continuation contribution", turn_type: "CONTRIBUTION", evidence_status: "PROPOSED" },
+      completedAt: nextAt
+    });
+    const continued = await f.vault.getTask(taskReference, { runId: targetRunId });
+    assert.equal(continued.history.length, 3);
+    assert.equal(continued.history[2].idempotencyKey, targetRunId + ":TYR");
+
+    const sourceAfter = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    assert.deepEqual(sourceAfter.history, sourceBefore.history);
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("history fork rejects a source changed after manifest inspection and creates no target", async () => {
+  const f = await fixture();
+  try {
+    const taskReference = "task:history-fork-race";
+    const sourceRunId = "legacy-race-001";
+    const targetRunId = "continuation-race-001";
+    await f.vault.initializeTask(taskReference, "Detect source history races.");
+    const source = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    const firstAt = new Date(Date.parse(source.promptCreatedAt) + 1000).toISOString();
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":ODIN",
+      runId: sourceRunId, threadId: source.threadId, role: "ODIN",
+      requestedProviderId: "fixture-provider", requestedModel: "odin-fixture",
+      providerReportedModel: "odin-fixture", responseSha256: "d".repeat(64),
+      reply: { body: "First source result", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" },
+      completedAt: firstAt
+    });
+    const manifest = await f.vault.getRunHistoryManifest(taskReference, { runId: sourceRunId });
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":HODR",
+      runId: sourceRunId, threadId: source.threadId, role: "HODR",
+      requestedProviderId: "fixture-provider", requestedModel: "hodr-fixture",
+      providerReportedModel: "hodr-fixture", responseSha256: "e".repeat(64),
+      reply: { body: "Changed source history", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" },
+      completedAt: new Date(Date.parse(firstAt) + 1000).toISOString()
+    });
+    await assert.rejects(() => f.vault.forkRunHistory(taskReference, {
+      sourceRunId, targetRunId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    }), /Source history changed after manifest inspection/);
+    await assert.rejects(
+      () => f.vault.getRunHistoryManifest(taskReference, { runId: targetRunId }),
+      /Source run history does not exist/
+    );
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("concurrent identical history forks are idempotent and conflicting target reuse fails closed", async () => {
+  const f = await fixture();
+  try {
+    const taskReference = "task:history-fork-concurrent";
+    const sourceRunId = "legacy-concurrent-001";
+    const targetRunId = "continuation-concurrent-001";
+    await f.vault.initializeTask(taskReference, "Concurrent fork test.");
+    const source = await f.vault.getTask(taskReference, { runId: sourceRunId });
+    await f.vault.appendBuilderResult(taskReference, {
+      idempotencyKey: sourceRunId + ":ODIN",
+      runId: sourceRunId, threadId: source.threadId, role: "ODIN",
+      requestedProviderId: "fixture-provider", requestedModel: "odin-fixture",
+      providerReportedModel: "odin-fixture", responseSha256: "f".repeat(64),
+      reply: { body: "Concurrent source result", turn_type: "CONTRIBUTION", evidence_status: "OBSERVED" },
+      completedAt: new Date(Date.parse(source.promptCreatedAt) + 1000).toISOString()
+    });
+    const manifest = await f.vault.getRunHistoryManifest(taskReference, { runId: sourceRunId });
+    const secondVault = createEncryptedTaskVault({ filePath: f.filePath, key: f.key });
+    const options = {
+      sourceRunId, targetRunId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    };
+    const results = await Promise.all([
+      f.vault.forkRunHistory(taskReference, options),
+      secondVault.forkRunHistory(taskReference, options)
+    ]);
+    assert.equal(results.filter(item => item.duplicate === false).length, 1);
+    assert.equal(results.filter(item => item.duplicate === true).length, 1);
+    await assert.rejects(() => f.vault.forkRunHistory(taskReference, {
+      ...options, expectedSourceHistorySha256: "0".repeat(64)
+    }), /Source history changed after manifest inspection/);
+    await assert.rejects(() => f.vault.forkRunHistory(taskReference, {
+      ...options, expectedSourceThreadId: "nine-builders:wrong-source"
+    }), /Source run thread does not match/);
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
 test("only the configured read-only evidence gateway can mark a constraint VERIFIED", async () => {
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-verified-constraint-"));
   await chmod(directory, 0o700);
@@ -382,6 +554,42 @@ test("only a signed, fresh, task-bound user action can append adoption after Bal
     assert.equal(adoption.reply_to_turn_id, f.verified.checkpointId);
     assert.equal(adoption.userAuthorization.verificationMethod, "ED25519_USER_ACTION_ASSERTION");
     assert.equal(JSON.parse(adoption.body).stage, "ADOPTED");
+  } finally {
+    await rm(f.directory, { recursive: true, force: true });
+  }
+});
+
+test("fork preserves normalized user-adoption authorization with its original source binding", async () => {
+  const f = await correctionReadyFixture();
+  try {
+    const authorization = f.authorize();
+    await f.vault.appendUserAdoption(f.taskReference, {
+      runId: f.runId, correctionId: "correction-001", authorization
+    });
+    const source = await f.vault.getTask(f.taskReference, { runId: f.runId });
+    const adoption = source.history.at(-1);
+    const manifest = await f.vault.getRunHistoryManifest(f.taskReference, { runId: f.runId });
+    const targetRunId = "run-adoption-continuation";
+    await f.vault.forkRunHistory(f.taskReference, {
+      sourceRunId: f.runId, targetRunId,
+      expectedSourceThreadId: manifest.threadId,
+      expectedSourceHistorySha256: manifest.historySha256
+    });
+    const target = await f.vault.getTask(f.taskReference, { runId: targetRunId });
+    const importedAdoption = target.history.at(-1);
+    assert.deepEqual(importedAdoption.userAuthorization, adoption.userAuthorization);
+    assert.equal(importedAdoption.userAuthorization.runId, f.runId);
+    assert.equal(importedAdoption.userAuthorization.threadId, source.threadId);
+    assert.equal(importedAdoption.runId, targetRunId);
+    assert.equal(importedAdoption.threadId, target.threadId);
+    assert.deepEqual(importedAdoption.origin, {
+      kind: "ENCRYPTED_VAULT_RUN_FORK",
+      sourceTaskReference: f.taskReference,
+      sourceRunId: f.runId,
+      sourceThreadId: source.threadId,
+      sourceTurnId: adoption.turnId
+    });
+    assert.deepEqual((await f.vault.getTask(f.taskReference, { runId: f.runId })).history, source.history);
   } finally {
     await rm(f.directory, { recursive: true, force: true });
   }
