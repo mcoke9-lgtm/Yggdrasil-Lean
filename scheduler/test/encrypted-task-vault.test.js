@@ -17,7 +17,7 @@ async function fixture() {
 }
 
 
-async function correctionReadyFixture() {
+async function correctionReadyFixture({ includeVerification = true } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "nine-builders-adoption-"));
   await chmod(directory, 0o700);
   const filePath = join(directory, "tasks.vault");
@@ -32,7 +32,7 @@ async function correctionReadyFixture() {
   const threadId = "nine-builders:" + runId;
   const promptTurnId = "task-prompt-1";
   const promptCreatedAt = new Date(baseTime).toISOString();
-  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\\nincident_turn_id=incident-1\\nReview the recorded incident.";
+  const prompt = "BUILDER_IMPROVEMENT_REVIEW_MODE\nincident_turn_id=incident-1\nReview the recorded incident.";
   const sha = "0123456789abcdef0123456789abcdef01234567";
   const commitRef = "github+commit://github.com/acme/project/" + sha + "?branch=correction";
   const actionsRef = "github+actions://github.com/acme/project/runs/12345?workflow=scheduler-tests&sha=" + sha;
@@ -96,7 +96,9 @@ async function correctionReadyFixture() {
     tasks: {
       [taskReference]: {
         prompt, promptTurnId, promptCreatedAt, consent: null,
-        runs: { [runId]: { threadId, history: [incident, plan, implemented, tested, verified] } }
+        runs: { [runId]: { threadId, history: includeVerification
+          ? [incident, plan, implemented, tested, verified]
+          : [incident, plan, implemented, tested] } }
       }
     }
   };
@@ -107,7 +109,7 @@ async function correctionReadyFixture() {
   const plaintext = Buffer.from(JSON.stringify(state), "utf8");
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const encrypted = Buffer.concat([
-    Buffer.from(magic + "\\n1\\n", "utf8"),
+    Buffer.from(magic + "\n1\n", "utf8"),
     iv, cipher.getAuthTag(), ciphertext
   ]);
   await writeFile(filePath, encrypted, { mode: 0o600 });
@@ -223,20 +225,26 @@ test("only a signed, fresh, task-bound user action can append adoption after Bal
 });
 
 test("adoption fails closed without independent verification or a configured signing key", async () => {
-  const f = await correctionReadyFixture({ includeVerification: false });
+  const incomplete = await correctionReadyFixture({ includeVerification: false });
   try {
-    await assert.rejects(() => f.vault.appendUserAdoption(f.taskReference, {
-      runId: f.runId, correctionId: "correction-001", authorization: f.authorize()
+    await assert.rejects(() => incomplete.vault.appendUserAdoption(incomplete.taskReference, {
+      runId: incomplete.runId, correctionId: "correction-001", authorization: incomplete.authorize()
     }), /Only the latest independently verified Baldr correction can be adopted/);
+  } finally {
+    await rm(incomplete.directory, { recursive: true, force: true });
+  }
+
+  const complete = await correctionReadyFixture();
+  try {
     const noKeyVault = createEncryptedTaskVault({
-      filePath: f.filePath, key: f.key,
-      clock: () => f.fixedNow
+      filePath: complete.filePath, key: complete.key,
+      clock: () => complete.fixedNow
     });
-    await assert.rejects(() => noKeyVault.appendUserAdoption(f.taskReference, {
-      runId: f.runId, correctionId: "correction-001", authorization: f.authorize()
+    await assert.rejects(() => noKeyVault.appendUserAdoption(complete.taskReference, {
+      runId: complete.runId, correctionId: "correction-001", authorization: complete.authorize()
     }), /signing key is not configured/);
   } finally {
-    await rm(f.directory, { recursive: true, force: true });
+    await rm(complete.directory, { recursive: true, force: true });
   }
 });
 
