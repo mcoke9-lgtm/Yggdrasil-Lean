@@ -129,7 +129,13 @@ export function createEncryptedTaskVault({
           approvalRequired: !state.tasks[reference].consent
         };
       }
-      state.tasks[reference] = { prompt: taskPrompt, consent: null, runs: {} };
+      state.tasks[reference] = {
+        prompt: taskPrompt,
+        promptTurnId: "task-prompt-" + randomBytes(16).toString("hex"),
+        promptCreatedAt: new Date().toISOString(),
+        consent: null,
+        runs: {}
+      };
       await writeState(state);
       return { taskReference: reference, approvalRequired: true };
     },
