@@ -224,7 +224,7 @@ test("executor recovers a durable same-run result without repeating a provider r
   };
   const result = await executor("HODR", context);
   assert.equal(result.status, "succeeded");
-  assert.match(result.summary, /no model request was repeated/);
+  assert.equal(result.outcomeRef, "checkpoint-hodr-001");
   assert.equal(providerCalls, 0);
   assert.equal(secretReads, 0);
   assert.equal(checkpoints.length, 1);
@@ -232,7 +232,7 @@ test("executor recovers a durable same-run result without repeating a provider r
   const probe = await executor.recoverDurableResult("HODR", context);
   assert.equal(probe.checkpointId, "checkpoint-hodr-001");
   assert.equal(probe.status, "succeeded");
-  assert.equal(probe.data.responseSha256, responseSha256);
+  assert.equal(probe.responseSha256, responseSha256);
   assert.equal(providerCalls, 0);
 });
 
@@ -249,7 +249,7 @@ test("uses operator routes, secure task lookup, bounded JSON output, and durable
   });
   const result = await h.executor("ODIN", h.context("ODIN"));
   assert.equal(result.status, "succeeded");
-  assert.match(result.summary, /checkpoint-odin/);
+  assert.equal(result.outcomeRef, "checkpoint-odin");
   assert.match(request.url, /odin\/v1\/chat\/completions$/);
   assert.equal(request.options.headers.Authorization, "Bearer test-token-for-secret-odin");
   assert.equal(request.options.redirect, "error");
