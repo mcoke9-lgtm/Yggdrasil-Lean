@@ -611,8 +611,14 @@ export async function createBuilderExecutor() {
     }
     if (gatewayInfo.size > 65536) throw new RangeError("Evidence gateway module exceeds 64 KiB");
     const gatewayModule = await import(pathToFileURL(gatewayFile).href);
+    const evidenceSecretRef = requiredText(
+      config.evidenceGatewaySecretRef, "evidenceGatewaySecretRef", 256
+    );
     const candidate = typeof gatewayModule.createEvidenceGateway === "function"
-      ? await gatewayModule.createEvidenceGateway({ readSecret: credentialsModule.readSecret })
+      ? await gatewayModule.createEvidenceGateway({
+          readSecret: credentialsModule.readSecret,
+          secretRef: evidenceSecretRef
+        })
       : gatewayModule.evidenceGateway;
     const methodNames = [
       "fetchCommit", "branchContainsCommit", "fetchWorkflowRun", "fetchWorkflowJobs"
