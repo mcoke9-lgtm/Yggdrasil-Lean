@@ -1,6 +1,6 @@
 # Nine Builders overnight runs
 
-The Android app now has a scheduled-run path built on WorkManager. Scheduling first persists a `SCHEDULED` checkpoint containing the run/thread identity and approved-prompt digest; the worker changes it to `RUNNING` only when execution begins. The eight-hour deadline starts at that transition, not at queue time. A queued run can therefore be durably cancelled before its first worker invocation.
+The Android app now has a scheduled-run path built on WorkManager. Scheduling first persists a `SCHEDULED` checkpoint containing the run/thread identity and approved-prompt digest; the worker changes it to `RUNNING` only when execution begins. The eight-hour deadline starts at that transition, not at queue time. A queued run can therefore be durably cancelled before its first worker invocation. State transitions that can race (schedule, start, cycle commit, and cancellation) share an in-process lock across run-store instances; this is not a cross-process transaction or a substitute for device-level race testing.
 
 ## Behavior
 
