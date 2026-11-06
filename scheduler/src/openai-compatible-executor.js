@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { BUILDER_ROLES } from "./run-ledger.js";
+import { BUILDER_ROLES, BUILDER_ERROR_CODES } from "./run-ledger.js";
 import { buildBuilderModeInstructions } from "./builder-prompt-modes-contract.js";
 import { validateBuilderHistory, validateBuilderReplyAgainstHistory } from "./builder-turn-history.js";
 import { parseBuilderEvidenceReference, verifyBuilderEvidenceReference } from "./builder-evidence-reference.js";
@@ -36,6 +36,54 @@ const MAX_TASK_PROMPT_CHARS = 32000;
 const MAX_CONTEXT_CHARS = 64000;
 const MAX_OUTPUT_TOKENS = 2048;
 const MAX_TURN_BODY_CHARS = 8000;
+
+function validateOutcomeMetadata(value) {
+  if (!Array.isArray(value)) throw new TypeError("Builder outcomes must be a metadata array");
+  const allowed = [
+    "role", "status", "attempt", "errorCode", "outcomeRef",
+    "outcomeType", "evidenceStatus"
+  ];
+  const seen = new Set();
+  let previousRoleIndex = -1;
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item) ||
+        Object.keys(item).some(key => !allowed.includes(key))) {
+      throw new TypeError("Builder outcome contains an unrecognized or free-text field");
+    }
+    const roleIndex = BUILDER_ROLES.indexOf(item.role);
+    if (roleIndex < 0 || seen.has(item.role) || roleIndex <= previousRoleIndex) {
+      throw new TypeError("Builder outcomes must use unique canonical role order");
+    }
+    previousRoleIndex = roleIndex;
+    seen.add(item.role);
+    if (!["succeeded", "failed", "skipped"].includes(item.status) ||
+        !Number.isSafeInteger(item.attempt) || item.attempt < 1) {
+      throw new TypeError("Builder outcome status or attempt is invalid");
+    }
+    if (item.errorCode != null && !BUILDER_ERROR_CODES.includes(item.errorCode)) {
+      throw new TypeError("Builder outcome errorCode is not allowlisted");
+    }
+    if (item.status === "failed" && item.errorCode == null) {
+      throw new TypeError("Failed Builder outcome requires an errorCode");
+    }
+    if (item.status === "succeeded" &&
+        (typeof item.outcomeRef !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(item.outcomeRef))) {
+      throw new TypeError("Successful Builder outcome requires an opaque vault outcomeRef");
+    }
+    if (item.outcomeRef != null &&
+        (typeof item.outcomeRef !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(item.outcomeRef))) {
+      throw new TypeError("Builder outcomeRef must be a stable vault reference");
+    }
+    if (item.outcomeType != null && !TURN_TYPES.has(item.outcomeType)) {
+      throw new TypeError("Builder outcomeType is not supported");
+    }
+    if (item.evidenceStatus != null && !EVIDENCE_STATUSES.has(item.evidenceStatus) &&
+        item.evidenceStatus !== "ADOPTED") {
+      throw new TypeError("Builder outcome evidenceStatus is not supported");
+    }
+  }
+  return value;
+}
 
 function requiredText(value, label, maxLength = 4096) {
   if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
@@ -576,13 +624,21 @@ export function createOpenAiCompatibleExecutor({
         evidenceStatus: recovered.evidenceStatus
       };
     }
-    const outcomes = Array.isArray(context.outcomes) ? context.outcomes : [];
+    const outcomes = validateOutcomeMetadata(
+      Array.isArray(context.outcomes) ? context.outcomes : []
+    );
     if (role === "BALDR") {
-      const successfulRoles = outcomes.filter(item => item.status === "succeeded").map(item => item.role);
-      const historySpeakers = new Set(task.history.map(turn => turn.speaker));
-      const missingHistory = successfulRoles.filter(value => !historySpeakers.has(value));
-      if (missingHistory.length) {
-        throw new Error("Baldr cannot review until successful Builder results are present in the run thread: " + missingHistory.join(","));
+      const peerRoles = BUILDER_ROLES.filter(value => value !== "BALDR");
+      const completedRoles = new Set(outcomes.map(item => item.role));
+      const missingOutcomes = peerRoles.filter(value => !completedRoles.has(value));
+      const mismatchedHistory = outcomes.filter(item => item.status === "succeeded").filter(item => {
+        const matches = task.history.filter(turn => turn.speaker === item.role);
+        const turnId = matches[0]?.checkpointId ?? matches[0]?.turnId;
+        return matches.length !== 1 || turnId !== item.outcomeRef;
+      }).map(item => item.role);
+      if (missingOutcomes.length || mismatchedHistory.length) {
+        throw new Error("Baldr requires all eight peer outcomes and exact matching vault turns: " +
+          [...missingOutcomes, ...mismatchedHistory].join(","));
       }
     }
     const userMessage = JSON.stringify({
