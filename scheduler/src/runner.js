@@ -97,12 +97,7 @@ try {
       if (stopping || heartbeatInFlight) return;
       heartbeatInFlight = true;
       try {
-        const heartbeatAt = await releaseLock.heartbeat();
-        process.stdout.write(JSON.stringify({
-          event: "scheduler_lease_heartbeat",
-          pid: releaseLock.pid,
-          heartbeatAt
-        }) + "\n");
+        await releaseLock.heartbeat();
       } catch (error) {
         process.stderr.write(JSON.stringify({
           event: "scheduler_lease_lost",
