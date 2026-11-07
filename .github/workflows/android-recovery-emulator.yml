@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: android-recovery-emulator-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   recovery-emulator:
@@ -40,8 +40,31 @@ jobs:
           echo "${ANDROID_HOME}/emulator" >> "${GITHUB_PATH}"
           echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "${GITHUB_PATH}"
 
+      - name: Verify Android SDK and emulator prerequisites
+        run: |
+          set -euo pipefail
+          {
+            echo "ANDROID_HOME=${ANDROID_HOME}"
+            echo "PATH=${PATH}"
+            echo "Runner kernel:"
+            uname -a
+            echo "Disk space:"
+            df -h
+            echo "ADB location and version:"
+            command -v adb
+            adb version
+            echo "Emulator location and version:"
+            command -v emulator
+            emulator -version
+            echo "Emulator acceleration check (informational):"
+            emulator -accel-check || true
+            echo "Installed AVDs before creation:"
+            emulator -list-avds
+          } 2>&1 | tee "${RUNNER_TEMP}/android-preflight.txt"
+
       - name: Create disposable API 35 virtual device
         run: |
+          set -euo pipefail
           export ANDROID_AVD_HOME="${RUNNER_TEMP}/android-avd"
           echo "ANDROID_AVD_HOME=${RUNNER_TEMP}/android-avd" >> "${GITHUB_ENV}"
           mkdir -p "${ANDROID_AVD_HOME}"
@@ -51,13 +74,25 @@ jobs:
             --device "pixel_2" \
             --force
           echo "Created AVD files:"
-          find "${ANDROID_AVD_HOME}" -maxdepth 2 -type f -print
+          find "${ANDROID_AVD_HOME}" -maxdepth 3 -type f -print
+          echo "AVD configuration:"
+          cat "${ANDROID_AVD_HOME}/recovery-api35.avd/config.ini"
+          echo "Available AVDs:"
+          emulator -list-avds
 
       - name: Boot disposable emulator
         run: |
+          set -euo pipefail
+          LOG="${RUNNER_TEMP}/recovery-emulator.log"
           echo "Using ANDROID_AVD_HOME=${ANDROID_AVD_HOME}"
           ls -la "${ANDROID_AVD_HOME}"
-          "${ANDROID_HOME}/emulator/emulator" \
+          echo "ADB:"
+          command -v adb
+          adb version
+          echo "Emulator:"
+          command -v emulator
+          emulator -version
+          emulator -verbose \
             -avd recovery-api35 \
             -no-window \
             -no-audio \
@@ -65,24 +100,32 @@ jobs:
             -no-snapshot \
             -wipe-data \
             -gpu swiftshader_indirect \
-            > "${RUNNER_TEMP}/recovery-emulator.log" 2>&1 &
-          if ! timeout 180 adb wait-for-device; then
-            echo "::error::Timed out waiting for the emulator to connect to ADB."
+            > "${LOG}" 2>&1 &
+          EMULATOR_PID=$!
+          echo "Emulator PID=${EMULATOR_PID}"
+          echo "Waiting up to 180 seconds for ADB device connection..."
+          if ! timeout 180s adb wait-for-device; then
+            echo "::error::Emulator process did not connect to ADB within 180 seconds."
             adb devices -l || true
-            tail -n 200 "${RUNNER_TEMP}/recovery-emulator.log" || true
+            ps -ef | grep -E '[e]mulator|[q]emu' || true
+            tail -n 300 "${LOG}" || true
             exit 1
           fi
-          if ! timeout 300 bash -c 'until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == "1" ]]; do sleep 2; done'; then
-            echo "::error::Timed out waiting for Android sys.boot_completed."
+          echo "ADB device connected. Waiting up to 300 seconds for Android boot completion..."
+          if ! timeout 300s bash -c 'until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == "1" ]]; do sleep 2; done'; then
+            echo "::error::ADB connected, but Android did not report sys.boot_completed=1 within 300 seconds."
             adb devices -l || true
-            adb shell getprop || true
-            tail -n 200 "${RUNNER_TEMP}/recovery-emulator.log" || true
+            adb shell getprop sys.boot_completed || true
+            adb shell getprop ro.boot.qemu || true
+            tail -n 300 "${LOG}" || true
             exit 1
           fi
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
+          echo "Android API level:"
           adb shell getprop ro.build.version.sdk
+          echo "Android release:"
           adb shell getprop ro.build.version.release
 
       - name: Run Android recovery instrumentation tests
@@ -91,11 +134,38 @@ jobs:
       - name: Capture emulator diagnostics
         if: always()
         run: |
-          mkdir -p "${RUNNER_TEMP}/recovery-emulator-artifacts"
-          adb logcat -d > "${RUNNER_TEMP}/recovery-emulator-artifacts/logcat.txt" || true
-          cp "${RUNNER_TEMP}/recovery-emulator.log" "${RUNNER_TEMP}/recovery-emulator-artifacts/" || true
-          cp -R app/build/outputs/androidTest-results "${RUNNER_TEMP}/recovery-emulator-artifacts/" 2>/dev/null || true
-          cp -R app/build/reports/androidTests "${RUNNER_TEMP}/recovery-emulator-artifacts/" 2>/dev/null || true
+          set +e
+          OUT="${RUNNER_TEMP}/recovery-emulator-artifacts"
+          mkdir -p "${OUT}"
+          {
+            echo "UTC timestamp:"
+            date -u
+            echo "Runner:"
+            uname -a
+            echo "ANDROID_HOME=${ANDROID_HOME}"
+            echo "ANDROID_AVD_HOME=${ANDROID_AVD_HOME:-unset}"
+            echo "Disk space:"
+            df -h
+            echo "ADB:"
+            command -v adb
+            adb version
+            echo "Emulator:"
+            command -v emulator
+            emulator -version
+            echo "AVD list:"
+            emulator -list-avds
+            echo "Relevant processes:"
+            ps -ef | grep -E '[e]mulator|[q]emu|[a]db' || true
+          } > "${OUT}/runner-diagnostics.txt" 2>&1
+          timeout 30s adb devices -l > "${OUT}/adb-devices.txt" 2>&1
+          timeout 30s adb shell getprop > "${OUT}/device-properties.txt" 2>&1
+          timeout 45s adb logcat -d > "${OUT}/logcat.txt" 2>&1
+          cp "${RUNNER_TEMP}/android-preflight.txt" "${OUT}/" 2>/dev/null || true
+          cp "${RUNNER_TEMP}/recovery-emulator.log" "${OUT}/" 2>/dev/null || true
+          cp -R app/build/outputs/androidTest-results "${OUT}/" 2>/dev/null || true
+          cp -R app/build/reports/androidTests "${OUT}/" 2>/dev/null || true
+          echo "Collected diagnostic files:"
+          find "${OUT}" -maxdepth 4 -type f -print
 
       - name: Upload emulator test evidence
         if: always()
