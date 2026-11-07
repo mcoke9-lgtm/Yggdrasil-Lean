@@ -181,6 +181,17 @@ public final class BuilderEventJournal extends SQLiteOpenHelper {
             db.delete("events", null, null);
             for (ContentValues row : eventRows) db.insertOrThrow("events", null, row);
             for (ContentValues row : receiptRows) db.insertOrThrow("processed_messages", null, row);
+
+            // Explicit sequence inserts do not lower SQLite's AUTOINCREMENT high-water mark.
+            // Reset it inside the same transaction so the next append continues at N+1,
+            // including when restoring an empty snapshot into a previously used database.
+            db.delete("sqlite_sequence", "name=?", new String[]{"events"});
+            if (!eventRows.isEmpty()) {
+                ContentValues sequence = new ContentValues();
+                sequence.put("name", "events");
+                sequence.put("seq", eventRows.size());
+                db.insertOrThrow("sqlite_sequence", null, sequence);
+            }
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
         if (!verifyChain()) throw new IllegalStateException("Restored journal failed post-restore integrity verification");
