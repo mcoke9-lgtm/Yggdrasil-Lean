@@ -1,4 +1,5 @@
 const FIELDS = ["event_id","task_id","sequence","generation","event_type","task_fingerprint","expected_previous_sequence","expected_previous_generation","expected_previous_owner","new_owner","previous_event_hash","event_hash","authorization_principal","authorization_decision_id","authorization_evidence_digest","transfer_id","witness_timestamp","schema_version","receipt_id"];
+const simulatedCheckpoints = new Map();
 const reply = (data, status=200) => Response.json(data,{status,headers:{"cache-control":"no-store"}});
 const canonical = e => JSON.stringify(Object.fromEntries(FIELDS.map(k=>[k,e[k] ?? null])));
 async function sha(value) {
@@ -18,6 +19,33 @@ export default { async fetch(request,env) {
  if(request.method==="GET" && url.pathname==="/health") return reply({ok:true,mode:"local-test-only"});
  if(!env.PROTOTYPE_TOKEN || request.headers.get("authorization")!=="Bearer "+env.PROTOTYPE_TOKEN) return reply({error:"UNAUTHORIZED"},401);
  if(url.pathname.startsWith("/__test/") && env.PROTOTYPE_MODE!=="local-test") return reply({error:"NOT_FOUND"},404);
+ if(request.method==="POST" && url.pathname==="/__test/mutation") {
+  const b=await request.json();
+  let updateBlocked=false, deleteBlocked=false;
+  try { await env.DB.prepare("UPDATE authority_events SET event_hash='tampered' WHERE event_id=?").bind(b.event_id).run(); } catch { updateBlocked=true; }
+  try { await env.DB.prepare("DELETE FROM authority_events WHERE event_id=?").bind(b.event_id).run(); } catch { deleteBlocked=true; }
+  return reply({updateBlocked,deleteBlocked});
+ }
+ if(request.method==="POST" && url.pathname==="/__test/rollback") {
+  const e=await request.json();
+  const sql="INSERT INTO authority_events("+FIELDS.join(",")+") VALUES("+FIELDS.map(()=>"?").join(",")+")";
+  try {
+   await env.DB.batch([
+    env.DB.prepare(sql).bind(...FIELDS.map(k=>e[k] ?? null)),
+    env.DB.prepare("INSERT INTO sch_intentionally_missing_table(x) VALUES(1)")
+   ]);
+  } catch { return reply({rolledBack:true}); }
+  return reply({rolledBack:false},500);
+ }
+ if(request.method==="POST" && url.pathname==="/__test/restore-detection") {
+  const b=await request.json();
+  const h=await env.DB.prepare("SELECT * FROM task_heads WHERE task_id=?").bind(b.task_id).first();
+  simulatedCheckpoints.set(b.task_id,{sequence:h.sequence,generation:h.generation,event_hash:h.latest_event_hash});
+  await env.DB.prepare("UPDATE task_heads SET sequence=0,generation=0,authority_owner='source',latest_event_id=NULL,latest_event_hash=NULL WHERE task_id=?").bind(b.task_id).run();
+  const restored=await env.DB.prepare("SELECT * FROM task_heads WHERE task_id=?").bind(b.task_id).first();
+  const cp=simulatedCheckpoints.get(b.task_id);
+  return reply({simulated:true,checkpoint:cp,restored:{sequence:restored.sequence,generation:restored.generation,event_hash:restored.latest_event_hash},rollbackDetected:restored.sequence<cp.sequence || restored.generation<cp.generation || restored.latest_event_hash!==cp.event_hash});
+ }
  if(request.method==="POST" && url.pathname==="/__test/seed") {
   const b=await request.json();
   await env.DB.prepare("INSERT INTO task_heads(task_id,task_fingerprint,sequence,generation,authority_owner,updated_at) VALUES(?,?,0,0,'source',?)")
