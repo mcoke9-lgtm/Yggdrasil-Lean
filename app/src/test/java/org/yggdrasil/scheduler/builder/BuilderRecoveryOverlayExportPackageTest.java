@@ -2,6 +2,8 @@ package org.yggdrasil.scheduler.builder;
 
 import android.content.Context;
 import org.json.JSONObject;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -105,6 +107,60 @@ public class BuilderRecoveryOverlayExportPackageTest {
             restoredConversations.close();
             restoredSubjects.close();
         }
+    }
+
+    private static String sha256(String value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : digest)
+            hex.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
+        return hex.toString();
+    }
+
+    private static void refreshOuterChecksum(JSONObject exported) throws Exception {
+        JSONObject content = new JSONObject(exported.toString());
+        content.remove("content_sha256");
+        exported.put("content_sha256", sha256(content.toString()));
+    }
+
+    private void assertRejectedWithoutStaging(JSONObject exported, String expectedMessage)
+            throws Exception {
+        try {
+            BuilderRecoveryOverlayExportPackage.stage(context, exported, "overlay-roundtrip");
+            fail("malformed export must be rejected");
+        } catch (IllegalArgumentException expected) {
+            assertTrue("unexpected validation error: " + expected.getMessage(),
+                    expected.getMessage().toLowerCase(java.util.Locale.ROOT)
+                            .contains(expectedMessage.toLowerCase(java.util.Locale.ROOT)));
+        }
+        assertFalse(context.getDatabasePath(
+                "builder-recovery-overlay-roundtrip-conversations.db").exists());
+        assertFalse(context.getDatabasePath(
+                "builder-recovery-overlay-roundtrip-subjects.db").exists());
+    }
+
+    @Test public void rejectsMalformedRecordedBaselineDigestBeforeStaging() throws Exception {
+        overlay = BuilderRecoveryOverlayStore.create(context,
+                baselineStage.conversationDatabaseName, baselineStage.subjectDatabaseName,
+                SOURCE_GENERATION, baselineStage.conversationDataSha256,
+                baselineStage.subjectDataSha256);
+        JSONObject exported = overlay.exportMergedSnapshots();
+        exported.put("conversation_baseline_sha256", "not-a-sha256-digest");
+        assertRejectedWithoutStaging(exported, "invalid conversation_baseline_sha256");
+    }
+
+    @Test public void rejectsMalformedNestedSnapshotEvenWhenOuterChecksumIsRecomputed()
+            throws Exception {
+        overlay = BuilderRecoveryOverlayStore.create(context,
+                baselineStage.conversationDatabaseName, baselineStage.subjectDatabaseName,
+                SOURCE_GENERATION, baselineStage.conversationDataSha256,
+                baselineStage.subjectDataSha256);
+        JSONObject exported = overlay.exportMergedSnapshots();
+        JSONObject conversation = exported.getJSONObject("conversation_snapshot");
+        conversation.put("turn_count", conversation.getInt("turn_count") + 1);
+        refreshOuterChecksum(exported);
+        assertRejectedWithoutStaging(exported, "checksum mismatch in conversation snapshot");
     }
 
     @Test public void rejectsTamperedOuterEnvelopeWithoutCreatingStagingFiles() throws Exception {
