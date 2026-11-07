@@ -84,8 +84,11 @@ The runner is a foreground Node.js process, not yet an installed operating-syste
 service. It handles SIGINT and SIGTERM, waits for the active tick, closes the
 dashboard, and releases its process lock. A process lock prevents two scheduler
 runners from writing the same state concurrently. If a process is killed
-uncleanly and leaves a stale lock, the next start checks whether the recorded
-process ID still exists before removing it; malformed locks fail closed.
+uncleanly and leaves a lock, the next start fails closed even if the recorded
+process ID appears absent. PID reuse and stale-lock cleanup races make automatic
+reclamation unsafe. An operator must independently confirm that no scheduler
+process is using the state path before manually removing the lock. Malformed
+locks also fail closed and are preserved for inspection.
 
 If the process stops while a handler is running, the run is marked interrupted
 after restart. It is not automatically replayed because the external outcome
