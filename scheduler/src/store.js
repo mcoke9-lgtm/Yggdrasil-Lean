@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const EMPTY_STATE = Object.freeze({
@@ -6,10 +7,6 @@ const EMPTY_STATE = Object.freeze({
 });
 const STORE_QUEUES = new WeakMap();
 
-/**
- * Serialize read-modify-write operations across components sharing one store
- * instance. This is process-local coordination, not cross-process fencing.
- */
 export function withStoreLock(store, operation) {
   if (!store || (typeof store !== "object" && typeof store !== "function")) {
     throw new TypeError("A shared store instance is required");
@@ -41,30 +38,105 @@ function normalizeState(state) {
   throw new Error("Scheduler state has an unsupported or invalid shape");
 }
 
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function syncDirectory(directory) {
+  const handle = await open(directory, "r");
+  try { await handle.sync(); }
+  finally { await handle.close(); }
+}
+
+async function durableReplace(targetPath, contents) {
+  const temporaryPath = `${targetPath}.${process.pid}.${randomUUID()}.tmp`;
+  let handle;
+  try {
+    handle = await open(temporaryPath, "wx", 0o600);
+    await handle.writeFile(contents, "utf8");
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    await rename(temporaryPath, targetPath);
+    await syncDirectory(dirname(targetPath));
+  } catch (error) {
+    if (handle) await handle.close().catch(() => {});
+    await unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
+}
+
+async function readOptional(path) {
+  try { return await readFile(path); }
+  catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+/**
+ * JSON state with a separately written local integrity sidecar.
+ *
+ * The sidecar detects accidental corruption and one-sided replacement/rollback.
+ * Because it resides on the same host/filesystem, it is NOT a rollback-proof
+ * witness: restoring both files from the same old snapshot can evade detection.
+ */
 export class JsonFileStore {
   constructor(filePath) {
     if (typeof filePath !== "string" || !filePath.trim()) throw new TypeError("A state file path is required");
     this.filePath = filePath;
+    this.integrityPath = `${filePath}.integrity.json`;
     this.writeQueue = Promise.resolve();
   }
 
-  async load() {
-    try {
-      const text = await readFile(this.filePath, "utf8");
-      return normalizeState(JSON.parse(text));
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-      return structuredClone(EMPTY_STATE);
+  async inspect() {
+    const [stateBytes, integrityBytes] = await Promise.all([
+      readOptional(this.filePath), readOptional(this.integrityPath)
+    ]);
+    if (stateBytes === null && integrityBytes === null) {
+      return { state: structuredClone(EMPTY_STATE), revision: 0, initialized: false };
     }
+    if (stateBytes === null || integrityBytes === null) {
+      throw new Error("Scheduler state/integrity sidecar mismatch; quarantine required");
+    }
+
+    let integrity;
+    try { integrity = JSON.parse(integrityBytes.toString("utf8")); }
+    catch { throw new Error("Scheduler integrity sidecar is malformed; quarantine required"); }
+    if (integrity.version !== 1 || !Number.isSafeInteger(integrity.revision) ||
+        integrity.revision < 1 || !/^[a-f0-9]{64}$/.test(integrity.sha256 || "")) {
+      throw new Error("Scheduler integrity sidecar has an unsupported or invalid shape; quarantine required");
+    }
+    if (sha256(stateBytes) !== integrity.sha256) {
+      throw new Error("Scheduler state checksum mismatch; quarantine required");
+    }
+    let parsed;
+    try { parsed = JSON.parse(stateBytes.toString("utf8")); }
+    catch { throw new Error("Scheduler state JSON is malformed; quarantine required"); }
+    return { state: normalizeState(parsed), revision: integrity.revision, initialized: true };
+  }
+
+  async load() {
+    const result = await this.inspect();
+    return result.state;
   }
 
   async save(state) {
     const normalized = normalizeState(state);
     const operation = this.writeQueue.then(async () => {
       await mkdir(dirname(this.filePath), { recursive: true });
-      const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-      await writeFile(temporaryPath, JSON.stringify(normalized, null, 2) + "\n", { encoding: "utf8", mode: 0o600 });
-      await rename(temporaryPath, this.filePath);
+      const current = await this.inspect();
+      const stateBytes = Buffer.from(JSON.stringify(normalized, null, 2) + "\n", "utf8");
+      const nextIntegrity = {
+        version: 1,
+        revision: current.revision + 1,
+        sha256: sha256(stateBytes),
+        updatedAt: new Date().toISOString()
+      };
+      // A crash between these two durable replacements intentionally leaves a
+      // detectable mismatch; startup then quarantines rather than guessing.
+      await durableReplace(this.filePath, stateBytes);
+      await durableReplace(this.integrityPath, JSON.stringify(nextIntegrity, null, 2) + "\n");
     });
     this.writeQueue = operation.catch(() => {});
     return operation;
