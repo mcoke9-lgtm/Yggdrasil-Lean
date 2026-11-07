@@ -5,6 +5,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:allowBackup="false" android:label="Yggdrasil Builder Host" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false" android:networkSecurityConfig="@xml/network_security_config">
+        <service android:name=".builder.HuginnProcessService" android:process=":builder_huginn" android:exported="false" />
+        <service android:name=".builder.MuninnProcessService" android:process=":builder_muninn" android:exported="false" />
+        <service android:name=".builder.KvasirProcessService" android:process=":builder_kvasir" android:exported="false" />
+        <service android:name=".builder.MariProcessService" android:process=":builder_mari" android:exported="false" />
+        <service android:name=".builder.HodrProcessService" android:process=":builder_hodr" android:exported="false" />
+        <service android:name=".builder.TyrProcessService" android:process=":builder_tyr" android:exported="false" />
+        <service android:name=".builder.LokiProcessService" android:process=":builder_loki" android:exported="false" />
+        <service android:name=".builder.OdinProcessService" android:process=":builder_odin" android:exported="false" />
+        <service android:name=".builder.BaldrProcessService" android:process=":builder_baldr" android:exported="false" />
         <service
             android:name=".builder.BuilderRuntimeService"
             android:process=":builder_runtime"
