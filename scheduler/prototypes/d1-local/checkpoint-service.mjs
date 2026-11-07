@@ -19,10 +19,10 @@ async function load(){
   const cp=body.checkpoint;
   if(old){
    if(body.anchor_sequence!==old.anchor_sequence+1||cp.sequence!==old.checkpoint.sequence+1||
-      cp.latest_event_hash!==body.previous_event_hash||cp.task_fingerprint!==old.checkpoint.task_fingerprint||
+      body.previous_event_hash!==old.checkpoint.latest_event_hash||cp.task_fingerprint!==old.checkpoint.task_fingerprint||
       cp.generation<old.checkpoint.generation||cp.generation>old.checkpoint.generation+1)
     throw new Error("CHECKPOINT_JOURNAL_MONOTONICITY_FAILURE");
-  } else if(body.anchor_sequence!==1||cp.sequence!==1||cp.previous_event_hash!==null) throw new Error("CHECKPOINT_JOURNAL_INITIAL_STATE_FAILURE");
+  } else if(body.anchor_sequence!==1||cp.sequence!==1||body.previous_event_hash!==null) throw new Error("CHECKPOINT_JOURNAL_INITIAL_STATE_FAILURE");
   heads.set(body.task_id,body);priorRecordHash=record_hash;
  }
 }
