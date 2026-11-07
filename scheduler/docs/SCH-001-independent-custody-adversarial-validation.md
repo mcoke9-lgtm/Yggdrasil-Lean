@@ -31,8 +31,8 @@ Test whether the ten non-compensatory custody gates reject plausible common-mode
 
 ## Evaluation results
 
-- Cases defined: 12.
-- Cases with required fail-closed or unknown outcome: 12.
+- Cases defined: 16.
+- Cases with required fail-closed or unknown outcome: 16.
 - Cases that may be approved by a weighted average: 0.
 - Live provider tests performed: 0.
 - Independent reviewer validation: 0.
