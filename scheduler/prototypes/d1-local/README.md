@@ -115,9 +115,9 @@ The verified run includes the strengthened rollback case: its second batch state
 
 A passing local suite would justify a later, separately approved remote D1 sandbox evaluation. It would not justify provider adoption, authority transfer, production deployment, or activation of any task.
 
-## Latest journal-adversary test expansion
+## Journal-adversary test expansion
 
-**Status: implementation committed; CI result pending.** The suite now contains D1L-01 through D1L-19. The four new cases distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. In particular, D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt is what detects the mismatch. No production-grade independence claim follows from these local tests.
+D1L-16 through D1L-19 distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt detects the mismatch in this local test model. This receipt is not independent of the CI host.
 
 
 ## Latest interleaved-stream and competing-writer CI execution
