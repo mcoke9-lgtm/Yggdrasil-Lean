@@ -151,6 +151,13 @@ export class HandoffInbox {
       const state = await this.store.load();
       const handoff = state.handoffs.find(item => item.handoffId === handoffId);
       if (!handoff) throw new Error(`Handoff not found: ${handoffId}`);
+      if (handoff.status === "HANDOFF_ACCEPTED" || handoff.status === "TASK_ACTIVATED") {
+        const savedAuthorizationFingerprint = handoff.acceptance?.authorizationFingerprint;
+        if (savedAuthorizationFingerprint && savedAuthorizationFingerprint === digest(acceptanceAuthorization)) {
+          return clone(handoff);
+        }
+        throw new Error("Handoff was already accepted with different or unverifiable authorization");
+      }
       if (handoff.status !== "HANDOFF_VALIDATED" || !handoff.validatedTask) {
         throw new Error("Only a validated handoff can be accepted");
       }
@@ -159,6 +166,7 @@ export class HandoffInbox {
       handoff.acceptance = {
         acceptedAt,
         authorization: clone(acceptanceAuthorization),
+        authorizationFingerprint: digest(acceptanceAuthorization),
         confirms: "HANDOFF_ACCEPTED"
       };
       await this.store.save(state);
