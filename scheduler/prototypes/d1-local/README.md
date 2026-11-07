@@ -26,7 +26,7 @@ The test runner:
 1. Applies the migration to Wrangler's local D1 store only.
 2. Starts `wrangler dev --local` bound to 127.0.0.1.
 3. Sets a synthetic token and explicit `PROTOTYPE_MODE=local-test`.
-4. Executes nineteen synthetic HTTP/SQL and checkpoint-process cases.
+4. Executes twenty-one synthetic HTTP/SQL and checkpoint-process cases.
 5. Stops the local Worker process.
 
 The `/__test/*` seed/state routes are disabled unless the explicit local-test mode is present. Do not deploy this prototype. The API is not production-authenticated and the test routes exist solely to prepare/read disposable fixtures.
@@ -63,7 +63,7 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-16: byte-level journal corruption causes checkpoint-service startup to fail closed.
 - D1L-17: a truncated final JSONL record causes startup to fail closed.
 - D1L-18: replacing the journal with a previously valid older copy passes internal replay but disagrees with the runner-retained sequence-2 receipt.
-- D1L-19: a privileged actor rewrites the latest checkpoint and recomputes a valid local hash chain; replay succeeds, but the rewritten event hash conflicts with the runner-retained receipt.
+- D1L-19: a privileged actor rewrites the latest checkpoint and recomputes a valid local hash chain; replay succeeds, but the rewritten event hash conflicts with the runner-retained receipt.\n- D1L-20: interleaved checkpoint histories for two task streams survive service restart and journal replay.\n- D1L-21: simultaneous competing appends against one task's same anchor sequence accept exactly one and reject the stale competitor.
 
 D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. D1L-14 improves the threat model: the Node test runner retains the checkpoint outside the Worker and D1 database, then invokes a test-only privileged restore simulation that rewinds both the event ledger and head projection to a mutually consistent earlier state. The Worker compares that restored state with the runner-held checkpoint and must return `WITNESS_ROLLBACK_OR_LOSS`. This is stronger than comparing the head alone, but remains a same-host test harness, not a durable independently administered witness or an actual D1 Time Travel restore. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
 
@@ -118,3 +118,17 @@ A passing local suite would justify a later, separately approved remote D1 sandb
 ## Latest journal-adversary test expansion
 
 **Status: implementation committed; CI result pending.** The suite now contains D1L-01 through D1L-19. The four new cases distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. In particular, D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt is what detects the mismatch. No production-grade independence claim follows from these local tests.
+
+
+## Latest interleaved-stream and competing-writer CI execution
+
+- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42334904991
+- Tested commit: `4ad9a7aa5df360b5b8177de7f4d0eaa09d2cba9f`
+- Runtime: Node.js 22.23.4; Wrangler 4.158.0
+- Result: **21 of 21 passed**. The CI log was inspected and contains exact PASS lines for D1L-01 through D1L-21 and `RESULT 21/21 passed`.
+- D1L-20 verifies interleaved two-task anchor journal append, process restart and per-task head recovery.
+- D1L-21 verifies that two concurrent requests using the same expected anchor sequence yield one accepted append and one stale-version conflict.
+- Independent scheduler workflow: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42334904973 — success.
+- Lean build and analysis workflow: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42334904986 — success.
+
+These are local loopback/process tests in GitHub Actions. The anchor journal, D1 Worker and receipt comparison remain on one CI host and within one administrative trust boundary. The result does not establish independent custody, live D1 durability, provider restore behavior, production authentication, external fencing, or safe task activation.
