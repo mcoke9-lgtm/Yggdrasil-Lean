@@ -121,6 +121,34 @@ export class JsonFileStore {
     return result.state;
   }
 
+  /**
+   * Explicitly adopt a pre-sidecar state file after an operator supplies its
+   * independently calculated SHA-256. Never invoked automatically at startup.
+   */
+  async adoptLegacyState({ expectedSha256 }) {
+    if (!/^[a-f0-9]{64}$/.test(expectedSha256 || "")) {
+      throw new TypeError("An independently calculated expectedSha256 is required");
+    }
+    const [stateBytes, integrityBytes] = await Promise.all([
+      readOptional(this.filePath), readOptional(this.integrityPath)
+    ]);
+    if (stateBytes === null) throw new Error("No legacy state file exists to adopt");
+    if (integrityBytes !== null) throw new Error("State already has an integrity sidecar");
+    if (sha256(stateBytes) !== expectedSha256) {
+      throw new Error("Legacy state SHA-256 does not match the supplied value");
+    }
+    let parsed;
+    try { parsed = JSON.parse(stateBytes.toString("utf8")); }
+    catch { throw new Error("Legacy state JSON is malformed; quarantine required"); }
+    normalizeState(parsed);
+    const integrity = {
+      version: 1, revision: 1, sha256: expectedSha256,
+      adoptedAt: new Date().toISOString()
+    };
+    await durableReplace(this.integrityPath, JSON.stringify(integrity, null, 2) + "\\n");
+    return { revision: 1, sha256: expectedSha256, stateVersion: parsed.version };
+  }
+
   async save(state) {
     const normalized = normalizeState(state);
     const operation = this.writeQueue.then(async () => {
