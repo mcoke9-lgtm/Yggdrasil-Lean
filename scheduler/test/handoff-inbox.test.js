@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonFileStore, MemoryStore } from "../src/store.js";
 import { HandoffInbox } from "../src/handoff-inbox.js";
+import { Scheduler } from "../src/scheduler.js";
 
 const clock = () => new Date("2026-11-06T12:00:00.000Z");
 const request = overrides => ({
@@ -110,5 +111,54 @@ test("rejects missing authorization, missing rejection evidence and self-handoff
   await assert.rejects(
     () => inbox.receive(request({ sourceScheduler: "independent-scheduler" })),
     /cannot hand off.*itself/
+  );
+});
+
+test("destination validation blocks unregistered handlers without activation", async () => {
+  const store = new MemoryStore();
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  await inbox.receive(request());
+  const scheduler = new Scheduler({ store, clock });
+  const blocked = await inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition));
+  assert.equal(blocked.status, "HANDOFF_BLOCKED");
+  assert.match(blocked.validation.reason, /not registered/);
+  assert.equal((await store.load()).tasks.length, 0);
+  await assert.rejects(
+    () => inbox.accept("handoff-001", { acceptanceAuthorization: { granted: true, authority: "reviewer" } }),
+    /Only a validated handoff can be accepted/
+  );
+});
+
+test("valid destination task requires explicit acceptance and remains inactive", async () => {
+  const store = new MemoryStore();
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  await inbox.receive(request());
+  const scheduler = new Scheduler({ store, clock });
+  scheduler.registerHandler("review.run", async () => {});
+  const validated = await inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition));
+  assert.equal(validated.status, "HANDOFF_VALIDATED");
+  assert.equal(validated.validatedTask.handlerType, "review.run");
+  await assert.rejects(() => inbox.accept("handoff-001", {}), /Explicit acceptance authorization/);
+  const accepted = await inbox.accept("handoff-001", {
+    acceptanceAuthorization: { granted: true, authority: "named-reviewer", decisionId: "decision-001" }
+  });
+  assert.equal(accepted.status, "HANDOFF_ACCEPTED");
+  assert.equal(accepted.acceptance.confirms, "HANDOFF_ACCEPTED");
+  assert.equal((await store.load()).tasks.length, 0);
+});
+
+test("revalidation after acceptance is refused", async () => {
+  const store = new MemoryStore();
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  await inbox.receive(request());
+  const scheduler = new Scheduler({ store, clock });
+  scheduler.registerHandler("review.run", async () => {});
+  await inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition));
+  await inbox.accept("handoff-001", {
+    acceptanceAuthorization: { granted: true, authority: "named-reviewer" }
+  });
+  await assert.rejects(
+    () => inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition)),
+    /cannot be revalidated/
   );
 });
