@@ -34,13 +34,13 @@ test("migrates version 1 state without changing task or run records", async () =
       writeFile(path, JSON.stringify({ version: 1, tasks: [task], runs: [run] })));
     const store = new JsonFileStore(path);
     const migrated = await store.load();
-    assert.equal(migrated.version, 2);
+    assert.equal(migrated.version, 3);
     assert.deepEqual(migrated.tasks, [task]);
     assert.deepEqual(migrated.runs, [run]);
     assert.deepEqual(migrated.handoffs, []);
     await store.save(migrated);
     const disk = JSON.parse(await readFile(path, "utf8"));
-    assert.equal(disk.version, 2);
+    assert.equal(disk.version, 3);
     assert.deepEqual(disk.tasks, [task]);
     assert.deepEqual(disk.runs, [run]);
   } finally {
