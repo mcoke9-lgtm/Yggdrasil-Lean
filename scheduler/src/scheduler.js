@@ -1,3 +1,4 @@
+import { withStoreLock } from "./store.js";
 import { nextCalendarOccurrence, validateCalendarSchedule } from "./calendar.js";
 
 const MAX_INTERVAL_MS = 366 * 24 * 60 * 60 * 1000;
@@ -30,9 +31,7 @@ export class Scheduler {
   }
 
   withStateLock(operation) {
-    const result = this.stateQueue.then(operation);
-    this.stateQueue = result.catch(() => {});
-    return result;
+    return withStoreLock(this.store, operation);
   }
 
   registerHandler(type, handler) {
