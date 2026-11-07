@@ -129,6 +129,12 @@ Before testing, export a checkpoint containing at least:
 
 Keep the checkpoint outside the D1 database's ordinary restore and administration domain. For a meaningful production claim, it must also be outside the same Cloudflare account's privileged control/restore domain. A second file in the same D1 database, Worker, or account is not independent.
 
+### Monotonic checkpoint protocol
+
+The external anchor is a separate authority record, not a second copy of the D1 head. For each task it retains the highest accepted tuple: task fingerprint, authority generation, event sequence, latest event ID, latest event hash, and anchor receipt/sequence. An update is accepted only by an authenticated conditional append against the anchor's current version. The candidate must advance the task event sequence by exactly one, preserve or validly advance generation under the transition rules, and link its previous-event hash to the anchor's current event hash. Lower sequence/generation, same-sequence conflicting hash, skipped sequence, wrong task fingerprint, or stale anchor version is rejected. The anchor's own receipt sequence is strictly increasing and cannot be reset by restoring D1.
+
+The local D1L-14 harness models only the comparison and monotonicity rules: the Node test-runner process retains a checkpoint outside the Worker/D1 process, advances it from event sequence 1 to 2 after checking hash linkage, rejects an attempt to replace it with the older checkpoint, then detects a coordinated rollback of both D1 event history and head projection. This is a process-memory fixture on the same host, not a durable or separately administered anchor. A real independent witness must implement authenticated durable conditional append and custody outside the D1 account's privileged restore domain; those properties remain unimplemented and unverified.
+
 Prototype restore test:
 1. Append several test events and capture the latest checkpoint/receipt outside D1.
 2. Restore D1 to a point before the latest acknowledged event.
