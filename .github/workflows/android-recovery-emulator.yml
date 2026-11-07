@@ -42,14 +42,21 @@ jobs:
 
       - name: Create disposable API 35 virtual device
         run: |
+          export ANDROID_AVD_HOME="${RUNNER_TEMP}/android-avd"
+          echo "ANDROID_AVD_HOME=${RUNNER_TEMP}/android-avd" >> "${GITHUB_ENV}"
+          mkdir -p "${ANDROID_AVD_HOME}"
           echo "no" | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd \
             --name recovery-api35 \
             --package "system-images;android-35;google_apis;x86_64" \
             --device "pixel_2" \
             --force
+          echo "Created AVD files:"
+          find "${ANDROID_AVD_HOME}" -maxdepth 2 -type f -print
 
       - name: Boot disposable emulator
         run: |
+          echo "Using ANDROID_AVD_HOME=${ANDROID_AVD_HOME}"
+          ls -la "${ANDROID_AVD_HOME}"
           "${ANDROID_HOME}/emulator/emulator" \
             -avd recovery-api35 \
             -no-window \
