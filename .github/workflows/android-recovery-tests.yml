@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - recovery-roundtrip-sequence-fix-001
+  pull_request:
+    branches:
+      - subject-thread-continuity-001
 
 permissions:
   contents: read
