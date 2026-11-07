@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -33,6 +34,11 @@ test("migrates version 1 state without changing task or run records", async () =
     await import("node:fs/promises").then(({ writeFile }) =>
       writeFile(path, JSON.stringify({ version: 1, tasks: [task], runs: [run] })));
     const store = new JsonFileStore(path);
+    const legacyBytes = await readFile(path);
+    const expectedSha256 = createHash("sha256").update(legacyBytes).digest("hex");
+    await assert.rejects(() => store.load(), /sidecar mismatch/);
+    await assert.rejects(() => store.adoptLegacyState({ expectedSha256: "0".repeat(64) }), /does not match/);
+    await store.adoptLegacyState({ expectedSha256 });
     const migrated = await store.load();
     assert.equal(migrated.version, 3);
     assert.deepEqual(migrated.tasks, [task]);
