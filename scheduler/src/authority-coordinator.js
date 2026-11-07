@@ -36,12 +36,11 @@ export class AuthorityCoordinator {
       const state = await this.store.load();
       const existing = state.authorities.find(item => item.taskId === taskId);
       if (existing) {
-        if (existing.owner === owner && existing.taskDefinitionFingerprint === taskDefinitionFingerprint &&
-            existing.epoch === 1) return clone(existing);
+        if (existing.initialOwner === owner && existing.taskDefinitionFingerprint === taskDefinitionFingerprint) return clone(existing);
         throw new Error("Authority is already initialized with a different identity or owner");
       }
       const record = {
-        taskId, owner, epoch: 1, version: 1, taskDefinitionFingerprint,
+        taskId, owner, initialOwner: owner, epoch: 1, version: 1, taskDefinitionFingerprint,
         initializedAt: this.clock().toISOString(), updatedAt: this.clock().toISOString()
       };
       state.authorities.push(record);
