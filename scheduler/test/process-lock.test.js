@@ -57,3 +57,13 @@ test("release does not remove a lock file whose ownership token changed", async 
     assert.equal(JSON.parse(await readFile(path, "utf8")).token, "replacement");
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+test("stale-looking PID is not automatically reclaimed", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-process-lock-"));
+  const path = join(directory, "scheduler.lock");
+  const stale = { pid: 2147483647, token: "prior-owner", createdAt: "2020-01-01T00:00:00.000Z" };
+  try {
+    await writeFile(path, JSON.stringify(stale), { mode: 0o600 });
+    await assert.rejects(() => acquireProcessLock(path), /Scheduler lock already exists/);
+    assert.deepEqual(JSON.parse(await readFile(path, "utf8")), stale);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
