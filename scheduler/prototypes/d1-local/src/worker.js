@@ -16,7 +16,7 @@ async function prior(db,event,digest) {
 export default { async fetch(request,env) {
  const url=new URL(request.url);
  if(request.method==="GET" && url.pathname==="/health") return reply({ok:true,mode:"local-test-only"});
- if(request.headers.get("authorization")!=="Bearer "+env.PROTOTYPE_TOKEN) return reply({error:"UNAUTHORIZED"},401);
+ if(!env.PROTOTYPE_TOKEN || request.headers.get("authorization")!=="Bearer "+env.PROTOTYPE_TOKEN) return reply({error:"UNAUTHORIZED"},401);
  if(url.pathname.startsWith("/__test/") && env.PROTOTYPE_MODE!=="local-test") return reply({error:"NOT_FOUND"},404);
  if(request.method==="POST" && url.pathname==="/__test/seed") {
   const b=await request.json();
