@@ -92,7 +92,11 @@ locks also fail closed and are preserved for inspection.
 
 If the process stops while a handler is running, the run is marked interrupted
 after restart. It is not automatically replayed because the external outcome
-may be unknown. Task state uses atomic file replacement. The store and lock are
+may be unknown. The JSON state file has a companion SHA-256 integrity sidecar.
+The store fails closed if the files disagree, either one is missing, or the
+state is malformed. A matching older state+sidecar pair can still be restored
+together undetected; this is not a rollback-proof witness. See
+`docs/SCH-001-local-state-integrity-and-rollback.md`. The store and lock are
 designed for one local process and one host, not distributed workers.
 
 ## Safety boundaries
