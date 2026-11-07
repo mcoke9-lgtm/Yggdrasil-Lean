@@ -12,11 +12,7 @@ const STATES = Object.freeze([
   "RECOVERY_REQUIRED"
 ]);
 
-const ACTIVE_STATES = new Set([
-  "REQUESTED",
-  "PREPARED",
-  "SENT",
-  "ACCEPTED_UNCONFIRMED",
+const EXECUTION_FENCE_STATES = new Set([
   "SOURCE_FENCED",
   "COMMIT_SENT",
   "PAUSED",
@@ -197,7 +193,9 @@ export function canExecuteTask({ localSchedulerId, ownerId, generation, currentG
   requirePositiveInteger(generation, "generation");
   requirePositiveInteger(currentGeneration, "currentGeneration");
   if (generation !== currentGeneration || localSchedulerId !== ownerId) return false;
-  if (handoffState !== null && ACTIVE_STATES.has(handoffState)) return false;
+  if (handoffState !== null && (!STATES.includes(handoffState) || EXECUTION_FENCE_STATES.has(handoffState))) {
+    return false;
+  }
   return true;
 }
 
