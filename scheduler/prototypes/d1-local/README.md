@@ -55,10 +55,18 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-09: event UPDATE and DELETE are blocked.
 - D1L-10: sequential events preserve hash-chain continuity.
 - D1L-11: incorrect previous-event hash is rejected.
-- D1L-12: failed multi-statement batch leaves event and head unchanged.
+- D1L-12: failed multi-statement batch leaves event and head unchanged; the second statement is a valid duplicate-primary-key insert that fails during batch execution.
 - D1L-13: a simulated old-head restore is detected against a process-memory checkpoint.
 
 D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. It does **not** demonstrate durable, independent, cross-account or production restore detection. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
+
+## Latest expanded-suite CI execution
+
+- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330509926
+- Tested code commit: `f08a002379e205265289719740929542eaebec6f`
+- Result: 13 of 13 passed.
+
+The rollback case was subsequently strengthened so its second batch statement is a syntactically valid duplicate-primary-key insert. This forces a runtime constraint failure after the first event insert has been submitted to the batch, rather than relying on a deliberately missing table.
 
 ## Important gaps
 
