@@ -71,8 +71,9 @@ process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
 
 
 try {
-  const address = await dashboard.listen();
+  // Validate the state file and its integrity sidecar before opening the dashboard.
   const tasks = await scheduler.listTasks();
+  const address = await dashboard.listen();
   process.stdout.write(JSON.stringify({
     event: "scheduler_started",
     stateFile,
