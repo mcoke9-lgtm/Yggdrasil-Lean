@@ -1,7 +1,7 @@
 name: Android unit tests
 
 concurrency:
-  group: android-tests-${{ github.head_ref || github.ref }}
+  group: android-tests-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 on:
