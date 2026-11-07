@@ -32,7 +32,7 @@ The `/__test/*` seed/state routes are disabled unless the explicit local-test mo
 
 ## Verified CI execution
 
-<badge>8 of 8 passed</badge>
+**Verified CI result: 8 of 8 passed.**
 
 - GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330269560
 - Tested commit: `f749477e44bbe9e03dfa6059955ef54d102b4992`
