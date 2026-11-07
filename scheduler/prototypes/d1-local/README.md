@@ -32,7 +32,7 @@ The `/__test/*` seed/state routes are disabled unless the explicit local-test mo
 
 ## Verified CI execution
 
-**Verified CI result: 8 of 8 passed.**
+**Verified CI result at the initial prototype stage: 8 of 8 passed.**
 
 - GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330324162
 - Tested commit: `6c921f330c16e714135936ca2f07f69e190e1294`
@@ -56,9 +56,16 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-10: sequential events preserve hash-chain continuity.
 - D1L-11: incorrect previous-event hash is rejected.
 - D1L-12: failed multi-statement batch leaves event and head unchanged; the second statement is a valid duplicate-primary-key insert that fails during batch execution.
-- D1L-13: a simulated old-head restore is detected against a process-memory checkpoint.
+- D1L-13: a simulated old-head restore is detected against a Worker-process-memory checkpoint.
+- D1L-14: a consistent rollback of both the event ledger and head projection is detected against a checkpoint held by the separate Node test-runner process.
 
-D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. It does **not** demonstrate durable, independent, cross-account or production restore detection. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
+D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. D1L-14 improves the threat model: the Node test runner retains the checkpoint outside the Worker and D1 database, then invokes a test-only privileged restore simulation that rewinds both the event ledger and head projection to a mutually consistent earlier state. The Worker compares that restored state with the runner-held checkpoint and must return `WITNESS_ROLLBACK_OR_LOSS`. This is stronger than comparing the head alone, but remains a same-host test harness, not a durable independently administered witness or an actual D1 Time Travel restore. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
+
+## External-checkpoint rollback test
+
+D1L-14 models the critical coordinated-rollback case: both the append-only event history and mutable head projection are rewound together, so internal agreement cannot reveal the loss. The checkpoint is retained by the separate Node test-runner process and is supplied only after the simulated restore. The test-only restore route temporarily removes the event-delete guard to represent privileged restore capability; it is not part of the production API and is disabled outside explicit local-test mode.
+
+Limitations: the runner and Worker share one host and trust boundary; the checkpoint is process memory, not durable storage; no independent account, signing key, provider restore, or real database backup is involved. Therefore this verifies the comparison logic under a coordinated rollback fixture, not production-grade witness independence.
 
 ## Latest expanded-suite CI execution
 
