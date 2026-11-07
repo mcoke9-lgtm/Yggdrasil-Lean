@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { randomUUID, createHash } from "node:crypto";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const port=8791, base="http://127.0.0.1:"+port, token="synthetic-local-test-token";
@@ -13,7 +13,7 @@ const wrangler="node_modules/wrangler/bin/wrangler.js";
 const migration=spawnSync(process.execPath,[wrangler,"d1","migrations","apply","sch-001-disposable-local","--local"],{encoding:"utf8"});
 if(migration.status!==0) throw new Error("Local D1 migration failed:\n"+migration.stdout+"\n"+migration.stderr);
 let child, checkpointChild;
-let logs="", checkpointLogs="";
+let logs="", checkpointLogs="";\nlet firstCheckpointSnapshot="";\nlet latestCheckpointReceipt=null;\nconst sha256=value=>createHash("sha256").update(value).digest("hex");
 function startWorker(){
  child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port),"--var","PROTOTYPE_MODE:local-test","--var","PROTOTYPE_TOKEN:"+token],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
  child.stdout.on("data",b=>logs+=b);child.stderr.on("data",b=>logs+=b);
@@ -97,13 +97,13 @@ tests.push(["D1L-15 durable checkpoint survives witness and Worker process resta
  let snapshot=await state(t);
  const cp1={task_id:t,sequence:1,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
   latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
- const first=await appendCheckpoint(t,0,cp1,null);assert.equal(first.status,201);
+ const first=await appendCheckpoint(t,0,cp1,null);assert.equal(first.status,201);\n firstCheckpointSnapshot=await readFile(checkpointFile,"utf8");
  const b=event("e15b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:a.event_hash});
  assert.equal((await append(b)).status,201);
  snapshot=await state(t);
  const cp2={task_id:t,sequence:2,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
   latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
- const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);
+ const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);\n latestCheckpointReceipt=second.body.receipt;
  const stale=await appendCheckpoint(t,1,cp1,null);assert.equal(stale.status,409);
  // Stop and restart the independent checkpoint process; it must replay and verify its fsynced journal.
  await stopProcess(checkpointChild);startCheckpoint();await checkpointReady();
@@ -120,6 +120,57 @@ tests.push(["D1L-15 durable checkpoint survives witness and Worker process resta
  const result=await compare.json();assert.equal(result.status,"WITNESS_ROLLBACK_OR_LOSS");
  assert.equal(result.checkpoint.sequence,2);assert.equal(result.restored.sequence,0);
  }]);
+tests.push(["D1L-16 journal byte corruption fails closed on witness restart",async()=>{
+ await stopProcess(checkpointChild);
+ const original=await readFile(checkpointFile,"utf8");
+ const corrupted=original.replace('"task_id":"t15"','"task_id":"x15"');
+ assert.notEqual(corrupted,original);
+ await writeFile(checkpointFile,corrupted,{mode:0o600});
+ startCheckpoint();await delay(500);
+ assert.ok(checkpointChild.exitCode!==null,"corrupted journal must prevent service startup");
+ assert.match(checkpointLogs,/CHECKPOINT_JOURNAL_INTEGRITY_FAILURE|CHECKPOINT_JOURNAL_MONOTONICITY_FAILURE/);
+}]);
+tests.push(["D1L-17 truncated final record fails closed on witness restart",async()=>{
+ await stopProcess(checkpointChild);
+ const original=await readFile(checkpointFile,"utf8");
+ const lines=original.trimEnd().split("\\n");assert.equal(lines.length,2);
+ await writeFile(checkpointFile,lines[0]+"\\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
+ startCheckpoint();await delay(500);
+ assert.ok(checkpointChild.exitCode!==null,"truncated JSONL record must prevent service startup");
+ assert.match(checkpointLogs,/Unexpected end of JSON input|CHECKPOINT_JOURNAL/);
+}]);
+tests.push(["D1L-18 valid older journal replacement is internally accepted but disagrees with retained receipt",async()=>{
+ await stopProcess(checkpointChild);
+ await writeFile(checkpointFile,firstCheckpointSnapshot,{mode:0o600});
+ startCheckpoint();await checkpointReady();
+ const replaced=await getCheckpoint("t15");
+ assert.equal(replaced.status,200);
+ assert.equal(replaced.body.checkpoint.sequence,1);
+ assert.equal(replaced.body.anchor_sequence,1);
+ assert.equal(latestCheckpointReceipt.checkpoint.sequence,2);
+ assert.notEqual(replaced.body.checkpoint.latest_event_hash,latestCheckpointReceipt.checkpoint.latest_event_hash);
+}]);
+tests.push(["D1L-19 privileged full-chain rewrite with recomputed hashes passes local replay but conflicts with retained receipt",async()=>{
+ await stopProcess(checkpointChild);
+ const lines=(await readFile(checkpointFile,"utf8")).trimEnd().split("\\n");
+ assert.equal(lines.length,1,"the previous case deliberately installed the valid older snapshot");
+ const first=JSON.parse(lines[0]);
+ const originalSecond=JSON.parse((await (async()=>{return await readFile(checkpointFile,"utf8")})()));
+ // Reconstruct a syntactically and cryptographically valid second record using a forged event hash.
+ const forgedCheckpoint={...first.checkpoint,sequence:2,latest_event_id:"privileged-forged-event",latest_event_hash:"privileged-rewrite-forged-event-hash",event_count:2};
+ const body={task_id:"t15",anchor_sequence:2,previous_record_hash:first.record_hash,
+  previous_event_hash:first.checkpoint.latest_event_hash,checkpoint:forgedCheckpoint,accepted_at:new Date().toISOString()};
+ const forged={...body,record_hash:sha256(JSON.stringify(body))};
+ await writeFile(checkpointFile,lines[0]+"\\n"+JSON.stringify(forged)+"\\n",{mode:0o600});
+ startCheckpoint();await checkpointReady();
+ const rewritten=await getCheckpoint("t15");
+ assert.equal(rewritten.status,200,"recomputed local hash chain should replay successfully");
+ assert.equal(rewritten.body.checkpoint.sequence,2);
+ assert.equal(rewritten.body.checkpoint.latest_event_hash,"privileged-rewrite-forged-event-hash");
+ assert.equal(latestCheckpointReceipt.checkpoint.sequence,2);
+ assert.notEqual(rewritten.body.checkpoint.latest_event_hash,latestCheckpointReceipt.checkpoint.latest_event_hash);
+ assert.ok(originalSecond.length>0);
+}]);
 let failures=0;
 try {await ready();for(const [name,fn] of tests){try{await fn();console.log("PASS "+name);}catch(e){failures++;console.error("FAIL "+name,e);}}console.log("RESULT "+(tests.length-failures)+"/"+tests.length+" passed");if(failures)process.exitCode=1;}
 catch(e){console.error(e,logs);process.exitCode=1;}
