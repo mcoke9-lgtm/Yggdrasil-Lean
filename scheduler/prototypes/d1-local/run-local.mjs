@@ -29,16 +29,26 @@ tests.push(["D1L-10 sequential events preserve hash-chain continuity",async()=>{
 tests.push(["D1L-11 incorrect previous hash is rejected",async()=>{const t="t11";await seed(t);const a=event("e11a",t);assert.equal((await append(a)).status,201);const b=event("e11b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:"not-the-prior-hash"});assert.equal((await append(b)).status,409);const s=await state(t);assert.equal(s.head.sequence,1);assert.equal(s.events,1); }]);
 tests.push(["D1L-12 failed multi-statement batch rolls back event and head",async()=>{const t="t12";await seed(t);const e=event("e12",t);const r=await call("/__test/rollback",{method:"POST",body:JSON.stringify(e)});assert.equal(r.status,200);assert.equal((await r.json()).rolledBack,true);const s=await state(t);assert.equal(s.head.sequence,0);assert.equal(s.events,0); }]);
 tests.push(["D1L-13 simulated old-head restore is detected against in-memory checkpoint",async()=>{const t="t13";await seed(t);const e=event("e13",t);assert.equal((await append(e)).status,201);const r=await call("/__test/restore-detection",{method:"POST",body:JSON.stringify({task_id:t})});const b=await r.json();assert.equal(b.simulated,true);assert.equal(b.rollbackDetected,true);assert.equal(b.checkpoint.sequence,1);assert.equal(b.restored.sequence,0); }]);
-tests.push(["D1L-14 consistent database-and-head rollback is detected by an external runner checkpoint",async()=>{
+tests.push(["D1L-14 monotonic external checkpoint detects coordinated database-and-head rollback",async()=>{
  const t="t14";await seed(t);
  const a=event("e14a",t);assert.equal((await append(a)).status,201);
+ const afterA=await state(t);
+ // The test runner holds this anchor outside the Worker and D1 process.
+ const checkpointStore={current:{task_id:t,sequence:afterA.head.sequence,generation:afterA.head.generation,
+  latest_event_id:afterA.head.latest_event_id,latest_event_hash:afterA.head.latest_event_hash,
+  task_fingerprint:afterA.head.task_fingerprint,event_count:afterA.events}};
+ assert.equal(checkpointStore.current.sequence,1);
  const b=event("e14b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:a.event_hash});
  assert.equal((await append(b)).status,201);
- const before=await state(t);
- // This checkpoint lives in the Node test-runner process, not in the Worker or D1 database.
- const checkpoint={task_id:t,sequence:before.head.sequence,generation:before.head.generation,
-  latest_event_id:before.head.latest_event_id,latest_event_hash:before.head.latest_event_hash,
-  task_fingerprint:before.head.task_fingerprint,event_count:before.events};
+ const afterB=await state(t);
+ const next={task_id:t,sequence:afterB.head.sequence,generation:afterB.head.generation,
+  latest_event_id:afterB.head.latest_event_id,latest_event_hash:afterB.head.latest_event_hash,
+  task_fingerprint:afterB.head.task_fingerprint,event_count:afterB.events};
+ assert.equal(next.sequence,checkpointStore.current.sequence+1);
+ assert.equal(b.previous_event_hash,checkpointStore.current.latest_event_hash);
+ checkpointStore.current=next;
+ assert.throws(()=>{if(1<=checkpointStore.current.sequence)throw new Error("CHECKPOINT_NOT_MONOTONIC");},/CHECKPOINT_NOT_MONOTONIC/);
+ const checkpoint=checkpointStore.current;
  assert.equal(checkpoint.sequence,2);assert.equal(checkpoint.event_count,2);
  const restore=await call("/__test/restore-both",{method:"POST",body:JSON.stringify({task_id:t})});
  assert.equal(restore.status,200);assert.equal((await restore.json()).restored,true);
