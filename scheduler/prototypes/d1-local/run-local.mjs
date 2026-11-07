@@ -102,13 +102,16 @@ tests.push(["D1L-15 durable checkpoint survives witness and Worker process resta
  let snapshot=await state(t);
  const cp1={task_id:t,sequence:1,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
   latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
- const first=await appendCheckpoint(t,0,cp1,null);assert.equal(first.status,201);\n firstCheckpointSnapshot=await readFile(checkpointFile,"utf8");
+ const first=await appendCheckpoint(t,0,cp1,null);assert.equal(first.status,201);
+ firstCheckpointSnapshot=await readFile(checkpointFile,"utf8");
  const b=event("e15b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:a.event_hash});
  assert.equal((await append(b)).status,201);
  snapshot=await state(t);
  const cp2={task_id:t,sequence:2,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
   latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
- const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);\n latestCheckpointReceipt=second.body.receipt;\n fullCheckpointSnapshot=await readFile(checkpointFile,"utf8");
+ const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);
+ latestCheckpointReceipt=second.body.receipt;
+ fullCheckpointSnapshot=await readFile(checkpointFile,"utf8");
  const stale=await appendCheckpoint(t,1,cp1,null);assert.equal(stale.status,409);
  // Stop and restart the independent checkpoint process; it must replay and verify its fsynced journal.
  await stopProcess(checkpointChild);startCheckpoint();await checkpointReady();
@@ -127,7 +130,7 @@ tests.push(["D1L-15 durable checkpoint survives witness and Worker process resta
  }]);
 tests.push(["D1L-16 journal byte corruption fails closed on witness restart",async()=>{
  await stopProcess(checkpointChild);
- const original=await readFile(checkpointFile,"utf8");
+ const original=fullCheckpointSnapshot;
  const corrupted=original.replace('"task_id":"t15"','"task_id":"x15"');
  assert.notEqual(corrupted,original);
  await writeFile(checkpointFile,corrupted,{mode:0o600});
@@ -137,7 +140,7 @@ tests.push(["D1L-16 journal byte corruption fails closed on witness restart",asy
 }]);
 tests.push(["D1L-17 truncated final record fails closed on witness restart",async()=>{
  await stopProcess(checkpointChild);
- const original=await readFile(checkpointFile,"utf8");
+ const original=fullCheckpointSnapshot;
  const lines=original.trimEnd().split("\n");assert.equal(lines.length,2);
  await writeFile(checkpointFile,lines[0]+"\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
  startCheckpoint();await delay(500);
