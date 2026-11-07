@@ -48,6 +48,10 @@ The coordinated-rollback test is intentionally a passing reproduction of a limit
 
 CI results must be reported against the exact commit tested. Tests do not simulate power loss, disk/controller cache failure, filesystem-specific durability, hostile sidecar rewriting, or independent-witness recovery.
 
+## Independent recovery witness
+
+The proposed separate authority-ledger design, recovery protocol, failure matrix, and acceptance gates are specified in [SCH-001 Independent Recovery Witness Design](SCH-001-independent-recovery-witness-design.md). It remains a design only; no witness provider or service has been selected or implemented.
+
 ## Adoption boundary
 
 No external monotonic witness, backup service, production coordinator, distributed fencing, automatic restore, task activation, merge, or deployment is implemented. `AuthorityCoordinator` remains `LOCAL_REFERENCE_GRANT_ONLY`.
