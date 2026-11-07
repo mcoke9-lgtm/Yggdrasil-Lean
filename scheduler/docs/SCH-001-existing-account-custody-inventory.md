@@ -20,7 +20,7 @@
 - Visible base: `Adaptive Filesystem — ChatGPT Pilot`.
 - Base permission level returned for the connected account: `create`.
 - No external integration accounts were listed for the connected Airtable user.
-- The base-level permission response does not identify all collaborators, workspace owners, enterprise administrators, recovery contacts, automation/service credentials, or who can restore/delete/export the base.
+- The workspace listing does not expose the complete member roster, enterprise administrators, recovery contacts, automation/service credentials, or who can restore/delete/export the base. Workspace \`owner\` permission is a significant administrative capability and means this workspace must not be treated as independent from the connected account.
 - No attempt was made to enumerate unrelated bases or records.
 - Consequence: this pilot base is not established as an independent authority store or witness. Its exact administrative and recovery domain remains unknown.
 
