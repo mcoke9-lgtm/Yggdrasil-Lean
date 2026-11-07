@@ -2,15 +2,45 @@ import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 const port=8791, base="http://127.0.0.1:"+port, token="synthetic-local-test-token";
+const checkpointPort=8792, checkpointBase="http://127.0.0.1:"+checkpointPort;
+const checkpointDir=await mkdtemp(join(tmpdir(),"sch001-checkpoint-"));
+const checkpointFile=join(checkpointDir,"anchor.jsonl");
 const wrangler="node_modules/wrangler/bin/wrangler.js";
 const migration=spawnSync(process.execPath,[wrangler,"d1","migrations","apply","sch-001-disposable-local","--local"],{encoding:"utf8"});
 if(migration.status!==0) throw new Error("Local D1 migration failed:\n"+migration.stdout+"\n"+migration.stderr);
-const child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port),"--var","PROTOTYPE_MODE:local-test","--var","PROTOTYPE_TOKEN:"+token],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
-let logs=""; child.stdout.on("data",b=>logs+=b); child.stderr.on("data",b=>logs+=b);
+let child, checkpointChild;
+let logs="", checkpointLogs="";
+function startWorker(){
+ child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port),"--var","PROTOTYPE_MODE:local-test","--var","PROTOTYPE_TOKEN:"+token],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
+ child.stdout.on("data",b=>logs+=b);child.stderr.on("data",b=>logs+=b);
+}
+function startCheckpoint(){
+ checkpointChild=spawn(process.execPath,["checkpoint-service.mjs"],{cwd:process.cwd(),env:{...process.env,CHECKPOINT_FILE:checkpointFile,CHECKPOINT_PORT:String(checkpointPort)},stdio:["ignore","pipe","pipe"]});
+ checkpointChild.stdout.on("data",b=>checkpointLogs+=b);checkpointChild.stderr.on("data",b=>checkpointLogs+=b);
+}
+async function stopProcess(proc){
+ if(!proc||proc.exitCode!==null)return;
+ await new Promise(resolve=>{proc.once("exit",resolve);proc.kill("SIGTERM");});
+}
+startWorker();
 const headers={authorization:"Bearer "+token,"content-type":"application/json"};
 const call=(path,options={})=>fetch(base+path,{...options,headers:{...headers,...(options.headers||{})}});
-async function ready(){for(let i=0;i<120;i++){if(child.exitCode!==null)throw Error("Wrangler exited: "+logs);try{if((await fetch(base+"/health")).ok)return;}catch{}await delay(250);}throw Error("Wrangler readiness timeout: "+logs);}
+const checkpointCall=(path,options={})=>fetch(checkpointBase+path,{...options,headers:{"content-type":"application/json",...(options.headers||{})}});
+async function waitReady(url,proc,label,getLogs){for(let i=0;i<120;i++){if(proc.exitCode!==null)throw Error(label+" exited: "+getLogs());try{if((await fetch(url+"/health")).ok)return;}catch{}await delay(250);}throw Error(label+" readiness timeout: "+getLogs());}
+async function ready(){return waitReady(base,child,"Wrangler",()=>logs);}
+async function checkpointReady(){return waitReady(checkpointBase,checkpointChild,"Checkpoint service",()=>checkpointLogs);}
+async function appendCheckpoint(taskId,expectedAnchorSequence,checkpoint,previousEventHash){
+ const r=await checkpointCall("/v1/append",{method:"POST",body:JSON.stringify({task_id:taskId,expected_anchor_sequence:expectedAnchorSequence,checkpoint,previous_event_hash:previousEventHash})});
+ return {status:r.status,body:await r.json()};
+}
+async function getCheckpoint(taskId){
+ const r=await checkpointCall("/v1/checkpoint?task_id="+encodeURIComponent(taskId));
+ return {status:r.status,body:await r.json()};
+}
 async function seed(id){const r=await call("/__test/seed",{method:"POST",body:JSON.stringify({task_id:id,task_fingerprint:"fp-"+id})});assert.equal(r.status,200,await r.text());}
 async function state(id){const r=await call("/__test/state?task_id="+id);assert.equal(r.status,200);return r.json();}
 function event(id,task,extra={}){return {event_id:id,task_id:task,sequence:1,generation:0,event_type:"REVIEW",task_fingerprint:"fp-"+task,expected_previous_sequence:0,expected_previous_generation:0,expected_previous_owner:"source",new_owner:"source",previous_event_hash:null,event_hash:"hash-"+id,authorization_principal:"synthetic-operator",authorization_decision_id:"decision-"+id,authorization_evidence_digest:"evidence-"+id,transfer_id:null,witness_timestamp:new Date().toISOString(),schema_version:1,receipt_id:"receipt-"+id,...extra};}
@@ -61,7 +91,36 @@ tests.push(["D1L-14 monotonic external checkpoint detects coordinated database-a
  assert.equal(result.restored.sequence,0);
  assert.equal(result.restored.event_count,0);
  }]);
+tests.push(["D1L-15 durable checkpoint survives witness and Worker process restarts and detects coordinated rollback",async()=>{
+ const t="t15";await seed(t);
+ const a=event("e15a",t);assert.equal((await append(a)).status,201);
+ let snapshot=await state(t);
+ const cp1={task_id:t,sequence:1,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
+  latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
+ const first=await appendCheckpoint(t,0,cp1,null);assert.equal(first.status,201);
+ const b=event("e15b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:a.event_hash});
+ assert.equal((await append(b)).status,201);
+ snapshot=await state(t);
+ const cp2={task_id:t,sequence:2,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
+  latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
+ const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);
+ const stale=await appendCheckpoint(t,1,cp1,null);assert.equal(stale.status,409);
+ // Stop and restart the independent checkpoint process; it must replay and verify its fsynced journal.
+ await stopProcess(checkpointChild);startCheckpoint();await checkpointReady();
+ const durable=await getCheckpoint(t);assert.equal(durable.status,200);assert.equal(durable.body.anchor_sequence,2);
+ assert.equal(durable.body.checkpoint.latest_event_hash,cp2.latest_event_hash);
+ // Restart the local Worker while preserving the same Wrangler D1 state directory.
+ await stopProcess(child);startWorker();await ready();
+ const before=await state(t);assert.equal(before.head.sequence,2);assert.equal(before.events,2);
+ // Simulate privileged coordinated restore after both services have restarted.
+ const restore=await call("/__test/restore-both",{method:"POST",body:JSON.stringify({task_id:t})});
+ assert.equal(restore.status,200);
+ const compare=await call("/__test/compare-checkpoint",{method:"POST",body:JSON.stringify(durable.body.checkpoint)});
+ assert.equal(compare.status,409);
+ const result=await compare.json();assert.equal(result.status,"WITNESS_ROLLBACK_OR_LOSS");
+ assert.equal(result.checkpoint.sequence,2);assert.equal(result.restored.sequence,0);
+ }]);
 let failures=0;
 try {await ready();for(const [name,fn] of tests){try{await fn();console.log("PASS "+name);}catch(e){failures++;console.error("FAIL "+name,e);}}console.log("RESULT "+(tests.length-failures)+"/"+tests.length+" passed");if(failures)process.exitCode=1;}
 catch(e){console.error(e,logs);process.exitCode=1;}
-finally{child.kill("SIGTERM");}
+finally{await stopProcess(child);await stopProcess(checkpointChild);await rm(checkpointDir,{recursive:true,force:true});}
