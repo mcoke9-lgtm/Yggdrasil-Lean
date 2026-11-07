@@ -133,8 +133,8 @@ tests.push(["D1L-16 journal byte corruption fails closed on witness restart",asy
 tests.push(["D1L-17 truncated final record fails closed on witness restart",async()=>{
  await stopProcess(checkpointChild);
  const original=await readFile(checkpointFile,"utf8");
- const lines=original.trimEnd().split("\\n");assert.equal(lines.length,2);
- await writeFile(checkpointFile,lines[0]+"\\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
+ const lines=original.trimEnd().split("\n");assert.equal(lines.length,2);
+ await writeFile(checkpointFile,lines[0]+"\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
  startCheckpoint();await delay(500);
  assert.ok(checkpointChild.exitCode!==null,"truncated JSONL record must prevent service startup");
  assert.match(checkpointLogs,/Unexpected end of JSON input|CHECKPOINT_JOURNAL/);
@@ -152,16 +152,15 @@ tests.push(["D1L-18 valid older journal replacement is internally accepted but d
 }]);
 tests.push(["D1L-19 privileged full-chain rewrite with recomputed hashes passes local replay but conflicts with retained receipt",async()=>{
  await stopProcess(checkpointChild);
- const lines=(await readFile(checkpointFile,"utf8")).trimEnd().split("\\n");
+ const lines=(await readFile(checkpointFile,"utf8")).trimEnd().split("\n");
  assert.equal(lines.length,1,"the previous case deliberately installed the valid older snapshot");
  const first=JSON.parse(lines[0]);
- const originalSecond=JSON.parse((await (async()=>{return await readFile(checkpointFile,"utf8")})()));
  // Reconstruct a syntactically and cryptographically valid second record using a forged event hash.
  const forgedCheckpoint={...first.checkpoint,sequence:2,latest_event_id:"privileged-forged-event",latest_event_hash:"privileged-rewrite-forged-event-hash",event_count:2};
  const body={task_id:"t15",anchor_sequence:2,previous_record_hash:first.record_hash,
   previous_event_hash:first.checkpoint.latest_event_hash,checkpoint:forgedCheckpoint,accepted_at:new Date().toISOString()};
  const forged={...body,record_hash:sha256(JSON.stringify(body))};
- await writeFile(checkpointFile,lines[0]+"\\n"+JSON.stringify(forged)+"\\n",{mode:0o600});
+ await writeFile(checkpointFile,lines[0]+"\n"+JSON.stringify(forged)+"\n",{mode:0o600});
  startCheckpoint();await checkpointReady();
  const rewritten=await getCheckpoint("t15");
  assert.equal(rewritten.status,200,"recomputed local hash chain should replay successfully");
@@ -169,7 +168,6 @@ tests.push(["D1L-19 privileged full-chain rewrite with recomputed hashes passes 
  assert.equal(rewritten.body.checkpoint.latest_event_hash,"privileged-rewrite-forged-event-hash");
  assert.equal(latestCheckpointReceipt.checkpoint.sequence,2);
  assert.notEqual(rewritten.body.checkpoint.latest_event_hash,latestCheckpointReceipt.checkpoint.latest_event_hash);
- assert.ok(originalSecond.length>0);
 }]);
 let failures=0;
 try {await ready();for(const [name,fn] of tests){try{await fn();console.log("PASS "+name);}catch(e){failures++;console.error("FAIL "+name,e);}}console.log("RESULT "+(tests.length-failures)+"/"+tests.length+" passed");if(failures)process.exitCode=1;}
