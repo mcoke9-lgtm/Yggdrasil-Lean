@@ -59,7 +59,11 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-12: failed multi-statement batch leaves event and head unchanged; the second statement is a valid duplicate-primary-key insert that fails during batch execution.
 - D1L-13: a simulated old-head restore is detected against a Worker-process-memory checkpoint.
 - D1L-14: a consistent rollback of both the event ledger and head projection is detected against a monotonic checkpoint held by the separate Node test-runner process.
-- D1L-15: a separate checkpoint process persists two monotonic anchors to a hash-chained journal, restarts and verifies the journal, then detects coordinated D1 rollback after the D1 Worker itself is restarted.\n- D1L-16: byte-level journal corruption causes checkpoint-service startup to fail closed.\n- D1L-17: a truncated final JSONL record causes startup to fail closed.\n- D1L-18: replacing the journal with a previously valid older copy passes internal replay but disagrees with the runner-retained sequence-2 receipt.\n- D1L-19: a privileged actor rewrites the latest checkpoint and recomputes a valid local hash chain; replay succeeds, but the rewritten event hash conflicts with the runner-retained receipt.
+- D1L-15: a separate checkpoint process persists two monotonic anchors to a hash-chained journal, restarts and verifies the journal, then detects coordinated D1 rollback after the D1 Worker itself is restarted.
+- D1L-16: byte-level journal corruption causes checkpoint-service startup to fail closed.
+- D1L-17: a truncated final JSONL record causes startup to fail closed.
+- D1L-18: replacing the journal with a previously valid older copy passes internal replay but disagrees with the runner-retained sequence-2 receipt.
+- D1L-19: a privileged actor rewrites the latest checkpoint and recomputes a valid local hash chain; replay succeeds, but the rewritten event hash conflicts with the runner-retained receipt.
 
 D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. D1L-14 improves the threat model: the Node test runner retains the checkpoint outside the Worker and D1 database, then invokes a test-only privileged restore simulation that rewinds both the event ledger and head projection to a mutually consistent earlier state. The Worker compares that restored state with the runner-held checkpoint and must return `WITNESS_ROLLBACK_OR_LOSS`. This is stronger than comparing the head alone, but remains a same-host test harness, not a durable independently administered witness or an actual D1 Time Travel restore. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
 
@@ -110,4 +114,7 @@ The verified run includes the strengthened rollback case: its second batch state
 ## Decision boundary
 
 A passing local suite would justify a later, separately approved remote D1 sandbox evaluation. It would not justify provider adoption, authority transfer, production deployment, or activation of any task.
-\n## Latest journal-adversary test expansion\n\n**Status: implementation committed; CI result pending.** The suite now contains D1L-01 through D1L-19. The four new cases distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. In particular, D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt is what detects the mismatch. No production-grade independence claim follows from these local tests.\n
+
+## Latest journal-adversary test expansion
+
+**Status: implementation committed; CI result pending.** The suite now contains D1L-01 through D1L-19. The four new cases distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. In particular, D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt is what detects the mismatch. No production-grade independence claim follows from these local tests.
