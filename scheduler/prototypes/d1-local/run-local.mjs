@@ -92,7 +92,7 @@ tests.push(["D1L-14 monotonic external checkpoint detects coordinated database-a
  assert.equal(result.restored.event_count,0);
  }]);
 tests.push(["D1L-15 durable checkpoint survives witness and Worker process restarts and detects coordinated rollback",async()=>{
- const t="t15";await seed(t);
+ const t="t15";startCheckpoint();await checkpointReady();await seed(t);
  const a=event("e15a",t);assert.equal((await append(a)).status,201);
  let snapshot=await state(t);
  const cp1={task_id:t,sequence:1,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
