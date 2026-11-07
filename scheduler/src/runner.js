@@ -63,6 +63,10 @@ async function tick() {
   }
 }
 
+// Install signal handlers before publishing the started event. Otherwise a
+// supervisor that reacts immediately to scheduler_started can deliver SIGTERM
+// during the small window before the handlers are registered.
+
 try {
   const address = await dashboard.listen();
   const tasks = await scheduler.listTasks();
