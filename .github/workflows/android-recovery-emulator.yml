@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y libpulse0t64
+          sudo apt-get install -y libpulse0
           echo "Checking emulator runtime dependencies after SDK installation will follow."
 
       - name: Install Android SDK emulator and API 35 image
