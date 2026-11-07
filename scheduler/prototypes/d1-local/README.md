@@ -34,8 +34,8 @@ The `/__test/*` seed/state routes are disabled unless the explicit local-test mo
 
 **Verified CI result: 8 of 8 passed.**
 
-- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330269560
-- Tested commit: `f749477e44bbe9e03dfa6059955ef54d102b4992`
+- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330324162
+- Tested commit: `6c921f330c16e714135936ca2f07f69e190e1294`
 - Runtime: Node.js 22.23.4; Wrangler 4.158.0
 - Result: 8 tests passed, 0 failed.
 - The run used the local Wrangler D1 binding and local workerd runtime; no remote binding or deployment was configured.
