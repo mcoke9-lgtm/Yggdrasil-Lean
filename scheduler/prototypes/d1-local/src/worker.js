@@ -46,6 +46,27 @@ export default { async fetch(request,env) {
   const cp=simulatedCheckpoints.get(b.task_id);
   return reply({simulated:true,checkpoint:cp,restored:{sequence:restored.sequence,generation:restored.generation,event_hash:restored.latest_event_hash},rollbackDetected:restored.sequence<cp.sequence || restored.generation<cp.generation || restored.latest_event_hash!==cp.event_hash});
  }
+ if(request.method==="POST" && url.pathname==="/__test/restore-both") {
+  const b=await request.json();
+  // Privileged restore simulation: rewind both the event ledger and its mutable head projection.
+  // The independent checkpoint is deliberately supplied later by the separate test-runner process.
+  await env.DB.prepare("DROP TRIGGER IF EXISTS authority_events_no_delete").run();
+  await env.DB.prepare("DELETE FROM authority_events WHERE task_id=?").bind(b.task_id).run();
+  await env.DB.prepare("UPDATE task_heads SET sequence=0,generation=0,authority_owner='source',latest_event_id=NULL,latest_event_hash=NULL WHERE task_id=?").bind(b.task_id).run();
+  return reply({restored:true});
+ }
+ if(request.method==="POST" && url.pathname==="/__test/compare-checkpoint") {
+  const cp=await request.json();
+  const h=await env.DB.prepare("SELECT * FROM task_heads WHERE task_id=?").bind(cp.task_id).first();
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM authority_events WHERE task_id=?").bind(cp.task_id).first();
+  if(!h) return reply({error:"TASK_HEAD_MISSING",rollbackDetected:true},409);
+  const mismatch=h.sequence<cp.sequence || h.generation<cp.generation ||
+   h.latest_event_id!==cp.latest_event_id || h.latest_event_hash!==cp.latest_event_hash ||
+   h.task_fingerprint!==cp.task_fingerprint || count.n<cp.event_count;
+  return reply({status:mismatch?"WITNESS_ROLLBACK_OR_LOSS":"CONTINUITY_MATCH",rollbackDetected:mismatch,
+   checkpoint:{sequence:cp.sequence,generation:cp.generation,latest_event_id:cp.latest_event_id,latest_event_hash:cp.latest_event_hash,event_count:cp.event_count},
+   restored:{sequence:h.sequence,generation:h.generation,latest_event_id:h.latest_event_id,latest_event_hash:h.latest_event_hash,event_count:count.n}},mismatch?409:200);
+ }
  if(request.method==="POST" && url.pathname==="/__test/seed") {
   const b=await request.json();
   await env.DB.prepare("INSERT INTO task_heads(task_id,task_fingerprint,sequence,generation,authority_owner,updated_at) VALUES(?,?,0,0,'source',?)")
