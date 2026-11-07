@@ -167,6 +167,21 @@ test("a stale cancellation cannot overwrite a newer pause generation", () => {
   assert.throws(() => applyHandoffEvent(paused, { type: "CANCEL", generation: 8 }), /newer generation/);
 });
 
+test("generic rejection cannot clear a pending cancellation without destination proof", () => {
+  const pending = applyHandoffEvent(makeHandoff(), { type: "CANCEL", generation: 8 });
+  assert.throws(() => applyHandoffEvent(pending, {
+    type: "REJECT", generation: 8
+  }), /Cancellation cannot be rejected or cleared without destination proof/);
+  assert.equal(pending.state, "CANCEL_PENDING");
+  const restored = applyHandoffEvent(pending, {
+    type: "RESOLVE_TO_SOURCE",
+    generation: 8,
+    receipt: receipt({ ...pending, generation: 8 }, "CANCELLED")
+  });
+  assert.equal(restored.state, "REJECTED");
+  assert.equal(restored.ownerId, "scheduler-a");
+});
+
 test("source restoration requires destination proof that commit did not occur", () => {
   const commitSent = advanceTo(makeHandoff(), "COMMIT_SENT");
   const uncertain = applyHandoffEvent(commitSent, { type: "REQUIRE_RECOVERY", generation: 7 });
