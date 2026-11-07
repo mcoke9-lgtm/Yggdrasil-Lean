@@ -1,6 +1,8 @@
 package org.yggdrasil.scheduler.builder;
 
 import android.app.Service;
+import android.app.ActivityManager;
+import android.os.Build;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -53,7 +55,7 @@ public abstract class BuilderRoleProcessService extends Service {
                     if (request.what == MESSAGE_HEALTH) {
                         output.putString(KEY_ROLE, role().name());
                         output.putInt(KEY_PID, Process.myPid());
-                        output.putString(KEY_PROCESS, android.app.Application.getProcessName());
+                        output.putString(KEY_PROCESS, currentProcessName());
                     } else if (request.what == MESSAGE_APPEND) {
                         String speaker = input.getString(KEY_ROLE);
                         if (!role().name().equals(speaker)) {
@@ -102,6 +104,17 @@ public abstract class BuilderRoleProcessService extends Service {
                 }
             }
         });
+    }
+
+    private String currentProcessName() {
+        if (Build.VERSION.SDK_INT >= 28) return android.app.Application.getProcessName();
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (manager != null) {
+            for (ActivityManager.RunningAppProcessInfo process : manager.getRunningAppProcesses()) {
+                if (process.pid == Process.myPid()) return process.processName;
+            }
+        }
+        return getPackageName() + ":builder_" + role().name().toLowerCase(java.util.Locale.ROOT);
     }
 
     @Override public IBinder onBind(Intent intent) { return messenger.getBinder(); }
