@@ -93,3 +93,8 @@ This lock does **not** coordinate separate store instances pointing at the same 
 **Activation remains deliberately unavailable.** A persisted or accepted handoff is not proof that the source has stopped executing. A source message, lease timeout, missing heartbeat, or destination-side receipt cannot by itself establish exclusive execution authority. Before activation can be safe, the system needs a fencing mechanism enforced at the actual side-effect boundary, plus a source-side quiescence/relinquishment protocol and reconciliation for uncertain outcomes. The current local scheduler does not provide distributed fencing. Therefore this increment does not add an activation method or claim single-active-scheduler safety.
 
 The intended safety rule is: during uncertainty or partition, preserve the handoff as accepted-but-inactive (or blocked); do not activate on timeout or contact loss. Availability is sacrificed rather than risk duplicate execution.
+
+
+## Next safety contract
+
+The proposed source relinquishment and execution-fencing requirements are specified separately in [SCH-001-source-relinquishment-and-fencing.md](./SCH-001-source-relinquishment-and-fencing.md). That document is a design contract only. It does not authorize activation or establish that any authority coordinator or effect-boundary fence exists.
