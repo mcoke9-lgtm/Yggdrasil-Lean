@@ -43,7 +43,7 @@ export class Scheduler {
   }
 
   async validateHandoffTask(input) {
-    return this.withStateLock(async () => {
+    return (async () => {
       if (!input || !ID_PATTERN.test(input.id || "")) {
         return { valid: false, reason: "Task ID must be 1–80 safe characters" };
       }
@@ -94,7 +94,7 @@ export class Scheduler {
         updatedAt: now
       };
       return { valid: true, validator: "Scheduler.validateHandoffTask", task };
-    });
+    })();
   }
 
   async addTask(input) {
