@@ -31,6 +31,14 @@ async function stopProcess(proc){
  if(!proc||proc.exitCode!==null)return;
  await new Promise(resolve=>{proc.once("exit",resolve);proc.kill("SIGTERM");});
 }
+async function waitForExit(proc,timeoutMs=5000){
+ if(proc.exitCode!==null)return;
+ const outcome=await Promise.race([
+  new Promise(resolve=>proc.once("exit",()=>resolve("EXIT"))),
+  delay(timeoutMs).then(()=> "TIMEOUT")
+ ]);
+ if(outcome==="TIMEOUT")throw new Error("Process did not exit within "+timeoutMs+"ms");
+}
 startWorker();
 const headers={authorization:"Bearer "+token,"content-type":"application/json"};
 const call=(path,options={})=>fetch(base+path,{...options,headers:{...headers,...(options.headers||{})}});
@@ -134,7 +142,7 @@ tests.push(["D1L-16 journal byte corruption fails closed on witness restart",asy
  const corrupted=original.replace('"task_id":"t15"','"task_id":"x15"');
  assert.notEqual(corrupted,original);
  await writeFile(checkpointFile,corrupted,{mode:0o600});
- startCheckpoint();await delay(500);
+ startCheckpoint();await waitForExit(checkpointChild);
  assert.ok(checkpointChild.exitCode!==null,"corrupted journal must prevent service startup");
  assert.match(checkpointLogs,/CHECKPOINT_JOURNAL_INTEGRITY_FAILURE|CHECKPOINT_JOURNAL_MONOTONICITY_FAILURE/);
 }]);
@@ -143,7 +151,7 @@ tests.push(["D1L-17 truncated final record fails closed on witness restart",asyn
  const original=fullCheckpointSnapshot;
  const lines=original.trimEnd().split("\n");assert.equal(lines.length,2);
  await writeFile(checkpointFile,lines[0]+"\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
- startCheckpoint();await delay(500);
+ startCheckpoint();await waitForExit(checkpointChild);
  assert.ok(checkpointChild.exitCode!==null,"truncated JSONL record must prevent service startup");
  assert.match(checkpointLogs,/Unexpected end of JSON input|CHECKPOINT_JOURNAL/);
 }]);
