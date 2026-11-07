@@ -13,12 +13,17 @@ const wrangler="node_modules/wrangler/bin/wrangler.js";
 const migration=spawnSync(process.execPath,[wrangler,"d1","migrations","apply","sch-001-disposable-local","--local"],{encoding:"utf8"});
 if(migration.status!==0) throw new Error("Local D1 migration failed:\n"+migration.stdout+"\n"+migration.stderr);
 let child, checkpointChild;
-let logs="", checkpointLogs="";\nlet firstCheckpointSnapshot="";\nlet fullCheckpointSnapshot="";\nlet latestCheckpointReceipt=null;\nconst sha256=value=>createHash("sha256").update(value).digest("hex");
+let logs="", checkpointLogs="";
+let firstCheckpointSnapshot="";
+let fullCheckpointSnapshot="";
+let latestCheckpointReceipt=null;
+const sha256=value=>createHash("sha256").update(value).digest("hex");
 function startWorker(){
  child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port),"--var","PROTOTYPE_MODE:local-test","--var","PROTOTYPE_TOKEN:"+token],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
  child.stdout.on("data",b=>logs+=b);child.stderr.on("data",b=>logs+=b);
 }
 function startCheckpoint(){
+ checkpointLogs="";
  checkpointChild=spawn(process.execPath,["checkpoint-service.mjs"],{cwd:process.cwd(),env:{...process.env,CHECKPOINT_FILE:checkpointFile,CHECKPOINT_PORT:String(checkpointPort)},stdio:["ignore","pipe","pipe"]});
  checkpointChild.stdout.on("data",b=>checkpointLogs+=b);checkpointChild.stderr.on("data",b=>checkpointLogs+=b);
 }
