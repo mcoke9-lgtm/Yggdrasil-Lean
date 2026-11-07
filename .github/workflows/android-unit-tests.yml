@@ -16,3 +16,11 @@ jobs:
           java-version: "17"
       - name: Run Android JVM unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Run nine-process Android instrumentation test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
