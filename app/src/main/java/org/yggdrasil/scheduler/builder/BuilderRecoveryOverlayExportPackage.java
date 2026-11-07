@@ -67,7 +67,11 @@ public final class BuilderRecoveryOverlayExportPackage {
     public static BuilderRecoveryStager.StageResult stage(
             Context context, JSONObject root, String stagingId) {
         validate(root);
-        return BuilderRecoveryStager.stage(context, canonicalPackage(root), stagingId);
+        try {
+            return BuilderRecoveryStager.stage(context, canonicalPackage(root), stagingId);
+        } catch (org.json.JSONException e) {
+            throw new IllegalArgumentException("Malformed merged recovery export during staging", e);
+        }
     }
 
     private static JSONObject canonicalPackage(JSONObject root)
