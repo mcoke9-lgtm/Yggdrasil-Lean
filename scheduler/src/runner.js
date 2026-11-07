@@ -66,6 +66,9 @@ async function tick() {
 // Install signal handlers before publishing the started event. Otherwise a
 // supervisor that reacts immediately to scheduler_started can deliver SIGTERM
 // during the small window before the handlers are registered.
+process.once("SIGINT", () => { void shutdown("SIGINT"); });
+process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+
 
 try {
   const address = await dashboard.listen();
@@ -98,6 +101,3 @@ async function shutdown(signal) {
     process.exitCode = 0;
   }
 }
-
-process.once("SIGINT", () => { void shutdown("SIGINT"); });
-process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
