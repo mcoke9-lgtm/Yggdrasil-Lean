@@ -19,6 +19,7 @@
 
 - Visible base: `Adaptive Filesystem — ChatGPT Pilot`.
 - Base permission level returned for the connected account: `create`.
+- Workspace: `My First Workspace`; connected account permission level: `owner`. This establishes the connected user's workspace-level authority, not the identity or access of every other workspace member or Airtable platform administrator.
 - No external integration accounts were listed for the connected Airtable user.
 - The workspace listing does not expose the complete member roster, enterprise administrators, recovery contacts, automation/service credentials, or who can restore/delete/export the base. Workspace \`owner\` permission is a significant administrative capability and means this workspace must not be treated as independent from the connected account.
 - No attempt was made to enumerate unrelated bases or records.
