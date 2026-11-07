@@ -82,3 +82,14 @@ The inbox now supports two explicit operations after persistence:
 `Scheduler.validateHandoffTask` checks the destination's registered handler, task ID collision, task name, and supported interval/calendar schedule. Validation is a preview only: it does not add the task to the active scheduler.
 
 **Acceptance is not activation.** Even after `HANDOFF_ACCEPTED`, the task is not inserted into the scheduler's task list and cannot execute. Activation, source/destination authority reconciliation, and distributed fencing remain separate future work. A blocked or unvalidated handoff cannot be accepted.
+
+
+## Activation safety boundary and shared-store serialization
+
+Scheduler and inbox state mutations now use one process-local lock keyed by the shared store object. When both components receive the same store instance, their read-modify-write operations are serialized, preventing a local lost-update race between adding a scheduler task and receiving/updating a handoff. A regression test exercises concurrent task creation and handoff receipt.
+
+This lock does **not** coordinate separate store instances pointing at the same file, separate processes, separate hosts, or a network partition. The JSON file store is not a distributed transaction coordinator.
+
+**Activation remains deliberately unavailable.** A persisted or accepted handoff is not proof that the source has stopped executing. A source message, lease timeout, missing heartbeat, or destination-side receipt cannot by itself establish exclusive execution authority. Before activation can be safe, the system needs a fencing mechanism enforced at the actual side-effect boundary, plus a source-side quiescence/relinquishment protocol and reconciliation for uncertain outcomes. The current local scheduler does not provide distributed fencing. Therefore this increment does not add an activation method or claim single-active-scheduler safety.
+
+The intended safety rule is: during uncertainty or partition, preserve the handoff as accepted-but-inactive (or blocked); do not activate on timeout or contact loss. Availability is sacrificed rather than risk duplicate execution.
