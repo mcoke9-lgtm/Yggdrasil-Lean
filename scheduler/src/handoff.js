@@ -167,6 +167,10 @@ export function applyHandoffEvent(record, event) {
       if (record.state !== "RECOVERY_REQUIRED" && record.state !== "CANCEL_PENDING") {
         throw new Error("Source ownership can only be restored during recovery or cancellation");
       }
+      if (!event.receipt) {
+        throw new Error("Source restoration requires destination proof that the handoff was not committed");
+      }
+      assertReceiptMatches(record, event.receipt, "CANCELLED");
       transition("REJECTED");
       next.ownerId = record.sourceId;
       break;
