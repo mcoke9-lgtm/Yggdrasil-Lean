@@ -12,6 +12,7 @@
 - Authenticated connected GitHub login: `mcoke9-lgtm`.
 - Repository metadata reports the connected account's effective permissions as admin, maintain, pull, push and triage; admin is true.
 - Connected GitHub app installation inventory showed the personal account `mcoke9-lgtm`; connected organization membership list was empty.
+- A direct collaborator-permission lookup for the authenticated user also returned `admin`. This confirms the connected user's repository permission, not the full collaborator roster.
 - No collaborator roster, branch-protection/ruleset configuration, account recovery methods, MFA enrollment, recovery codes, organization-level control, or signing-key custody was inspected. Available connector actions in this inspection did not expose a collaborator roster or branch-protection/ruleset read.
 - Consequence: GitHub is a single personal-account administrative domain for this repository as far as the inspected metadata shows. GitHub history and CI artifacts must not be treated as the independent SCH-001 continuity witness.
 
@@ -19,7 +20,7 @@
 
 - Visible base: `Adaptive Filesystem — ChatGPT Pilot`.
 - Base permission level returned for the connected account: `create`.
-- Workspace: `My First Workspace`; connected account permission level: `owner`. This establishes the connected user's workspace-level authority, not the identity or access of every other workspace member or Airtable platform administrator.
+- Workspace listing returned one accessible workspace: `My First Workspace`; connected account permission level: `owner`. No additional accessible workspaces were returned. This establishes the connected user's workspace-level authority, not the identity or access of every other workspace member or Airtable platform administrator.
 - No external integration accounts were listed for the connected Airtable user.
 - The workspace listing does not expose the complete member roster, enterprise administrators, recovery contacts, automation/service credentials, or who can restore/delete/export the base. Workspace \`owner\` permission is a significant administrative capability and means this workspace must not be treated as independent from the connected account.
 - No attempt was made to enumerate unrelated bases or records.
@@ -27,10 +28,11 @@
 
 ## 3. Dropbox
 
+- Connected Dropbox identity metadata identifies a **personal account**, not a Dropbox team account.
 - Title-only searches for `SCH-001 scheduler witness` and `Adaptive Filesystem` returned zero matches.
 - Root folder listing returned no entries through the connected Dropbox tool.
 - This is evidence only about what the connected search/list operations returned at inspection time; it does not prove the Dropbox account is empty or that no content exists in inaccessible/team namespaces.
-- No Dropbox team/admin console, member roster, sharing policy, recovery path, account ownership, backup/restore authority, or project-specific folder permissions were inspected.
+- No Dropbox team/admin console or team roster applies based on the returned personal-account classification. Account recovery path, MFA, sharing policy, account ownership/recovery control, backup/restore authority and project-specific folder permissions were not inspected.
 - Consequence: Dropbox cannot currently be counted as a witness, backup custodian, or independent recovery domain.
 
 ## 4. Comparative result
@@ -39,7 +41,7 @@
 |---|---|---|---|
 | GitHub | Personal repo; connected account has admin permission | Unknown; personal-account recovery not inspected | Not suitable as independent witness |
 | Airtable pilot | Connected account has `create` base permission | Unknown; base/workspace administrators not inspected | Not established; keep disposable/pilot only |
-| Dropbox | Searches empty; root listing empty | Unknown; team/account controls not inspected | Not established; no project evidence located |
+| Dropbox | Connected account is personal; searches and root listing returned no entries | Personal-account recovery, MFA and restore controls unknown | Not established; no project evidence located |
 
 ## 5. Material unknowns
 
