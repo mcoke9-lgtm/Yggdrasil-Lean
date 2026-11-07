@@ -166,7 +166,7 @@ A manually held checkpoint is useful for a first controlled experiment but is no
 | D1-15 | Android process death, reboot, Doze or duplicate tap | No duplicate event; query original event ID; no offline authority grant |
 | D1-16 | Source relinquishes but response is lost | Query same transfer ID; destination stays inactive until witness result and fencing are verified |
 | D1-17 | D1 restored and its local event/head agree with each other but external checkpoint is newer | Detect rollback; internal consistency is insufficient |
-| D1-18 | Hash chain is recomputed by a privileged actor after tampering | Independent checkpoint/signature mismatch detects alteration, or test documents that this threat remains unmitigated |
+| D1-18 | Hash chain is recomputed by a privileged actor after tampering | Independent checkpoint/signature mismatch detects alteration, or test documents that this threat remains unmitigated |\n| D1-19 | Journal bytes are corrupted or its final record is truncated | Witness refuses startup; no checkpoint is served from malformed history |\n| D1-20 | A previously valid older journal copy replaces the current journal | Internal replay may succeed; comparison with a separately retained latest receipt detects rollback |\n| D1-21 | Privileged actor rewrites the full journal and recomputes every record hash | Local replay may succeed; a receipt outside that actor's control detects the substituted checkpoint |
 
 For every test record: test ID, environment/version, setup, exact inputs, expected result, actual result, event/head before and after, receipt, logs/evidence digest, reviewer, and status (PROPOSED, RUN, PASS, FAIL, BLOCKED). Do not label a test PASS without retained output.
 
@@ -204,11 +204,11 @@ Stop if trigger semantics are not atomic, if competing writers can both succeed,
 
 **Proposed:** data model, trigger-guarded append hypothesis, API boundary, recovery checkpoint and 18 adversarial tests.
 
-**Implemented in local prototype:** D1-compatible schema/trigger path, test-only Worker API, local durable checkpoint journal and process-restart adversarial test.
+**Implemented in local prototype:** D1-compatible schema/trigger path, test-only Worker API, local durable checkpoint journal, process-restart test, and D1L-16–D1L-19 simulations for corruption, truncation, older-copy rollback and privileged full-chain rewrite. The latter tests use a receipt held by the same CI runner, not an independent security domain.
 
 **Not yet implemented:** production authentication, independently administered remote checkpoint service, remote D1 database, Android integration or production recovery/fencing.
 
-**Not tested or verified:** D1 trigger support/behavior for this exact append design, competing-writer semantics, durability contract, restore detection, account separation, free-tier failure behavior, Android lifecycle behavior.
+**Not tested or verified:** production D1 trigger support/behavior for this exact append design, distributed competing-writer semantics, production durability contract, actual provider restore, account separation, free-tier failure behavior, Android lifecycle behavior, or defense against compromise of the external receipt holder.
 
 **Not adopted:** Cloudflare D1 as production witness; no provider or paid tier selected.
 
