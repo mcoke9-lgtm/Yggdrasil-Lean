@@ -62,11 +62,11 @@ D1L-13 is only a controlled demonstration: the checkpoint is held in Worker proc
 
 ## Latest expanded-suite CI execution
 
-- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330509926
-- Tested code commit: `f08a002379e205265289719740929542eaebec6f`
+- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330551406
+- Tested code commit: `c15daad6c1b25328bfb8b2027c553146fc75efc8`
 - Result: 13 of 13 passed.
 
-The rollback case was subsequently strengthened so its second batch statement is a syntactically valid duplicate-primary-key insert. This forces a runtime constraint failure after the first event insert has been submitted to the batch, rather than relying on a deliberately missing table.
+The verified run includes the strengthened rollback case: its second batch statement is a syntactically valid duplicate-primary-key insert. This forces a runtime constraint failure after the first event insert has been submitted to the batch, rather than relying on a deliberately missing table.
 
 ## Important gaps
 
