@@ -102,6 +102,71 @@ export class HandoffInbox {
     });
   }
 
+
+  async validate(handoffId, validator) {
+    return this.withLock(async () => {
+      requiredId(handoffId, "handoffId");
+      if (typeof validator !== "function") throw new TypeError("A destination task validator is required");
+      const state = await this.store.load();
+      const handoff = state.handoffs.find(item => item.handoffId === handoffId);
+      if (!handoff) throw new Error(`Handoff not found: ${handoffId}`);
+      if (handoff.status === "HANDOFF_ACCEPTED" || handoff.status === "TASK_ACTIVATED") {
+        throw new Error("An accepted handoff cannot be revalidated");
+      }
+      let validation;
+      try {
+        validation = await validator(clone(handoff.taskDefinition));
+        if (!validation || validation.valid !== true || !validation.task) {
+          throw new Error(validation?.reason || "Destination validator did not approve the task");
+        }
+        handoff.status = "HANDOFF_VALIDATED";
+        handoff.validatedTask = clone(validation.task);
+        handoff.validation = {
+          outcome: "VALID",
+          validatedAt: this.clock().toISOString(),
+          validator: validation.validator || "destination-validator"
+        };
+      } catch (error) {
+        handoff.status = "HANDOFF_BLOCKED";
+        delete handoff.validatedTask;
+        handoff.validation = {
+          outcome: "BLOCKED",
+          validatedAt: this.clock().toISOString(),
+          reason: String(error?.message || error).slice(0, 1000)
+        };
+      }
+      await this.store.save(state);
+      return clone(handoff);
+    });
+  }
+
+  async accept(handoffId, { acceptanceAuthorization } = {}) {
+    return this.withLock(async () => {
+      requiredId(handoffId, "handoffId");
+      if (!acceptanceAuthorization || typeof acceptanceAuthorization !== "object" ||
+          acceptanceAuthorization.granted !== true ||
+          typeof acceptanceAuthorization.authority !== "string" ||
+          !acceptanceAuthorization.authority.trim()) {
+        throw new TypeError("Explicit acceptance authorization with granted=true and authority is required");
+      }
+      const state = await this.store.load();
+      const handoff = state.handoffs.find(item => item.handoffId === handoffId);
+      if (!handoff) throw new Error(`Handoff not found: ${handoffId}`);
+      if (handoff.status !== "HANDOFF_VALIDATED" || !handoff.validatedTask) {
+        throw new Error("Only a validated handoff can be accepted");
+      }
+      const acceptedAt = this.clock().toISOString();
+      handoff.status = "HANDOFF_ACCEPTED";
+      handoff.acceptance = {
+        acceptedAt,
+        authorization: clone(acceptanceAuthorization),
+        confirms: "HANDOFF_ACCEPTED"
+      };
+      await this.store.save(state);
+      return clone(handoff);
+    });
+  }
+
   async get(handoffId) {
     requiredId(handoffId, "handoffId");
     const state = await this.store.load();
