@@ -167,10 +167,17 @@ test("a stale cancellation cannot overwrite a newer pause generation", () => {
   assert.throws(() => applyHandoffEvent(paused, { type: "CANCEL", generation: 8 }), /newer generation/);
 });
 
-test("supports explicit recovery and source restoration without mutating history", () => {
+test("source restoration requires destination proof that commit did not occur", () => {
   const commitSent = advanceTo(makeHandoff(), "COMMIT_SENT");
   const uncertain = applyHandoffEvent(commitSent, { type: "REQUIRE_RECOVERY", generation: 7 });
-  const restored = applyHandoffEvent(uncertain, { type: "RESOLVE_TO_SOURCE", generation: 7 });
+  assert.throws(() => applyHandoffEvent(uncertain, {
+    type: "RESOLVE_TO_SOURCE", generation: 7
+  }), /destination proof/);
+  const restored = applyHandoffEvent(uncertain, {
+    type: "RESOLVE_TO_SOURCE",
+    generation: 7,
+    receipt: receipt(uncertain, "CANCELLED")
+  });
   assert.equal(uncertain.state, "RECOVERY_REQUIRED");
   assert.equal(restored.state, "REJECTED");
   assert.equal(restored.ownerId, "scheduler-a");
