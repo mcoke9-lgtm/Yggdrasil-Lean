@@ -1,0 +1,9 @@
+name = "sch-001-d1-local-witness"
+main = "src/worker.js"
+compatibility_date = "2026-11-06"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sch-001-disposable-local"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
