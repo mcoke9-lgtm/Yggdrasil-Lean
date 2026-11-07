@@ -43,6 +43,61 @@ export class Scheduler {
     this.handlers.set(type, handler);
   }
 
+  async validateHandoffTask(input) {
+    return this.withStateLock(async () => {
+      if (!input || !ID_PATTERN.test(input.id || "")) {
+        return { valid: false, reason: "Task ID must be 1–80 safe characters" };
+      }
+      if (typeof input.name !== "string" || !input.name.trim()) {
+        return { valid: false, reason: "Task name is required" };
+      }
+      if (!/^[a-z][a-z0-9._-]{0,63}$/.test(input.handlerType || "")) {
+        return { valid: false, reason: "A valid registered handlerType is required" };
+      }
+      if (!this.handlers.has(input.handlerType)) {
+        return { valid: false, reason: `Destination handler is not registered: ${input.handlerType}` };
+      }
+      const state = await this.store.load();
+      if (state.tasks.some(task => task.id === input.id)) {
+        return { valid: false, reason: `Task ID already exists at destination: ${input.id}` };
+      }
+      let schedule;
+      let nextRunAt;
+      try {
+        if (input.schedule?.kind === "interval") {
+          const intervalMs = input.schedule.intervalMs;
+          if (!Number.isSafeInteger(intervalMs) || intervalMs < 1000 || intervalMs > MAX_INTERVAL_MS) {
+            return { valid: false, reason: "intervalMs must be between 1 second and 366 days" };
+          }
+          const startAt = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
+          schedule = { kind: "interval", intervalMs, startAt };
+          nextRunAt = startAt;
+        } else if (input.schedule?.kind === "calendar") {
+          schedule = validateCalendarSchedule(input.schedule);
+          const reference = validDate(input.schedule.startAt ?? this.clock(), "schedule.startAt");
+          nextRunAt = nextCalendarOccurrence(schedule, reference);
+        } else {
+          return { valid: false, reason: "Schedule kind must be interval or calendar" };
+        }
+      } catch (error) {
+        return { valid: false, reason: String(error?.message || error).slice(0, 1000) };
+      }
+      const now = this.clock().toISOString();
+      const task = {
+        id: input.id,
+        name: input.name.trim(),
+        enabled: input.enabled !== false,
+        handlerType: input.handlerType,
+        payload: clone(input.payload ?? {}),
+        schedule,
+        nextRunAt,
+        createdAt: now,
+        updatedAt: now
+      };
+      return { valid: true, validator: "Scheduler.validateHandoffTask", task };
+    });
+  }
+
   async addTask(input) {
     return this.withStateLock(async () => {
       if (!input || !ID_PATTERN.test(input.id || "")) throw new TypeError("Task id must be 1–80 safe characters");
