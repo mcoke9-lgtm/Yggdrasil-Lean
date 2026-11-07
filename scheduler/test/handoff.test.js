@@ -193,12 +193,21 @@ test("recovery can resolve to destination only with a matching committed receipt
   assert.equal(resolved.ownerId, "scheduler-b");
 });
 
-test("execution is allowed only for the current owner and generation without an active fence", () => {
+test("source may execute before fencing, but neither side executes across a fence", () => {
+  const common = { generation: 7, currentGeneration: 7, localSchedulerId: "scheduler-a", ownerId: "scheduler-a" };
+  assert.equal(canExecuteTask({ ...common, handoffState: "REQUESTED" }), true);
+  assert.equal(canExecuteTask({ ...common, handoffState: "SENT" }), true);
+  assert.equal(canExecuteTask({ ...common, handoffState: "ACCEPTED_UNCONFIRMED" }), true);
+  assert.equal(canExecuteTask({ ...common, handoffState: "SOURCE_FENCED" }), false);
+  assert.equal(canExecuteTask({ ...common, handoffState: "COMMIT_SENT" }), false);
+  assert.equal(canExecuteTask({ ...common, handoffState: "PAUSED" }), false);
+  assert.equal(canExecuteTask({ ...common, handoffState: "unknown-state" }), false);
+});
+
+test("execution requires the current owner and generation", () => {
   const common = { generation: 7, currentGeneration: 7, handoffState: null };
-  assert.equal(canExecuteTask({ ...common, localSchedulerId: "scheduler-a", ownerId: "scheduler-a" }), true);
   assert.equal(canExecuteTask({ ...common, localSchedulerId: "scheduler-b", ownerId: "scheduler-a" }), false);
   assert.equal(canExecuteTask({ ...common, localSchedulerId: "scheduler-a", ownerId: "scheduler-a", currentGeneration: 8 }), false);
-  assert.equal(canExecuteTask({ ...common, localSchedulerId: "scheduler-a", ownerId: "scheduler-a", handoffState: "SOURCE_FENCED" }), false);
   assert.equal(canExecuteTask({ ...common, localSchedulerId: "scheduler-b", ownerId: "scheduler-b", handoffState: "TRANSFERRED" }), true);
 });
 
