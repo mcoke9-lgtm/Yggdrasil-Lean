@@ -153,7 +153,7 @@ tests.push(["D1L-17 truncated final record fails closed on witness restart",asyn
  await writeFile(checkpointFile,lines[0]+"\n"+lines[1].slice(0,Math.max(1,Math.floor(lines[1].length/2))),{mode:0o600});
  startCheckpoint();await waitForExit(checkpointChild);
  assert.ok(checkpointChild.exitCode!==null,"truncated JSONL record must prevent service startup");
- assert.match(checkpointLogs,/Unexpected end of JSON input|CHECKPOINT_JOURNAL/);
+ assert.match(checkpointLogs,/Unexpected end of JSON input|Unterminated string in JSON|CHECKPOINT_JOURNAL/);
 }]);
 tests.push(["D1L-18 valid older journal replacement is internally accepted but disagrees with retained receipt",async()=>{
  await stopProcess(checkpointChild);
