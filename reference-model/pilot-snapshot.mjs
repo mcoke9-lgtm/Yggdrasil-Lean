@@ -1,0 +1,24 @@
+// Read-only snapshot of the 10-record Airtable pilot refreshed by direct read on 2026-10-27.
+// Application IDs are preserved exactly; this fixture is not live-linked to Airtable.
+export const pilotSnapshot = [
+  { recordId: "AF-PILOT-001", branchId: "chatgpt-first-integration", sequence: 1 },
+  { recordId: "AF-PILOT-002", branchId: "chatgpt-first-integration", sequence: 2,
+    parentRecordId: "AF-PILOT-001", revisionOfId: "AF-PILOT-001" },
+  { recordId: "AF-PILOT-003", branchId: "chatgpt-first-integration", sequence: 3,
+    parentRecordId: "AF-PILOT-002", revisionOfId: "AF-PILOT-001" },
+  { recordId: "AF-PILOT-004", branchId: "chatgpt-first-integration-fork-test", sequence: 1,
+    parentRecordId: "AF-PILOT-003", sourceBranchId: "chatgpt-first-integration",
+    sourceAnchorId: "AF-PILOT-001" },
+  { recordId: "AF-PILOT-005", branchId: "missing-anchor-test", sequence: 1,
+    parentRecordId: "AF-PILOT-004", sourceBranchId: "chatgpt-first-integration",
+    sourceAnchorId: "AF-ANCHOR-DOES-NOT-EXIST" },
+  { recordId: "AF-PILOT-006", branchId: "chatgpt-first-integration", sequence: 4,
+    parentRecordId: "AF-PILOT-005" },
+  { recordId: "AF-PILOT-007", branchId: "chatgpt-first-integration", sequence: 5 },
+  { recordId: "AF-PILOT-008", branchId: "chatgpt-first-integration", sequence: 6,
+    parentRecordId: "AF-PILOT-007" },
+  { recordId: "AF-PILOT-009", branchId: "chatgpt-first-integration", sequence: 7,
+    parentRecordId: "AF-PILOT-008" },
+  { recordId: "AF-PILOT-010", branchId: "chatgpt-first-integration", sequence: 8,
+    parentRecordId: "AF-PILOT-009" },
+];

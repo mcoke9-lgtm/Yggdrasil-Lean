@@ -2,7 +2,7 @@
 
 A Lean 4 project for formalizing the TERA/FIRA/WATA/AIRA representation model.
 
-**Status: initial draft; compiler verification pending.** Do not treat theorems as compiler-confirmed until GitHub Actions reports a successful build.
+**Verification status:** GitHub Actions reported a successful Lean build for commit `b0ac4d23baf14a4fff37fdbb1dfba6441f636635`. This confirms the automated build for that commit; it does not establish that a durable Review History Adapter or its real-backend integration tests have been implemented or verified.
 
 ## Structure
 

@@ -285,3 +285,15 @@ A generic CompleteScopeEvidence type is a boundary marker, not proof by itself t
 If multiple competing event IDs have been observed, preserve them even when the search is partial or a later read step fails; mark the candidate set non-exhaustive unless completeness is established. Do not select a winner by list order. Keep generic record provenance separate from assessment-specific provenance.
 
 This is a semantic contract recommendation, not a finalized constructor signature. No Lean source or adapter behavior is implied.
+
+## 15. Identity-read evidence representation — implementation candidate
+
+**Status:** Proposed alignment note; exact API remains unadopted until source compilation and review.
+
+The candidate source API represents declared-scope coverage separately from lookup termination. `LookupCompleteness` distinguishes complete, incomplete, and unknown coverage. `LookupTermination` distinguishes completed, stopped early, and failure after observations. `IdentityLookupEvidence` retains the declared scope and observed candidate event IDs.
+
+When two or more distinct competing event IDs have been observed, `AmbiguousIdentity` remains the primary result even if a subsequent lookup step fails; its evidence must record `failedAfterObservations`. This preserves the adopted no-arbitrary-winner invariant without misrepresenting the lookup as wholly unusable. If no ambiguity was established and the operation fails, `Unavailable` may carry optional observations.
+
+Known incomplete coverage maps to `Incomplete`; a completed lookup with unknown completeness maps to `Unresolved`. Neither may be represented as a full-scope `Found` or `NotFound`. `Found` and `NotFound` require complete-scope evidence produced through the adapter's checked boundary. A type marker does not itself prove that a backend index, pagination path, or permission scope was exhaustive.
+
+The candidate keeps lookup evidence on the operation result rather than each persisted event. It does not settle backend completeness guarantees, event-ID representation, or provenance policy. The implementation must be reviewed against actual adapter capabilities before adoption.

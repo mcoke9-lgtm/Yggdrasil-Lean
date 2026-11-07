@@ -242,3 +242,17 @@ Required cases/assertions:
 The test fixture must not manufacture complete-scope evidence merely by setting a Boolean. It should exercise the adapter's actual evidence-producing path or a documented test seam for that path. The type-level evidence marker alone does not establish real-backend completeness.
 
 **No group-count change:** IT-1 through IT-6 remain the six test groups. These are additional IT-6 subcases. Tests remain unexecuted until run against a concrete adapter and target backend.
+
+### IT-6 identity-read evidence and post-observation failure refinement
+
+These cases refine IT-6; they do not create a seventh integration-test group.
+
+1. **Known partial coverage:** return the explicit incomplete outcome; neither Found nor NotFound is permitted as a full-scope conclusion.
+2. **Completed lookup, unknown completeness:** return unresolved, not confirmed absence or unique success.
+3. **Failure before usable observations:** return unavailable without fabricated candidates.
+4. **Failure after observations without established ambiguity:** unavailable may retain the observed lookup evidence and failure termination.
+5. **Competing IDs, then continuation failure:** return ambiguous identity with the observed distinct candidate IDs and evidence that termination failed after observations. Do not downgrade the result to unavailable or choose a list-order winner. Candidate IDs remain non-exhaustive unless complete-scope evidence exists.
+6. **Complete scope, zero matches:** NotFound is permitted only with complete-scope evidence issued by the adapter's documented validation boundary.
+7. **Complete scope, one validated match:** Found is the positive control and carries record provenance plus complete-scope evidence.
+
+The fixture must exercise the actual evidence-producing path or a documented test seam. Merely setting a Boolean or constructing an unrestricted marker does not prove that the real backend scope was searched completely. These tests are specified, not implemented or executed.

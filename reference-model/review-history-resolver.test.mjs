@@ -1,0 +1,1066 @@
+import test from "node:test";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { Outcome, mapGraphOutcomeForLean } from "./review-history-resolver.mjs";
+import { analyzeParentGraph, auditDataset, hasParentCycle, resolveRecordReferences } from "./review-history-resolver.internal.mjs";
+import { pilotSnapshot } from "./pilot-snapshot.mjs";
+import { parentGraphFixtures } from "./parent-graph-fixtures.mjs";
+import { buildGraphInputCertificate, serializeGraphInputCertificate, verifySerializedGraphInputArtifact, consumeVerifiedGraphInputArtifact, buildSourceReadEvidenceManifest } from "./graph-input-certificate.mjs";
+import { adaptCompleteSourceRead, analyzeCompleteSourceRead, analyzeAirtableTableResponse, readAndAnalyzeAirtableTable } from "./source-read-adapter.mjs";
+
+function sourceReadEvidence(serialized, { complete = true } = {}) {
+  const artifact = JSON.parse(serialized);
+  return {
+    schema: "yggdrasil-source-read-evidence-v1",
+    sourceReadId: artifact.sourceReadId,
+    sourceDigest: artifact.sourceDigest,
+    returnedRecordCount: artifact.sourceVertexBindings.length,
+    reportedTotalRecordCount: artifact.sourceVertexBindings.length,
+    paginationComplete: complete,
+    sourceScope: "test-fixture:graph-relevant-records",
+    digestAlgorithm: "sha256",
+  };
+}
+
+function digestFor(records) {
+  return buildSourceReadEvidenceManifest(records, {
+    sourceReadId: "test-digest",
+    reportedTotalRecordCount: records.length,
+    paginationComplete: true,
+    sourceScope: "test-fixture:graph-relevant-records",
+  }).sourceDigest;
+}
+
+const base = [
+  { recordId: "A", branchId: "main", sequence: 1 },
+  { recordId: "B", branchId: "main", sequence: 2, parentRecordId: "A", revisionOfId: "A" },
+  { recordId: "C", branchId: "fork", sequence: 1, parentRecordId: "B",
+    sourceBranchId: "main", sourceAnchorId: "A" },
+];
+
+test("resolves valid parent, source anchor, and revision independently", () => {
+  const result = resolveRecordReferences(base, base[2]);
+  assert.equal(result.parent, Outcome.RESOLVED);
+  assert.equal(result.sourceAnchor, Outcome.RESOLVED);
+  assert.equal(resolveRecordReferences(base, base[1]).revision, Outcome.RESOLVED);
+});
+
+test("reports missing parent, source anchor, and revision target explicitly", () => {
+  const r = { recordId: "X", branchId: "main", sequence: 4, parentRecordId: "NO-PARENT",
+    sourceBranchId: "main", sourceAnchorId: "NO-ANCHOR", revisionOfId: "NO-REVISION" };
+  const result = resolveRecordReferences(base, r);
+  assert.equal(result.parent, Outcome.MISSING_PARENT);
+  assert.equal(result.sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
+  assert.equal(result.revision, Outcome.MISSING_REVISION_TARGET);
+});
+
+test("reports duplicate IDs as ambiguous instead of selecting a record", () => {
+  const records = [...base, { recordId: "A", branchId: "other", sequence: 1 }];
+  assert.equal(resolveRecordReferences(records, { recordId: "X", parentRecordId: "A" }).parent,
+    Outcome.AMBIGUOUS_PARENT);
+  assert.equal(resolveRecordReferences(records, { recordId: "X", sourceAnchorId: "A",
+    sourceBranchId: "main" }).sourceAnchor, Outcome.AMBIGUOUS_SOURCE_ANCHOR);
+  assert.equal(resolveRecordReferences(records, { recordId: "X", revisionOfId: "A" }).revision,
+    Outcome.AMBIGUOUS_REVISION_TARGET);
+});
+
+test("rejects source anchor that resolves outside the declared source branch", () => {
+  assert.equal(resolveRecordReferences(base, { recordId: "X", sourceAnchorId: "A",
+    sourceBranchId: "not-main" }).sourceAnchor, Outcome.SOURCE_BRANCH_MISMATCH);
+});
+
+test("flags whitespace and non-string identifiers without trimming them", () => {
+  assert.equal(resolveRecordReferences(base, { recordId: "X", parentRecordId: " A" })
+    .malformedReference, Outcome.MALFORMED_REFERENCE);
+  assert.equal(resolveRecordReferences(base, { recordId: "X", revisionOfId: 7 })
+    .malformedReference, Outcome.MALFORMED_REFERENCE);
+});
+
+test("empty optional references are not applicable", () => {
+  const result = resolveRecordReferences(base, { recordId: "X", parentRecordId: "",
+    sourceAnchorId: null, revisionOfId: undefined });
+  assert.equal(result.parent, Outcome.NOT_APPLICABLE);
+  assert.equal(result.sourceAnchor, Outcome.NOT_APPLICABLE);
+  assert.equal(result.revision, Outcome.NOT_APPLICABLE);
+});
+
+test("detects parent cycles", () => {
+  assert.equal(hasParentCycle([{ recordId: "A", parentRecordId: "B" },
+    { recordId: "B", parentRecordId: "A" }]), true);
+  assert.equal(hasParentCycle(base), false);
+});
+
+test("audits duplicate application IDs and duplicate branch sequences", () => {
+  const result = auditDataset([...base, { recordId: "D", branchId: "main", sequence: 2 }]);
+  assert.deepEqual(result.duplicateRecordIds, []);
+  assert.deepEqual(result.duplicateBranchSequences, [["main", 2]]);
+});
+
+test("matches the pilot's known missing-anchor fixture without fallback", () => {
+  const pilot = [
+    { recordId: "AF-PILOT-001", branchId: "chatgpt-first-integration", sequence: 1 },
+    { recordId: "AF-PILOT-004", branchId: "chatgpt-first-integration-fork-test", sequence: 1,
+      sourceBranchId: "chatgpt-first-integration", sourceAnchorId: "AF-PILOT-001" },
+    { recordId: "AF-PILOT-005", branchId: "missing-anchor-test", sequence: 1,
+      sourceBranchId: "chatgpt-first-integration", sourceAnchorId: "AF-ANCHOR-DOES-NOT-EXIST" },
+  ];
+  assert.equal(resolveRecordReferences(pilot, pilot[1]).sourceAnchor, Outcome.RESOLVED);
+  assert.equal(resolveRecordReferences(pilot, pilot[2]).sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
+});
+
+
+test("audits the retrieved ten-record pilot snapshot without silent fallback", () => {
+  assert.equal(pilotSnapshot.length, 10);
+  const result = auditDataset(pilotSnapshot);
+  assert.deepEqual(result.duplicateRecordIds, []);
+  assert.deepEqual(result.duplicateBranchSequences, []);
+  assert.equal(result.parentCycle, "NO_CYCLE");
+  const missingAnchor = result.records.find((r) => r.recordId === "AF-PILOT-005");
+  assert.equal(missingAnchor.sourceAnchor, Outcome.MISSING_SOURCE_ANCHOR);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-004").sourceAnchor,
+    Outcome.RESOLVED);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-002").revision,
+    Outcome.RESOLVED);
+  assert.equal(result.records.find((r) => r.recordId === "AF-PILOT-003").revision,
+    Outcome.RESOLVED);
+});
+
+
+test("audits malformed record IDs and malformed branch-local sequence keys", () => {
+  const result = auditDataset([
+    { recordId: " GOOD ", branchId: "main", sequence: 1 },
+    { recordId: "B", branchId: " ", sequence: 2 },
+    { recordId: "C", branchId: "main", sequence: 0 },
+    { recordId: 17, branchId: "main", sequence: 3 },
+  ]);
+  assert.equal(result.invalidRecordIds.length, 2);
+  assert.equal(result.invalidBranchSequences.length, 2);
+});
+
+test("duplicate IDs are ambiguous for parent, source anchor, and revision references", () => {
+  const records = [
+    { recordId: "T", branchId: "main", sequence: 1 },
+    { recordId: "T", branchId: "main", sequence: 2 },
+  ];
+  const record = { recordId: "X", parentRecordId: "T", sourceAnchorId: "T",
+    sourceBranchId: "main", revisionOfId: "T" };
+  const result = resolveRecordReferences(records, record);
+  assert.equal(result.parent, Outcome.AMBIGUOUS_PARENT);
+  assert.equal(result.sourceAnchor, Outcome.AMBIGUOUS_SOURCE_ANCHOR);
+  assert.equal(result.revision, Outcome.AMBIGUOUS_REVISION_TARGET);
+});
+
+test("detects self-cycles and cycles in disconnected components", () => {
+  assert.equal(hasParentCycle([{ recordId: "A", parentRecordId: "A" }]), true);
+  assert.equal(hasParentCycle([
+    { recordId: "A" },
+    { recordId: "B", parentRecordId: "C" },
+    { recordId: "C", parentRecordId: "B" },
+  ]), true);
+});
+
+test("does not mistake a long acyclic parent chain for a cycle", () => {
+  const records = Array.from({ length: 500 }, (_, i) => ({
+    recordId: `R${i}`, parentRecordId: i === 0 ? undefined : `R${i - 1}`,
+  }));
+  assert.equal(hasParentCycle(records), false);
+});
+
+
+test("marks parent graph indeterminate when record identities are duplicated", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ]), "INDETERMINATE");
+});
+
+test("marks parent graph indeterminate for malformed identities or parent references", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
+  assert.equal(analyzeParentGraph([{ recordId: " A " }]), "INDETERMINATE");
+  assert.equal(analyzeParentGraph([{ recordId: "A", parentRecordId: 12 }]), "INDETERMINATE");
+});
+
+test("distinguishes a definite cycle from an indeterminate graph", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "B", parentRecordId: "A" },
+  ]), "CYCLE");
+  assert.equal(analyzeParentGraph([
+    { recordId: "A", parentRecordId: "MISSING" },
+  ]), "INDETERMINATE");
+});
+
+
+test("bridge refuses to promote a cycle status without a validated witness", () => {
+  assert.deepEqual(mapGraphOutcomeForLean("CYCLE"), {
+    leanOutcome: "indeterminate", accepted: false,
+    reason: "cycle-witness-not-provided-or-validated",
+  });
+  assert.equal(mapGraphOutcomeForLean("CYCLE", { validatedCycleWitness: true }).leanOutcome, "cycle");
+});
+
+test("bridge preserves indeterminate and refuses uncertified no-cycle claims", () => {
+  assert.equal(mapGraphOutcomeForLean("INDETERMINATE").leanOutcome, "indeterminate");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE").leanOutcome, "indeterminate");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE", {
+    identityIntegrityCertain: true, edgeListComplete: true, acyclicityProven: true,
+  }).leanOutcome, "noCycle");
+  assert.equal(mapGraphOutcomeForLean("NO_CYCLE", {
+    identityIntegrityCertain: true, edgeListComplete: false, acyclicityProven: true,
+  }).leanOutcome, "indeterminate");
+});
+
+test("bridge maps unknown runtime outcomes to indeterminate", () => {
+  assert.equal(mapGraphOutcomeForLean("SURPRISE").leanOutcome, "indeterminate");
+});
+
+
+test("shared parent-graph fixtures document runtime and conservative bridge outcomes", async () => {
+  const { analyzeParentGraph } = await import("./review-history-resolver.internal.mjs");
+  for (const fixture of parentGraphFixtures) {
+    assert.equal(analyzeParentGraph(fixture.records), fixture.runtime, fixture.name);
+    assert.equal(
+      mapGraphOutcomeForLean(fixture.runtime).leanOutcome,
+      fixture.bridgeWithoutEvidence,
+      fixture.name,
+    );
+  }
+});
+
+test("a cycle outcome can bridge only when the adapter validates a concrete witness", () => {
+  const cycle = parentGraphFixtures.find((fixture) => fixture.runtime === "CYCLE");
+  assert.ok(cycle, "at least one cycle fixture is required");
+  assert.equal(mapGraphOutcomeForLean("CYCLE", {
+    validatedCycleWitness: true,
+  }).leanOutcome, "cycle");
+});
+
+test("NO_CYCLE bridge rejects missing-parent fixture without completeness certificate", () => {
+  const missingParent = parentGraphFixtures.find((fixture) => fixture.name === "missing parent target");
+  assert.equal(missingParent.runtime, "INDETERMINATE");
+  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).accepted, true);
+  assert.equal(mapGraphOutcomeForLean(missingParent.runtime).leanOutcome, "indeterminate");
+});
+
+
+test("graph certificate binds deterministic vertices and edges to source metadata", () => {
+  const records = [
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ];
+  const options = { sourceReadId: "snapshot-001", sourceDigest: "sha256:source", sourceCompletenessVerified: true };
+  const certificate = buildGraphInputCertificate(records, options);
+  const reversed = buildGraphInputCertificate([...records].reverse(), options);
+  assert.equal(certificate.certificateReady, true);
+  assert.deepEqual(certificate.vertices, [
+    { recordId: "A", vertexId: 1 }, { recordId: "B", vertexId: 2 },
+  ]);
+  assert.deepEqual(certificate.edges, [{ childVertexId: 2, parentVertexId: 1 }]);
+  assert.equal(certificate.graphDigest, reversed.graphDigest);
+  assert.equal(certificate.sourceReadId, "snapshot-001");
+});
+
+test("graph certificate does not infer source completeness from a well-formed graph", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], { sourceReadId: "snapshot-002", sourceDigest: "sha256:source" });
+  assert.equal(certificate.identityIntegrityCertain, true);
+  assert.equal(certificate.sourceCompletenessVerified, false);
+  assert.equal(certificate.certificateReady, false);
+});
+
+test("graph certificate makes duplicate IDs and unresolved parents explicit", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "A", parentRecordId: null },
+    { recordId: "C", parentRecordId: "MISSING" },
+    { recordId: " B ", parentRecordId: null },
+  ], { sourceReadId: "snapshot-003", sourceDigest: "sha256:source", sourceCompletenessVerified: true });
+  assert.equal(certificate.certificateReady, false);
+  assert.equal(certificate.identityIntegrityCertain, false);
+  assert.ok(certificate.findings.some((finding) => finding.code === "DUPLICATE_RECORD_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "MALFORMED_RECORD_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "UNRESOLVED_PARENT_REFERENCE"));
+});
+
+test("graph certificate rejects absent or malformed source identity metadata", () => {
+  const certificate = buildGraphInputCertificate([{ recordId: "A" }], {
+    sourceReadId: " read ", sourceDigest: "", sourceCompletenessVerified: true,
+  });
+  assert.equal(certificate.certificateReady, false);
+  assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_READ_ID"));
+  assert.ok(certificate.findings.some((finding) => finding.code === "MISSING_OR_MALFORMED_SOURCE_DIGEST"));
+});
+
+test("serialized graph handoff is versioned, deterministic, and binds mapping to Lean input", () => {
+  const options = {
+    sourceReadId: "read-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  };
+  const certificate = buildGraphInputCertificate([
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ], options);
+  const reordered = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], options);
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.equal(serialized, serializeGraphInputCertificate(reordered));
+  const artifact = JSON.parse(serialized);
+  assert.equal(artifact.schema, "yggdrasil-parent-graph-v1");
+  assert.deepEqual(artifact.sourceVertexBindings, [
+    { recordId: "A", vertexId: 1 },
+    { recordId: "B", vertexId: 2 },
+  ]);
+  assert.deepEqual(artifact.graphInput, {
+    vertices: [1, 2],
+    edges: [[2, 1]],
+  });
+  assert.equal(artifact.graphDigest, certificate.graphDigest);
+  assert.equal(artifact.certificateReady, true);
+});
+
+test("serializer rejects missing graph binding fields", () => {
+  assert.throws(() => serializeGraphInputCertificate({ graphDigest: "x" }), TypeError);
+});
+
+test("graph digest changes when source identity mapping changes", () => {
+  const options = {
+    sourceReadId: "read-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  };
+  const original = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], options);
+  const renamed = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "C", parentRecordId: "A" },
+  ], options);
+  assert.notEqual(original.graphDigest, renamed.graphDigest);
+  assert.notDeepEqual(original.vertices, renamed.vertices);
+});
+
+test("handoff verifier accepts intact artifact and rejects altered mapping, edges, or digest", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "read-verify-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.deepEqual(verifySerializedGraphInputArtifact(serialized), {
+    valid: true,
+    code: "VERIFIED_GRAPH_PAYLOAD",
+    sourceCompletenessVerified: true,
+    certificateReady: true,
+  });
+
+  const mutate = (fn) => {
+    const artifact = JSON.parse(serialized);
+    fn(artifact);
+    return JSON.stringify(artifact);
+  };
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.sourceVertexBindings[0].vertexId = 7; })).code,
+    "GRAPH_MAPPING_MISMATCH",
+  );
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphInput.edges = [[1, 2]]; })).code,
+    "GRAPH_DIGEST_MISMATCH",
+  );
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphInput.edges = [[2, 1], [2, 1]]; })).code,
+    "MULTIPLE_PARENT_EDGES_FOR_VERTEX",
+  );
+  assert.equal(
+    verifySerializedGraphInputArtifact(mutate((a) => { a.graphDigest = "0".repeat(64); })).code,
+    "GRAPH_DIGEST_MISMATCH",
+  );
+  assert.equal(verifySerializedGraphInputArtifact("{").code, "INVALID_JSON");
+});
+
+test("handoff verifier rejects malformed metadata even when graph digest is intact", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-metadata-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  for (const mutate of [
+    (artifact) => { artifact.sourceReadId = " "; },
+    (artifact) => { artifact.sourceDigest = null; },
+    (artifact) => { artifact.sourceCompletenessVerified = "true"; },
+    (artifact) => { artifact.certificateReady = 1; },
+    (artifact) => { artifact.findings = {}; },
+    (artifact) => { artifact.findings = [{ code: 7 }]; },
+  ]) {
+    const artifact = JSON.parse(serialized);
+    mutate(artifact);
+    assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(artifact)).code,
+      "INVALID_ARTIFACT_METADATA");
+  }
+});
+
+test("handoff verifier rejects noncanonical mappings and edge order even after rehashing", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "C", parentRecordId: "B" },
+  ], {
+    sourceReadId: "read-order-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const artifact = JSON.parse(serialized);
+  const digest = (candidate) => createHash("sha256").update(JSON.stringify({
+    vertices: candidate.sourceVertexBindings.map(({ recordId, vertexId }) => ({ recordId, vertexId })),
+    edges: candidate.graphInput.edges,
+  }), "utf8").digest("hex");
+
+  const reorderedBindings = structuredClone(artifact);
+  reorderedBindings.sourceVertexBindings.reverse();
+  reorderedBindings.graphInput.vertices.reverse();
+  reorderedBindings.graphDigest = digest(reorderedBindings);
+  assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(reorderedBindings)).code,
+    "GRAPH_MAPPING_MISMATCH");
+
+  const reorderedEdges = structuredClone(artifact);
+  reorderedEdges.graphInput.edges.reverse();
+  reorderedEdges.graphDigest = digest(reorderedEdges);
+  assert.equal(verifySerializedGraphInputArtifact(JSON.stringify(reorderedEdges)).code,
+    "NON_CANONICAL_GRAPH_ORDER");
+});
+
+test("handoff verifier keeps source completeness separate from graph digest validity", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-incomplete-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: false,
+  });
+  const result = verifySerializedGraphInputArtifact(serializeGraphInputCertificate(certificate));
+  assert.equal(result.valid, true);
+  assert.equal(result.sourceCompletenessVerified, false);
+  assert.equal(result.certificateReady, false);
+});
+
+test("consumer gate withholds graph until a consistent source-read evidence manifest is supplied", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "read-gate-001",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const blocked = consumeVerifiedGraphInputArtifact(serialized);
+  assert.deepEqual(blocked, {
+    accepted: false,
+    code: "SOURCE_READ_EVIDENCE_INVALID",
+  });
+  const accepted = consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: sourceReadEvidence(serialized),
+  });
+  assert.equal(accepted.accepted, true);
+  assert.deepEqual(accepted.graphInput, { vertices: [1, 2], edges: [[2, 1]] });
+});
+
+test("consumer gate rejects tampering and artifacts with findings before exposing graph", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "MISSING" },
+  ], {
+    sourceReadId: "read-gate-invalid-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const blocked = consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: sourceReadEvidence(serialized),
+  });
+  assert.deepEqual(blocked, {
+    accepted: false,
+    code: "SOURCE_FINDINGS_PRESENT",
+  });
+
+  const valid = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "read-gate-002",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(valid));
+  artifact.graphInput.vertices = [99];
+  const rejected = consumeVerifiedGraphInputArtifact(JSON.stringify(artifact), {
+    sourceReadEvidence: sourceReadEvidence(JSON.stringify(artifact)),
+  });
+  assert.deepEqual(rejected, {
+    accepted: false,
+    code: "GRAPH_MAPPING_MISMATCH",
+  });
+});
+import { analyzeVerifiedGraphInput } from "./verified-graph-consumer.mjs";
+
+
+test("consumer rejects a source digest forged to agree with the evidence but not the graph", () => {
+  const records = [
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ];
+  const certificate = buildGraphInputCertificate(records, {
+    sourceReadId: "digest-tamper-001",
+    sourceDigest: digestFor(records),
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
+  artifact.sourceDigest = "f".repeat(64);
+  const serialized = JSON.stringify(artifact);
+  const forgedEvidence = {
+    ...sourceReadEvidence(serialized),
+    sourceDigest: artifact.sourceDigest,
+  };
+  assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: forgedEvidence,
+  }), { accepted: false, code: "SOURCE_DIGEST_MISMATCH" });
+});
+
+test("fresh read-only Airtable pilot graph snapshot passes the complete gated flow", () => {
+  // The projection was refreshed from the live Airtable Records table on
+  // 2026-10-27: 10 records returned, totalRecordCount=10, no nextCursor.
+  // Digest scope is explicitly the graph-relevant recordId/parentRecordId projection.
+  const graphRecords = pilotSnapshot.map(({ recordId, parentRecordId }) => ({
+    recordId,
+    parentRecordId: parentRecordId ?? null,
+  }));
+  const sourceReadId = "airtable:appaUa8VbUJZmzmxe/tblvy8J5UC6Y6SylE:read-only-2026-10-27";
+  const sourceReadEvidence = buildSourceReadEvidenceManifest(graphRecords, {
+    sourceReadId,
+    reportedTotalRecordCount: 10,
+    paginationComplete: true,
+    sourceScope: "Airtable Records table; fields: Record ID, Parent Record ID",
+  });
+  const sourceDigest = sourceReadEvidence.sourceDigest;
+  const certificate = buildGraphInputCertificate(graphRecords, {
+    sourceReadId,
+    sourceDigest,
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const verification = verifySerializedGraphInputArtifact(serialized);
+  assert.equal(verification.valid, true, verification.code);
+  assert.equal(certificate.findings.length, 0);
+  const artifact = JSON.parse(serialized);
+  assert.equal(artifact.sourceReadId, sourceReadId);
+  assert.equal(artifact.sourceDigest, sourceDigest);
+  assert.equal(artifact.sourceCompletenessVerified, true);
+  assert.equal(artifact.sourceVertexBindings.length, 10);
+  assert.equal(artifact.graphInput.vertices.length, 10);
+  assert.equal(artifact.graphInput.edges.length, 8);
+
+  const result = analyzeVerifiedGraphInput(serialized, {
+    sourceReadEvidence,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.sourceReadId, sourceReadId);
+  assert.equal(result.sourceDigest, sourceDigest);
+  assert.equal(result.graphInput.vertices.length, 10);
+  assert.equal(result.graphInput.edges.length, 8);
+  assert.equal(result.analysis, "NO_CYCLE");
+});
+
+test("source-read manifest digest is canonical and binds parent references", () => {
+  const records = [
+    { recordId: "B", parentRecordId: "A" },
+    { recordId: "A", parentRecordId: null },
+  ];
+  const options = {
+    sourceReadId: "adapter-read-001",
+    reportedTotalRecordCount: 2,
+    paginationComplete: true,
+    sourceScope: "Records: Record ID and Parent Record ID",
+  };
+  const manifest = buildSourceReadEvidenceManifest(records, options);
+  const reordered = buildSourceReadEvidenceManifest([...records].reverse(), options);
+  const changed = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  assert.equal(manifest.schema, "yggdrasil-source-read-evidence-v1");
+  assert.equal(manifest.returnedRecordCount, 2);
+  assert.equal(manifest.reportedTotalRecordCount, 2);
+  assert.equal(manifest.paginationComplete, true);
+  assert.equal(manifest.sourceDigest, reordered.sourceDigest);
+  assert.notEqual(manifest.sourceDigest, changed.sourceDigest);
+});
+
+test("source adapter derives a complete manifest from one full read response", () => {
+  const adapted = adaptCompleteSourceRead({
+    sourceReadId: "adapter:read-001",
+    sourceScope: "Records table: Record ID and Parent Record ID",
+    records: [
+      { recordId: "B", parentRecordId: "A" },
+      { recordId: "A", parentRecordId: null },
+    ],
+    totalRecordCount: 2,
+    nextCursor: null,
+  });
+  assert.equal(adapted.accepted, true);
+  const result = consumeVerifiedGraphInputArtifact(adapted.serializedGraphInput, {
+    sourceReadEvidence: adapted.sourceReadEvidence,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.sourceReadId, "adapter:read-001");
+  assert.equal(result.graphInput.vertices.length, 2);
+  assert.equal(result.graphInput.edges.length, 1);
+});
+
+test("Airtable response adapter maps the recorded 10-record table read", () => {
+  const recordIdFieldId = "fldd49StaAWbIMfH3";
+  const parentRecordIdFieldId = "fldeI9DErAnstWE5W";
+  const rows = [
+    ["AF-PILOT-010", "AF-PILOT-009"],
+    ["AF-PILOT-006", "AF-PILOT-005"],
+    ["AF-PILOT-002", "AF-PILOT-001"],
+    ["AF-PILOT-009", "AF-PILOT-008"],
+    ["AF-PILOT-008", "AF-PILOT-007"],
+    ["AF-PILOT-001", null],
+    ["AF-PILOT-007", null],
+    ["AF-PILOT-003", "AF-PILOT-002"],
+    ["AF-PILOT-005", "AF-PILOT-004"],
+    ["AF-PILOT-004", "AF-PILOT-003"],
+  ];
+  const response = {
+    records: rows.map(([recordId, parentRecordId]) => ({
+      id: "fixture-only-not-a-live-airtable-id",
+      cellValuesByFieldId: {
+        [recordIdFieldId]: recordId,
+        ...(parentRecordId === null ? {} : { [parentRecordIdFieldId]: parentRecordId }),
+      },
+    })),
+    metadata: { totalRecordCount: 10 },
+    nextCursor: null,
+  };
+  const result = analyzeAirtableTableResponse(response, {
+    sourceReadId: "recorded-airtable-read:2026-10-27",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId,
+    parentRecordIdFieldId,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.code, "SOURCE_READ_ANALYSIS_COMPLETED");
+  assert.equal(result.sourceRecordCount, 10);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.equal(result.graphInput.vertices.length, 10);
+  assert.equal(result.graphInput.edges.length, 8);
+  const sourceRecord = result.analysisRecords.find((record) => record.recordId === "AF-PILOT-010");
+  assert.deepEqual(sourceRecord, {
+    recordId: "AF-PILOT-010",
+    parentRecordId: "AF-PILOT-009",
+  });
+  assert.ok(result.sourceVertexBindings.some((binding) =>
+    binding.recordId === "AF-PILOT-010" && Number.isSafeInteger(binding.vertexId)));
+});
+
+test("trusted Airtable reader paginates connector responses and preserves source IDs", async () => {
+  const recordIdFieldId = "fldd49StaAWbIMfH3";
+  const parentRecordIdFieldId = "fldeI9DErAnstWE5W";
+  const calls = [];
+  const pages = [
+    {
+      records: [
+        { cellValuesByFieldId: { [recordIdFieldId]: "A", [parentRecordIdFieldId]: "B" } },
+      ],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: "page-2",
+    },
+    {
+      records: [
+        { cellValuesByFieldId: { [recordIdFieldId]: "B" } },
+      ],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: null,
+    },
+  ];
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async (args) => {
+      calls.push(args);
+      return pages[calls.length - 1];
+    },
+    sourceReadId: "connector-test-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId,
+    parentRecordIdFieldId,
+    pageSize: 1,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.deepEqual(calls.map((call) => call.cursor ?? null), [null, "page-2"]);
+  assert.deepEqual(result.analysisRecords, [
+    { recordId: "A", parentRecordId: "B" },
+    { recordId: "B", parentRecordId: null },
+  ]);
+});
+
+test("trusted Airtable reader rejects inconsistent totals across pages", async () => {
+  let call = 0;
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => {
+      call += 1;
+      return call === 1
+        ? { records: [], metadata: { totalRecordCount: 2 }, nextCursor: "page-2" }
+        : { records: [], metadata: { totalRecordCount: 3 }, nextCursor: null };
+    },
+    sourceReadId: "connector-test-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_TOTAL_COUNT_CHANGED_DURING_READ",
+  });
+});
+
+test("trusted Airtable reader rejects a repeated pagination cursor", async () => {
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => ({
+      records: [],
+      metadata: { totalRecordCount: 2 },
+      nextCursor: "same-cursor",
+    }),
+    sourceReadId: "repeated-cursor-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_CURSOR_INVALID_OR_REPEATED",
+  });
+});
+
+test("trusted Airtable reader rejects more records than the reported total", async () => {
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => ({
+      records: [
+        { cellValuesByFieldId: { "fldd49StaAWbIMfH3": "A" } },
+        { cellValuesByFieldId: { "fldd49StaAWbIMfH3": "B" } },
+      ],
+      metadata: { totalRecordCount: 1 },
+      nextCursor: null,
+    }),
+    sourceReadId: "count-overrun-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 2,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_RETURNED_COUNT_EXCEEDS_TOTAL",
+  });
+});
+
+test("Airtable response adapter rejects a paginated response before analysis", () => {
+  const result = analyzeAirtableTableResponse({
+    records: [{ cellValuesByFieldId: { "fldd49StaAWbIMfH3": "AF-PILOT-001" } }],
+    metadata: { totalRecordCount: 1 },
+    nextCursor: "another-page",
+  }, {
+    sourceReadId: "fixture-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "SOURCE_READ_PAGINATION_INCOMPLETE",
+  });
+});
+
+test("end-to-end source-read entry point adapts and analyzes one complete read", () => {
+  const result = analyzeCompleteSourceRead({
+    sourceReadId: "adapter:e2e-001",
+    sourceScope: "Records table: Record ID and Parent Record ID",
+    records: [
+      { recordId: "B", parentRecordId: "A" },
+      { recordId: "A", parentRecordId: null },
+    ],
+    totalRecordCount: 2,
+    nextCursor: null,
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.code, "SOURCE_READ_ANALYSIS_COMPLETED");
+  assert.equal(result.sourceRecordCount, 2);
+  assert.equal(result.sourceScope, "Records table: Record ID and Parent Record ID");
+  assert.equal(result.analysis, "NO_CYCLE");
+});
+
+test("end-to-end source-read entry point refuses incomplete reads before analysis", () => {
+  const read = {
+    sourceReadId: "adapter:e2e-002",
+    sourceScope: "Records table",
+    records: [{ recordId: "A", parentRecordId: null }],
+    totalRecordCount: 1,
+    nextCursor: "next-page-token",
+  };
+  assert.deepEqual(analyzeCompleteSourceRead(read), {
+    accepted: false,
+    code: "SOURCE_READ_PAGINATION_INCOMPLETE",
+  });
+});
+
+test("source adapter refuses pagination gaps, count mismatches, and malformed scope", () => {
+  const baseRead = {
+    sourceReadId: "adapter:read-002",
+    sourceScope: "Records table",
+    records: [{ recordId: "A", parentRecordId: null }],
+    totalRecordCount: 1,
+    nextCursor: null,
+  };
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, nextCursor: "cursor-next" }).code,
+    "SOURCE_READ_PAGINATION_INCOMPLETE");
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, totalRecordCount: 2 }).code,
+    "SOURCE_READ_COUNT_MISMATCH");
+  assert.equal(adaptCompleteSourceRead({ ...baseRead, sourceScope: " " }).code,
+    "SOURCE_READ_RESPONSE_MALFORMED");
+});
+
+test("source-read evidence is mandatory even when caller booleans claim completeness", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "evidence-required-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized), {
+    accepted: false,
+    code: "SOURCE_READ_EVIDENCE_INVALID",
+  });
+});
+
+test("source-read evidence rejects count, pagination, scope, and digest mismatches", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "evidence-test-001",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
+    sourceCompletenessVerified: true,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const validEvidence = sourceReadEvidence(serialized);
+  assert.equal(consumeVerifiedGraphInputArtifact(serialized, {
+    sourceReadEvidence: validEvidence,
+  }).accepted, true);
+  for (const patch of [
+    { returnedRecordCount: 1 },
+    { reportedTotalRecordCount: 3 },
+    { paginationComplete: false },
+    { sourceScope: " " },
+    { sourceDigest: "sha256:other" },
+  ]) {
+    const evidence = { ...validEvidence, ...patch };
+    assert.deepEqual(consumeVerifiedGraphInputArtifact(serialized, {
+      sourceReadEvidence: evidence,
+    }), { accepted: false, code: "SOURCE_READ_EVIDENCE_INVALID" });
+  }
+});
+
+test("graph analysis entry point never invokes consumer on a rejected artifact", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "analysis-gate-001",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: true,
+  });
+  const artifact = JSON.parse(serializeGraphInputCertificate(certificate));
+  artifact.graphDigest = "0".repeat(64);
+  const tamperedSerialized = JSON.stringify(artifact);
+  const result = analyzeVerifiedGraphInput(tamperedSerialized, {
+    sourceReadEvidence: sourceReadEvidence(tamperedSerialized),
+  });
+  assert.deepEqual(result, { accepted: false, code: "GRAPH_DIGEST_MISMATCH" });
+});
+
+test("graph analysis entry point passes only verified graph input to analysis", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: "A" },
+  ], {
+    sourceReadId: "analysis-gate-002",
+    sourceDigest: digestFor([
+      { recordId: "A", parentRecordId: null },
+      { recordId: "B", parentRecordId: "A" },
+    ]),
+    sourceCompletenessVerified: true,
+  });
+  const result = analyzeVerifiedGraphInput(
+    serializeGraphInputCertificate(certificate),
+    { sourceReadEvidence: sourceReadEvidence(serializeGraphInputCertificate(certificate)) },
+  );
+  assert.equal(result.accepted, true);
+  assert.equal(result.analysis, "NO_CYCLE");
+  assert.deepEqual(result.graphInput, { vertices: [1, 2], edges: [[2, 1]] });
+});
+
+test("graph analysis entry point blocks incomplete source despite valid digest", () => {
+  const certificate = buildGraphInputCertificate([
+    { recordId: "A", parentRecordId: null },
+  ], {
+    sourceReadId: "analysis-gate-003",
+    sourceDigest: "source-sha256:example",
+    sourceCompletenessVerified: false,
+  });
+  const serialized = serializeGraphInputCertificate(certificate);
+  const result = analyzeVerifiedGraphInput(serialized, {
+    sourceReadEvidence: sourceReadEvidence(serialized),
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "SOURCE_COMPLETENESS_NOT_INDEPENDENTLY_ATTESTED",
+  });
+});
+
+test("architecture guard: raw graph analyzers are internal to the gated consumer", async () => {
+  const root = new URL(".", import.meta.url).pathname;
+  const rawNames = ["analyzeParentGraph", "hasParentCycle", "auditDataset", "resolveRecordReferences"];
+  const files = [];
+  async function walk(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else if (entry.isFile() && entry.name.endsWith(".mjs") &&
+          !entry.name.endsWith(".test.mjs") &&
+          entry.name !== "review-history-resolver.internal.mjs") files.push(path);
+    }
+  }
+  await walk(root);
+  const violations = [];
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    for (const name of rawNames) {
+      const importPattern = new RegExp("import\\s+(?:\\{[^}]*\\b" + name + "\\b[^}]*\\}|[^;]*?\\b" + name + "\\b[^;]*?)\\s+from\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\.internal)?\\.mjs[\\\"']", "s");
+      if (importPattern.test(source) && !file.endsWith("/verified-graph-consumer.mjs")) {
+        violations.push({ file, name });
+      }
+      if (file.endsWith("/review-history-resolver.mjs") &&
+          new RegExp("\\b" + name + "\\b").test(source)) {
+        violations.push({ file, name, reason: "public-api-mentions-raw-analyzer" });
+      }
+    }
+  }
+  assert.deepEqual(violations, [], "only the gated consumer may import raw graph analyzers; public API must not expose them");
+});
+
+test("architecture guard matcher detects a raw analyzer import", () => {
+  const rawNames = ["analyzeParentGraph", "hasParentCycle", "auditDataset", "resolveRecordReferences"];
+  const source = 'import { analyzeParentGraph } from "./review-history-resolver.internal.mjs";';
+  const violations = [];
+  for (const name of rawNames) {
+    const importPattern = new RegExp("import\\s+(?:\\{[^}]*\\b" + name + "\\b[^}]*\\}|[^;]*?\\b" + name + "\\b[^;]*?)\\s+from\\s+[\\\"'][^\\\"']*review-history-resolver(?:\\.internal)?\\.mjs[\\\"']", "s");
+    if (importPattern.test(source)) violations.push(name);
+  }
+  assert.deepEqual(violations, ["analyzeParentGraph"]);
+});
+
+
+test("source evidence digest uses locale-independent code-unit ordering", () => {
+  const records = [
+    { recordId: "a", parentRecordId: null },
+    { recordId: "Z", parentRecordId: "B" },
+    { recordId: "_", parentRecordId: null },
+    { recordId: "10", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ];
+  const manifest = buildSourceReadEvidenceManifest(records, {
+    sourceReadId: "locale-order-check",
+    reportedTotalRecordCount: records.length,
+    paginationComplete: true,
+    sourceScope: "test:canonical-order",
+  });
+  const projection = records.map(({ recordId, parentRecordId }) => ({
+    recordId, parentRecordId: parentRecordId ?? null,
+  })).sort((a, b) => a.recordId < b.recordId ? -1 : a.recordId > b.recordId ? 1 : 0);
+  const expected = createHash("sha256").update(JSON.stringify(projection), "utf8").digest("hex");
+  assert.equal(manifest.sourceDigest, expected);
+});
+
+test("source evidence digest canonicalizes blank and absent parent references equally", () => {
+  const options = {
+    sourceReadId: "blank-parent-normalization",
+    reportedTotalRecordCount: 2,
+    paginationComplete: true,
+    sourceScope: "test:blank-parent-normalization",
+  };
+  const withBlank = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: "" },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  const withAbsent = buildSourceReadEvidenceManifest([
+    { recordId: "A", parentRecordId: null },
+    { recordId: "B", parentRecordId: null },
+  ], options);
+  assert.equal(withBlank.sourceDigest, withAbsent.sourceDigest);
+});
+
+
+test("trusted Airtable reader bounds pages even when cursors never repeat", async () => {
+  let calls = 0;
+  const result = await readAndAnalyzeAirtableTable({
+    listRecordsForTable: async () => {
+      calls += 1;
+      return {
+        records: [],
+        metadata: { totalRecordCount: 0 },
+        nextCursor: `page-${calls + 1}`,
+      };
+    },
+    sourceReadId: "page-limit-read",
+    baseId: "appaUa8VbUJZmzmxe",
+    tableId: "tblvy8J5UC6Y6SylE",
+    recordIdFieldId: "fldd49StaAWbIMfH3",
+    parentRecordIdFieldId: "fldeI9DErAnstWE5W",
+    pageSize: 1,
+    maxPages: 2,
+  });
+  assert.deepEqual(result, {
+    accepted: false,
+    code: "AIRTABLE_PAGE_LIMIT_EXCEEDED",
+  });
+  assert.equal(calls, 2);
+});
