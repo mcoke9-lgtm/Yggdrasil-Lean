@@ -2,7 +2,7 @@
   "name": "sch-001-d1-local-witness",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node test/run-local.mjs" },
+  "scripts": { "test": "node run-local.mjs" },
   "devDependencies": { "wrangler": "^4.0.0" },
   "engines": { "node": ">=22" }
 }
