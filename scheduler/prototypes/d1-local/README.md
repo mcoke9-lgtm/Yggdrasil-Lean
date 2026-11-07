@@ -52,6 +52,13 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-06: missing authentication is rejected.
 - D1L-07: original receipt is queryable by event ID.
 - D1L-08: transfer event increments generation and changes owner.
+- D1L-09: event UPDATE and DELETE are blocked.
+- D1L-10: sequential events preserve hash-chain continuity.
+- D1L-11: incorrect previous-event hash is rejected.
+- D1L-12: failed multi-statement batch leaves event and head unchanged.
+- D1L-13: a simulated old-head restore is detected against a process-memory checkpoint.
+
+D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. It does **not** demonstrate durable, independent, cross-account or production restore detection. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
 
 ## Important gaps
 
