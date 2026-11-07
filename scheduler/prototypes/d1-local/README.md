@@ -26,7 +26,7 @@ The test runner:
 1. Applies the migration to Wrangler's local D1 store only.
 2. Starts `wrangler dev --local` bound to 127.0.0.1.
 3. Sets a synthetic token and explicit `PROTOTYPE_MODE=local-test`.
-4. Executes fifteen synthetic HTTP/SQL and checkpoint-process cases.
+4. Executes nineteen synthetic HTTP/SQL and checkpoint-process cases.
 5. Stops the local Worker process.
 
 The `/__test/*` seed/state routes are disabled unless the explicit local-test mode is present. Do not deploy this prototype. The API is not production-authenticated and the test routes exist solely to prepare/read disposable fixtures.
@@ -59,7 +59,7 @@ Initial CI iterations exposed and corrected three test-harness issues: an unsupp
 - D1L-12: failed multi-statement batch leaves event and head unchanged; the second statement is a valid duplicate-primary-key insert that fails during batch execution.
 - D1L-13: a simulated old-head restore is detected against a Worker-process-memory checkpoint.
 - D1L-14: a consistent rollback of both the event ledger and head projection is detected against a monotonic checkpoint held by the separate Node test-runner process.
-- D1L-15: a separate checkpoint process persists two monotonic anchors to a hash-chained journal, restarts and verifies the journal, then detects coordinated D1 rollback after the D1 Worker itself is restarted.
+- D1L-15: a separate checkpoint process persists two monotonic anchors to a hash-chained journal, restarts and verifies the journal, then detects coordinated D1 rollback after the D1 Worker itself is restarted.\n- D1L-16: byte-level journal corruption causes checkpoint-service startup to fail closed.\n- D1L-17: a truncated final JSONL record causes startup to fail closed.\n- D1L-18: replacing the journal with a previously valid older copy passes internal replay but disagrees with the runner-retained sequence-2 receipt.\n- D1L-19: a privileged actor rewrites the latest checkpoint and recomputes a valid local hash chain; replay succeeds, but the rewritten event hash conflicts with the runner-retained receipt.
 
 D1L-13 is only a controlled demonstration: the checkpoint is held in Worker process memory and the test manually rewinds the mutable head projection. D1L-14 improves the threat model: the Node test runner retains the checkpoint outside the Worker and D1 database, then invokes a test-only privileged restore simulation that rewinds both the event ledger and head projection to a mutually consistent earlier state. The Worker compares that restored state with the runner-held checkpoint and must return `WITNESS_ROLLBACK_OR_LOSS`. This is stronger than comparing the head alone, but remains a same-host test harness, not a durable independently administered witness or an actual D1 Time Travel restore. D1L-12 must be interpreted from the CI log: it demonstrates transaction rollback only if the intentionally failing second statement is reached after the event insert statement has been attempted.
 
@@ -67,7 +67,7 @@ D1L-13 is only a controlled demonstration: the checkpoint is held in Worker proc
 
 D1L-14 models the critical coordinated-rollback case: both the append-only event history and mutable head projection are rewound together, so internal agreement cannot reveal the loss. The checkpoint is advanced from sequence 1 to sequence 2 only when the next event links to the prior checkpoint hash; a stale attempt to replace the newer checkpoint is rejected in the harness. The latest checkpoint is retained by the separate Node test-runner process and supplied only after the simulated restore. The test-only restore route temporarily removes the event-delete guard to represent privileged restore capability; it is not part of the production API and is disabled outside explicit local-test mode.
 
-D1L-15 advances the prototype: the checkpoint is written by a separate loopback Node process to an append-only JSONL journal, each append is synchronized with `fsync`, and the journal is replayed and hash-chain-verified after restarting that process. The Wrangler D1 Worker is also stopped and restarted before the coordinated rollback fixture. The checkpoint directory is temporary and removed after the test.
+D1L-15 advances the prototype: the checkpoint is written by a separate loopback Node process to an append-only JSONL journal, each append is synchronized with `fsync`, and the journal is replayed and hash-chain-verified after restarting that process. The Wrangler D1 Worker is also stopped and restarted before the coordinated rollback fixture. The checkpoint directory is temporary and removed after the test. D1L-16 and D1L-17 exercise fail-closed startup on malformed/corrupted content. D1L-18 demonstrates that a valid older snapshot can replay successfully and therefore requires comparison with a separately retained receipt. D1L-19 demonstrates the harder boundary: an administrator able to rewrite the complete journal and recompute every hash can produce a locally valid chain; only a receipt retained outside that administrator's control detects the substituted head. In these tests, that receipt is held by the same CI test-runner process, so it is a synthetic external comparison—not an independent security domain.
 
 Limitations: both processes and the checkpoint file share one CI host and administrative trust boundary; the journal is not protected against a privileged host administrator rewriting the entire file; the prototype has no production authentication, external signing key, remote replication, independent account, provider restore, or real D1 Time Travel restore. The test verifies local process-restart persistence and rollback comparison—not production-grade witness independence.
 
@@ -100,7 +100,7 @@ The verified run includes the strengthened rollback case: its second batch state
 - No external source relinquishment protocol or per-side-effect fencing is implemented.
 - The synthetic token is not an identity system; authorization evidence is fixture data.
 - Hash values are fixture strings, not a production event-signing or canonicalization standard.
-- No external independent continuity anchor, backup/restore exercise, provider outage, rate-limit, durability, key custody, or privileged-administrator threat test is included.
+- No production independent continuity anchor, backup/restore exercise, provider outage, rate-limit, durability contract, key custody, or independently administered privileged-administrator defense is implemented. D1L-16–D1L-19 are local adversarial simulations; they do not protect against compromise of the CI runner that holds the comparison receipt.
 - Local state may persist between test runs. Tests use distinct synthetic task IDs; do not place real data in this local database.
 
 ## CI
@@ -110,3 +110,4 @@ The verified run includes the strengthened rollback case: its second batch state
 ## Decision boundary
 
 A passing local suite would justify a later, separately approved remote D1 sandbox evaluation. It would not justify provider adoption, authority transfer, production deployment, or activation of any task.
+\n## Latest journal-adversary test expansion\n\n**Status: implementation committed; CI result pending.** The suite now contains D1L-01 through D1L-19. The four new cases distinguish byte corruption, partial-record truncation, valid older-copy replacement, and privileged full-chain rewriting with recomputed hashes. In particular, D1L-18 and D1L-19 deliberately show that local journal replay can succeed after rollback or privileged rewriting; the runner-held prior receipt is what detects the mismatch. No production-grade independence claim follows from these local tests.\n
