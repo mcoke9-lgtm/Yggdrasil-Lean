@@ -34,12 +34,13 @@ test("compare-and-swap advances one epoch and persists the grant", async () => {
   assert.equal(result.transfer.grantedEpoch, 2);
   assert.equal(result.transfer.confirms, "LOCAL_REFERENCE_GRANT_ONLY");
   assert.deepEqual(await coordinator.get("task-001"), {
-    taskId: "task-001", owner: "destination-b", epoch: 2, version: 2,
+    taskId: "task-001", owner: "destination-b", initialOwner: "source-a", epoch: 2, version: 2,
     taskDefinitionFingerprint: fingerprint,
     initializedAt: "2026-11-06T20:00:00.000Z",
     updatedAt: "2026-11-06T20:00:00.000Z", lastTransferId: "transfer-001"
   });
   assert.equal((await store.load()).authorityTransfers.length, 1);
+  assert.equal((await coordinator.initialize(initial)).owner, "destination-b");
 });
 
 test("same transfer ID and identical request returns the original grant", async () => {
