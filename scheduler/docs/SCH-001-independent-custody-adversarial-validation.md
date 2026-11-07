@@ -24,6 +24,10 @@ Test whether the ten non-compensatory custody gates reject plausible common-mode
 | CG-10 | A witness migration copies current records but resets sequence numbers or drops prior receipts. | FAIL G4/G10. | Migration must preserve identity, monotonic sequence and verifiable lineage. |
 | CG-11 | Lost append response causes scheduler to retry with a new transfer ID. | FAIL G5/G6 operational protocol; quarantine until original ID/outcome is reconciled. | A new ID can create a second transfer when the first append actually committed. |
 | CG-12 | A human custodian holds an offline signed checkpoint but cannot demonstrate when or how it was created, or whether it was replaced. | UNKNOWN G4/G7; not qualified. | Offline storage alone does not establish authenticity, freshness, or independent custody. |
+| CG-13 | One billing or subscription owner can suspend, close, transfer, or regain control of both source and witness accounts. | FAIL G1/G2 unless a separately controlled continuity custodian preserves and verifies authority. | Administrative separation can collapse through commercial ownership and account lifecycle control. |
+| CG-14 | A single operator can rotate the witness signing key, replace the custodian, or reset the trust baseline without independent approval and preserved lineage. | FAIL G3/G6/G10; quarantine key transition. | Key transition and baseline reset are authority changes, not routine maintenance. |
+| CG-15 | A valid receipt is replayed or substituted with a different task identity, prior hash, transfer ID, or witness identity. | FAIL G6; reject and quarantine the transfer. | Signature validity alone is insufficient unless all authority-binding fields and replay identity are verified. |
+| CG-16 | A reviewer credential is compromised or mis-scoped and can write, delete, suppress, or alter witness evidence. | FAIL G7/G1/G3; revoke review eligibility and quarantine affected evidence. | A nominally independent reviewer role must be demonstrably read-only and separately controlled.
 
 ## Evaluation results
 
@@ -43,7 +47,7 @@ Test whether the ten non-compensatory custody gates reject plausible common-mode
 5. A durable receipt is not accepted as proof of destination activation or fencing.
 6. A cached lease or generation is not accepted as permission to continue protected side effects after witness loss.
 7. An uncertain append outcome requires same-transfer-ID reconciliation; no blind new-ID retry.
-8. Restore and migration must preserve externally anchored continuity; otherwise the system remains quarantined.
+8. Restore and migration must preserve externally anchored continuity; otherwise the system remains quarantined.\n9. Billing/account lifecycle authority, key/baseline succession, complete receipt binding, and reviewer write-scope are explicit adversarial dimensions.
 
 ## Clarifications added to the test interpretation
 
