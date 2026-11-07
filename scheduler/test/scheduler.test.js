@@ -296,7 +296,7 @@ test("process lock prevents a second scheduler instance and releases cleanly", a
   const lockPath = join(directory, "scheduler.lock");
   try {
     const release = await acquireProcessLock(lockPath);
-    await assert.rejects(() => acquireProcessLock(lockPath), /already appears to be running/);
+    await assert.rejects(() => acquireProcessLock(lockPath), /Scheduler lock already exists/);
     await release();
     const releaseAgain = await acquireProcessLock(lockPath);
     await releaseAgain();
