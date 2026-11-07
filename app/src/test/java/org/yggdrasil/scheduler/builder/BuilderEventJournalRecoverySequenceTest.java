@@ -77,4 +77,26 @@ public class BuilderEventJournalRecoverySequenceTest {
             assertFalse(c.moveToNext());
         }
     }
+    @Test public void restorePreservesProcessedMessageReceiptsAndIdempotency() {
+        BuilderMessage message = new BuilderMessage(BuilderMessage.CURRENT_SCHEMA_VERSION,
+                "message-receipt-1", "sender", "recipient", 5000L,
+                "correlation-1", "text/plain", "receipt payload");
+        assertTrue(journal.recordMessageOnce(message, 6000L));
+        JSONObject snapshot = journal.exportSnapshot();
+
+        append(journal, 1);
+        journal.restoreSnapshot(snapshot);
+        assertEquals(1L, journal.eventCount());
+        try (Cursor c = journal.getReadableDatabase().rawQuery(
+                "SELECT message_id, result_event_id FROM processed_messages", null)) {
+            assertTrue(c.moveToFirst());
+            assertEquals("message-receipt-1", c.getString(0));
+            assertEquals("message-received:message-receipt-1", c.getString(1));
+            assertFalse(c.moveToNext());
+        }
+        assertFalse("restored receipt must prevent duplicate processing",
+                journal.recordMessageOnce(message, 7000L));
+        assertEquals(1L, journal.eventCount());
+    }
+
 }
