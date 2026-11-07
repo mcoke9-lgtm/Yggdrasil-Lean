@@ -12,7 +12,7 @@
 
 ## Test results
 
-<badge>Local run: 16 passed, 0 failed</badge>
+**Local run: 16 passed, 0 failed.**
 
 | Test | Case | Result |
 |---|---|---|
