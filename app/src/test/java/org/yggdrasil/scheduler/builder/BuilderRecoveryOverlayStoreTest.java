@@ -1,0 +1,239 @@
+package org.yggdrasil.scheduler.builder;
+
+import android.content.Context;
+import org.json.JSONObject;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import static org.junit.Assert.*;
+
+@RunWith(RobolectricTestRunner.class)
+public class BuilderRecoveryOverlayStoreTest {
+    private static final String GENERATION = "overlay-generation";
+    private Context context;
+    private BuilderConversationStore sourceConversations;
+    private BuilderSubjectThreadIndex sourceSubjects;
+    private BuilderRecoveryStager.StageResult staged;
+    private BuilderRecoveryOverlayStore overlay;
+
+    @Before public void setUp() {
+        context = RuntimeEnvironment.getApplication();
+        clearFiles();
+        sourceConversations = new BuilderConversationStore(context, "overlay-source-conversations.db");
+        sourceSubjects = new BuilderSubjectThreadIndex(context, "overlay-source-subjects.db");
+        sourceConversations.append(turn("base-turn", 1000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        sourceSubjects.append(event("base-event", 1000L));
+        JSONObject recovery = BuilderRecoveryPackage.create(sourceConversations, sourceSubjects);
+        staged = BuilderRecoveryStager.stage(context, recovery, GENERATION);
+    }
+
+    @After public void tearDown() {
+        if (overlay != null) overlay.close();
+        if (sourceConversations != null) sourceConversations.close();
+        if (sourceSubjects != null) sourceSubjects.close();
+        clearFiles();
+        context.deleteDatabase("overlay-source-conversations.db");
+        context.deleteDatabase("overlay-source-subjects.db");
+    }
+
+    private void clearFiles() {
+        context.deleteDatabase("overlay-source-conversations.db");
+        context.deleteDatabase("overlay-source-subjects.db");
+        context.deleteDatabase("builder-recovery-" + GENERATION + "-conversations.db");
+        context.deleteDatabase("builder-recovery-" + GENERATION + "-subjects.db");
+        context.deleteDatabase(BuilderRecoveryOverlayStore.databaseNameForGeneration(GENERATION));
+    }
+
+    private BuilderRecoveryOverlayStore createOverlay() {
+        return BuilderRecoveryOverlayStore.create(context,
+                staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                staged.conversationDataSha256, staged.subjectDataSha256);
+    }
+
+    private BuilderRecoveryOverlayStore openOverlay() {
+        return BuilderRecoveryOverlayStore.openExisting(context,
+                staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                staged.conversationDataSha256, staged.subjectDataSha256);
+    }
+
+    private static BuilderConversationProtocol.Turn turn(String id, long timestamp,
+            String replyTo, BuilderConversationProtocol.TurnType type) {
+        return new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "overlay-thread", id,
+                BuilderConversationProtocol.Participant.USER, null, replyTo, type,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, timestamp, id);
+    }
+
+    private static BuilderSubjectThreadIndex.Event event(String id, long timestamp) {
+        return new BuilderSubjectThreadIndex.Event(id, "overlay-thread", "subject.continuity",
+                BuilderSubjectThreadIndex.EventType.SUBJECT_ATTACHED, null, null, timestamp);
+    }
+
+    @Test public void appendsRemainSeparateAndBaselineDigestStillVerifiesAfterReopen() throws Exception {
+        overlay = createOverlay();
+        overlay.append(turn("overlay-turn", 2000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
+        assertEquals(2, overlay.readThread("overlay-thread").size());
+        assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
+        overlay.close();
+
+        overlay = openOverlay();
+        assertEquals(2, overlay.readThread("overlay-thread").size());
+        assertEquals(2, overlay.readSubjectThread("overlay-thread").size());
+        assertEquals(GENERATION, overlay.identity().generationId);
+        assertEquals(staged.conversationDataSha256,
+                overlay.identity().conversationBaselineSha256);
+        assertEquals(staged.subjectDataSha256, overlay.identity().subjectBaselineSha256);
+        // Opening the new helper rechecks both exact baseline record-array digests.
+        assertEquals(2, overlay.exportConversationSnapshot().getInt("turn_count"));
+        assertEquals(2, overlay.exportSubjectSnapshot().getInt("event_count"));
+    }
+
+
+    @Test public void mergedRecoveryExportCarriesOneGenerationAndBothStreams() throws Exception {
+        overlay = createOverlay();
+        overlay.append(turn("overlay-turn", 2000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
+        JSONObject exported = overlay.exportMergedSnapshots();
+        assertEquals("yggdrasil-recovery-overlay-export", exported.getString("format"));
+        assertEquals(GENERATION, exported.getString("generation_id"));
+        assertEquals(staged.conversationDataSha256,
+                exported.getString("conversation_baseline_sha256"));
+        assertEquals(staged.subjectDataSha256,
+                exported.getString("subject_baseline_sha256"));
+        assertEquals(2, exported.getJSONObject("conversation_snapshot").getInt("turn_count"));
+        assertEquals(2, exported.getJSONObject("subject_thread_snapshot").getInt("event_count"));
+        assertTrue(exported.getString("content_sha256").matches("[0-9a-f]{64}"));
+    }
+
+    @Test public void duplicateConversationIdentityAcrossLayersIsRejected() {
+        overlay = createOverlay();
+        try {
+            overlay.append(turn("base-turn", 2000L, null,
+                    BuilderConversationProtocol.TurnType.CONTRIBUTION));
+            fail("baseline turn identity must not be reused");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("Duplicate turn ID"));
+        }
+        assertEquals(1, overlay.readThread("overlay-thread").size());
+    }
+
+    @Test public void duplicateSubjectIdentityAcrossLayersIsRejected() {
+        overlay = createOverlay();
+        try {
+            overlay.appendAll(java.util.Collections.singletonList(event("base-event", 2000L)));
+            fail("baseline event identity must not be reused");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("Duplicate subject event ID"));
+        }
+        assertEquals(1, overlay.readSubjectThread("overlay-thread").size());
+    }
+
+    @Test public void invalidReplyToMissingTurnIsRejectedWithoutWriting() {
+        overlay = createOverlay();
+        BuilderConversationProtocol.Turn invalid = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "overlay-thread", "bad-reply",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "missing-turn",
+                BuilderConversationProtocol.TurnType.RESPONSE,
+                BuilderConversationProtocol.EvidenceStatus.UNKNOWN, 2000L, "invalid");
+        try {
+            overlay.append(invalid);
+            fail("reply to a missing turn must be rejected");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("earlier turn"));
+        }
+        assertEquals(1, overlay.readThread("overlay-thread").size());
+    }
+
+    @Test public void subjectBatchIsAllOrNothingWhenOneIdConflictsWithBaseline() {
+        overlay = createOverlay();
+        java.util.List<BuilderSubjectThreadIndex.Event> batch = java.util.Arrays.asList(
+                event("new-event", 2000L), event("base-event", 3000L));
+        try {
+            overlay.appendAll(batch);
+            fail("batch containing a baseline identity must fail");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("Duplicate subject event ID"));
+        }
+        assertEquals(1, overlay.readSubjectThread("overlay-thread").size());
+    }
+
+    @Test public void anotherHelperInstanceSeesTheSameGenerationBoundOverlay() {
+        overlay = createOverlay();
+        BuilderRecoveryOverlayStore second = openOverlay();
+        try {
+            overlay.appendAll(java.util.Collections.singletonList(event("from-first", 2000L)));
+            assertEquals(2, second.readSubjectThread("overlay-thread").size());
+            assertEquals(GENERATION, second.identity().generationId);
+        } finally {
+            second.close();
+        }
+    }
+
+    @Test public void overlayCannotBeOpenedWithDifferentBaselineDigest() {
+        overlay = createOverlay();
+        overlay.close();
+        try {
+            BuilderRecoveryOverlayStore.openExisting(context,
+                    staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                    staged.subjectDataSha256);
+            fail("overlay metadata must reject a different baseline digest");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("identity does not match"));
+        }
+    }
+
+
+
+    @Test public void overlayRowsAndGenerationMetadataRejectUpdateAndDelete() {
+        overlay = createOverlay();
+        overlay.append(turn("overlay-turn", 2000L, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION));
+        overlay.appendAll(java.util.Collections.singletonList(event("overlay-event", 2000L)));
+        android.database.sqlite.SQLiteDatabase db = overlay.getWritableDatabase();
+        try {
+            db.execSQL("UPDATE conversation_turns SET body = 'changed' WHERE turn_id = 'overlay-turn'");
+            fail("turn update must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        try {
+            db.execSQL("DELETE FROM subject_thread_events WHERE event_id = 'overlay-event'");
+            fail("event deletion must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        try {
+            db.execSQL("UPDATE overlay_metadata SET generation_id = 'other' WHERE singleton = 1");
+            fail("generation metadata update must be rejected");
+        } catch (android.database.sqlite.SQLiteConstraintException expected) { }
+        assertEquals("overlay-turn", overlay.readThread("overlay-thread").get(1).turnId);
+        assertEquals("overlay-event", overlay.readSubjectThread("overlay-thread").get(1).eventId);
+    }
+
+    @Test public void missingOverlayIsNotSilentlyRecreated() {
+        try {
+            BuilderRecoveryOverlayStore.openExisting(context,
+                    staged.conversationDatabaseName, staged.subjectDatabaseName, GENERATION,
+                    staged.conversationDataSha256, staged.subjectDataSha256);
+            fail("missing overlay must fail closed");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("missing"));
+        }
+    }
+
+    @Test public void generationMustMatchTheBaselineDatabaseNames() {
+        try {
+            BuilderRecoveryOverlayStore.create(context,
+                    staged.conversationDatabaseName, staged.subjectDatabaseName, "other-generation",
+                    staged.conversationDataSha256, staged.subjectDataSha256);
+            fail("generation mismatch must fail before opening a new overlay");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("do not match generation"));
+        }
+    }
+}

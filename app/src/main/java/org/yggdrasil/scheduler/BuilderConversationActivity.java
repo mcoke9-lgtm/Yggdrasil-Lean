@@ -31,6 +31,8 @@ import org.yggdrasil.scheduler.builder.BuilderModelResponder;
 import org.yggdrasil.scheduler.builder.BuilderProviderRegistry;
 import org.yggdrasil.scheduler.builder.BuilderProviderRouter;
 import org.yggdrasil.scheduler.builder.BuilderRole;
+import org.yggdrasil.scheduler.builder.BuilderSubjectResolver;
+import org.yggdrasil.scheduler.builder.BuilderSubjectThreadRecorder;
 import org.yggdrasil.scheduler.builder.NavigatingDifficultSpaces;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import java.io.OutputStream;
@@ -105,6 +107,7 @@ public final class BuilderConversationActivity extends Activity {
     private TextView threadLabel;
     private Button sendButton;
     private CheckBox difficultSpacesMode;
+    private CheckBox subjectRouting;
     private String activeThreadId;
     private volatile boolean destroyed;
     private boolean busy;
@@ -193,15 +196,21 @@ public final class BuilderConversationActivity extends Activity {
         root.addView(threadLabel);
         updateThreadLabel();
 
-        root.addView(text("Choose the Builders for this round", 18));
-        root.addView(text("All nine are selected by default. Each selected Builder receives the thread accumulated so far.", 13));
+        root.addView(text("Choose additional Builders for this round", 18));
+        root.addView(text("Automatic subject routing includes the matched primary stewards. Check any additional Builder you want to invite. With automatic routing off, checked Builders are the manual selection.", 13));
         for (BuilderRole role : BuilderRole.values()) {
             CheckBox check = new CheckBox(this);
             check.setText(role.getDisplayName() + " — " + role.getResponsibility());
-            check.setChecked(true);
+            check.setChecked(false);
             roleChecks.put(role, check);
             root.addView(check);
         }
+
+        subjectRouting = new CheckBox(this);
+        subjectRouting.setText("Automatically select Builders from subject headings");
+        subjectRouting.setChecked(true);
+        root.addView(subjectRouting);
+        root.addView(text("A matched subheading selects its primary stewards. A broad subject heading selects all nine. Turn this off to use the Builder checkboxes manually.", 13));
 
         difficultSpacesMode = new CheckBox(this);
         difficultSpacesMode.setText("Navigating Difficult Spaces mode — Thurisaz / Algiz protection navigation");
@@ -389,10 +398,40 @@ public final class BuilderConversationActivity extends Activity {
             CheckBox check = roleChecks.get(role);
             if (check != null && check.isChecked()) selected.add(role);
         }
+        String routingSummary = "Manual Builder selection";
+        BuilderSubjectResolver.Resolution subjectResolution = null;
+        if (subjectRouting != null && subjectRouting.isChecked()) {
+            try {
+                BuilderSubjectResolver.Resolution resolution =
+                        BuilderSubjectResolver.fromAssets(getAssets()).resolve(message);
+                if (resolution.ambiguous) {
+                    status.setText("This question matches more than one subject. Turn off automatic subject routing and select the Builders manually.");
+                    return;
+                }
+                if (resolution.matched) {
+                    subjectResolution = resolution;
+                    selected = new ArrayList<>(BuilderSubjectResolver.withAdditionalRoles(
+                            resolution, selected));
+                    routingSummary = "Subject " + resolution.heading
+                            + (resolution.subheadingIds.isEmpty() ? " · broad subject"
+                            : " · " + android.text.TextUtils.join(", ", resolution.subheadingIds))
+                            + " · stewards: " + roleNames(selected);
+                } else {
+                    routingSummary = "No subject match · using manual Builder selection";
+                }
+            } catch (Exception invalidRegistry) {
+                status.setText("Subject registry could not be loaded or resolved: "
+                        + (invalidRegistry.getMessage() == null
+                        ? invalidRegistry.getClass().getSimpleName() : invalidRegistry.getMessage())
+                        + ". No message was sent.");
+                return;
+            }
+        }
         if (selected.isEmpty()) {
-            status.setText("Select at least one Builder.");
+            status.setText("Select at least one Builder, or enter a recognized subject.");
             return;
         }
+        final List<BuilderRole> selectedForSend = new ArrayList<>(selected);
 
         SecureBuilderProviderSettings settings = new SecureBuilderProviderSettings(this);
         SecureBuilderProviderSettings.Configuration config = settings.readConfiguration();
@@ -404,11 +443,13 @@ public final class BuilderConversationActivity extends Activity {
             message = "NAVIGATING_DIFFICULT_SPACES_MODE\n" + message;
         }
         final String preparedMessage = message;
+        final String preparedRoutingSummary = routingSummary;
+        final BuilderSubjectResolver.Resolution preparedSubjectResolution = subjectResolution;
         String disclosureKey = config.endpoint + "\n" + config.model;
         String approved = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_DISCLOSURE, null);
         if (disclosureKey.equals(approved)) {
-            performSend(preparedMessage, selected);
+            performSend(preparedMessage, selectedForSend, preparedRoutingSummary, preparedSubjectResolution);
             return;
         }
 
@@ -424,15 +465,16 @@ public final class BuilderConversationActivity extends Activity {
                 .setPositiveButton("Allow and send", (dialog, which) -> {
                     getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                             .putString(KEY_DISCLOSURE, disclosureKey).apply();
-                    performSend(preparedMessage, selected);
+                    performSend(preparedMessage, selectedForSend, preparedRoutingSummary, preparedSubjectResolution);
                 }).show();
     }
 
-    private void performSend(String message, List<BuilderRole> selectedRoles) {
+    private void performSend(String message, List<BuilderRole> selectedRoles, String routingSummary,
+                             BuilderSubjectResolver.Resolution subjectResolution) {
         busy = true;
         sendButton.setEnabled(false);
         messageInput.setEnabled(false);
-        status.setText("Sending to selected Builders. Each response will be recorded as it completes.");
+        status.setText(routingSummary + ". Sending to selected Builders. Each response will be recorded as it completes.");
         final String threadId = activeThreadId;
         final List<BuilderRole> roles = new ArrayList<>(selectedRoles);
 
@@ -452,11 +494,26 @@ public final class BuilderConversationActivity extends Activity {
                 store = new BuilderRuntimeJournalClient(getApplicationContext());
                 BuilderConversationCoordinator coordinator =
                         new BuilderConversationCoordinator(store, responder);
+                // This method is reached only after the endpoint disclosure is accepted.
+                // Save the routing decision before model calls so it survives partial reply failure.
+                String continuityStatus = "";
+                if (subjectResolution != null && subjectResolution.matched
+                        && !subjectResolution.ambiguous) {
+                    try {
+                        BuilderSubjectThreadRecorder.record(getApplicationContext(), threadId,
+                                subjectResolution.subjectId, subjectResolution.subheadingIds, roles);
+                        continuityStatus = " · subject continuity saved";
+                    } catch (Exception indexFailure) {
+                        // The sidecar is deliberately non-authoritative: its failure must
+                        // not prevent the canonical conversation from proceeding.
+                        continuityStatus = " · subject continuity unavailable";
+                    }
+                }
                 BuilderConversationCoordinator.Result result =
                         coordinator.submit(threadId, message, roles);
                 List<BuilderConversationProtocol.Turn> turns = store.readThread(threadId);
                 int successful = result.appendedTurns.size() - 1;
-                String summary = "Recorded " + successful + " Builder replies";
+                String summary = "Recorded " + successful + " Builder replies" + continuityStatus;
                 if (!result.failedRoles.isEmpty()) summary += " · failed: " + roleNames(result.failedRoles);
                 if (!result.unroutedRecipients.isEmpty())
                     summary += " · not routed: " + roleNames(result.unroutedRecipients);

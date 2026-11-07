@@ -21,7 +21,7 @@ import java.util.List;
 public final class BuilderRuntimeService extends Service {
     private BuilderRuntimeStore identityStore;
     private BuilderRuntimeStore.NodeIdentity identity;
-    private BuilderConversationStore journal;
+    private BuilderConversationJournal journal;
     private long processStartedAt;
     private HandlerThread workerThread;
     private Messenger messenger;
@@ -31,7 +31,7 @@ public final class BuilderRuntimeService extends Service {
         processStartedAt = System.currentTimeMillis();
         identityStore = new BuilderRuntimeStore(getApplicationContext());
         identity = identityStore.getOrCreateIdentity();
-        journal = new BuilderConversationStore(getApplicationContext());
+        journal = new BuilderRecoveryConversationJournal(getApplicationContext());
         workerThread = new HandlerThread("builder-native-runtime-worker");
         workerThread.start();
         messenger = new Messenger(new RuntimeHandler(workerThread.getLooper()));

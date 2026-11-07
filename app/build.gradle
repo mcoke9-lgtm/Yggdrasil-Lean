@@ -9,6 +9,11 @@ def builderSigningEnv = [
 def builderSigningConfigured = builderSigningEnv.every { System.getenv(it)?.trim() }
 
 android {
+    sourceSets {
+        main {
+            assets.srcDirs += ["$rootDir/subject-registry"]
+        }
+    }
     namespace 'org.yggdrasil.scheduler'
     compileSdk 35
     testOptions { unitTests.includeAndroidResources = true }
@@ -16,6 +21,7 @@ android {
         applicationId 'org.yggdrasil.builderhost'
         minSdk 26
         targetSdk 35
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         // One-time migration above the previously distributed versionCode 1 package.
         versionCode 2
         versionName '0.2.0'
@@ -43,5 +49,9 @@ dependencies {
     // Android's local-test android.jar stubs throw for org.json; use the real JVM implementation.
     testImplementation 'org.json:json:20240303'
     testImplementation 'org.robolectric:robolectric:4.14.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'junit:junit:4.13.2'
     implementation 'androidx.work:work-runtime:2.10.0'
 }

@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service
+            android:name="org.yggdrasil.scheduler.builder.BuilderRecoveryLockProbeService"
+            android:process=":recovery_lock_probe"
+            android:exported="false" />
+    </application>
+</manifest>
