@@ -13,7 +13,7 @@ const wrangler="node_modules/wrangler/bin/wrangler.js";
 const migration=spawnSync(process.execPath,[wrangler,"d1","migrations","apply","sch-001-disposable-local","--local"],{encoding:"utf8"});
 if(migration.status!==0) throw new Error("Local D1 migration failed:\n"+migration.stdout+"\n"+migration.stderr);
 let child, checkpointChild;
-let logs="", checkpointLogs="";\nlet firstCheckpointSnapshot="";\nlet latestCheckpointReceipt=null;\nconst sha256=value=>createHash("sha256").update(value).digest("hex");
+let logs="", checkpointLogs="";\nlet firstCheckpointSnapshot="";\nlet fullCheckpointSnapshot="";\nlet latestCheckpointReceipt=null;\nconst sha256=value=>createHash("sha256").update(value).digest("hex");
 function startWorker(){
  child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port),"--var","PROTOTYPE_MODE:local-test","--var","PROTOTYPE_TOKEN:"+token],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
  child.stdout.on("data",b=>logs+=b);child.stderr.on("data",b=>logs+=b);
@@ -103,7 +103,7 @@ tests.push(["D1L-15 durable checkpoint survives witness and Worker process resta
  snapshot=await state(t);
  const cp2={task_id:t,sequence:2,generation:snapshot.head.generation,latest_event_id:snapshot.head.latest_event_id,
   latest_event_hash:snapshot.head.latest_event_hash,task_fingerprint:snapshot.head.task_fingerprint,event_count:snapshot.events};
- const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);\n latestCheckpointReceipt=second.body.receipt;
+ const second=await appendCheckpoint(t,1,cp2,cp1.latest_event_hash);assert.equal(second.status,201);\n latestCheckpointReceipt=second.body.receipt;\n fullCheckpointSnapshot=await readFile(checkpointFile,"utf8");
  const stale=await appendCheckpoint(t,1,cp1,null);assert.equal(stale.status,409);
  // Stop and restart the independent checkpoint process; it must replay and verify its fsynced journal.
  await stopProcess(checkpointChild);startCheckpoint();await checkpointReady();
