@@ -50,7 +50,6 @@ public class NineBuilderProcessIsolationTest {
         List<Messenger> hosts = new ArrayList<>();
         HandlerThread replyThread = new HandlerThread("nine-process-test-replies");
         replyThread.start();
-        Messenger client = new Messenger(new Handler(replyThread.getLooper()));
         try {
             for (Class<?> serviceClass : SERVICES) {
                 CountDownLatch connected = new CountDownLatch(1);
@@ -74,7 +73,7 @@ public class NineBuilderProcessIsolationTest {
             Set<Integer> pids = new HashSet<>();
             Set<String> processNames = new HashSet<>();
             for (int i = 0; i < hosts.size(); i++) {
-                Bundle health = request(hosts.get(i), client, BuilderRoleProcessService.MESSAGE_HEALTH,
+                Bundle health = request(hosts.get(i), BuilderRoleProcessService.MESSAGE_HEALTH,
                         new Bundle());
                 assertEquals(ROLES[i], health.getString(BuilderRoleProcessService.KEY_ROLE));
                 pids.add(health.getInt(BuilderRoleProcessService.KEY_PID));
@@ -91,14 +90,14 @@ public class NineBuilderProcessIsolationTest {
                 append.putString(BuilderRoleProcessService.KEY_TURN_ID, "process-turn-" + ROLES[i]);
                 append.putString(BuilderRoleProcessService.KEY_BODY, "private checkpoint for " + ROLES[i]);
                 append.putString(BuilderRoleProcessService.KEY_EVIDENCE, "OBSERVED");
-                Bundle result = request(hosts.get(i), client,
+                Bundle result = request(hosts.get(i),
                         BuilderRoleProcessService.MESSAGE_APPEND, append);
                 assertTrue(result.getBoolean("appended"));
             }
             for (int i = 0; i < hosts.size(); i++) {
                 Bundle query = new Bundle();
                 query.putString(BuilderRoleProcessService.KEY_THREAD, THREAD);
-                Bundle result = request(hosts.get(i), client,
+                Bundle result = request(hosts.get(i),
                         BuilderRoleProcessService.MESSAGE_READ, query);
                 org.json.JSONArray rows = new org.json.JSONArray(
                         result.getString(BuilderRoleProcessService.KEY_RESULT));
@@ -115,7 +114,7 @@ public class NineBuilderProcessIsolationTest {
         }
     }
 
-    private static Bundle request(Messenger host, Messenger client, int type, Bundle data)
+    private static Bundle request(Messenger host, int type, Bundle data)
             throws Exception {
         final Bundle[] response = new Bundle[1];
         final int[] responseType = new int[1];
