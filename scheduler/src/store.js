@@ -145,7 +145,7 @@ export class JsonFileStore {
       version: 1, revision: 1, sha256: expectedSha256,
       adoptedAt: new Date().toISOString()
     };
-    await durableReplace(this.integrityPath, JSON.stringify(integrity, null, 2) + "\\n");
+    await durableReplace(this.integrityPath, JSON.stringify(integrity, null, 2) + "\n");
     return { revision: 1, sha256: expectedSha256, stateVersion: parsed.version };
   }
 
