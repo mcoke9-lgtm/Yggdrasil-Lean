@@ -185,6 +185,42 @@ tests.push(["D1L-19 privileged full-chain rewrite with recomputed hashes passes 
  assert.equal(latestCheckpointReceipt.checkpoint.sequence,2);
  assert.notEqual(rewritten.body.checkpoint.latest_event_hash,latestCheckpointReceipt.checkpoint.latest_event_hash);
 }]);
+tests.push(["D1L-20 interleaved task checkpoints survive anchor restart and replay",async()=>{
+ await stopProcess(checkpointChild);
+ await writeFile(checkpointFile,"",{mode:0o600});
+ startCheckpoint();await checkpointReady();
+ const a1={task_id:"t20a",sequence:1,generation:0,latest_event_id:"a1",latest_event_hash:"hash-a1",task_fingerprint:"fp-a"};
+ const b1={task_id:"t20b",sequence:1,generation:0,latest_event_id:"b1",latest_event_hash:"hash-b1",task_fingerprint:"fp-b"};
+ const a2={task_id:"t20a",sequence:2,generation:0,latest_event_id:"a2",latest_event_hash:"hash-a2",task_fingerprint:"fp-a"};
+ const b2={task_id:"t20b",sequence:2,generation:1,latest_event_id:"b2",latest_event_hash:"hash-b2",task_fingerprint:"fp-b"};
+ assert.equal((await appendCheckpoint("t20a",0,a1,null)).status,201);
+ assert.equal((await appendCheckpoint("t20b",0,b1,null)).status,201);
+ assert.equal((await appendCheckpoint("t20a",1,a2,"hash-a1")).status,201);
+ assert.equal((await appendCheckpoint("t20b",1,b2,"hash-b1")).status,201);
+ await stopProcess(checkpointChild);startCheckpoint();await checkpointReady();
+ const ar=await getCheckpoint("t20a"),br=await getCheckpoint("t20b");
+ assert.equal(ar.status,200);assert.equal(br.status,200);
+ assert.equal(ar.body.anchor_sequence,2);assert.equal(br.body.anchor_sequence,2);
+ assert.equal(ar.body.checkpoint.latest_event_hash,"hash-a2");
+ assert.equal(br.body.checkpoint.latest_event_hash,"hash-b2");
+}]);
+tests.push(["D1L-21 simultaneous competing anchor appends accept exactly one sequence",async()=>{
+ await stopProcess(checkpointChild);
+ await writeFile(checkpointFile,"",{mode:0o600});
+ startCheckpoint();await checkpointReady();
+ const left={task_id:"t21",sequence:1,generation:0,latest_event_id:"left",latest_event_hash:"hash-left",task_fingerprint:"fp-21"};
+ const right={task_id:"t21",sequence:1,generation:0,latest_event_id:"right",latest_event_hash:"hash-right",task_fingerprint:"fp-21"};
+ const results=await Promise.all([
+  appendCheckpoint("t21",0,left,null),
+  appendCheckpoint("t21",0,right,null)
+ ]);
+ assert.equal(results.filter(x=>x.status===201).length,1);
+ assert.equal(results.filter(x=>x.status===409).length,1);
+ const stored=await getCheckpoint("t21");
+ assert.equal(stored.status,200);
+ assert.equal(stored.body.anchor_sequence,1);
+ assert.ok(["hash-left","hash-right"].includes(stored.body.checkpoint.latest_event_hash));
+}]);
 let failures=0;
 try {await ready();for(const [name,fn] of tests){try{await fn();console.log("PASS "+name);}catch(e){failures++;console.error("FAIL "+name,e);}}console.log("RESULT "+(tests.length-failures)+"/"+tests.length+" passed");if(failures)process.exitCode=1;}
 catch(e){console.error(e,logs);process.exitCode=1;}
