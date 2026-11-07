@@ -1,3 +1,4 @@
+import { withStoreLock } from "./store.js";
 import { createHash } from "node:crypto";
 
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
@@ -37,9 +38,7 @@ export class HandoffInbox {
   }
 
   withLock(operation) {
-    const result = this.queue.then(operation);
-    this.queue = result.catch(() => {});
-    return result;
+    return withStoreLock(this.store, operation);
   }
 
   async receive(request) {
