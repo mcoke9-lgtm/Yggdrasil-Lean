@@ -106,6 +106,10 @@ A restored scheduler backup must never be used to initialize or reset the witnes
 | Witness history is unavailable or rolled back | No authority changes or task activation until witness continuity is restored and independently verified |
 | External effect outcome is unknown | Mark outcome unknown; use handler operation class and reconciliation policy, not blind replay |
 
+## Existing project infrastructure inventory
+
+Before selecting a provider, consult [SCH-001 Existing Infrastructure Inventory](SCH-001-existing-infrastructure-inventory.md). It identifies the existing Nine Builders Node runtime, Android host prototype, NUC candidate, GitHub Actions, and Airtable pilot, and records why none currently satisfies the independent witness gates. Reuse existing runtime components; do not duplicate them or provision a new service until the host and custody inventory is verified.
+
 ## 8. Candidate foundation decision — deliberately open
 
 Do not choose a provider or add infrastructure solely to escape the ChatGPT task-slot limit.
