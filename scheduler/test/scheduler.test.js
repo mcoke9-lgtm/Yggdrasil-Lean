@@ -399,3 +399,89 @@ function lineExists(output) {
     catch { return false; }
   });
 }
+test("JSON store creates an integrity sidecar and verifies subsequent reads", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-integrity-"));
+  const filePath = join(directory, "state.json");
+  try {
+    const store = new JsonFileStore(filePath);
+    assert.deepEqual(await store.load(), {
+      version: 3, tasks: [], runs: [], handoffs: [], authorities: [], authorityTransfers: []
+    });
+    await store.save({
+      version: 3, tasks: [{ id: "integrity-task" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    });
+    const sidecar = JSON.parse(await readFile(filePath + ".integrity.json", "utf8"));
+    assert.equal(sidecar.version, 1);
+    assert.equal(sidecar.revision, 1);
+    assert.match(sidecar.sha256, /^[a-f0-9]{64}$/);
+    assert.equal((await new JsonFileStore(filePath).load()).tasks[0].id, "integrity-task");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("JSON store detects state corruption or one-sided state replacement", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-integrity-"));
+  const filePath = join(directory, "state.json");
+  try {
+    const store = new JsonFileStore(filePath);
+    await store.save({
+      version: 3, tasks: [{ id: "current" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    });
+    const validBytes = await readFile(filePath);
+    await (await import("node:fs/promises")).writeFile(filePath, validBytes.toString("utf8").replace("current", "tampered"));
+    await assert.rejects(() => store.load(), /checksum mismatch/);
+    await (await import("node:fs/promises")).writeFile(filePath, validBytes);
+    await rm(filePath + ".integrity.json");
+    await assert.rejects(() => store.load(), /sidecar mismatch/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("JSON store detects restoring an old state file against the current sidecar", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-integrity-rollback-"));
+  const filePath = join(directory, "state.json");
+  try {
+    const store = new JsonFileStore(filePath);
+    const original = {
+      version: 3, tasks: [{ id: "before" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    };
+    await store.save(original);
+    const oldBytes = await readFile(filePath);
+    await store.save({
+      version: 3, tasks: [{ id: "after" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    });
+    await (await import("node:fs/promises")).writeFile(filePath, oldBytes);
+    await assert.rejects(() => store.load(), /checksum mismatch/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("JSON store cannot detect coordinated rollback of state and its local sidecar", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-integrity-paired-rollback-"));
+  const filePath = join(directory, "state.json");
+  try {
+    const store = new JsonFileStore(filePath);
+    await store.save({
+      version: 3, tasks: [{ id: "before" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    });
+    const oldState = await readFile(filePath);
+    const oldSidecar = await readFile(filePath + ".integrity.json");
+    await store.save({
+      version: 3, tasks: [{ id: "after" }], runs: [],
+      handoffs: [], authorities: [], authorityTransfers: []
+    });
+    await (await import("node:fs/promises")).writeFile(filePath, oldState);
+    await (await import("node:fs/promises")).writeFile(filePath + ".integrity.json", oldSidecar);
+    assert.equal((await store.load()).tasks[0].id, "before");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
