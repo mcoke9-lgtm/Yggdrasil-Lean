@@ -6,20 +6,22 @@
 
 SCH-001 adds a durable receiving inbox to the Nine Builders Independent Scheduler. It does not replace the scheduler, add another Builder, activate tasks, or establish distributed execution authority.
 
-## State version 2
+## State version 3
 
 The state envelope is:
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "tasks": [],
   "runs": [],
-  "handoffs": []
+  "handoffs": [],
+  "authorities": [],
+  "authorityTransfers": []
 }
 ```
 
-A version-1 state file is accepted and normalized to version 2 in memory. Existing task and run arrays are preserved without rewriting their records. The next successful save writes the version-2 envelope. Unsupported versions and malformed collections fail closed.
+Version-1 and version-2 state files are accepted and normalized to version 3 in memory. Existing task, run, and handoff arrays are preserved without rewriting their records. The next successful save writes the version-3 envelope. Unsupported versions and malformed collections fail closed.
 
 ## Handoff request
 
@@ -98,3 +100,12 @@ The intended safety rule is: during uncertainty or partition, preserve the hando
 ## Next safety contract
 
 The proposed source relinquishment and execution-fencing requirements are specified separately in [SCH-001-source-relinquishment-and-fencing.md](./SCH-001-source-relinquishment-and-fencing.md). That document is a design contract only. It does not authorize activation or establish that any authority coordinator or effect-boundary fence exists.
+
+
+## Authority coordinator reference increment
+
+State version 3 adds `authorities` and `authorityTransfers`. `AuthorityCoordinator` provides initialization, a compare-and-swap owner/epoch advance, and queries by task or stable transfer ID. The task-definition SHA-256 fingerprint is bound to the authority record and every transfer. A transfer ID is idempotent for an identical request and rejected if reused with changed content. The grant is persisted before the method returns. A stale expected owner/epoch or competing transfer is rejected; a successful compare-and-swap advances the epoch by exactly one.
+
+**Critical scope limit:** this is a durable local reference implementation only. Its atomicity is serialized by `withStoreLock` for objects sharing one store instance in one process. `JsonFileStore` does not provide cross-process file locking, distributed consensus, linearizable multi-host compare-and-swap, quorum durability, or rollback-resistant epochs. Two independent processes or hosts must not use this implementation to transfer execution authority. The receipt explicitly says `LOCAL_REFERENCE_GRANT_ONLY`; it is not a fencing token and does not authorize destination activation.
+
+The coordinator does not prove source quiescence, drain in-flight operations, install fences at external effect boundaries, authenticate authorization evidence, or activate tasks. `AUTHORITY_ADVANCED` here is a local reference-model state, not an operational handoff state. Production transfer remains blocked until a separately reviewed distributed coordinator and effect-boundary fencing system exist.
