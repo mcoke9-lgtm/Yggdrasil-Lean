@@ -1,0 +1,24 @@
+name: Independent scheduler tests
+
+on:
+  push:
+    paths:
+      - "scheduler/**"
+      - ".github/workflows/scheduler.yml"
+  pull_request:
+    paths:
+      - "scheduler/**"
+      - ".github/workflows/scheduler.yml"
+  workflow_dispatch:
+
+jobs:
+  scheduler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run independent scheduler tests
+        working-directory: scheduler
+        run: npm test
