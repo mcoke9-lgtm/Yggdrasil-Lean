@@ -32,7 +32,7 @@ export default { async fetch(request,env) {
   try {
    await env.DB.batch([
     env.DB.prepare(sql).bind(...FIELDS.map(k=>e[k] ?? null)),
-    env.DB.prepare("INSERT INTO sch_intentionally_missing_table(x) VALUES(1)")
+    env.DB.prepare("INSERT INTO task_heads(task_id,task_fingerprint,sequence,generation,authority_owner,updated_at) VALUES(?,?,0,0,'source',?)").bind(e.task_id,e.task_fingerprint,new Date().toISOString())
    ]);
   } catch { return reply({rolledBack:true}); }
   return reply({rolledBack:false},500);
