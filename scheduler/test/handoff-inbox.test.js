@@ -162,3 +162,26 @@ test("revalidation after acceptance is refused", async () => {
     /cannot be revalidated/
   );
 });
+
+
+test("scheduler and inbox mutations sharing one store do not overwrite each other", async () => {
+  const store = new MemoryStore();
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  const scheduler = new Scheduler({ store, clock });
+  scheduler.registerHandler("review.run", async () => {});
+  const task = {
+    id: "local-task",
+    name: "Local task",
+    handlerType: "review.run",
+    payload: {},
+    schedule: { kind: "interval", intervalMs: 60000, startAt: "2026-11-07T09:00:00.000Z" }
+  };
+  await Promise.all([
+    inbox.receive(request()),
+    scheduler.addTask(task)
+  ]);
+  const state = await store.load();
+  assert.equal(state.handoffs.length, 1);
+  assert.equal(state.tasks.length, 1);
+  assert.equal(state.tasks[0].id, "local-task");
+});
