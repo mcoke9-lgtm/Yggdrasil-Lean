@@ -1,13 +1,14 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-const EMPTY_STATE = Object.freeze({ version: 2, tasks: [], runs: [], handoffs: [] });
+const EMPTY_STATE = Object.freeze({
+  version: 3, tasks: [], runs: [], handoffs: [], authorities: [], authorityTransfers: []
+});
 const STORE_QUEUES = new WeakMap();
 
 /**
- * Serialize read-modify-write operations across scheduler and inbox objects
- * that share the same store instance. This is process-local coordination,
- * not a cross-process or distributed transaction.
+ * Serialize read-modify-write operations across components sharing one store
+ * instance. This is process-local coordination, not cross-process fencing.
  */
 export function withStoreLock(store, operation) {
   if (!store || (typeof store !== "object" && typeof store !== "function")) {
@@ -25,13 +26,18 @@ function normalizeState(state) {
   }
   if (state.version === 1) {
     return {
-      version: 2,
-      tasks: state.tasks,
-      runs: state.runs,
-      handoffs: []
+      version: 3, tasks: state.tasks, runs: state.runs, handoffs: [],
+      authorities: [], authorityTransfers: []
     };
   }
-  if (state.version === 2 && Array.isArray(state.handoffs)) return state;
+  if (state.version === 2 && Array.isArray(state.handoffs)) {
+    return {
+      version: 3, tasks: state.tasks, runs: state.runs, handoffs: state.handoffs,
+      authorities: [], authorityTransfers: []
+    };
+  }
+  if (state.version === 3 && Array.isArray(state.handoffs) &&
+      Array.isArray(state.authorities) && Array.isArray(state.authorityTransfers)) return state;
   throw new Error("Scheduler state has an unsupported or invalid shape");
 }
 
