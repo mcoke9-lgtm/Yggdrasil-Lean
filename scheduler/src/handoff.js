@@ -150,6 +150,9 @@ export function applyHandoffEvent(record, event) {
       next.ownerId = record.destinationId;
       break;
     case "REJECT":
+      if (record.state === "CANCEL_PENDING") {
+        throw new Error("Cancellation cannot be rejected or cleared without destination proof");
+      }
       transition("REJECTED");
       break;
     case "PAUSE":
