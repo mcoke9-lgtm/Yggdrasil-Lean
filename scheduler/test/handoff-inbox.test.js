@@ -191,3 +191,73 @@ test("scheduler and inbox mutations sharing one store do not overwrite each othe
   assert.equal(state.tasks.length, 1);
   assert.equal(state.tasks[0].id, "local-task");
 });
+
+
+test("acceptance retry after a lost response returns the original durable acceptance", async () => {
+  const store = new MemoryStore();
+  const originalSave = store.save.bind(store);
+  let loseAcceptanceResponse = true;
+  store.save = async state => {
+    await originalSave(state);
+    if (loseAcceptanceResponse && state.handoffs.some(item => item.status === "HANDOFF_ACCEPTED")) {
+      loseAcceptanceResponse = false;
+      throw new Error("simulated response loss after durable save");
+    }
+  };
+
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  await inbox.receive(request());
+  const scheduler = new Scheduler({ store, clock });
+  scheduler.registerHandler("review.run", async () => {});
+  await inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition));
+
+  const authorization = {
+    granted: true,
+    authority: "named-reviewer",
+    decisionId: "decision-retry-001"
+  };
+  await assert.rejects(
+    () => inbox.accept("handoff-001", { acceptanceAuthorization: authorization }),
+    /simulated response loss/
+  );
+
+  const restartedInbox = new HandoffInbox({
+    store, clock, destinationScheduler: "independent-scheduler"
+  });
+  const recovered = await restartedInbox.accept("handoff-001", {
+    acceptanceAuthorization: authorization
+  });
+  assert.equal(recovered.status, "HANDOFF_ACCEPTED");
+  assert.equal(recovered.acceptance.authorizationFingerprint.length, 64);
+  assert.equal(recovered.acceptance.acceptedAt, clock().toISOString());
+  assert.equal((await store.load()).handoffs.length, 1);
+  assert.equal((await store.load()).tasks.length, 0);
+});
+
+test("accepted handoff retry rejects changed authorization", async () => {
+  const store = new MemoryStore();
+  const inbox = new HandoffInbox({ store, clock, destinationScheduler: "independent-scheduler" });
+  await inbox.receive(request());
+  const scheduler = new Scheduler({ store, clock });
+  scheduler.registerHandler("review.run", async () => {});
+  await inbox.validate("handoff-001", definition => scheduler.validateHandoffTask(definition));
+
+  await inbox.accept("handoff-001", {
+    acceptanceAuthorization: {
+      granted: true,
+      authority: "named-reviewer",
+      decisionId: "decision-original"
+    }
+  });
+  await assert.rejects(
+    () => inbox.accept("handoff-001", {
+      acceptanceAuthorization: {
+        granted: true,
+        authority: "different-reviewer",
+        decisionId: "decision-changed"
+      }
+    }),
+    /different or unverifiable authorization/
+  );
+  assert.equal((await store.load()).handoffs[0].acceptance.authorization.authority, "named-reviewer");
+});
