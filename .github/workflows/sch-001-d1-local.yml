@@ -1,0 +1,33 @@
+name: SCH-001 local D1 compatibility prototype
+
+on:
+  push:
+    branches: [sch-001-handoff-inbox-001]
+    paths:
+      - "scheduler/prototypes/d1-local/**"
+      - ".github/workflows/sch-001-d1-local.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-d1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: scheduler/prototypes/d1-local
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sch-001-handoff-inbox-001
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scheduler/prototypes/d1-local/package-lock.json
+      - name: Install Wrangler
+        run: npm install --no-audit --no-fund
+      - name: Run local D1 / workerd tests
+        run: npm test
