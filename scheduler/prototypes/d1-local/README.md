@@ -67,6 +67,13 @@ D1L-14 models the critical coordinated-rollback case: both the append-only event
 
 Limitations: the runner and Worker share one host and trust boundary; the checkpoint is process memory, not durable storage; no independent account, signing key, provider restore, or real database backup is involved. Therefore this verifies the comparison logic under a coordinated rollback fixture, not production-grade witness independence.
 
+## Latest coordinated-rollback CI execution
+
+- GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330809680
+- Tested code commit: `1e601f42902920add586d50e7d3de4fd66096c4e`
+- Result: **14 of 14 passed**, including D1L-14.
+- The D1L-14 log line was inspected directly. The run used local Wrangler D1/workerd; it was not a remote D1 restore or an independent durable witness test.
+
 ## Latest expanded-suite CI execution
 
 - GitHub Actions run: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/42330551406
