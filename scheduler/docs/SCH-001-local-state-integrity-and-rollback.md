@@ -10,7 +10,7 @@
 - SHA-256 of the exact serialized state-file bytes;
 - last update timestamp for diagnostics.
 
-On load, the store requires the state file and sidecar to either both be absent (new local store) or both be present and mutually consistent. It rejects malformed JSON, invalid sidecar shape, unsupported state shape, checksum mismatch, or a one-sided missing file. It does not silently replace or normalize a damaged state file.
+On load, the store requires the state file and sidecar to either both be absent (new local store) or both be present and mutually consistent. It rejects malformed JSON, invalid sidecar shape, unsupported state shape, checksum mismatch, or a one-sided missing file. It does not silently replace or normalize a damaged state file. A pre-sidecar legacy state file is quarantined until an operator explicitly adopts it with `adoptLegacyState({ expectedSha256 })`, supplying a SHA-256 calculated independently from the preserved original bytes. Adoption creates the sidecar without rewriting the legacy state; the next normal save migrates its schema. It is never performed automatically at startup.
 
 Writes use unique temporary filenames, sync the temporary file, atomically rename it, and sync the containing directory. The state file is replaced first and the sidecar second. A crash between these replacements intentionally creates a detectable mismatch and causes startup to stop for recovery rather than guess which version is authoritative.
 
