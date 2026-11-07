@@ -1,9 +1,12 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 const port=8791, base="http://127.0.0.1:"+port, token="synthetic-local-test-token";
-const child=spawn(process.execPath,["node_modules/wrangler/bin/wrangler.js","dev","--local","--ip","127.0.0.1","--port",String(port),"--persist-to",".wrangler-test-state"],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
+const wrangler="node_modules/wrangler/bin/wrangler.js";
+const migration=spawnSync(process.execPath,[wrangler,"d1","migrations","apply","sch-001-disposable-local","--local","--yes"],{encoding:"utf8"});
+if(migration.status!==0) throw new Error("Local D1 migration failed:\n"+migration.stdout+"\n"+migration.stderr);
+const child=spawn(process.execPath,[wrangler,"dev","--local","--ip","127.0.0.1","--port",String(port)],{env:{...process.env,PROTOTYPE_TOKEN:token},stdio:["ignore","pipe","pipe"]});
 let logs=""; child.stdout.on("data",b=>logs+=b); child.stderr.on("data",b=>logs+=b);
 const headers={authorization:"Bearer "+token,"content-type":"application/json"};
 const call=(path,options={})=>fetch(base+path,{...options,headers:{...headers,...(options.headers||{})}});
