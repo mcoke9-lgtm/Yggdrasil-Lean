@@ -67,3 +67,30 @@ test("stale-looking PID is not automatically reclaimed", async () => {
     assert.deepEqual(JSON.parse(await readFile(path, "utf8")), stale);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+test("unclean process exit leaves a lock that blocks automatic restart", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "scheduler-process-lock-crash-"));
+  const path = join(directory, "scheduler.lock");
+  const moduleUrl = new URL("../src/process-lock.js", import.meta.url).href;
+  const script = `import { acquireProcessLock } from ${JSON.stringify(moduleUrl)};
+    await acquireProcessLock(process.argv[1]);
+    process.stdout.write("LOCKED\\n");
+    setInterval(() => {}, 1000);`;
+  const child = spawn(process.execPath, ["--input-type=module", "-e", script, path], {
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      let output = "";
+      child.stdout.on("data", chunk => { output += chunk; if (output.includes("LOCKED")) resolve(); });
+      child.once("error", reject);
+      child.once("exit", code => reject(new Error(`Lock owner exited unexpectedly: ${code}`)));
+    });
+    child.kill("SIGKILL");
+    await new Promise(resolve => child.once("exit", resolve));
+    assert.match(await readFile(path, "utf8"), /"token"/);
+    await assert.rejects(() => acquireProcessLock(path), /Scheduler lock already exists/);
+  } finally {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
