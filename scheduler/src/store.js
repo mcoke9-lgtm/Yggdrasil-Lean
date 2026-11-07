@@ -2,6 +2,22 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const EMPTY_STATE = Object.freeze({ version: 2, tasks: [], runs: [], handoffs: [] });
+const STORE_QUEUES = new WeakMap();
+
+/**
+ * Serialize read-modify-write operations across scheduler and inbox objects
+ * that share the same store instance. This is process-local coordination,
+ * not a cross-process or distributed transaction.
+ */
+export function withStoreLock(store, operation) {
+  if (!store || (typeof store !== "object" && typeof store !== "function")) {
+    throw new TypeError("A shared store instance is required");
+  }
+  const previous = STORE_QUEUES.get(store) || Promise.resolve();
+  const result = previous.then(operation);
+  STORE_QUEUES.set(store, result.catch(() => {}));
+  return result;
+}
 
 function normalizeState(state) {
   if (!state || !Array.isArray(state.tasks) || !Array.isArray(state.runs)) {
