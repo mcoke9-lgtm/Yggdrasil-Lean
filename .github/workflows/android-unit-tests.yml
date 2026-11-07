@@ -11,7 +11,9 @@ on:
 
 jobs:
   android-unit-tests:
-    runs-on: ubuntu-latest
+    # Pin the hosted image while isolating the emulator startup failure observed
+    # on ubuntu-26.04 (ADB offline and emulator console startup failure).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -27,4 +29,5 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          emulator-boot-timeout: 900
           script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
