@@ -29,6 +29,28 @@ tests.push(["D1L-10 sequential events preserve hash-chain continuity",async()=>{
 tests.push(["D1L-11 incorrect previous hash is rejected",async()=>{const t="t11";await seed(t);const a=event("e11a",t);assert.equal((await append(a)).status,201);const b=event("e11b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:"not-the-prior-hash"});assert.equal((await append(b)).status,409);const s=await state(t);assert.equal(s.head.sequence,1);assert.equal(s.events,1); }]);
 tests.push(["D1L-12 failed multi-statement batch rolls back event and head",async()=>{const t="t12";await seed(t);const e=event("e12",t);const r=await call("/__test/rollback",{method:"POST",body:JSON.stringify(e)});assert.equal(r.status,200);assert.equal((await r.json()).rolledBack,true);const s=await state(t);assert.equal(s.head.sequence,0);assert.equal(s.events,0); }]);
 tests.push(["D1L-13 simulated old-head restore is detected against in-memory checkpoint",async()=>{const t="t13";await seed(t);const e=event("e13",t);assert.equal((await append(e)).status,201);const r=await call("/__test/restore-detection",{method:"POST",body:JSON.stringify({task_id:t})});const b=await r.json();assert.equal(b.simulated,true);assert.equal(b.rollbackDetected,true);assert.equal(b.checkpoint.sequence,1);assert.equal(b.restored.sequence,0); }]);
+tests.push(["D1L-14 consistent database-and-head rollback is detected by an external runner checkpoint",async()=>{
+ const t="t14";await seed(t);
+ const a=event("e14a",t);assert.equal((await append(a)).status,201);
+ const b=event("e14b",t,{sequence:2,expected_previous_sequence:1,previous_event_hash:a.event_hash});
+ assert.equal((await append(b)).status,201);
+ const before=await state(t);
+ // This checkpoint lives in the Node test-runner process, not in the Worker or D1 database.
+ const checkpoint={task_id:t,sequence:before.head.sequence,generation:before.head.generation,
+  latest_event_id:before.head.latest_event_id,latest_event_hash:before.head.latest_event_hash,
+  task_fingerprint:before.head.task_fingerprint,event_count:before.events};
+ assert.equal(checkpoint.sequence,2);assert.equal(checkpoint.event_count,2);
+ const restore=await call("/__test/restore-both",{method:"POST",body:JSON.stringify({task_id:t})});
+ assert.equal(restore.status,200);assert.equal((await restore.json()).restored,true);
+ const compare=await call("/__test/compare-checkpoint",{method:"POST",body:JSON.stringify(checkpoint)});
+ assert.equal(compare.status,409);
+ const result=await compare.json();
+ assert.equal(result.status,"WITNESS_ROLLBACK_OR_LOSS");
+ assert.equal(result.rollbackDetected,true);
+ assert.equal(result.checkpoint.sequence,2);
+ assert.equal(result.restored.sequence,0);
+ assert.equal(result.restored.event_count,0);
+ }]);
 let failures=0;
 try {await ready();for(const [name,fn] of tests){try{await fn();console.log("PASS "+name);}catch(e){failures++;console.error("FAIL "+name,e);}}console.log("RESULT "+(tests.length-failures)+"/"+tests.length+" passed");if(failures)process.exitCode=1;}
 catch(e){console.error(e,logs);process.exitCode=1;}
