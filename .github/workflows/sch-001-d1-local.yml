@@ -27,5 +27,7 @@ jobs:
           node-version: 22
       - name: Install Wrangler
         run: npm install --no-audit --no-fund
+      - name: Record Wrangler version
+        run: npx wrangler --version
       - name: Run local D1 / workerd tests
         run: npm test
