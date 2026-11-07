@@ -70,3 +70,15 @@ Until these exist and are tested, this module is a local durable inbox primitive
 6. Missing authorization/evidence and self-handoff are rejected.
 
 The tests are specified in `test/handoff-inbox.test.js`; they must run in CI or a local Node.js 20+ environment before the increment can be marked tested.
+
+
+## Destination validation and acceptance gate
+
+The inbox now supports two explicit operations after persistence:
+
+1. `validate(handoffId, validator)` passes a copy of the immutable source task definition to a destination-supplied validator. A successful result is recorded as `HANDOFF_VALIDATED` together with the normalized candidate task and validator identity. A validation failure is recorded as `HANDOFF_BLOCKED` with a bounded reason. The original task definition and fingerprint remain unchanged.
+2. `accept(handoffId, { acceptanceAuthorization })` requires a prior `HANDOFF_VALIDATED` state and explicit authorization evidence containing `granted: true` and a non-empty `authority`. It records `HANDOFF_ACCEPTED` and the acceptance evidence.
+
+`Scheduler.validateHandoffTask` checks the destination's registered handler, task ID collision, task name, and supported interval/calendar schedule. Validation is a preview only: it does not add the task to the active scheduler.
+
+**Acceptance is not activation.** Even after `HANDOFF_ACCEPTED`, the task is not inserted into the scheduler's task list and cannot execute. Activation, source/destination authority reconciliation, and distributed fencing remain separate future work. A blocked or unvalidated handoff cannot be accepted.
