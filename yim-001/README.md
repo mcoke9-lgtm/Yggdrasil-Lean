@@ -53,3 +53,29 @@ The ZIP contains a SHA-256 manifest for every packaged project file. GitHub Acti
 ## Boundaries
 
 This is a local reference implementation, not yet a distributed synchronization service. It does not implement networking, multi-system conflict resolution, cryptographic signatures, identity/access control, automatic backups, or recovery across devices. Snapshot atomicity is tested through simulated replacement failure; it is not a guarantee against every hardware or filesystem failure. Reconciliation and snapshot format remain subject to further review.
+
+## Portable command-line interface
+
+The local store can be operated without writing a Python integration. From the repository root:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 --help
+PYTHONPATH=yim-001/src python -m yim001 init ./memory.json
+PYTHONPATH=yim-001/src python -m yim001 create ./memory.json content.json
+PYTHONPATH=yim-001/src python -m yim001 show ./memory.json --record RECORD_ID
+PYTHONPATH=yim-001/src python -m yim001 verify ./memory.json
+```
+
+See [CLI.md](CLI.md) for revision, branching/merge parents, metadata, directional conflicts, and operational boundaries. The CLI is a local single-writer tool, not a network synchronization service.
+
+## Provenance event ledger
+
+A separate hash-linked event ledger records caller-supplied action claims while leaving memory records and MRP-001 Revision 4 unchanged. Start with:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 event-init ./events.json
+PYTHONPATH=yim-001/src python -m yim001 event-append ./events.json record.created local-node --record RECORD_ID --version VERSION_ID
+PYTHONPATH=yim-001/src python -m yim001 event-verify ./events.json
+```
+
+See [PROVENANCE.md](PROVENANCE.md) for its event schema, trust boundaries, and current limitations.
