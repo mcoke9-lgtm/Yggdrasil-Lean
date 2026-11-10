@@ -58,6 +58,38 @@ class PackageTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unsafe manifest path", result.stderr)
 
+    def test_package_verifier_rejects_noncanonical_manifest_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package.zip"
+            subprocess.run([sys.executable, str(SCRIPT), "--output", str(package)], check=True, capture_output=True, text=True)
+            with zipfile.ZipFile(package, "r") as source:
+                members = {name: source.read(name) for name in source.namelist()}
+            manifest = json.loads(members["yim-001/SHA256SUMS.json"])
+            manifest["files"][0]["path"] = manifest["files"][0]["path"].replace("/", "//", 1)
+            members["yim-001/SHA256SUMS.json"] = json.dumps(manifest).encode("utf-8")
+            with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as target:
+                for name, payload in members.items():
+                    target.writestr(name, payload)
+            result = subprocess.run([sys.executable, str(SCRIPT), "--verify", str(package)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unsafe manifest path", result.stderr)
+
+    def test_package_verifier_rejects_windows_drive_manifest_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "package.zip"
+            subprocess.run([sys.executable, str(SCRIPT), "--output", str(package)], check=True, capture_output=True, text=True)
+            with zipfile.ZipFile(package, "r") as source:
+                members = {name: source.read(name) for name in source.namelist()}
+            manifest = json.loads(members["yim-001/SHA256SUMS.json"])
+            manifest["files"][0]["path"] = "C:/outside.txt"
+            members["yim-001/SHA256SUMS.json"] = json.dumps(manifest).encode("utf-8")
+            with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as target:
+                for name, payload in members.items():
+                    target.writestr(name, payload)
+            result = subprocess.run([sys.executable, str(SCRIPT), "--verify", str(package)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unsafe manifest path", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
