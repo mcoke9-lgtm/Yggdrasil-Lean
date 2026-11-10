@@ -12,7 +12,6 @@
 - Interrupted-write test: simulated replacement failure; the previous complete snapshot remained readable and the temporary file was cleaned up.
 - Full suite: **46 tests passed** in GitHub Actions on CPython 3.13.18 and independently reproduced from the downloaded portable package in a separate local container on CPython 3.13.5.
 - Package verification: embedded SHA-256 manifest independently checked against all 15 packaged project files; deterministic package build and tamper tests passed.
-- Current inner package SHA-256: `8205ce6601c0e4bd7f6b0d850a4c86731524560338629f42e8c3ea68f439fc95`.
 - Test status: tested and independently reproduced in two execution environments.
 - Review status: focused internal hardening completed; no independent third-party code review yet. Reconciliation and snapshot format remain implementation drafts.
 - Scope limit: crash behavior tested through simulated replacement failure, not power-loss or filesystem fault injection. No signed release, automatic backup, multi-device recovery, or network synchronization service.
