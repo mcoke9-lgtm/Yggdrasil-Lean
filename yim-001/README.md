@@ -96,3 +96,17 @@ restored = load_audited("audited-memory.json")
 ```
 
 See [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for transaction behavior, tests, and trust boundaries. This layer does not change MRP-001 Revision 4 or the Core Memory snapshot format.
+
+## Audited CLI
+
+The portable CLI also supports a single combined memory-and-provenance file:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 audited-init ./audited.json local-node
+PYTHONPATH=yim-001/src python -m yim001 audited-create ./audited.json content.json
+PYTHONPATH=yim-001/src python -m yim001 audited-revise ./audited.json RECORD_ID content.json
+PYTHONPATH=yim-001/src python -m yim001 audited-show ./audited.json --events
+PYTHONPATH=yim-001/src python -m yim001 audited-verify ./audited.json
+```
+
+Use `audited-annotate-conflict` for directional conflict annotations. See [CLI.md](CLI.md) and [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for full usage and boundaries.
