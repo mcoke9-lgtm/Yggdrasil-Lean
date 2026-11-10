@@ -1,9 +1,8 @@
-import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
+from yim001 import MemoryStore, load_store, save_store
 from yim001.storage import StorageError, read_json_strict, write_json_atomic
 
 
@@ -38,6 +37,7 @@ class SnapshotStorageTests(unittest.TestCase):
                 read_json_strict(path)
 
     def test_interrupted_replace_preserves_previous_snapshot(self):
+        from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "snapshot.json"
             path.write_text('{"generation":1}', encoding="utf-8")
@@ -53,6 +53,32 @@ class SnapshotStorageTests(unittest.TestCase):
             path.write_text('{"generation":1}', encoding="utf-8")
             write_json_atomic(path, {"generation": 2, "complete": True})
             self.assertEqual(read_json_strict(path), {"complete": True, "generation": 2})
+
+    def test_memory_store_round_trip_preserves_versions_and_conflicts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "memory.json"
+            original = MemoryStore()
+            first = original.create_record({"v": 1}, {"tag": "root"})
+            left = original.revise(first.record_id, {"v": 2})
+            right = original.revise(first.record_id, {"v": 3}, parent_version_ids=[first.version_id])
+            original.annotate_conflict(left.version_id, right.version_id)
+
+            save_store(original, path)
+            restored = load_store(path)
+            self.assertEqual(restored.to_snapshot(), original.to_snapshot())
+            self.assertEqual(restored.get_version(first.version_id).content, {"v": 1})
+            self.assertEqual(set(restored.tips(first.record_id)), {left.version_id, right.version_id})
+            self.assertEqual(restored.conflicts(first.record_id), original.conflicts(first.record_id))
+
+    def test_memory_store_rejects_invalid_parent_graph(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        snapshot = store.to_snapshot()
+        child = next(row for row in snapshot["versions"] if row["version_id"] == second.version_id)
+        child["parents"] = [second.version_id]
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
 
 
 if __name__ == "__main__":
