@@ -1,21 +1,23 @@
 # Core Memory System (YIM-001) — Checkpoint 1
 
-**Status:** Proposed implementation; 14 local tests passed; independent reproduction pending.  
+**Status:** Working reference implementation; 38 tests passed before deterministic packaging was added.  
 **Cooperative AI Architecture:** wave form; MRP-001 Working Baseline 2026-11, Revision 4 is its adopted shared records contract.  
-**Core Memory System:** particle form; YIM-001 is its current reproducible reference implementation.
+**Core Memory System:** particle form; YIM-001 is the canonical reproducible reference implementation under development.
 
-This checkpoint implements the in-memory records core only. It deliberately does not implement persistence, provenance, events, integrity sealing, recovery, networking, access control, or the six-outcome reconciliation layer.
+The implementation includes an in-memory records core, read-only reconciliation draft, strict JSON snapshot storage, and validated snapshot import/export. A portable deterministic package and its SHA-256 manifest are built and verified by the GitHub Actions workflow.
 
-## Requirements covered
+## Included capabilities
 
 - Stable record and version identifiers.
 - Initial record creation and non-destructive revision.
 - Individual version retrieval and parent relationships.
 - Directional conflict annotations.
 - Recursive strict-JSON validation before writes, including rejection of NaN and infinities.
-- In-memory implementation using only the Python standard library.
-
-The implementation also provides immutable version snapshots, collision-checked UUID allocation, detached JSON snapshots, and visible competing tips as implementation quality choices. These are not all mandatory MRP-001 requirements.
+- Six-outcome read-only creation-event reconciliation draft.
+- Strict JSON snapshot loading, including rejection of non-standard numeric constants and duplicate object keys.
+- Atomic snapshot replacement using a same-directory temporary file, file flush, and fsync before replacement.
+- MemoryStore snapshot export/import preserving records, versions, parent relationships, and directional conflicts.
+- Deterministic portable ZIP generation and SHA-256 verification.
 
 ## Run tests
 
@@ -25,6 +27,29 @@ From this directory:
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
-## Limitations
+## Save and load a memory store
 
-This is an in-memory reference implementation. Data is lost when the process exits. No claim is made about durable writes, interrupted-write recovery, cryptographic integrity, provenance, or cross-system synchronization.
+```python
+from yim001 import MemoryStore, save_store, load_store
+
+store = MemoryStore()
+record = store.create_record({"hello": "world"})
+save_store(store, "memory.json")
+restored = load_store("memory.json")
+assert restored.get_version(record.version_id).content == {"hello": "world"}
+```
+
+## Build and verify a portable source package
+
+From the repository root:
+
+```sh
+python yim-001/scripts/package.py --output dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+python yim-001/scripts/package.py --verify dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+```
+
+The ZIP contains a SHA-256 manifest for every packaged project file. GitHub Actions also uploads the verified ZIP as a workflow artifact.
+
+## Boundaries
+
+This is a local reference implementation, not yet a distributed synchronization service. It does not implement networking, multi-system conflict resolution, cryptographic signatures, identity/access control, automatic backups, or recovery across devices. Snapshot atomicity is tested through simulated replacement failure; it is not a guarantee against every hardware or filesystem failure. Reconciliation and snapshot format remain subject to further review.
