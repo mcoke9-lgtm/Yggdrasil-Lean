@@ -4,7 +4,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import zipfile
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -59,21 +60,44 @@ def verify_package(package: Path) -> dict:
         bad_member = archive.testzip()
         if bad_member is not None:
             raise ValueError(f"corrupt ZIP member: {bad_member}")
-        names = set(archive.namelist())
+        member_list = archive.namelist()
+        if len(member_list) != len(set(member_list)):
+            raise ValueError("package contains duplicate ZIP member names")
+        names = set(member_list)
         if MANIFEST_PATH not in names:
             raise ValueError("package manifest is missing")
         manifest = json.loads(archive.read(MANIFEST_PATH))
-        if manifest.get("algorithm") != "sha256" or not isinstance(manifest.get("files"), list):
+        if (
+            not isinstance(manifest, dict)
+            or set(manifest) != {"algorithm", "files"}
+            or manifest["algorithm"] != "sha256"
+            or not isinstance(manifest["files"], list)
+        ):
             raise ValueError("invalid SHA-256 manifest")
-        expected_names = {entry["path"] for entry in manifest["files"]}
+        expected_names = set()
+        for entry in manifest["files"]:
+            if not isinstance(entry, dict) or set(entry) != {"path", "size", "sha256"}:
+                raise ValueError("invalid manifest file entry")
+            name, size, digest = entry["path"], entry["size"], entry["sha256"]
+            if not isinstance(name, str) or not name or "\\" in name:
+                raise ValueError("invalid manifest path")
+            pure_path = PurePosixPath(name)
+            if pure_path.is_absolute() or any(part in {"", ".", ".."} for part in pure_path.parts):
+                raise ValueError(f"unsafe manifest path: {name}")
+            if name == MANIFEST_PATH or name in expected_names:
+                raise ValueError(f"duplicate or reserved manifest path: {name}")
+            if type(size) is not int or size < 0:
+                raise ValueError(f"invalid file size for {name}")
+            if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+                raise ValueError(f"invalid SHA-256 digest for {name}")
+            expected_names.add(name)
+            payload = archive.read(name)
+            if len(payload) != size:
+                raise ValueError(f"size mismatch: {name}")
+            if hashlib.sha256(payload).hexdigest() != digest:
+                raise ValueError(f"SHA-256 mismatch: {name}")
         if names != expected_names | {MANIFEST_PATH}:
             raise ValueError("package members do not match the manifest")
-        for entry in manifest["files"]:
-            payload = archive.read(entry["path"])
-            if len(payload) != entry["size"]:
-                raise ValueError(f"size mismatch: {entry['path']}")
-            if hashlib.sha256(payload).hexdigest() != entry["sha256"]:
-                raise ValueError(f"SHA-256 mismatch: {entry['path']}")
     return {
         "package": str(package),
         "sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
