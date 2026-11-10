@@ -50,14 +50,14 @@ def reconcile_creation_event(
     A missing history source yields INCOMPLETE; malformed/unreadable history
     yields UNCERTAIN unless a higher-priority direct conflict is found.
     """
+    if history_state not in {"valid", "missing", "malformed", "unreadable"}:
+        raise ValueError("history_state must be valid, missing, malformed, or unreadable")
+
     rows = tuple(evidence)
     findings: list[str] = []
     matches: list[CreationEvidence] = []
     direct_conflicts: list[str] = []
     incomplete: list[str] = []
-
-    if history_state not in {"valid", "missing", "malformed", "unreadable"}:
-        raise ValueError("history_state must be valid, missing, malformed, or unreadable")
 
     if history_state == "missing":
         incomplete.append("history source is missing")
@@ -65,9 +65,7 @@ def reconcile_creation_event(
         findings.append(f"history source is {history_state}")
 
     if not rows:
-        if direct_conflicts:
-            outcome = Outcome.CONFLICT
-        elif history_state in {"malformed", "unreadable"}:
+        if history_state in {"malformed", "unreadable"}:
             outcome = Outcome.UNCERTAIN
         elif history_state == "missing":
             outcome = Outcome.INCOMPLETE
@@ -90,8 +88,11 @@ def reconcile_creation_event(
         if missing:
             incomplete.append(f"evidence entry {index} lacks {', '.join(missing)}")
             continue
-        if row.sequence < 0:
-            direct_conflicts.append(f"evidence entry {index} has an invalid negative sequence")
+
+        # bool is an int subclass in Python; sequence values must be actual
+        # non-negative integers, not booleans, floats, or numeric strings.
+        if type(row.sequence) is not int or row.sequence < 0:
+            direct_conflicts.append(f"evidence entry {index} has an invalid sequence")
             continue
         if row.record_id != expected_record_id:
             direct_conflicts.append(f"evidence entry {index} has a different record identity")
@@ -103,7 +104,6 @@ def reconcile_creation_event(
             row.record_id == expected_record_id
             and row.creation_type == expected_creation_type
             and row.record_digest == expected_record_digest
-            and row.sequence >= 0
         ):
             matches.append(row)
 
