@@ -5,7 +5,11 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
-from . import EventLedger, MemoryStore, load_store, read_json_strict, save_store, write_json_atomic
+from . import (
+    AuditedMemoryStore, EventLedger, MemoryStore, load_audited, load_store,
+    read_json_strict, save_audited, save_store, write_json_atomic,
+)
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yim001", description="Create, inspect, revise, and verify a local YIM-001 memory store.")
@@ -33,6 +37,36 @@ def _parser() -> argparse.ArgumentParser:
     conflict.add_argument("target_version_id")
     verify = commands.add_parser("verify", help="load and validate a memory snapshot")
     verify.add_argument("store", type=Path)
+
+    audited_init = commands.add_parser("audited-init", help="create a combined audited memory store")
+    audited_init.add_argument("store", type=Path)
+    audited_init.add_argument("actor_id", help="caller-supplied attribution identifier")
+    audited_create = commands.add_parser("audited-create", help="create a record and automatically append provenance")
+    audited_create.add_argument("store", type=Path)
+    audited_create.add_argument("content", type=Path)
+    audited_create.add_argument("--metadata", type=Path)
+    audited_create.add_argument("--timestamp")
+    audited_revise = commands.add_parser("audited-revise", help="revise a record and automatically append provenance")
+    audited_revise.add_argument("store", type=Path)
+    audited_revise.add_argument("record_id")
+    audited_revise.add_argument("content", type=Path)
+    audited_revise.add_argument("--parent", action="append", dest="parents")
+    audited_revise.add_argument("--metadata", type=Path)
+    audited_revise.add_argument("--timestamp")
+    audited_conflict = commands.add_parser("audited-annotate-conflict", help="annotate a conflict and automatically append provenance")
+    audited_conflict.add_argument("store", type=Path)
+    audited_conflict.add_argument("source_version_id")
+    audited_conflict.add_argument("target_version_id")
+    audited_conflict.add_argument("--timestamp")
+    audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
+    audited_show.add_argument("store", type=Path)
+    audited_target = audited_show.add_mutually_exclusive_group(required=True)
+    audited_target.add_argument("--record", dest="record_id")
+    audited_target.add_argument("--version", dest="version_id")
+    audited_target.add_argument("--events", action="store_true")
+    audited_verify = commands.add_parser("audited-verify", help="verify both memory snapshot and provenance chain")
+    audited_verify.add_argument("store", type=Path)
+
     event_init = commands.add_parser("event-init", help="create a separate provenance ledger")
     event_init.add_argument("ledger", type=Path)
     event_append = commands.add_parser("event-append", help="append a provenance event")
@@ -49,15 +83,19 @@ def _parser() -> argparse.ArgumentParser:
     event_show.add_argument("ledger", type=Path)
     return parser
 
+
 def _read_optional(path: Path | None) -> Any:
     return None if path is None else read_json_strict(path)
+
 
 def _version_data(version: Any) -> dict[str, Any]:
     return {"version_id": version.version_id, "record_id": version.record_id, "parents": list(version.parents), "content": version.content, "metadata": version.metadata}
 
+
 def _emit(value: Any) -> None:
     json.dump(value, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
     sys.stdout.write("\n")
+
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
@@ -68,6 +106,60 @@ def main(argv: list[str] | None = None) -> int:
             args.store.parent.mkdir(parents=True, exist_ok=True)
             save_store(MemoryStore(), args.store)
             _emit({"status": "created", "store": str(args.store)})
+            return 0
+        if args.command == "audited-init":
+            if args.store.exists():
+                raise FileExistsError(f"refusing to overwrite existing store: {args.store}")
+            args.store.parent.mkdir(parents=True, exist_ok=True)
+            save_audited(AuditedMemoryStore(args.actor_id), args.store)
+            _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
+            return 0
+        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-show", "audited-verify"}:
+            audited = load_audited(args.store)
+            if args.command == "audited-create":
+                version = audited.create_record(
+                    read_json_strict(args.content), _read_optional(args.metadata), timestamp=args.timestamp
+                )
+                save_audited(audited, args.store)
+                _emit(_version_data(version))
+            elif args.command == "audited-revise":
+                version = audited.revise(
+                    args.record_id, read_json_strict(args.content),
+                    parent_version_ids=args.parents, metadata=_read_optional(args.metadata),
+                    timestamp=args.timestamp,
+                )
+                save_audited(audited, args.store)
+                _emit(_version_data(version))
+            elif args.command == "audited-annotate-conflict":
+                conflict = audited.annotate_conflict(
+                    args.source_version_id, args.target_version_id, timestamp=args.timestamp
+                )
+                save_audited(audited, args.store)
+                _emit({"source_version_id": conflict.source_version_id, "target_version_id": conflict.target_version_id, "directional": True})
+            elif args.command == "audited-verify":
+                snapshot = audited.to_snapshot()
+                _emit({
+                    "status": "verified", "audited": True, "actor_id": audited.actor_id,
+                    "records": len(snapshot["memory"]["records"]),
+                    "versions": len(snapshot["memory"]["versions"]),
+                    "conflicts": len(snapshot["memory"]["conflicts"]),
+                    "events": len(audited.events),
+                    "last_event_digest": audited.events[-1].digest if audited.events else None,
+                })
+            elif args.events:
+                _emit([event.to_dict() for event in audited.events])
+            elif args.version_id:
+                _emit(_version_data(audited.get_version(args.version_id)))
+            else:
+                _emit({
+                    "record_id": args.record_id,
+                    "versions": [_version_data(v) for v in audited.versions(args.record_id)],
+                    "tips": list(audited.tips(args.record_id)),
+                    "conflicts": [
+                        {"source_version_id": c.source_version_id, "target_version_id": c.target_version_id}
+                        for c in audited.conflicts(args.record_id)
+                    ],
+                })
             return 0
         if args.command == "event-init":
             if args.ledger.exists():
@@ -119,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, TypeError) as exc:
         print(f"yim001: {exc}", file=sys.stderr)
         return 2
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
