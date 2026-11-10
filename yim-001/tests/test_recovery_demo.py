@@ -1,14 +1,25 @@
+import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from recovery_demo import run_demo
-
 
 class RecoveryDemoTests(unittest.TestCase):
     def test_two_copy_corruption_detection_and_restore(self):
+        project = Path(__file__).resolve().parents[1]
+        script = project / "scripts" / "recovery_demo.py"
         with tempfile.TemporaryDirectory() as directory:
-            result = run_demo(Path(directory))
+            root = Path(directory) / "demo"
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(project / "src")
+            completed = subprocess.run(
+                [sys.executable, str(script), "--root", str(root)],
+                check=True, capture_output=True, text=True, env=env,
+            )
+            result = json.loads(completed.stdout)
             self.assertEqual(result["status"], "DEMONSTRATION_PASSED")
             self.assertEqual(result["intact_copy_verification"]["status"], "VERIFIED")
             self.assertTrue(result["damaged_copy_rejected"])
