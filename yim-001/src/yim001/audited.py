@@ -114,6 +114,13 @@ class AuditedMemoryStore:
             timestamp=timestamp,
         )
 
+    def _adopt(self, candidate: "AuditedMemoryStore") -> None:
+        """Atomically adopt validated candidate state from another instance."""
+        if not isinstance(candidate, AuditedMemoryStore):
+            raise TypeError("candidate must be an AuditedMemoryStore")
+        self.__store = candidate.__store
+        self.__ledger = candidate.__ledger
+
     def to_snapshot(self) -> dict[str, Any]:
         return {
             "format": self.FORMAT,
