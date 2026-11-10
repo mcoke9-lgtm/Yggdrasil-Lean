@@ -54,6 +54,27 @@ class SnapshotStorageTests(unittest.TestCase):
             write_json_atomic(path, {"generation": 2, "complete": True})
             self.assertEqual(read_json_strict(path), {"complete": True, "generation": 2})
 
+    def test_interrupted_fsync_preserves_previous_snapshot(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json"
+            path.write_text('{"generation":1}', encoding="utf-8")
+            with patch("yim001.storage.os.fsync", side_effect=OSError("simulated fsync failure")):
+                with self.assertRaises(OSError):
+                    write_json_atomic(path, {"generation": 2})
+            self.assertEqual(read_json_strict(path), {"generation": 1})
+            self.assertEqual(sorted(p.name for p in Path(directory).iterdir()), ["snapshot.json"])
+
+    def test_failed_first_write_leaves_no_partial_destination(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json"
+            with patch("yim001.storage.os.replace", side_effect=OSError("simulated interruption")):
+                with self.assertRaises(OSError):
+                    write_json_atomic(path, {"generation": 1})
+            self.assertFalse(path.exists())
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_memory_store_round_trip_preserves_versions_and_conflicts(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "memory.json"
