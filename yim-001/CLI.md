@@ -67,3 +67,22 @@ PYTHONPATH=yim-001/src python -m yim001 event-show ./events.json
 ```
 
 See [PROVENANCE.md](PROVENANCE.md) for the event model and trust boundaries. Hash links are integrity checks, not signatures or proof of actor identity. Each ledger is a separate single-writer stream; cross-ledger exchange is future work.
+
+## Combined audited memory store
+
+For automatic event recording, initialize one combined memory-and-ledger file. The actor identifier is a caller-supplied label, not an authenticated identity:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 audited-init ./audited.json local-node
+printf '{"topic":"first note"}' > content.json
+PYTHONPATH=yim-001/src python -m yim001 audited-create ./audited.json content.json
+PYTHONPATH=yim-001/src python -m yim001 audited-revise ./audited.json RECORD_ID content.json
+PYTHONPATH=yim-001/src python -m yim001 audited-annotate-conflict ./audited.json SOURCE_VERSION_ID TARGET_VERSION_ID
+PYTHONPATH=yim-001/src python -m yim001 audited-show ./audited.json --record RECORD_ID
+PYTHONPATH=yim-001/src python -m yim001 audited-show ./audited.json --events
+PYTHONPATH=yim-001/src python -m yim001 audited-verify ./audited.json
+```
+
+The audited commands append provenance events for successful create, revise, and conflict annotation. Each write replaces one combined JSON snapshot containing both streams. Optional `--timestamp` arguments support reproducible tests and controlled imports; otherwise event timestamps are generated in UTC. A failed operation or event validation does not replace the existing combined file.
+
+The audited file remains local and single-writer. It does not provide authenticated actors, concurrent-writer locking, network synchronization, or automatic backups. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md).
