@@ -20,9 +20,8 @@ Six new tests cover the above malformed snapshot and package cases.
 
 - GitHub Actions: 46 tests passed on CPython 3.13.18, Ubuntu.
 - Downloaded portable package: 46 tests independently passed in a separate local container on CPython 3.13.5.
-- The embedded manifest independently verified all 14 packaged project files.
+- The embedded manifest independently verified all 15 packaged project files.
 - Deterministic package build and package-tampering tests passed.
-- Current inner package SHA-256: `abb4902d07da470617fa14ec1e3947c0d2f2e6dd151eaca6045443b2e2b82562`.
 
 ## Remaining limits
 
