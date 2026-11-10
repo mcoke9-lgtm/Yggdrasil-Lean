@@ -45,7 +45,7 @@ Staging compares record, version, and event identities. It reports incoming iden
 
 ## Initial test coverage
 
-The new exchange tests cover detached export, validation round-trip, preservation of version/event identities and directional conflicts, read-only staging, repeated-import/shared-evidence classification, version identity collision, tampered payload rejection, timezone-qualified timestamps, and independent event streams.
+The exchange tests cover detached export, validation round-trip, preserved version/event identities and directional conflicts, read-only staging, repeated-import/shared-evidence classification, version identity collision, tampered payload rejection, timezone-qualified timestamps, independent event streams, and divergent branches sharing an ancestor.
 
 CI must pass on the latest branch head before this milestone is called tested or verified.
 
