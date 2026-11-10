@@ -2,7 +2,7 @@ import copy
 import unittest
 
 from yim001.audited import AuditedMemoryStore
-from yim001.exchange import ExchangeError, export_envelope, inspect_envelope, stage_exchange
+from yim001.exchange import ExchangeError, apply_exchange, export_envelope, inspect_envelope, stage_exchange
 
 
 class ExchangeTests(unittest.TestCase):
@@ -86,6 +86,73 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(report["incoming_parent_edges"], [{"version_id": self.second.version_id, "parent_version_id": self.first.version_id}])
         self.assertIn(dest_version.version_id, report["destination_history_tips"])
         self.assertIn(self.second.version_id, report["source_history_tips"])
+        self.assertEqual(destination.to_snapshot(), before)
+
+    def test_apply_requires_explicit_authorization_and_is_transactional(self):
+        destination = AuditedMemoryStore("destination")
+        before = destination.to_snapshot()
+        with self.assertRaisesRegex(ExchangeError, "explicit authorization"):
+            apply_exchange(self.envelope, destination)
+        self.assertEqual(destination.to_snapshot(), before)
+        with self.assertRaisesRegex(Exception, "UTC offset"):
+            apply_exchange(self.envelope, destination, authorized=True, timestamp="2026-11-10T12:05:00")
+        self.assertEqual(destination.to_snapshot(), before)
+
+    def test_authorized_apply_preserves_source_stream_and_is_idempotent(self):
+        destination = AuditedMemoryStore("destination")
+        result = apply_exchange(
+            self.envelope, destination, authorized=True,
+            timestamp="2026-11-10T12:05:00Z",
+        )
+        self.assertEqual(result["status"], "applied")
+        self.assertTrue(result["mutated_destination"])
+        snapshot = destination.to_snapshot()
+        self.assertEqual(
+            {row["version_id"] for row in snapshot["memory"]["versions"]},
+            {self.first.version_id, self.second.version_id},
+        )
+        receipt = next(event for event in destination.events if event.event_id == result["receipt_event_id"])
+        self.assertEqual(receipt.event_type, "record.imported")
+        self.assertEqual(receipt.details["source_provenance"], self.source.to_snapshot()["provenance"])
+        after_first = destination.to_snapshot()
+        repeated = apply_exchange(
+            self.envelope, destination, authorized=True,
+            timestamp="2026-11-10T12:06:00Z",
+        )
+        self.assertEqual(repeated["status"], "already_applied")
+        self.assertFalse(repeated["mutated_destination"])
+        self.assertEqual(destination.to_snapshot(), after_first)
+
+    def test_apply_preserves_divergent_branches(self):
+        from yim001.core import MemoryStore
+        source_memory = self.source.to_snapshot()["memory"]
+        base = MemoryStore.from_snapshot({
+            **source_memory,
+            "versions": source_memory["versions"][:1],
+            "records": [{"record_id": self.first.record_id, "version_ids": [self.first.version_id]}],
+            "conflicts": [],
+        })
+        destination = AuditedMemoryStore("destination", store=base)
+        destination_branch = destination.revise(
+            self.first.record_id, {"value": "destination"}, timestamp="2026-11-10T12:04:00Z"
+        )
+        result = apply_exchange(self.envelope, destination, authorized=True)
+        self.assertEqual(result["status"], "applied")
+        tips = destination._AuditedMemoryStore__store.tips(self.first.record_id)
+        self.assertEqual(set(tips), {self.second.version_id, destination_branch.version_id})
+        self.assertEqual(len(destination.conflicts(self.first.record_id)), 1)
+
+    def test_apply_rejects_identity_collision_without_mutation(self):
+        from yim001.core import MemoryStore
+        altered = self.source.to_snapshot()["memory"]
+        altered["versions"][0]["content"] = {"value": "other"}
+        destination = AuditedMemoryStore(
+            "destination",
+            store=MemoryStore.from_snapshot(altered),
+        )
+        before = destination.to_snapshot()
+        with self.assertRaisesRegex(ExchangeError, "identity_collision"):
+            apply_exchange(self.envelope, destination, authorized=True)
         self.assertEqual(destination.to_snapshot(), before)
 
     def test_tampered_payload_and_digest_are_rejected(self):
