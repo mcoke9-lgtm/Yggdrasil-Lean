@@ -1,8 +1,11 @@
 import copy
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from yim001.audited import AuditedMemoryStore
-from yim001.exchange import ExchangeError, apply_exchange, export_envelope, inspect_envelope, stage_exchange
+from yim001.exchange import ExchangeError, apply_exchange, apply_exchange_file, export_envelope, inspect_envelope, stage_exchange
 
 
 class ExchangeTests(unittest.TestCase):
@@ -187,6 +190,54 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(report["source_event_stream"]["first_sequence"], 0)
         self.assertEqual(report["source_event_stream"]["last_sequence"], len(self.source.events) - 1)
         self.assertEqual(destination.events, ())
+
+
+    def test_file_apply_persists_combined_snapshot_and_is_idempotent(self):
+        from yim001.audited import load_audited, save_audited
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "destination.json"
+            save_audited(AuditedMemoryStore("destination"), path)
+            result = apply_exchange_file(
+                self.envelope, path, authorized=True,
+                timestamp="2026-11-10T12:05:00Z",
+            )
+            self.assertEqual(result["status"], "applied")
+            self.assertTrue(result["persisted"])
+            saved = load_audited(path)
+            self.assertEqual(
+                {version.version_id for version in saved.versions(self.first.record_id)},
+                {self.first.version_id, self.second.version_id},
+            )
+            before = path.read_bytes()
+            repeated = apply_exchange_file(
+                self.envelope, path, authorized=True,
+                timestamp="2026-11-10T12:06:00Z",
+            )
+            self.assertEqual(repeated["status"], "already_applied")
+            self.assertFalse(repeated["persisted"])
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_file_apply_requires_authorization_before_read_or_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing.json"
+            with self.assertRaisesRegex(ExchangeError, "explicit authorization"):
+                apply_exchange_file(self.envelope, path)
+            self.assertFalse(path.exists())
+
+    def test_file_apply_save_failure_leaves_existing_snapshot_unchanged(self):
+        from yim001.audited import load_audited, save_audited
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "destination.json"
+            save_audited(AuditedMemoryStore("destination"), path)
+            before = path.read_bytes()
+            with patch("yim001.exchange.save_audited", side_effect=OSError("simulated write failure")):
+                with self.assertRaisesRegex(OSError, "simulated write failure"):
+                    apply_exchange_file(
+                        self.envelope, path, authorized=True,
+                        timestamp="2026-11-10T12:05:00Z",
+                    )
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(load_audited(path).events, ())
 
 
 if __name__ == "__main__":
