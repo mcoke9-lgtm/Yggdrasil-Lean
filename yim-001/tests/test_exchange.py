@@ -39,7 +39,7 @@ class ExchangeTests(unittest.TestCase):
         report = stage_exchange(self.envelope, destination)
         self.assertEqual(report["status"], "staged_read_only")
         self.assertEqual(report["incoming_version_ids"], [self.first.version_id, self.second.version_id])
-        self.assertEqual(report["incoming_event_ids"], [event.event_id for event in self.source.events])
+        self.assertEqual(report["incoming_event_ids"], sorted(event.event_id for event in self.source.events))
         self.assertEqual(report["incoming_directional_conflicts"], [{"source_version_id": self.first.version_id, "target_version_id": self.second.version_id}])
         self.assertFalse(report["mutated_destination"])
         self.assertEqual(destination.to_snapshot(), before)
@@ -49,7 +49,7 @@ class ExchangeTests(unittest.TestCase):
         report = stage_exchange(self.envelope, destination)
         self.assertEqual(report["status"], "staged_read_only")
         self.assertEqual(report["shared_version_ids"], [self.first.version_id, self.second.version_id])
-        self.assertEqual(report["shared_event_ids"], [event.event_id for event in self.source.events])
+        self.assertEqual(report["shared_event_ids"], sorted(event.event_id for event in self.source.events))
         self.assertEqual(report["incoming_version_ids"], [])
         self.assertEqual(report["shared_directional_conflicts"], [{"source_version_id": self.first.version_id, "target_version_id": self.second.version_id}])
 
@@ -58,7 +58,7 @@ class ExchangeTests(unittest.TestCase):
         altered = destination.to_snapshot()
         altered["memory"]["versions"][0]["content"] = {"value": "different"}
         from yim001.core import MemoryStore
-        destination = AuditedMemoryStore("destination", store=MemoryStore.from_snapshot(altered))
+        destination = AuditedMemoryStore("destination", store=MemoryStore.from_snapshot(altered["memory"]))
         report = stage_exchange(self.envelope, destination)
         self.assertEqual(report["status"], "identity_collision")
         self.assertIn(self.first.version_id, report["version_identity_collisions"])
