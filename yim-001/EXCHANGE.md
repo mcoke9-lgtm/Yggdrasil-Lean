@@ -1,54 +1,62 @@
 # YIM-001 cross-instance exchange
 
-**Status:** First portable-envelope and read-only staging implementation committed; CI verification pending. No merge/apply operation exists.
+**Status:** Portable envelope, deterministic read-only staging, and explicitly authorized transactional apply are implemented in the draft branch. CI verification is pending. No merge to the canonical branch or release adoption has occurred.
 
 ## Current API
 
 ```python
 from yim001 import (
-    AuditedMemoryStore, export_envelope, inspect_envelope, stage_exchange,
-    save_envelope, load_envelope,
+    AuditedMemoryStore, apply_exchange, export_envelope,
+    inspect_envelope, stage_exchange, save_envelope, load_envelope,
 )
 
 source = AuditedMemoryStore("source-actor")
-first = source.create_record({"hello": "world"})
+source.create_record({"hello": "world"})
 envelope = export_envelope(source, "source-instance")
 save_envelope(envelope, "transfer.json")
 
 validated = load_envelope("transfer.json")
 destination = AuditedMemoryStore("destination-actor")
-report = stage_exchange(validated, destination)
-assert report["mutated_destination"] is False
+proposal = stage_exchange(validated, destination)
+assert proposal["mutated_destination"] is False
+
+# Applying requires a separate, explicit authorization at the call site.
+result = apply_exchange(validated, destination, authorized=True)
+assert result["status"] == "applied"
 ```
 
 The envelope carries a caller-supplied source-instance identifier, timezone-qualified export timestamp, complete audited snapshot, and canonical SHA-256 digest. Inspection verifies the digest and validates the nested memory snapshot and provenance chain.
 
-Staging compares record, version, and event identities. It reports incoming identities, shared evidence, and same-ID/different-content collisions. It preserves the source event stream as its own sequence and does not concatenate it with the destination ledger. It is read-only: no source or destination mutation, no automatic merge, and no authorization to apply changes.
+## Read-only staging
 
-## Identity and history rules
+Staging reports incoming/shared record, version, and event identities; same-ID/different-content collisions; incoming parent edges; source and destination history tips; divergent shared-record histories; and incoming/shared directional conflict annotations.
 
-- Record IDs, version IDs, event IDs, parent relationships, and directional conflict annotations are preserved exactly in the transfer payload.
-- Same version identity with differing content, metadata, or parent relationships is a hard collision.
-- Same event identity with differing event data or digest is a hard collision.
-- Versions found only in the incoming snapshot are reported as additions; they are not applied.
-- Event streams remain independent. There is no invented global sequence.
+Staging does not mutate either instance. Same record identity with divergent version membership is treated as expected history divergence, not a collision. Conflicting content under the same version identity or conflicting event data under the same event identity is a hard collision.
+
+## Explicit apply
+
+`apply_exchange(envelope, destination, authorized=True)` is a distinct operation. The default is unauthorized; only the exact boolean value `True` permits the apply path. Apply refuses identity collisions and incomplete parent history.
+
+The operation constructs and validates a candidate memory graph and candidate provenance ledger before adopting either into the destination. It unions version histories in deterministic parent-first order, preserves directional conflict annotations, and retains divergent branches rather than selecting a winner.
+
+The source provenance ledger is not concatenated into the destination ledger. Instead, the destination appends one local, hash-linked `record.imported` receipt containing the complete original source provenance snapshot, source identity, export timestamp, envelope digest, and source record/version identities. Original source sequence numbers and hash links remain intact inside that receipt.
+
+The receipt event ID is derived from the envelope digest. Reapplying the same envelope to the same destination is idempotent: it returns `already_applied` without changing the destination. If candidate construction or receipt validation fails, the live destination remains unchanged.
+
+## Identity and trust boundaries
+
+- Record IDs, version IDs, parent relationships, directional conflict annotations, event IDs, and original event streams are preserved as source evidence.
 - A matching digest establishes canonical content equality, not authorship, actor identity, custody, or trustworthiness.
-
-## Current boundaries and known gaps
-
-- This is a local file/API exchange primitive, not network synchronization.
 - Source instance IDs and actor IDs are caller-supplied, unauthenticated claims.
-- SHA-256 detects payload alteration when the expected digest is trusted; it is not a signature and cannot prevent an attacker from replacing both payload and digest.
-- No encryption, authentication, remote trust, automatic backup, concurrent-writer locking, merge/apply operation, or conflict-resolution policy is implemented.
-- The current staging report compares record/version/event identities. Rich semantic comparison of every record-history relationship across partially overlapping histories remains a follow-up.
-- Transfer files may contain sensitive user content; nothing is uploaded or transmitted automatically.
+- SHA-256 is not a digital signature; an attacker able to replace both payload and digest can forge a new envelope.
+- This is local file/API exchange, not network synchronization.
+- No encryption, authentication, remote trust, automatic backup, distributed consensus, or concurrent-writer coordination is implemented.
+- The in-memory apply transaction assumes the existing single-writer model; it is not a multiwriter locking protocol.
+- The destination receipt embeds the complete source provenance ledger. This preserves evidence but can increase destination snapshot size.
+- Transfer files and receipts may contain sensitive user content; nothing is uploaded or transmitted automatically.
 
-## Initial test coverage
+## Test coverage added
 
-The exchange tests cover detached export, validation round-trip, preserved version/event identities and directional conflicts, read-only staging, repeated-import/shared-evidence classification, version identity collision, tampered payload rejection, timezone-qualified timestamps, independent event streams, and divergent branches sharing an ancestor.
+The exchange tests cover detached export, inspection round-trip, directional conflict preservation, read-only staging, repeated staging, version identity collisions, divergent branches, explicit authorization, failure-before-adoption, successful apply, source provenance preservation, idempotent repeat apply, collision refusal, tampering, and timezone-qualified timestamps.
 
-CI must pass on the latest branch head before this milestone is called tested or verified.
-
-## Deferred next milestone
-
-Implement a richer deterministic reconciliation proposal for partially overlapping/divergent histories, then (only with separate authorization) a transactional apply operation that preserves source snapshots and all original provenance evidence.
+CI must pass on the exact latest branch head before this milestone is called tested or verified.
