@@ -79,3 +79,20 @@ PYTHONPATH=yim-001/src python -m yim001 event-verify ./events.json
 ```
 
 See [PROVENANCE.md](PROVENANCE.md) for its event schema, trust boundaries, and current limitations.
+
+## Audited memory operations
+
+The additive `AuditedMemoryStore` facade automatically links successful create, revise, and conflict-annotation operations to provenance events. It persists the Core Memory snapshot and event ledger together in one combined atomic JSON file:
+
+```python
+from yim001 import AuditedMemoryStore, save_audited, load_audited
+
+memory = AuditedMemoryStore("local-node")
+first = memory.create_record({"hello": "world"})
+second = memory.revise(first.record_id, {"hello": "again"})
+memory.annotate_conflict(first.version_id, second.version_id)
+save_audited(memory, "audited-memory.json")
+restored = load_audited("audited-memory.json")
+```
+
+See [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for transaction behavior, tests, and trust boundaries. This layer does not change MRP-001 Revision 4 or the Core Memory snapshot format.
