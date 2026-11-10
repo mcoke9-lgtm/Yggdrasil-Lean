@@ -47,7 +47,7 @@ class RecoveryBackupTests(unittest.TestCase):
             path = Path(directory) / "backup.json"
             save_recovery_backup(self.backup, path)
             loaded = load_recovery_backup(path)
-            self.assertEqual(loaded, inspect_recovery_backup(self.backup))
+            self.assertEqual(inspect_recovery_backup(loaded), inspect_recovery_backup(self.backup))
             before = path.read_bytes()
             with self.assertRaises(FileExistsError):
                 save_recovery_backup(self.backup, path)
