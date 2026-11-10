@@ -4,7 +4,7 @@ from .reconcile import CreationEvidence, Outcome, ReconciliationResult, reconcil
 from .storage import StorageError, load_store, read_json_strict, save_store, write_json_atomic
 from .provenance import EventLedger, ProvenanceError, ProvenanceEvent
 from .audited import AuditedMemoryStore, load_audited, save_audited
-from .exchange import ExchangeError, apply_exchange, export_envelope, inspect_envelope, load_envelope, save_envelope, stage_exchange
+from .exchange import ExchangeError, apply_exchange, apply_exchange_file, export_envelope, inspect_envelope, load_envelope, save_envelope, stage_exchange
 
 __all__ = [
     "Conflict", "MemoryStore", "NotFoundError", "RecordError", "ValidationError", "Version",
@@ -12,5 +12,5 @@ __all__ = [
     "StorageError", "load_store", "read_json_strict", "save_store", "write_json_atomic",
     "EventLedger", "ProvenanceError", "ProvenanceEvent",
     "AuditedMemoryStore", "load_audited", "save_audited",
-    "ExchangeError", "apply_exchange", "export_envelope", "inspect_envelope", "load_envelope", "save_envelope", "stage_exchange",
+    "ExchangeError", "apply_exchange", "apply_exchange_file", "export_envelope", "inspect_envelope", "load_envelope", "save_envelope", "stage_exchange",
 ]
