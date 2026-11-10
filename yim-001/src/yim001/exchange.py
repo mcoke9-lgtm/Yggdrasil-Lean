@@ -280,9 +280,8 @@ def apply_exchange(
         "source_exported_at": incoming["exported_at"],
         "envelope_sha256": incoming["sha256"],
         "source_provenance": source_snapshot["provenance"],
-        "imported_record_ids": report["incoming_record_ids"],
-        "imported_version_ids": report["incoming_version_ids"],
-        "shared_version_ids": report["shared_version_ids"],
+        "source_record_ids": sorted(row["record_id"] for row in source_snapshot["memory"]["records"]),
+        "source_version_ids": sorted(row["version_id"] for row in source_snapshot["memory"]["versions"]),
     }
     existing_receipt = next((event for event in candidate_ledger.events if event.event_id == receipt_id), None)
     if existing_receipt is not None:
