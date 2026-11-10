@@ -63,6 +63,10 @@ For a missing destination, `preserve_path` must be omitted. For an existing dest
 - Restore does not silently merge histories, discard divergent branches, or append a synthetic recovery event to the restored history. The backup's original provenance chain is preserved as-is.
 - No backups are automatically deleted or rotated.
 
+## Checkpoint continuity and custody
+
+See [CHECKPOINTS.md](CHECKPOINTS.md) for the additive hash-linked checkpoint record format, chain verification outcomes, and operational custody guidance. Backup integrity, history continuity, and independent custody are separate claims; a local hash chain does not prove independent custody or authenticate an external latest-sequence anchor.
+
 ## Operational limits
 
 - This is a local file API, not an automated backup schedule or remote backup service.
