@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .audited import AuditedMemoryStore
+from .audited import AuditedMemoryStore, load_audited, save_audited
 from .core import MemoryStore, _validate_json
 from .provenance import EventLedger
 from .storage import read_json_strict, write_json_atomic
@@ -319,3 +319,35 @@ def apply_exchange(
         "report": report,
         "mutated_destination": True,
     }
+
+
+
+def apply_exchange_file(
+    envelope: Any,
+    destination_path: str | Path,
+    *,
+    authorized: bool = False,
+    timestamp: str | None = None,
+) -> dict[str, Any]:
+    """Apply an exchange to an existing audited snapshot and atomically save it.
+
+    The destination file is loaded and validated before apply. The updated
+    combined memory/provenance snapshot is persisted through the existing
+    same-directory atomic replacement writer. This helper assumes a single
+    writer; it does not provide inter-process locking or lost-update protection.
+    """
+    if authorized is not True:
+        raise ExchangeError("explicit authorization is required to apply an exchange")
+    destination = load_audited(destination_path)
+    result = apply_exchange(
+        envelope,
+        destination,
+        authorized=True,
+        timestamp=timestamp,
+    )
+    if result["status"] == "applied":
+        save_audited(destination, destination_path)
+        result = {**result, "persisted": True}
+    else:
+        result = {**result, "persisted": False}
+    return result
