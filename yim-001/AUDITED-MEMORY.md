@@ -25,7 +25,7 @@ The combined snapshot stores the existing Core Memory snapshot and provenance le
 - The facade exposes read operations and audited create/revise/conflict mutations; it does not expose the mutable underlying MemoryStore.
 - The actor ID is caller-supplied and unauthenticated. It is an attribution claim, not proof of identity.
 - Hash-linked events do not authenticate actions or prevent full-ledger rewrite and re-hashing.
-- The combined file is local and single-writer. There is no concurrent-writer coordination, network exchange, device synchronization, or automatic backup.
+- The combined file is local and single-writer. There is no concurrent-writer coordination, network exchange, device synchronization, or automatic backup scheduling. Explicit recovery backups are a separate additive layer documented in `RECOVERY.md`.
 - This first milestone does not yet automatically log import/export/recovery/reconciliation workflows.
 - Atomic replacement reduces partial-file risk but is not a guarantee against every power-loss, hardware, or filesystem failure.
 - This additive audited snapshot has its own format/version; it does not revise MRP-001 or the underlying Core Memory snapshot format.
