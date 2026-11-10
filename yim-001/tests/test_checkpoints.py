@@ -33,7 +33,7 @@ class RecoveryCheckpointTests(unittest.TestCase):
     def test_record_round_trip_and_digest_validation(self):
         self.assertEqual(inspect_checkpoint_record(self.record1)["sequence"], 1)
         damaged = copy.deepcopy(self.record1)
-        damaged["payload"]["sequence"] = 7
+        damaged["payload"]["recorded_at"] = "2026-11-10T12:09:00Z"
         with self.assertRaisesRegex(CheckpointError, "digest mismatch"):
             inspect_checkpoint_record(damaged)
 
