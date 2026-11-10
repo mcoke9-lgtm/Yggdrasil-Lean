@@ -139,6 +139,23 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(set(tips), {self.second.version_id, destination_branch.version_id})
         self.assertEqual(len(destination.conflicts(self.first.record_id)), 1)
 
+    def test_same_event_id_with_different_data_is_collision(self):
+        from yim001.provenance import EventLedger
+        ledger = EventLedger()
+        ledger.append(
+            "record.created", "destination", details={"altered": True},
+            timestamp="2026-11-10T12:00:00Z",
+            event_id=self.source.events[0].event_id,
+        )
+        destination = AuditedMemoryStore("destination", ledger=ledger)
+        before = destination.to_snapshot()
+        report = stage_exchange(self.envelope, destination)
+        self.assertEqual(report["status"], "identity_collision")
+        self.assertIn(self.source.events[0].event_id, report["event_identity_collisions"])
+        with self.assertRaisesRegex(ExchangeError, "identity_collision"):
+            apply_exchange(self.envelope, destination, authorized=True)
+        self.assertEqual(destination.to_snapshot(), before)
+
     def test_apply_rejects_identity_collision_without_mutation(self):
         from yim001.core import MemoryStore
         altered = self.source.to_snapshot()["memory"]
