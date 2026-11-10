@@ -6,4 +6,4 @@
 - Additional edge-case tests: drafted and committed.
 - Local execution: 14 tests passed in the current Python environment.
 - Independent reproduction: not performed.
-- Packaging and manifest: pending.
+- Packaging: portable ZIP created; SHA-256 recorded separately.
