@@ -100,5 +100,46 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("No such file", result.stderr)
         self.assertEqual(self.store.read_bytes(), before)
 
+    def test_event_ledger_cli_round_trip_and_verify(self):
+        ledger = self.root / "events.json"
+        self.run_cli("event-init", ledger)
+        first = self.output(self.run_cli(
+            "event-append", ledger, "record.created", "node-a",
+            "--record", "r1", "--version", "v1",
+            "--timestamp", "2026-11-10T12:00:00Z"
+        ))
+        self.assertEqual(first["sequence"], 0)
+        self.run_cli(
+            "event-append", ledger, "record.exported", "node-a",
+            "--record", "r1", "--version", "v1",
+            "--timestamp", "2026-11-10T12:01:00Z"
+        )
+        verified = self.output(self.run_cli("event-verify", ledger))
+        self.assertEqual(verified["status"], "verified")
+        self.assertEqual(verified["events"], 2)
+        shown = self.output(self.run_cli("event-show", ledger))
+        self.assertEqual(len(shown), 2)
+        self.assertEqual(shown[1]["previous_digest"], shown[0]["digest"])
+
+    def test_event_init_refuses_to_overwrite(self):
+        ledger = self.root / "events.json"
+        self.run_cli("event-init", ledger)
+        result = self.run_cli("event-init", ledger, expected=2)
+        self.assertIn("refusing to overwrite", result.stderr)
+
+    def test_event_cli_rejects_tampered_ledger(self):
+        ledger = self.root / "events.json"
+        self.run_cli("event-init", ledger)
+        self.run_cli(
+            "event-append", ledger, "record.created", "node-a",
+            "--timestamp", "2026-11-10T12:00:00Z"
+        )
+        data = json.loads(ledger.read_text(encoding="utf-8"))
+        data["events"][0]["actor_id"] = "tampered"
+        ledger.write_text(json.dumps(data), encoding="utf-8")
+        result = self.run_cli("event-verify", ledger, expected=2)
+        self.assertIn("digest mismatch", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
