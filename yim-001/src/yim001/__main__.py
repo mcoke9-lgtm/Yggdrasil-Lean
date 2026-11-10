@@ -43,7 +43,7 @@ def _version_data(version: Any) -> dict[str, Any]:
 
 def _emit(value: Any) -> None:
     json.dump(value, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
-    sys.stdout.write("\\n")
+    sys.stdout.write("\n")
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
