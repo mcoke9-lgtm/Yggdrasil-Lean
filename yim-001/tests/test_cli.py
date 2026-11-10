@@ -1,0 +1,104 @@
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+PROJECT = Path(__file__).resolve().parents[1]
+SOURCE = PROJECT / "src"
+
+class CommandLineTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.store = self.root / "memory.json"
+        self.content = self.root / "content.json"
+        self.metadata = self.root / "metadata.json"
+        self.env = dict(os.environ, PYTHONPATH=str(SOURCE))
+
+    def run_cli(self, *args, expected=0):
+        result = subprocess.run([sys.executable, "-m", "yim001", *map(str, args)], cwd=PROJECT, env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, expected, result.stderr)
+        return result
+
+    def write_json(self, path, value):
+        path.write_text(json.dumps(value), encoding="utf-8")
+
+    def output(self, result):
+        return json.loads(result.stdout)
+
+    def test_init_create_revise_show_and_verify(self):
+        self.run_cli("init", self.store)
+        self.write_json(self.content, {"message": "first"})
+        self.write_json(self.metadata, {"source": "cli-test"})
+        created = self.output(self.run_cli("create", self.store, self.content, "--metadata", self.metadata))
+        self.assertEqual(created["content"], {"message": "first"})
+        self.assertEqual(created["metadata"], {"source": "cli-test"})
+        self.write_json(self.content, {"message": "second"})
+        revised = self.output(self.run_cli("revise", self.store, created["record_id"], self.content))
+        self.assertEqual(revised["parents"], [created["version_id"]])
+        history = self.output(self.run_cli("show", self.store, "--record", created["record_id"]))
+        self.assertEqual(len(history["versions"]), 2)
+        self.assertEqual(history["tips"], [revised["version_id"]])
+        version = self.output(self.run_cli("show", self.store, "--version", created["version_id"]))
+        self.assertEqual(version["content"], {"message": "first"})
+        verified = self.output(self.run_cli("verify", self.store))
+        self.assertEqual(verified, {"conflicts": 0, "records": 1, "status": "verified", "versions": 2})
+
+    def test_init_refuses_to_overwrite_existing_store(self):
+        self.run_cli("init", self.store)
+        result = self.run_cli("init", self.store, expected=2)
+        self.assertIn("refusing to overwrite", result.stderr)
+
+    def test_invalid_json_does_not_change_store(self):
+        self.run_cli("init", self.store)
+        before = self.store.read_bytes()
+        self.content.write_text('{"bad":NaN}', encoding="utf-8")
+        result = self.run_cli("create", self.store, self.content, expected=2)
+        self.assertIn("non-JSON numeric constant", result.stderr)
+        self.assertEqual(self.store.read_bytes(), before)
+
+    def test_unknown_record_does_not_change_store(self):
+        self.run_cli("init", self.store)
+        self.write_json(self.content, {"message": "x"})
+        before = self.store.read_bytes()
+        result = self.run_cli("revise", self.store, "missing-record", self.content, expected=2)
+        self.assertIn("record not found", result.stderr)
+        self.assertEqual(self.store.read_bytes(), before)
+
+    def test_directional_conflict_annotation_persists(self):
+        self.run_cli("init", self.store)
+        self.write_json(self.content, {"v": 1})
+        first = self.output(self.run_cli("create", self.store, self.content))
+        self.write_json(self.content, {"v": 2})
+        second = self.output(self.run_cli("revise", self.store, first["record_id"], self.content))
+        result = self.output(self.run_cli("annotate-conflict", self.store, first["version_id"], second["version_id"]))
+        self.assertTrue(result["directional"])
+        history = self.output(self.run_cli("show", self.store, "--record", first["record_id"]))
+        self.assertEqual(len(history["conflicts"]), 1)
+        self.assertEqual(history["conflicts"][0]["source_version_id"], first["version_id"])
+
+    def test_merge_revision_accepts_multiple_explicit_parents(self):
+        self.run_cli("init", self.store)
+        self.write_json(self.content, {"v": 0})
+        first = self.output(self.run_cli("create", self.store, self.content))
+        self.write_json(self.content, {"v": 1})
+        left = self.output(self.run_cli("revise", self.store, first["record_id"], self.content))
+        self.write_json(self.content, {"v": 2})
+        right = self.output(self.run_cli("revise", self.store, first["record_id"], self.content, "--parent", first["version_id"]))
+        self.write_json(self.content, {"merged": True})
+        merged = self.output(self.run_cli("revise", self.store, first["record_id"], self.content, "--parent", left["version_id"], "--parent", right["version_id"]))
+        self.assertEqual(set(merged["parents"]), {left["version_id"], right["version_id"]})
+
+    def test_missing_input_file_does_not_change_store(self):
+        self.run_cli("init", self.store)
+        before = self.store.read_bytes()
+        result = self.run_cli("create", self.store, self.root / "missing.json", expected=2)
+        self.assertIn("No such file", result.stderr)
+        self.assertEqual(self.store.read_bytes(), before)
+
+if __name__ == "__main__":
+    unittest.main()
