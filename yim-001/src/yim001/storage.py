@@ -1,7 +1,4 @@
-"""Strict JSON snapshot helpers with atomic replacement.
-
-These helpers are a persistence primitive; they do not yet serialize MemoryStore.
-"""
+"""Strict JSON snapshot helpers with atomic replacement."""
 from __future__ import annotations
 
 import json
@@ -10,7 +7,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from .core import ValidationError, _snapshot, _validate_json
+from .core import MemoryStore, ValidationError, _snapshot, _validate_json
 
 
 class StorageError(ValueError):
@@ -80,8 +77,6 @@ def write_json_atomic(path: str | os.PathLike[str], value: Any) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary_path, destination)
-        # Best-effort directory sync makes the rename durable on platforms
-        # that support opening and syncing directory descriptors.
         if hasattr(os, "O_DIRECTORY"):
             try:
                 directory_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -97,3 +92,15 @@ def write_json_atomic(path: str | os.PathLike[str], value: Any) -> None:
         except OSError:
             pass
         raise
+
+
+def save_store(store: MemoryStore, path: str | os.PathLike[str]) -> None:
+    """Atomically persist a detached MemoryStore snapshot."""
+    if not isinstance(store, MemoryStore):
+        raise TypeError("store must be a MemoryStore")
+    write_json_atomic(path, store.to_snapshot())
+
+
+def load_store(path: str | os.PathLike[str]) -> MemoryStore:
+    """Load and validate a MemoryStore snapshot."""
+    return MemoryStore.from_snapshot(read_json_strict(path))
