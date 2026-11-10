@@ -95,10 +95,127 @@ class Conflict:
 class MemoryStore:
     """In-memory append-only record/version graph with directional conflicts."""
 
+    SNAPSHOT_FORMAT = "YIM-001-Core-Memory-System"
+    SNAPSHOT_VERSION = 1
+
     def __init__(self) -> None:
         self._versions: dict[str, Version] = {}
         self._records: dict[str, list[str]] = {}
         self._conflicts: list[Conflict] = []
+
+    def to_snapshot(self) -> dict[str, Any]:
+        """Return a detached, JSON-compatible snapshot of the complete store."""
+        return {
+            "format": self.SNAPSHOT_FORMAT,
+            "format_version": self.SNAPSHOT_VERSION,
+            "records": [
+                {"record_id": record_id, "version_ids": list(version_ids)}
+                for record_id, version_ids in self._records.items()
+            ],
+            "versions": [
+                {
+                    "version_id": version.version_id,
+                    "record_id": version.record_id,
+                    "parents": list(version.parents),
+                    "content": version.content,
+                    "metadata": version.metadata,
+                }
+                for version in self._versions.values()
+            ],
+            "conflicts": [
+                {
+                    "source_version_id": conflict.source_version_id,
+                    "target_version_id": conflict.target_version_id,
+                }
+                for conflict in self._conflicts
+            ],
+        }
+
+    @classmethod
+    def from_snapshot(cls, data: Any) -> "MemoryStore":
+        """Reconstruct a store after validating snapshot shape and graph links."""
+        _validate_json(data, "snapshot")
+        if not isinstance(data, dict) or set(data) != {
+            "format", "format_version", "records", "versions", "conflicts"
+        }:
+            raise ValidationError("snapshot has an invalid top-level structure")
+        if data["format"] != cls.SNAPSHOT_FORMAT or data["format_version"] != cls.SNAPSHOT_VERSION:
+            raise ValidationError("unsupported snapshot format or version")
+        if not all(isinstance(data[key], list) for key in ("records", "versions", "conflicts")):
+            raise ValidationError("snapshot records, versions, and conflicts must be arrays")
+
+        store = cls()
+        version_rows: dict[str, Version] = {}
+        for index, row in enumerate(data["versions"]):
+            if not isinstance(row, dict) or set(row) != {
+                "version_id", "record_id", "parents", "content", "metadata"
+            }:
+                raise ValidationError(f"invalid version entry at index {index}")
+            version_id, record_id = row["version_id"], row["record_id"]
+            parents = row["parents"]
+            if not isinstance(version_id, str) or not version_id or not isinstance(record_id, str) or not record_id:
+                raise ValidationError(f"invalid version or record identity at index {index}")
+            if version_id in version_rows:
+                raise ValidationError(f"duplicate version identity: {version_id}")
+            if not isinstance(parents, list) or not all(isinstance(parent, str) for parent in parents):
+                raise ValidationError(f"invalid parent list for version {version_id}")
+            content_copy = _snapshot(row["content"], f"versions[{index}].content")
+            metadata_copy = None if row["metadata"] is None else _snapshot(row["metadata"], f"versions[{index}].metadata")
+            version_rows[version_id] = Version(
+                version_id,
+                record_id,
+                tuple(parents),
+                json.dumps(content_copy, allow_nan=False, separators=(",", ":")),
+                None if metadata_copy is None else json.dumps(metadata_copy, allow_nan=False, separators=(",", ":")),
+            )
+
+        record_rows: dict[str, list[str]] = {}
+        membership: dict[str, str] = {}
+        for index, row in enumerate(data["records"]):
+            if not isinstance(row, dict) or set(row) != {"record_id", "version_ids"}:
+                raise ValidationError(f"invalid record entry at index {index}")
+            record_id, version_ids = row["record_id"], row["version_ids"]
+            if not isinstance(record_id, str) or not record_id or record_id in record_rows:
+                raise ValidationError(f"invalid or duplicate record identity at index {index}")
+            if not isinstance(version_ids, list) or not version_ids:
+                raise ValidationError(f"record {record_id} must have a non-empty version list")
+            if not all(isinstance(version_id, str) for version_id in version_ids):
+                raise ValidationError(f"invalid version identity in record {record_id}")
+            if len(set(version_ids)) != len(version_ids):
+                raise ValidationError(f"duplicate version membership in record {record_id}")
+            for version_id in version_ids:
+                version = version_rows.get(version_id)
+                if version is None or version.record_id != record_id or version_id in membership:
+                    raise ValidationError(f"invalid version membership: {version_id}")
+                membership[version_id] = record_id
+            record_rows[record_id] = list(version_ids)
+
+        if set(membership) != set(version_rows):
+            raise ValidationError("snapshot contains unassigned versions")
+
+        for record_id, version_ids in record_rows.items():
+            positions = {version_id: index for index, version_id in enumerate(version_ids)}
+            for child_id in version_ids:
+                for parent_id in version_rows[child_id].parents:
+                    if parent_id not in positions or positions[parent_id] >= positions[child_id]:
+                        raise ValidationError(f"invalid parent ordering for version {child_id}")
+
+        store._versions = version_rows
+        store._records = record_rows
+
+        seen_conflicts: set[tuple[str, str]] = set()
+        for index, row in enumerate(data["conflicts"]):
+            if not isinstance(row, dict) or set(row) != {"source_version_id", "target_version_id"}:
+                raise ValidationError(f"invalid conflict entry at index {index}")
+            source_id, target_id = row["source_version_id"], row["target_version_id"]
+            source, target = version_rows.get(source_id), version_rows.get(target_id)
+            if source is None or target is None or source.record_id != target.record_id:
+                raise ValidationError(f"invalid conflict endpoints at index {index}")
+            pair = (source_id, target_id)
+            if pair not in seen_conflicts:
+                store._conflicts.append(Conflict(*pair))
+                seen_conflicts.add(pair)
+        return store
 
     def _new_id(self, occupied: set[str]) -> str:
         while True:
