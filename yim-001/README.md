@@ -53,3 +53,17 @@ The ZIP contains a SHA-256 manifest for every packaged project file. GitHub Acti
 ## Boundaries
 
 This is a local reference implementation, not yet a distributed synchronization service. It does not implement networking, multi-system conflict resolution, cryptographic signatures, identity/access control, automatic backups, or recovery across devices. Snapshot atomicity is tested through simulated replacement failure; it is not a guarantee against every hardware or filesystem failure. Reconciliation and snapshot format remain subject to further review.
+
+## Portable command-line interface
+
+The local store can be operated without writing a Python integration. From the repository root:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 --help
+PYTHONPATH=yim-001/src python -m yim001 init ./memory.json
+PYTHONPATH=yim-001/src python -m yim001 create ./memory.json content.json
+PYTHONPATH=yim-001/src python -m yim001 show ./memory.json --record RECORD_ID
+PYTHONPATH=yim-001/src python -m yim001 verify ./memory.json
+```
+
+See [CLI.md](CLI.md) for revision, branching/merge parents, metadata, directional conflicts, and operational boundaries. The CLI is a local single-writer tool, not a network synchronization service.
