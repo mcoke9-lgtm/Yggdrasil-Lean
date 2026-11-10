@@ -39,6 +39,14 @@ class ReconciliationTests(unittest.TestCase):
         wrong = CreationEvidence("event-1", "record-1", "create", "sha256:wrong", 0)
         self.assertEqual(self.run_case([wrong]), Outcome.CONFLICT)
 
+    def test_known_digest_conflict_precedes_missing_event_identity(self):
+        partial = CreationEvidence(None, "record-1", "create", "sha256:wrong", 0)
+        self.assertEqual(self.run_case([partial]), Outcome.CONFLICT)
+
+    def test_known_digest_conflict_precedes_missing_creation_type(self):
+        partial = CreationEvidence("event-1", "record-1", None, "sha256:wrong", 0)
+        self.assertEqual(self.run_case([partial]), Outcome.CONFLICT)
+
     def test_ambiguous_duplicate_event(self):
         duplicate = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 1)
         self.assertEqual(self.run_case([self.good, duplicate]), Outcome.AMBIGUOUS)
