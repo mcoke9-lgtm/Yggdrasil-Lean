@@ -44,6 +44,18 @@ class ReconciliationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run_case([self.good], history_state="maybe")
 
+    def test_negative_sequence_is_conflict(self):
+        invalid = CreationEvidence("event-1", "record-1", "create", "sha256:abc", -1)
+        self.assertEqual(self.run_case([invalid]), Outcome.CONFLICT)
+
+    def test_boolean_sequence_is_conflict(self):
+        invalid = CreationEvidence("event-1", "record-1", "create", "sha256:abc", True)
+        self.assertEqual(self.run_case([invalid]), Outcome.CONFLICT)
+
+    def test_float_sequence_is_conflict(self):
+        invalid = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 0.0)
+        self.assertEqual(self.run_case([invalid]), Outcome.CONFLICT)
+
     def test_read_only_result_does_not_change_evidence(self):
         evidence = [self.good]
         before = tuple(evidence)
