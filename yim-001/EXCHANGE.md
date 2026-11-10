@@ -7,7 +7,7 @@
 ```python
 from yim001 import (
     AuditedMemoryStore, apply_exchange, apply_exchange_file, export_envelope,
-    inspect_envelope, stage_exchange, save_envelope, load_envelope,
+    inspect_envelope, stage_exchange, save_envelope, load_envelope, save_audited,
 )
 
 source = AuditedMemoryStore("source-actor")
@@ -21,11 +21,13 @@ proposal = stage_exchange(validated, destination)
 assert proposal["mutated_destination"] is False
 
 # Applying requires a separate, explicit authorization at the call site.
+# Apply in memory when the caller owns the live instance.
 result = apply_exchange(validated, destination, authorized=True)
 assert result["status"] == "applied"
 
-# For a persisted destination, use the file-backed operation.
-save_audited(destination, "destination.json")
+# Or apply directly to an existing persisted destination file.
+file_destination = AuditedMemoryStore("file-destination-actor")
+save_audited(file_destination, "destination.json")
 persisted = apply_exchange_file(validated, "destination.json", authorized=True)
 assert persisted["status"] == "applied"
 ```
