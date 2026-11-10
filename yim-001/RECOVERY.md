@@ -75,4 +75,4 @@ For a missing destination, `preserve_path` must be omitted. For an existing dest
 
 ## Test coverage
 
-The recovery tests cover detached backup creation, digest tampering, timezone requirements, strict load/save round trips, refusal to overwrite backup files, authorization-before-I/O, preservation of exact corrupt destination bytes, mandatory preservation for existing destinations, preservation-path collision, creation of a missing destination, and file-based restore.
+The recovery tests cover detached backup creation, digest tampering, timezone requirements, strict load/save round trips, refusal to overwrite backup files, authorization-before-I/O, preservation of exact corrupt destination bytes, mandatory preservation for existing destinations, preservation-path collision, creation of a missing destination, file-based restore, and preservation of both original and quarantine bytes when the restore write fails.
