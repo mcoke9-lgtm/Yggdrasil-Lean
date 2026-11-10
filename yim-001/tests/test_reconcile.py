@@ -62,6 +62,20 @@ class ReconciliationTests(unittest.TestCase):
         invalid = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 0.0)
         self.assertEqual(self.run_case([invalid]), Outcome.CONFLICT)
 
+    def test_conflict_precedes_duplicate_ambiguity(self):
+        duplicate = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 1)
+        conflicting = CreationEvidence("event-1", "record-1", "create", "sha256:wrong", 2)
+        self.assertEqual(self.run_case([self.good, duplicate, conflicting]), Outcome.CONFLICT)
+
+    def test_ambiguity_precedes_incomplete(self):
+        duplicate = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 1)
+        partial = CreationEvidence("event-1", "record-1", None, "sha256:abc", 2)
+        self.assertEqual(self.run_case([self.good, duplicate, partial]), Outcome.AMBIGUOUS)
+
+    def test_uncertainty_precedes_incomplete(self):
+        partial = CreationEvidence("event-1", "record-1", None, "sha256:abc", 0)
+        self.assertEqual(self.run_case([partial], history_state="unreadable"), Outcome.UNCERTAIN)
+
     def test_read_only_result_does_not_change_evidence(self):
         evidence = [self.good]
         before = tuple(evidence)
