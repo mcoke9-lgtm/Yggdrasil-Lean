@@ -67,3 +67,15 @@ PYTHONPATH=yim-001/src python -m yim001 verify ./memory.json
 ```
 
 See [CLI.md](CLI.md) for revision, branching/merge parents, metadata, directional conflicts, and operational boundaries. The CLI is a local single-writer tool, not a network synchronization service.
+
+## Provenance event ledger
+
+A separate hash-linked event ledger records caller-supplied action claims while leaving memory records and MRP-001 Revision 4 unchanged. Start with:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 event-init ./events.json
+PYTHONPATH=yim-001/src python -m yim001 event-append ./events.json record.created local-node --record RECORD_ID --version VERSION_ID
+PYTHONPATH=yim-001/src python -m yim001 event-verify ./events.json
+```
+
+See [PROVENANCE.md](PROVENANCE.md) for its event schema, trust boundaries, and current limitations.
