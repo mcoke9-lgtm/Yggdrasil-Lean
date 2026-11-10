@@ -23,3 +23,12 @@ jobs:
         env:
           PYTHONPATH: yim-001/src
         run: python -m unittest discover -s yim-001/tests -v
+      - name: Build and verify portable package
+        run: python yim-001/scripts/package.py --output dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: YIM-001-Core-Memory-System-checkpoint-1
+          path: dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+          if-no-files-found: error
+          retention-days: 30
