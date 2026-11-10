@@ -139,7 +139,7 @@ class MemoryStore:
             "format", "format_version", "records", "versions", "conflicts"
         }:
             raise ValidationError("snapshot has an invalid top-level structure")
-        if data["format"] != cls.SNAPSHOT_FORMAT or data["format_version"] != cls.SNAPSHOT_VERSION:
+        if data["format"] != cls.SNAPSHOT_FORMAT or type(data["format_version"]) is not int or data["format_version"] != cls.SNAPSHOT_VERSION:
             raise ValidationError("unsupported snapshot format or version")
         if not all(isinstance(data[key], list) for key in ("records", "versions", "conflicts")):
             raise ValidationError("snapshot records, versions, and conflicts must be arrays")
@@ -157,8 +157,10 @@ class MemoryStore:
                 raise ValidationError(f"invalid version or record identity at index {index}")
             if version_id in version_rows:
                 raise ValidationError(f"duplicate version identity: {version_id}")
-            if not isinstance(parents, list) or not all(isinstance(parent, str) for parent in parents):
+            if not isinstance(parents, list) or not all(isinstance(parent, str) and parent for parent in parents):
                 raise ValidationError(f"invalid parent list for version {version_id}")
+            if len(set(parents)) != len(parents):
+                raise ValidationError(f"duplicate parent identity for version {version_id}")
             content_copy = _snapshot(row["content"], f"versions[{index}].content")
             metadata_copy = None if row["metadata"] is None else _snapshot(row["metadata"], f"versions[{index}].metadata")
             version_rows[version_id] = Version(
@@ -195,8 +197,13 @@ class MemoryStore:
 
         for record_id, version_ids in record_rows.items():
             positions = {version_id: index for index, version_id in enumerate(version_ids)}
-            for child_id in version_ids:
-                for parent_id in version_rows[child_id].parents:
+            for index, child_id in enumerate(version_ids):
+                parents = version_rows[child_id].parents
+                if index == 0 and parents:
+                    raise ValidationError(f"initial version {child_id} cannot have parents")
+                if index > 0 and not parents:
+                    raise ValidationError(f"non-initial version {child_id} must have at least one parent")
+                for parent_id in parents:
                     if parent_id not in positions or positions[parent_id] >= positions[child_id]:
                         raise ValidationError(f"invalid parent ordering for version {child_id}")
 
@@ -211,10 +218,13 @@ class MemoryStore:
             source, target = version_rows.get(source_id), version_rows.get(target_id)
             if source is None or target is None or source.record_id != target.record_id:
                 raise ValidationError(f"invalid conflict endpoints at index {index}")
+            if not isinstance(source_id, str) or not isinstance(target_id, str):
+                raise ValidationError(f"invalid conflict identity at index {index}")
             pair = (source_id, target_id)
-            if pair not in seen_conflicts:
-                store._conflicts.append(Conflict(*pair))
-                seen_conflicts.add(pair)
+            if pair in seen_conflicts:
+                raise ValidationError(f"duplicate conflict annotation at index {index}")
+            store._conflicts.append(Conflict(*pair))
+            seen_conflicts.add(pair)
         return store
 
     def _new_id(self, occupied: set[str]) -> str:
