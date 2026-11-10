@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from .audited import AuditedMemoryStore
-from .core import _validate_json
+from .core import MemoryStore, _validate_json
+from .provenance import EventLedger
 from .storage import read_json_strict, write_json_atomic
 
 FORMAT = "YIM-001-Transfer-Envelope"
@@ -194,4 +195,128 @@ def stage_exchange(envelope: Any, destination: AuditedMemoryStore) -> dict[str, 
         },
         "mutated_destination": False, "mutated_source": False,
         "automatic_merge": False, "apply_authorized": False,
+    }
+
+
+
+def _merge_memory_snapshots(source: dict[str, Any], destination: dict[str, Any]) -> MemoryStore:
+    """Union two compatible memory graphs in deterministic parent-first order."""
+    src_versions = _index(source["versions"], "version_id")
+    dst_versions = _index(destination["versions"], "version_id")
+    for identity in set(src_versions) & set(dst_versions):
+        if _canonical(src_versions[identity]) != _canonical(dst_versions[identity]):
+            raise ExchangeError(f"version identity collision during apply: {identity}")
+    versions = {**dst_versions, **src_versions}
+    src_records = _index(source["records"], "record_id")
+    dst_records = _index(destination["records"], "record_id")
+    record_ids = sorted(set(src_records) | set(dst_records))
+    records = []
+    for record_id in record_ids:
+        dst_order = dst_records.get(record_id, {}).get("version_ids", [])
+        src_order = src_records.get(record_id, {}).get("version_ids", [])
+        members = set(dst_order) | set(src_order)
+        priority = {identity: index for index, identity in enumerate(dst_order)}
+        offset = len(priority)
+        for index, identity in enumerate(src_order):
+            priority.setdefault(identity, offset + index)
+        pending = set(members)
+        ordered = []
+        while pending:
+            ready = [
+                identity for identity in pending
+                if all(parent not in pending for parent in versions[identity]["parents"])
+            ]
+            if not ready:
+                raise ExchangeError(f"cyclic or incomplete parent graph for record {record_id}")
+            ready.sort(key=lambda identity: (priority.get(identity, offset + len(priority)), identity))
+            ordered.extend(ready)
+            pending.difference_update(ready)
+        records.append({"record_id": record_id, "version_ids": ordered})
+
+    conflicts = []
+    seen_conflicts = set()
+    for row in destination["conflicts"] + source["conflicts"]:
+        pair = (row["source_version_id"], row["target_version_id"])
+        if pair not in seen_conflicts:
+            conflicts.append(dict(row))
+            seen_conflicts.add(pair)
+    snapshot = {
+        "format": MemoryStore.SNAPSHOT_FORMAT,
+        "format_version": MemoryStore.SNAPSHOT_VERSION,
+        "records": records,
+        "versions": [versions[identity] for record in records for identity in record["version_ids"]],
+        "conflicts": conflicts,
+    }
+    return MemoryStore.from_snapshot(snapshot)
+
+
+def apply_exchange(
+    envelope: Any,
+    destination: AuditedMemoryStore,
+    *,
+    authorized: bool = False,
+    timestamp: str | None = None,
+) -> dict[str, Any]:
+    """Apply a validated exchange only when explicitly authorized.
+
+    Incoming provenance remains an intact source ledger embedded in a local,
+    hash-linked record.imported receipt; source sequence numbers are not merged.
+    """
+    if authorized is not True:
+        raise ExchangeError("explicit authorization is required to apply an exchange")
+    incoming = inspect_envelope(envelope)
+    if not isinstance(destination, AuditedMemoryStore):
+        raise TypeError("destination must be an AuditedMemoryStore")
+    report = stage_exchange(envelope, destination)
+    if report["status"] != "staged_read_only":
+        raise ExchangeError(f"exchange cannot be applied: {report['status']}")
+    source_snapshot = incoming["audited_snapshot"]
+    before = destination.to_snapshot()
+    merged_memory = _merge_memory_snapshots(source_snapshot["memory"], before["memory"])
+    candidate_ledger = EventLedger.from_snapshot(before["provenance"])
+    receipt_id = "yim001-import-" + incoming["sha256"]
+    receipt_details = {
+        "source_instance_id": incoming["source_instance_id"],
+        "source_exported_at": incoming["exported_at"],
+        "envelope_sha256": incoming["sha256"],
+        "source_provenance": source_snapshot["provenance"],
+        "imported_record_ids": report["incoming_record_ids"],
+        "imported_version_ids": report["incoming_version_ids"],
+        "shared_version_ids": report["shared_version_ids"],
+    }
+    existing_receipt = next((event for event in candidate_ledger.events if event.event_id == receipt_id), None)
+    if existing_receipt is not None:
+        if (
+            existing_receipt.event_type != "record.imported"
+            or existing_receipt.actor_id != destination.actor_id
+            or _canonical(existing_receipt.details) != _canonical(receipt_details)
+        ):
+            raise ExchangeError("import receipt identity collision")
+        return {
+            "status": "already_applied",
+            "applied": False,
+            "receipt_event_id": receipt_id,
+            "report": report,
+            "mutated_destination": False,
+        }
+    candidate_ledger.append(
+        "record.imported",
+        destination.actor_id,
+        details=receipt_details,
+        timestamp=timestamp,
+        event_id=receipt_id,
+    )
+    candidate = AuditedMemoryStore(
+        destination.actor_id,
+        store=merged_memory,
+        ledger=candidate_ledger,
+    )
+    # All validation and construction succeeded; this is the sole live-state swap.
+    destination._adopt(candidate)
+    return {
+        "status": "applied",
+        "applied": True,
+        "receipt_event_id": receipt_id,
+        "report": report,
+        "mutated_destination": True,
     }
