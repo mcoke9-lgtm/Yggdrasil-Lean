@@ -156,7 +156,9 @@ def save_recovery_backup(backup: Any, path: str | os.PathLike[str]) -> None:
 def load_recovery_backup(path: str | os.PathLike[str]) -> dict[str, Any]:
     """Read a strict JSON backup and validate all nested evidence."""
     try:
-        return inspect_recovery_backup(read_json_strict(path))
+        envelope = read_json_strict(path)
+        inspect_recovery_backup(envelope)
+        return envelope
     except StorageError as exc:
         raise RecoveryError(f"unreadable recovery backup: {exc}") from exc
 
