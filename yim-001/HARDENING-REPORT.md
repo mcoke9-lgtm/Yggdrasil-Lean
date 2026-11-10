@@ -16,20 +16,24 @@ This pass reviewed the snapshot importer and portable ZIP verifier. It did not c
 
 6. Malformed snapshot conflict endpoints could reach dictionary lookup before their types were checked, producing a raw `TypeError` for list/dictionary identifiers. The importer now validates non-empty string endpoint identities before lookup and raises the controlled `ValidationError` for malformed data.
 
+## Additional reconciliation finding
+
+7. A partially missing creation-evidence entry was classified as INCOMPLETE before checking its other known fields. That could hide a directly contradictory digest or creation type. The reconciler now evaluates every present field first, preserving CONFLICT precedence while still recording missing fields. Two regression tests cover missing event identity and missing creation type alongside a contradictory digest.
+
 ## Added tests
 
-Eight additional tests now cover malformed snapshot/package data and recovery failures, including unhashable/empty conflict identities, fsync interruption, and a failed first write.
+Ten additional tests now cover malformed snapshot/package data, recovery failures, and partial-evidence conflict precedence, including unhashable/empty conflict identities, fsync interruption, a failed first write, and known contradictions in incomplete evidence.
 
 ## Evidence
 
-- GitHub Actions: 50 tests passed on CPython 3.13.18, Ubuntu.
+- GitHub Actions: 52 tests passed on CPython 3.13.18, Ubuntu.
 - Downloaded portable package: 46 tests independently passed in a separate local container on CPython 3.13.5.
 - The embedded manifest independently verified all 15 packaged project files.
 - Deterministic package build and package-tampering tests passed.
 
 ## Remaining limits
 
-- This was a focused implementation hardening pass, not an independent third-party code review; adversarial checks were conducted within this implementation session.
+- This was a focused implementation hardening pass, not an independent third-party code review; adversarial checks were conducted within this implementation session; external independent review remains outstanding.
 - Interrupted replacement is tested by simulated failure, not actual power-loss or filesystem fault injection.
 - There is not yet a signed release, automatic backup, multi-device recovery, or network synchronization service.
 - The reconciliation rules and snapshot format remain subject to independent review before canonical release adoption.
