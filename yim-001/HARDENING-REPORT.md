@@ -22,7 +22,7 @@ This pass reviewed the snapshot importer and portable ZIP verifier. It did not c
 
 ## Added tests
 
-Ten additional tests now cover malformed snapshot/package data, recovery failures, and partial-evidence conflict precedence, including unhashable/empty conflict identities, fsync interruption, a failed first write, and known contradictions in incomplete evidence.
+Twelve additional tests now cover malformed snapshot/package data, recovery failures, and partial-evidence conflict precedence, including unhashable/empty conflict identities, fsync interruption, a failed first write, and known contradictions in incomplete evidence.
 
 ## Evidence
 
