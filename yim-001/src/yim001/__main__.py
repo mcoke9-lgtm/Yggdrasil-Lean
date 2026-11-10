@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
-from . import MemoryStore, load_store, read_json_strict, save_store
+from . import EventLedger, MemoryStore, load_store, read_json_strict, save_store, write_json_atomic
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yim001", description="Create, inspect, revise, and verify a local YIM-001 memory store.")
@@ -33,6 +33,20 @@ def _parser() -> argparse.ArgumentParser:
     conflict.add_argument("target_version_id")
     verify = commands.add_parser("verify", help="load and validate a memory snapshot")
     verify.add_argument("store", type=Path)
+    event_init = commands.add_parser("event-init", help="create a separate provenance ledger")
+    event_init.add_argument("ledger", type=Path)
+    event_append = commands.add_parser("event-append", help="append a provenance event")
+    event_append.add_argument("ledger", type=Path)
+    event_append.add_argument("event_type")
+    event_append.add_argument("actor_id")
+    event_append.add_argument("--record")
+    event_append.add_argument("--version")
+    event_append.add_argument("--details", type=Path)
+    event_append.add_argument("--timestamp")
+    event_verify = commands.add_parser("event-verify", help="verify a provenance ledger and hash chain")
+    event_verify.add_argument("ledger", type=Path)
+    event_show = commands.add_parser("event-show", help="display provenance events")
+    event_show.add_argument("ledger", type=Path)
     return parser
 
 def _read_optional(path: Path | None) -> Any:
@@ -54,6 +68,29 @@ def main(argv: list[str] | None = None) -> int:
             args.store.parent.mkdir(parents=True, exist_ok=True)
             save_store(MemoryStore(), args.store)
             _emit({"status": "created", "store": str(args.store)})
+            return 0
+        if args.command == "event-init":
+            if args.ledger.exists():
+                raise FileExistsError(f"refusing to overwrite existing ledger: {args.ledger}")
+            args.ledger.parent.mkdir(parents=True, exist_ok=True)
+            write_json_atomic(args.ledger, EventLedger().to_snapshot())
+            _emit({"status": "created", "ledger": str(args.ledger)})
+            return 0
+        if args.command in {"event-append", "event-verify", "event-show"}:
+            ledger = EventLedger.from_snapshot(read_json_strict(args.ledger))
+            if args.command == "event-append":
+                event = ledger.append(
+                    args.event_type, args.actor_id,
+                    record_id=args.record, version_id=args.version,
+                    details=_read_optional(args.details),
+                    timestamp=args.timestamp,
+                )
+                write_json_atomic(args.ledger, ledger.to_snapshot())
+                _emit(event.to_dict())
+            elif args.command == "event-verify":
+                _emit({"status": "verified", "events": len(ledger.events), "last_digest": ledger.events[-1].digest if ledger.events else None})
+            else:
+                _emit([event.to_dict() for event in ledger.events])
             return 0
         if args.command == "verify":
             store = load_store(args.store)
