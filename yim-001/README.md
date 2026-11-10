@@ -1,10 +1,10 @@
 # Core Memory System (YIM-001) — Checkpoint 1
 
-**Status:** Working reference implementation; 52 automated tests passed in GitHub Actions on CPython 3.13.18.  
+**Status:** Working reference implementation; 54 automated tests passed in GitHub Actions on CPython 3.13.18.  
 **Cooperative AI Architecture:** wave form; MRP-001 Working Baseline 2026-11, Revision 4 is its adopted shared records contract.  
 **Core Memory System:** particle form; YIM-001 is the canonical reproducible reference implementation under development.
 
-The implementation includes an in-memory records core, read-only reconciliation draft, strict JSON snapshot storage, validated snapshot import/export, hardened deterministic portable packaging, corruption checks, and interrupted-write recovery tests, and conflict-precedence checks for partial evidence.
+The implementation includes an in-memory records core, read-only reconciliation draft, strict JSON snapshot storage, validated snapshot import/export, hardened deterministic portable packaging, corruption checks, and interrupted-write recovery tests, and conflict-precedence checks for partial evidence, and canonical archive-path validation.
 
 ## Included capabilities
 
