@@ -1,10 +1,10 @@
 # Core Memory System (YIM-001) — Checkpoint 1
 
-**Status:** Working reference implementation; 38 tests passed before deterministic packaging was added.  
+**Status:** Working reference implementation; 40 automated tests passed in GitHub Actions on CPython 3.13.18.  
 **Cooperative AI Architecture:** wave form; MRP-001 Working Baseline 2026-11, Revision 4 is its adopted shared records contract.  
 **Core Memory System:** particle form; YIM-001 is the canonical reproducible reference implementation under development.
 
-The implementation includes an in-memory records core, read-only reconciliation draft, strict JSON snapshot storage, and validated snapshot import/export. A portable deterministic package and its SHA-256 manifest are built and verified by the GitHub Actions workflow.
+The implementation includes an in-memory records core, read-only reconciliation draft, strict JSON snapshot storage, validated snapshot import/export, and deterministic portable packaging.
 
 ## Included capabilities
 
@@ -48,7 +48,7 @@ python yim-001/scripts/package.py --output dist/YIM-001-Core-Memory-System-check
 python yim-001/scripts/package.py --verify dist/YIM-001-Core-Memory-System-checkpoint-1.zip
 ```
 
-The ZIP contains a SHA-256 manifest for every packaged project file. GitHub Actions also uploads the verified ZIP as a workflow artifact.
+The ZIP contains a SHA-256 manifest for every packaged project file. GitHub Actions builds, verifies, and uploads the ZIP as a workflow artifact.
 
 ## Boundaries
 
