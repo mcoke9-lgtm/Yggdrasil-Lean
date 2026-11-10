@@ -1,0 +1,25 @@
+name: Core Memory System tests
+
+on:
+  push:
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim001-tests.yml"
+  pull_request:
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim001-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run Core Memory System tests
+        env:
+          PYTHONPATH: yim-001/src
+        run: python -m unittest discover -s yim-001/tests -v
