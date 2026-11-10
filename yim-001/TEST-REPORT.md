@@ -2,7 +2,7 @@
 
 - Execution status: **passed**
 - Python: `3.13.5`
-- Runtime: `Linux x86_64, glibc 2.41`
+- Runtime: `Linux-6.18.57-x86_64-with-glibc2.41`
 - Command: `PYTHONPATH=src python -m unittest discover -s tests -v`
 - Result: **14 tests passed; 0 failures; 0 errors**
 - Scope: A1–A10 plus four additional edge-case tests.
