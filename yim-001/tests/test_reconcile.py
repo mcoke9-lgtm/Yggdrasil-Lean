@@ -25,6 +25,12 @@ class ReconciliationTests(unittest.TestCase):
     def test_incomplete_missing_history(self):
         self.assertEqual(self.run_case([self.good], history_state="missing"), Outcome.INCOMPLETE)
 
+    def test_incomplete_missing_event_identity(self):
+        partial = CreationEvidence(None, "record-1", "create", "sha256:abc", 0)
+        result = reconcile_creation_event(evidence=[partial], **self.expected)
+        self.assertEqual(result.outcome, Outcome.INCOMPLETE)
+        self.assertIn("event_id", result.findings[0])
+
     def test_incomplete_missing_field(self):
         partial = CreationEvidence("event-1", "record-1", None, "sha256:abc", 0)
         self.assertEqual(self.run_case([partial]), Outcome.INCOMPLETE)
