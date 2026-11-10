@@ -54,3 +54,16 @@ The annotation is directional; the command does not create a reciprocal annotati
 - `init` refuses to overwrite an existing path. Other write commands validate and load the existing snapshot before atomically replacing it.
 - Invalid JSON input or a failed validation does not intentionally modify the existing store.
 - The CLI does not change MRP-001 Revision 4 or expand its normative scope.
+
+## Provenance event ledger
+
+A separate event ledger records caller-supplied action claims without changing memory records:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 event-init ./events.json
+PYTHONPATH=yim-001/src python -m yim001 event-append ./events.json record.created local-node --record RECORD_ID --version VERSION_ID --timestamp 2026-11-10T12:00:00Z
+PYTHONPATH=yim-001/src python -m yim001 event-verify ./events.json
+PYTHONPATH=yim-001/src python -m yim001 event-show ./events.json
+```
+
+See [PROVENANCE.md](PROVENANCE.md) for the event model and trust boundaries. Hash links are integrity checks, not signatures or proof of actor identity. Each ledger is a separate single-writer stream; cross-ledger exchange is future work.
