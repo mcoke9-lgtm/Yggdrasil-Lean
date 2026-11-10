@@ -1,8 +1,8 @@
-"""Portable, read-only cross-instance transfer inspection for YIM-001.
+"""Portable cross-instance transfer inspection and authorized apply for YIM-001.
 
 Transfer envelopes preserve complete audited snapshots. Staging creates a
-deterministic, detached reconciliation proposal and never mutates either side.
-Applying a proposal is deliberately deferred.
+deterministic, detached reconciliation proposal without mutating either side.
+Applying requires explicit authorization and commits a validated candidate state.
 """
 from __future__ import annotations
 
