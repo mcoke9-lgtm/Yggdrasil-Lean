@@ -1,6 +1,6 @@
 # YIM-001 cross-instance exchange
 
-**Status:** Portable envelope, deterministic read-only staging, explicitly authorized in-memory apply, and atomic file-backed apply are implemented in the draft branch. The previous checkpoint passed CI (99 Python tests, portable package verification, and Lean build). The file-backed apply addition is awaiting CI. No merge to the canonical branch or release adoption has occurred.
+**Status:** Portable envelope, deterministic read-only staging, explicitly authorized in-memory apply, atomic file-backed apply, and additive recovery backup/guarded restore are implemented in the draft branch. Latest exact-head CI passed 113 Python tests, portable package verification, and Lean build. No merge to the canonical branch or release adoption has occurred.
 
 ## Current API
 
@@ -57,7 +57,7 @@ The receipt event ID is derived from the envelope digest. Reapplying the same en
 - Source instance IDs and actor IDs are caller-supplied, unauthenticated claims.
 - SHA-256 is not a digital signature; an attacker able to replace both payload and digest can forge a new envelope.
 - This is local file/API exchange, not network synchronization.
-- No encryption, authentication, remote trust, automatic backup, distributed consensus, or concurrent-writer coordination is implemented.
+- No encryption, authentication, remote trust, automatic backup scheduling, distributed consensus, or concurrent-writer coordination is implemented.
 - The in-memory apply transaction assumes the existing single-writer model; it is not a multiwriter locking protocol.
 - `apply_exchange_file` loads an existing audited snapshot, applies to a detached in-memory instance, then persists the combined snapshot through same-directory atomic replacement. It refuses to run without explicit authorization and does not create a missing destination implicitly.
 - File-backed apply still assumes a single writer. There is no inter-process lock or compare-and-swap protection against concurrent writers; callers must serialize writes to a destination file.
