@@ -215,11 +215,14 @@ class MemoryStore:
             if not isinstance(row, dict) or set(row) != {"source_version_id", "target_version_id"}:
                 raise ValidationError(f"invalid conflict entry at index {index}")
             source_id, target_id = row["source_version_id"], row["target_version_id"]
+            if (
+                not isinstance(source_id, str) or not source_id
+                or not isinstance(target_id, str) or not target_id
+            ):
+                raise ValidationError(f"invalid conflict identity at index {index}")
             source, target = version_rows.get(source_id), version_rows.get(target_id)
             if source is None or target is None or source.record_id != target.record_id:
                 raise ValidationError(f"invalid conflict endpoints at index {index}")
-            if not isinstance(source_id, str) or not isinstance(target_id, str):
-                raise ValidationError(f"invalid conflict identity at index {index}")
             pair = (source_id, target_id)
             if pair in seen_conflicts:
                 raise ValidationError(f"duplicate conflict annotation at index {index}")
