@@ -80,6 +80,44 @@ class SnapshotStorageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MemoryStore.from_snapshot(snapshot)
 
+    def test_snapshot_rejects_boolean_format_version(self):
+        store = MemoryStore()
+        store.create_record("root")
+        snapshot = store.to_snapshot()
+        snapshot["format_version"] = True
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
+    def test_snapshot_rejects_parentless_non_initial_version(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        snapshot = store.to_snapshot()
+        child = next(row for row in snapshot["versions"] if row["version_id"] == second.version_id)
+        child["parents"] = []
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
+    def test_snapshot_rejects_duplicate_parent_ids(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        snapshot = store.to_snapshot()
+        child = next(row for row in snapshot["versions"] if row["version_id"] == second.version_id)
+        child["parents"] = [first.version_id, first.version_id]
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
+    def test_snapshot_rejects_duplicate_conflict_annotations(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        store.annotate_conflict(first.version_id, second.version_id)
+        snapshot = store.to_snapshot()
+        snapshot["conflicts"].append(dict(snapshot["conflicts"][0]))
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()
