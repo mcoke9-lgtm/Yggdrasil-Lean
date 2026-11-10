@@ -65,9 +65,6 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(report["incoming_version_ids"], [])
 
     def test_divergent_histories_are_reported_without_rewriting_parents(self):
-        destination = AuditedMemoryStore.from_snapshot(
-            AuditedMemoryStore.from_snapshot(self.source.to_snapshot()).to_snapshot()
-        )
         # Construct two independent descendants of the shared initial version.
         from yim001.core import MemoryStore
         base = MemoryStore.from_snapshot({
@@ -77,7 +74,6 @@ class ExchangeTests(unittest.TestCase):
             "conflicts": [],
         })
         destination = AuditedMemoryStore("destination", store=base)
-        destination.revise(self.first.record_id, {"value": "destination"}, timestamp=None) if False else None
         # Audited wrapper uses the same base graph and adds its own independent branch.
         dest_version = destination.revise(self.first.record_id, {"value": "destination"}, timestamp="2026-11-10T12:04:00Z")
         before = destination.to_snapshot()
@@ -94,7 +90,8 @@ class ExchangeTests(unittest.TestCase):
         with self.assertRaisesRegex(ExchangeError, "explicit authorization"):
             apply_exchange(self.envelope, destination)
         self.assertEqual(destination.to_snapshot(), before)
-        with self.assertRaisesRegex(Exception, "UTC offset"):
+        from yim001.provenance import ProvenanceError
+        with self.assertRaisesRegex(ProvenanceError, "UTC offset"):
             apply_exchange(self.envelope, destination, authorized=True, timestamp="2026-11-10T12:05:00")
         self.assertEqual(destination.to_snapshot(), before)
 
@@ -138,7 +135,7 @@ class ExchangeTests(unittest.TestCase):
         )
         result = apply_exchange(self.envelope, destination, authorized=True)
         self.assertEqual(result["status"], "applied")
-        tips = destination._AuditedMemoryStore__store.tips(self.first.record_id)
+        tips = destination.tips(self.first.record_id)
         self.assertEqual(set(tips), {self.second.version_id, destination_branch.version_id})
         self.assertEqual(len(destination.conflicts(self.first.record_id)), 1)
 
