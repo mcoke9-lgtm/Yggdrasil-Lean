@@ -82,7 +82,13 @@ def verify_package(package: Path) -> dict:
             if not isinstance(name, str) or not name or "\\" in name:
                 raise ValueError("invalid manifest path")
             pure_path = PurePosixPath(name)
-            if pure_path.is_absolute() or any(part in {"", ".", ".."} for part in pure_path.parts):
+            raw_parts = name.split("/")
+            if (
+                pure_path.is_absolute()
+                or pure_path.as_posix() != name
+                or any(part in {"", ".", ".."} for part in raw_parts)
+                or re.match(r"^[A-Za-z]:", name) is not None
+            ):
                 raise ValueError(f"unsafe manifest path: {name}")
             if name == MANIFEST_PATH or name in expected_names:
                 raise ValueError(f"duplicate or reserved manifest path: {name}")
