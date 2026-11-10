@@ -92,26 +92,27 @@ def reconcile_creation_event(
         for field_name in ("event_id", "record_id", "creation_type", "record_digest", "sequence"):
             if getattr(row, field_name) is None:
                 missing.append(field_name)
+
+        # Evaluate every field that is present before classifying the entry as
+        # incomplete. A known contradiction remains CONFLICT even when another
+        # required field is missing.
+        row_has_conflict = False
+        if row.sequence is not None and (type(row.sequence) is not int or row.sequence < 0):
+            direct_conflicts.append(f"evidence entry {index} has an invalid sequence")
+            row_has_conflict = True
+        if row.record_id is not None and row.record_id != expected_record_id:
+            direct_conflicts.append(f"evidence entry {index} has a different record identity")
+            row_has_conflict = True
+        if row.creation_type is not None and row.creation_type != expected_creation_type:
+            direct_conflicts.append(f"evidence entry {index} has a different creation type")
+            row_has_conflict = True
+        if row.record_digest is not None and row.record_digest != expected_record_digest:
+            direct_conflicts.append(f"evidence entry {index} has a different record digest")
+            row_has_conflict = True
+
         if missing:
             incomplete.append(f"evidence entry {index} lacks {', '.join(missing)}")
-            continue
-
-        # bool is an int subclass in Python; sequence values must be actual
-        # non-negative integers, not booleans, floats, or numeric strings.
-        if type(row.sequence) is not int or row.sequence < 0:
-            direct_conflicts.append(f"evidence entry {index} has an invalid sequence")
-            continue
-        if row.record_id != expected_record_id:
-            direct_conflicts.append(f"evidence entry {index} has a different record identity")
-        if row.creation_type != expected_creation_type:
-            direct_conflicts.append(f"evidence entry {index} has a different creation type")
-        if row.record_digest != expected_record_digest:
-            direct_conflicts.append(f"evidence entry {index} has a different record digest")
-        if (
-            row.record_id == expected_record_id
-            and row.creation_type == expected_creation_type
-            and row.record_digest == expected_record_digest
-        ):
+        elif not row_has_conflict:
             matches.append(row)
 
     findings.extend(direct_conflicts)
