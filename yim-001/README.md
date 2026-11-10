@@ -1,7 +1,8 @@
-# YIM-001 — Memory Core Checkpoint 1
+# Core Memory System (YIM-001) — Checkpoint 1
 
 **Status:** Proposed implementation; 14 local tests passed; independent reproduction pending.  
-**Target:** MRP-001 Working Baseline 2026-11, Revision 4 (adopted 2026-11-10).
+**Cooperative AI Architecture:** wave form; MRP-001 Working Baseline 2026-11, Revision 4 is its adopted shared records contract.  
+**Core Memory System:** particle form; YIM-001 is its current reproducible reference implementation.
 
 This checkpoint implements the in-memory records core only. It deliberately does not implement persistence, provenance, events, integrity sealing, recovery, networking, access control, or the six-outcome reconciliation layer.
 
