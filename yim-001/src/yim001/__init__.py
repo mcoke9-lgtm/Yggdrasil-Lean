@@ -6,6 +6,7 @@ from .provenance import EventLedger, ProvenanceError, ProvenanceEvent
 from .audited import AuditedMemoryStore, load_audited, save_audited
 from .exchange import ExchangeError, apply_exchange, apply_exchange_file, export_envelope, inspect_envelope, load_envelope, save_envelope, stage_exchange
 from .recovery import RecoveryError, create_recovery_backup, inspect_recovery_backup, load_recovery_backup, restore_recovery_backup, restore_recovery_backup_file, save_recovery_backup
+from .checkpoints import CheckpointError, create_checkpoint_record, inspect_checkpoint_record, verify_checkpoint_chain
 
 __all__ = [
     "Conflict", "MemoryStore", "NotFoundError", "RecordError", "ValidationError", "Version",
@@ -15,4 +16,5 @@ __all__ = [
     "AuditedMemoryStore", "load_audited", "save_audited",
     "ExchangeError", "apply_exchange", "apply_exchange_file", "export_envelope", "inspect_envelope", "load_envelope", "save_envelope", "stage_exchange",
     "RecoveryError", "create_recovery_backup", "inspect_recovery_backup", "load_recovery_backup", "restore_recovery_backup", "restore_recovery_backup_file", "save_recovery_backup",
+    "CheckpointError", "create_checkpoint_record", "inspect_checkpoint_record", "verify_checkpoint_chain",
 ]
