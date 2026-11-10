@@ -99,12 +99,11 @@ def reconcile_creation_event(
             direct_conflicts.append(f"evidence entry {index} has a different creation type")
         if row.record_digest != expected_record_digest:
             direct_conflicts.append(f"evidence entry {index} has a different record digest")
-        if not any(
-            row.record_id != expected_record_id
-            or row.creation_type != expected_creation_type
-            or row.record_digest != expected_record_digest
-            or row.sequence < 0
-            for _ in (0,)
+        if (
+            row.record_id == expected_record_id
+            and row.creation_type == expected_creation_type
+            and row.record_digest == expected_record_digest
+            and row.sequence >= 0
         ):
             matches.append(row)
 
