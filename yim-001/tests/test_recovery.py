@@ -99,6 +99,22 @@ class RecoveryBackupTests(unittest.TestCase):
             self.assertEqual(destination.read_text(encoding="utf-8"), "corrupt")
             self.assertEqual(preservation.read_bytes(), b"do not overwrite")
 
+    def test_failed_restore_write_keeps_destination_and_preservation(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "memory.json"
+            preservation = Path(directory) / "before-restore.bin"
+            destination.write_bytes(b'{"generation": "old"}')
+            original = destination.read_bytes()
+            with patch("yim001.audited.write_json_atomic", side_effect=OSError("simulated replace failure")):
+                with self.assertRaisesRegex(OSError, "simulated replace failure"):
+                    restore_recovery_backup(
+                        self.backup, destination, authorized=True,
+                        preserve_path=preservation,
+                    )
+            self.assertEqual(destination.read_bytes(), original)
+            self.assertEqual(preservation.read_bytes(), original)
+
     def test_restore_missing_destination_creates_validated_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "new-memory.json"
