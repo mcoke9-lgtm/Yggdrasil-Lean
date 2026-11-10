@@ -1,12 +1,12 @@
 # YIM-001 cross-instance exchange
 
-**Status:** Portable envelope, deterministic read-only staging, and explicitly authorized transactional apply are implemented in the draft branch. CI verification is pending. No merge to the canonical branch or release adoption has occurred.
+**Status:** Portable envelope, deterministic read-only staging, explicitly authorized in-memory apply, and atomic file-backed apply are implemented in the draft branch. The previous checkpoint passed CI (99 Python tests, portable package verification, and Lean build). The file-backed apply addition is awaiting CI. No merge to the canonical branch or release adoption has occurred.
 
 ## Current API
 
 ```python
 from yim001 import (
-    AuditedMemoryStore, apply_exchange, export_envelope,
+    AuditedMemoryStore, apply_exchange, apply_exchange_file, export_envelope,
     inspect_envelope, stage_exchange, save_envelope, load_envelope,
 )
 
@@ -23,6 +23,11 @@ assert proposal["mutated_destination"] is False
 # Applying requires a separate, explicit authorization at the call site.
 result = apply_exchange(validated, destination, authorized=True)
 assert result["status"] == "applied"
+
+# For a persisted destination, use the file-backed operation.
+save_audited(destination, "destination.json")
+persisted = apply_exchange_file(validated, "destination.json", authorized=True)
+assert persisted["status"] == "applied"
 ```
 
 The envelope carries a caller-supplied source-instance identifier, timezone-qualified export timestamp, complete audited snapshot, and canonical SHA-256 digest. Inspection verifies the digest and validates the nested memory snapshot and provenance chain.
@@ -52,6 +57,8 @@ The receipt event ID is derived from the envelope digest. Reapplying the same en
 - This is local file/API exchange, not network synchronization.
 - No encryption, authentication, remote trust, automatic backup, distributed consensus, or concurrent-writer coordination is implemented.
 - The in-memory apply transaction assumes the existing single-writer model; it is not a multiwriter locking protocol.
+- `apply_exchange_file` loads an existing audited snapshot, applies to a detached in-memory instance, then persists the combined snapshot through same-directory atomic replacement. It refuses to run without explicit authorization and does not create a missing destination implicitly.
+- File-backed apply still assumes a single writer. There is no inter-process lock or compare-and-swap protection against concurrent writers; callers must serialize writes to a destination file.
 - The destination receipt embeds the complete source provenance ledger. This preserves evidence but can increase destination snapshot size.
 - Transfer files and receipts may contain sensitive user content; nothing is uploaded or transmitted automatically.
 
@@ -59,4 +66,4 @@ The receipt event ID is derived from the envelope digest. Reapplying the same en
 
 The exchange tests cover detached export, inspection round-trip, directional conflict preservation, read-only staging, repeated staging, version identity collisions, divergent branches, explicit authorization, failure-before-adoption, successful apply, source provenance preservation, idempotent repeat apply, collision refusal, tampering, and timezone-qualified timestamps.
 
-CI must pass on the exact latest branch head before this milestone is called tested or verified.
+The file-backed apply tests cover successful persistence, idempotent no-rewrite behavior, authorization-before-I/O, and preservation of the existing file when the save operation fails. CI must pass on the exact latest branch head before this addition is called tested or verified.
