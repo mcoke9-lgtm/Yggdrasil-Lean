@@ -73,7 +73,14 @@ def reconcile_creation_event(
             outcome = Outcome.NOT_FOUND
         return ReconciliationResult(outcome, tuple(findings + incomplete + ["no evidence entries supplied"]), ())
 
-    event_rows = [row for row in rows if row.event_id == expected_event_id]
+    # An entry with no event ID can still be relevant when its record identity
+    # identifies the requested record. Preserve it as incomplete evidence
+    # rather than incorrectly reporting that no candidate evidence exists.
+    event_rows = [
+        row for row in rows
+        if row.event_id == expected_event_id
+        or (row.event_id is None and row.record_id == expected_record_id)
+    ]
     if not event_rows:
         outcome = Outcome.UNCERTAIN if history_state in {"malformed", "unreadable"} else (
             Outcome.INCOMPLETE if history_state == "missing" else Outcome.NOT_FOUND
