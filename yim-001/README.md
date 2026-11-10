@@ -116,3 +116,7 @@ Use `audited-annotate-conflict` for directional conflict annotations. See [CLI.m
 The additive recovery layer creates digest-protected backups of complete audited snapshots. Saving a backup never overwrites an existing backup path. Restore is a separate operation requiring explicit authorization; when replacing an existing destination, it first preserves the exact previous bytes to a new, exclusive preservation file. See [RECOVERY.md](RECOVERY.md) for the API, safeguards, and limitations.
 
 Recovery remains local and single-writer. It does not provide automatic scheduling, encryption, remote redundancy, or proof that a selected backup is the newest or most trustworthy copy.
+
+## Portable recovery demonstration
+
+Run `PYTHONPATH=yim-001/src python yim-001/scripts/recovery_demo.py` for a reproducible two-copy file-level demonstration. It verifies intact copies against a separately retained checkpoint file, deliberately corrupts one copy, detects the damage, restores from the intact copy, and preserves the exact pre-restore bytes. This is a local simulation, not proof of independent custody or off-device resilience. See [RECOVERY-DEMO.md](RECOVERY-DEMO.md).
