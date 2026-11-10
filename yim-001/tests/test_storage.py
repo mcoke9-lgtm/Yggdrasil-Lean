@@ -118,6 +118,30 @@ class SnapshotStorageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MemoryStore.from_snapshot(snapshot)
 
+    def test_snapshot_rejects_unhashable_conflict_identity(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        snapshot = store.to_snapshot()
+        snapshot["conflicts"].append({
+            "source_version_id": [],
+            "target_version_id": second.version_id,
+        })
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
+    def test_snapshot_rejects_empty_conflict_identity(self):
+        store = MemoryStore()
+        first = store.create_record("root")
+        second = store.revise(first.record_id, "child")
+        snapshot = store.to_snapshot()
+        snapshot["conflicts"].append({
+            "source_version_id": "",
+            "target_version_id": second.version_id,
+        })
+        with self.assertRaises(ValueError):
+            MemoryStore.from_snapshot(snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()
