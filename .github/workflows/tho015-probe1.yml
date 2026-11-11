@@ -28,3 +28,7 @@ jobs:
         env:
           PYTHONPATH: yim-001/src
         run: python tho-015/probe2_malformed_history.py
+      - name: Execute Probe 4 — identifier compatibility observations
+        env:
+          PYTHONPATH: yim-001/src
+        run: python tho-015/probe4_identifiers.py
