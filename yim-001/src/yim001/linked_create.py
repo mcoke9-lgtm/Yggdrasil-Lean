@@ -138,12 +138,16 @@ def linked_create(
                                       record_id, version_id, intent.event_id, completion.event_id)
     else:
         record_id = _new_candidate_id({row["record_id"] for row in store.to_snapshot()["records"]} | {operation_id})
-        version_ids = {row["version_id"] for row in store.to_snapshot()["versions"]}
-        version_id = _new_candidate_id(version_ids | {record_id, operation_id})
+        snapshot = store.to_snapshot()
+        version_ids = {row["version_id"] for row in snapshot["versions"]}
+        record_ids = {row["record_id"] for row in snapshot["records"]}
+        version_id = _new_candidate_id(version_ids | record_ids | {record_id, operation_id})
         digest = initial_version_digest(record_id, version_id, content, metadata)
+        event_id = _new_candidate_id({event.event_id for event in ledger.events} | {operation_id, record_id, version_id})
         intent = ledger.append(
             "record.create_intent", actor_id, record_id=record_id, version_id=version_id,
             details={"schema": LINKED_INTENT_SCHEMA, "operation_id": operation_id, "record_digest": digest},
+            event_id=event_id,
         )
         _fault("before_intent_write")
         write_json_atomic(ledger_path, ledger.to_snapshot())
@@ -180,8 +184,10 @@ def linked_create(
     if matching:
         return LinkedCreateResult("UNCERTAIN", operation_id, ("completion appeared during operation; reconcile before retry",),
                                   record_id, version_id, intent.event_id, matching[0].event_id)
+    completion_event_id = _new_candidate_id({event.event_id for event in ledger.events} | {operation_id, record_id, version_id})
     completion = ledger.append(
         "record.created", actor_id, record_id=record_id, version_id=version_id,
+        event_id=completion_event_id,
         details={
             "schema": LINKED_COMPLETION_SCHEMA, "operation_id": operation_id,
             "intent_event_id": intent.event_id, "record_digest": expected_digest,
