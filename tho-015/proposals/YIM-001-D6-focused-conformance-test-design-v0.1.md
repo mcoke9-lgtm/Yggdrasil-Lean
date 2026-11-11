@@ -176,3 +176,42 @@ The earlier audit row and execution-plan wording above that described malformed-
 5. Do not resolve or encode direct-conflict versus malformed-history precedence without the user's decision.
 
 **Audit conclusion:** Source ordering for the current ordinary mutators is consistent with pre-mutation validation at the relevant single-file boundary, but the missing preservation tests and generic CLI error classification leave S2 conformance incomplete. Persisted-ledger reconciliation integration is absent in the inspected package.
+
+
+## S2 no-mutation regression batch — 2026-11-11
+
+### Tests added
+
+Commit: `2d05b42742dc90accff2ede70a48c95f5915a484`
+
+Only `yim-001/tests/test_cli.py` was changed in this batch.
+
+1. `test_memory_mutators_reject_malformed_or_unreadable_store_without_mutation`
+   - Exercises `create`, `revise`, and `annotate-conflict`.
+   - For each operation, tests a structurally invalid existing Core Memory snapshot and a truncated/unreadable snapshot.
+   - Requires rejection with a diagnostic and byte-for-byte unchanged authoritative store.
+   - Six operation/corruption combinations.
+
+2. `test_event_append_rejects_malformed_or_unreadable_complete_ledger_without_mutation`
+   - Exercises append against a complete ledger containing an unrelated unsupported event type, a boolean sequence, a broken hash link, or truncated/unreadable JSON.
+   - The attempted new event targets a different record from the malformed existing events.
+   - Requires rejection with a diagnostic and byte-for-byte unchanged authoritative ledger.
+   - Four corruption combinations.
+
+### Test iteration and final verification
+
+- Initial test commit `db3db51e943a43bd2c2ab4ef0837d65bddb7831c` ran, but the first test implementation reused the same temporary store/ledger paths across subtests. Eight cases failed at the CLI's intentional no-overwrite initialization guard; these failures were fixture-isolation defects, not evidence of write-gate failure.
+- Fixture paths were isolated per subtest in commit `c8a7986944a830e18b0404c1f4db59c7a1e743d3`; the suite then passed. An unused helper was removed in the final test commit above.
+- Final Core Memory System CI: [run #43021546364](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43021546364) — **success**.
+  - `python -m unittest discover -s yim-001/tests -v`: **78 tests passed**.
+  - Portable package build/verification and artifact upload completed.
+- Final Lean build CI: [run #43021546373](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43021546373) — **success**.
+
+### What this verifies — and does not
+
+- **Verified:** all six Core Memory mutator rejection cases preserve the existing snapshot bytes.
+- **Verified:** all four event-append rejection cases preserve the existing ledger bytes, including an unrelated malformed event.
+- **Verified:** the complete current 78-test suite and Lean build on final test commit.
+- **Not verified:** structured `UNCERTAIN` classification at the CLI boundary. These tests assert rejection, diagnostic presence, and no mutation; the current CLI still emits generic error text and exit code 2.
+- **Not verified:** persisted-ledger → reconciliation integration, recovery/repair, cross-file atomicity, or direct-conflict versus malformed-history precedence.
+- No production source, decision record, or normative specification was changed in this batch.
