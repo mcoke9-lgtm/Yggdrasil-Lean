@@ -34,6 +34,13 @@ def _parser() -> argparse.ArgumentParser:
     create.add_argument("store", type=Path)
     create.add_argument("content", type=Path)
     create.add_argument("--metadata", type=Path)
+    linked = commands.add_parser("linked-create", help="create a record with opt-in linked provenance")
+    linked.add_argument("store", type=Path)
+    linked.add_argument("content", type=Path)
+    linked.add_argument("--metadata", type=Path)
+    linked.add_argument("--ledger", required=True, type=Path)
+    linked.add_argument("--actor", required=True)
+    linked.add_argument("--operation-id", required=True)
     revise = commands.add_parser("revise", help="append a version to an existing record")
     revise.add_argument("store", type=Path)
     revise.add_argument("record_id")
@@ -86,6 +93,21 @@ def _emit(value: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "linked-create":
+            from .linked_create import linked_create
+            try:
+                result = linked_create(
+                    str(args.store), str(args.ledger), read_json_strict(args.content),
+                    _read_optional(args.metadata), args.actor, args.operation_id,
+                )
+            except (OSError, ValueError, TypeError) as exc:
+                print(json.dumps({"outcome": "UNCERTAIN", "operation_id": args.operation_id, "findings": [str(exc)]}, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+                return 2
+            if result.outcome == "CONSISTENT":
+                _emit(result.to_dict())
+                return 0
+            print(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True), file=sys.stderr)
+            return 2
         if args.command == "init":
             if args.store.exists():
                 raise FileExistsError(f"refusing to overwrite existing store: {args.store}")
