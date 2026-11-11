@@ -169,3 +169,18 @@ Section 2 is historical as a list of prerequisites: these contracts are no longe
 - Source/tests: **unchanged in this pass**.
 - Test execution: **not started**.
 - Implementation authorization: **not granted by this record**.
+
+
+## 8. Foundation implementation checkpoint — 2026-11-11
+
+The independent event-schema and canonical-digest foundation has now been implemented and CI-verified. Evidence: `tho-015/evidence/YIM-001-linked-create-foundation-evidence-v0.1.md`.
+
+Verified:
+- `record.create_intent` registry support and strict intent schema validation;
+- linked completion schema validation while preserving legacy `record.created` events;
+- RFC 8785 JCS canonicalization and the fixed SHA-256 digest vector;
+- linked-create digest field binding and rejection of invalid JCS-domain values;
+- 89 total Core Memory System tests passing;
+- portable package build/verification and Lean build passing.
+
+This checkpoint covers only the foundation. It does not implement or test linked-create persistence ordering, retry orchestration, partial-state reconciliation, or recovery. Existing unlinked create behavior is unchanged. The next implementation batch must address linked-create orchestration only after this foundation checkpoint.
