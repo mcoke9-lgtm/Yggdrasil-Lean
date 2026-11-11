@@ -161,6 +161,7 @@ class CommandLineTests(unittest.TestCase):
         for mutation_kind in ("malformed", "unreadable"):
             for command_name in ("create", "revise", "annotate-conflict"):
                 with self.subTest(mutation_kind=mutation_kind, command=command_name):
+                    self.store = self.root / f"memory-{mutation_kind}-{command_name}.json"
                     commands = self._seed_memory_for_mutator()
                     if mutation_kind == "malformed":
                         snapshot = json.loads(self.store.read_text(encoding="utf-8"))
@@ -191,7 +192,20 @@ class CommandLineTests(unittest.TestCase):
     def test_event_append_rejects_malformed_or_unreadable_complete_ledger_without_mutation(self):
         for corruption in ("unrelated-malformed-event", "boolean-sequence", "broken-chain", "unreadable"):
             with self.subTest(corruption=corruption):
-                ledger = self._seed_event_ledger()
+                ledger = self.root / f"events-{corruption}.json"
+                self.store = self.root / "unused-memory.json"
+                # Seed each corruption case in its own fresh ledger path.
+                self.run_cli("event-init", ledger)
+                self.run_cli(
+                    "event-append", ledger, "record.created", "node-a",
+                    "--record", "unrelated-record", "--version", "unrelated-version",
+                    "--timestamp", "2026-11-10T12:00:00Z",
+                )
+                self.run_cli(
+                    "event-append", ledger, "record.revised", "node-a",
+                    "--record", "unrelated-record", "--version", "unrelated-version-2",
+                    "--timestamp", "2026-11-10T12:01:00Z",
+                )
                 if corruption == "unreadable":
                     ledger.write_bytes(b'{"format":')
                 else:
