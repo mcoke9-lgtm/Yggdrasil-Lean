@@ -91,7 +91,8 @@ Probe 2 observed a raw `TypeError` for a list-valued `event_type` during members
 - Existing evidence: THO-015 Probe 2 reproduced the discrepancy; 11/11 malformed provenance snapshots were rejected, with one raw `TypeError` rather than normalized `ProvenanceError`.
 - Persisted-history/reconciliation integration: not found and remains unverified.
 - Memory mutator source order: loads/validates complete memory snapshot before in-memory mutation and save; targeted malformed-existing-snapshot preservation tests are missing.
-- Tests: unchanged in this pass.
+- Tests: two direct API regression tests have now been added to `yim-001/tests/test_reconcile.py`: malformed history before duplicate ambiguity, and unreadable history before duplicate ambiguity. Commit `a272a3d80e162cbae4747231c759f079723aff2e`.
+- Execution: no associated workflow run was returned by the available commit-run lookup; the test results are therefore **not yet verified**. The expected failure is predicted from the inspected branch ordering and prior Probe 2 reproduction, not claimed as a new execution.
 - Source: unchanged in this pass.
 - Normative specification: unchanged in this pass.
 - No new CI run was started.
