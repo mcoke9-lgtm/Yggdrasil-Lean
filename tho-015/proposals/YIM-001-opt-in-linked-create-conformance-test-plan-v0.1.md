@@ -143,3 +143,29 @@ A green suite does not establish cross-file atomicity or authorize recovery.
 - Recovery: not specified for implementation and not authorized.
 - MRP-001 Revision 4: unchanged.
 - Direct-conflict versus malformed-history precedence: unresolved and unchanged.
+
+
+## 7. Contract freeze update — 2026-11-11
+
+The six preconditions listed in Section 2 have now been frozen at design level by YIM-001-WGS Section 8.8 and decision/reference artifact `tho-015/decisions/YIM-001-opt-in-linked-create-implementation-contract-v0.1.md`.
+
+The following exact contracts now govern test implementation:
+
+- Intent event type `record.create_intent`, schema `YIM-001-LCC-INTENT/1`; completion details schema `YIM-001-LCC-COMPLETION/1`.
+- Actor claim is the existing event-envelope `actor_id`, preserved exactly; not authenticated.
+- Canonical digest profile `YIM-001-LCC-JCS/1`, RFC 8785 JCS over the five-member initial-version envelope, prefixed by ASCII `YIM-001-LCC-INITIAL-VERSION-DIGEST\0v1\0`, then SHA-256.
+- Linked CLI requires `--ledger`, `--actor`, and caller-supplied canonical lowercase UUIDv4 `--operation-id`; the same ID is reused on retry.
+- Outcomes are `NOT_FOUND`, `INCOMPLETE`, `CONSISTENT`, `UNCERTAIN`, `CONFLICT`, and `AMBIGUOUS`, with the meanings specified in WGS Section 8.8.4.
+- Test-only internal fault seams cover intent append/read-back, memory replacement/read-back, completion append/read-back, including post-replacement exceptions.
+
+Section 2 is historical as a list of prerequisites: these contracts are no longer open design questions. They are frozen but have not yet been implemented or tested. LCC-04 must include published JCS test vectors; the test implementation must use an RFC 8785-conformant canonicalizer and must not substitute ordinary `json.dumps(sort_keys=True)` as a claimed JCS implementation.
+
+### Updated status
+
+- Contract freeze: **completed at design level**.
+- Normative specification Section 8.8: **saved and independently retrieved**.
+- Implementation contract reference: **saved**.
+- This test plan: **updated to reference the frozen contracts**.
+- Source/tests: **unchanged in this pass**.
+- Test execution: **not started**.
+- Implementation authorization: **not granted by this record**.
