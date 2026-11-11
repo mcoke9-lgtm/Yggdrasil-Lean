@@ -48,7 +48,9 @@ def reconcile_creation_event(
 
     history_state is one of: valid, missing, malformed, unreadable.
     A missing history source yields INCOMPLETE; malformed/unreadable history
-    yields UNCERTAIN unless a higher-priority direct conflict is found.
+    yields UNCERTAIN rather than duplicate AMBIGUOUS. The interaction between
+    malformed/unreadable history and direct conflicts remains unresolved by the
+    adopted decision and is intentionally not asserted here.
     """
     if history_state not in {"valid", "missing", "malformed", "unreadable"}:
         raise ValueError("history_state must be valid, missing, malformed, or unreadable")
@@ -119,15 +121,17 @@ def reconcile_creation_event(
     findings.extend(incomplete)
     matching_ids = tuple(row.event_id for row in matches if row.event_id is not None)
 
-    # Frozen precedence: CONFLICT > AMBIGUOUS > UNCERTAIN > INCOMPLETE
-    # > CONSISTENT > NOT_FOUND.
+    # Decision 6 / Interaction 3: malformed or unreadable complete history
+    # takes precedence over duplicate ambiguity. The direct-conflict versus
+    # malformed-history interaction remains unresolved; preserve the existing
+    # direct-conflict branch without treating this ordering as a decision.
     if direct_conflicts:
         outcome = Outcome.CONFLICT
+    elif history_state in {"malformed", "unreadable"}:
+        outcome = Outcome.UNCERTAIN
     elif len(event_rows) > 1:
         outcome = Outcome.AMBIGUOUS
         findings.append("multiple entries share the requested event identity")
-    elif history_state in {"malformed", "unreadable"}:
-        outcome = Outcome.UNCERTAIN
     elif incomplete or history_state == "missing":
         outcome = Outcome.INCOMPLETE
     elif len(matches) == 1:
