@@ -7,6 +7,24 @@ import sys
 from typing import Any
 from . import EventLedger, MemoryStore, load_store, read_json_strict, save_store, write_json_atomic
 
+class UncertainHistoryError(ValueError):
+    """A required authoritative history could not be completely validated."""
+
+
+def _load_required_store(path: Path) -> MemoryStore:
+    try:
+        return load_store(path)
+    except (OSError, ValueError, TypeError) as exc:
+        raise UncertainHistoryError(f"required Core Memory history is invalid or unreadable: {exc}") from exc
+
+
+def _load_required_ledger(path: Path) -> EventLedger:
+    try:
+        return EventLedger.from_snapshot(read_json_strict(path))
+    except (OSError, ValueError, TypeError) as exc:
+        raise UncertainHistoryError(f"required provenance history is invalid or unreadable: {exc}") from exc
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yim001", description="Create, inspect, revise, and verify a local YIM-001 memory store.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -77,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
             _emit({"status": "created", "ledger": str(args.ledger)})
             return 0
         if args.command in {"event-append", "event-verify", "event-show"}:
-            ledger = EventLedger.from_snapshot(read_json_strict(args.ledger))
+            ledger = _load_required_ledger(args.ledger)
             if args.command == "event-append":
                 event = ledger.append(
                     args.event_type, args.actor_id,
@@ -93,11 +111,11 @@ def main(argv: list[str] | None = None) -> int:
                 _emit([event.to_dict() for event in ledger.events])
             return 0
         if args.command == "verify":
-            store = load_store(args.store)
+            store = _load_required_store(args.store)
             snapshot = store.to_snapshot()
             _emit({"status": "verified", "records": len(snapshot["records"]), "versions": len(snapshot["versions"]), "conflicts": len(snapshot["conflicts"])})
             return 0
-        store = load_store(args.store)
+        store = _load_required_store(args.store)
         if args.command == "create":
             version = store.create_record(read_json_strict(args.content), _read_optional(args.metadata))
             save_store(store, args.store)
@@ -116,6 +134,9 @@ def main(argv: list[str] | None = None) -> int:
             save_store(store, args.store)
             _emit({"source_version_id": conflict.source_version_id, "target_version_id": conflict.target_version_id, "directional": True})
         return 0
+    except UncertainHistoryError as exc:
+        print(json.dumps({"outcome": "UNCERTAIN", "error": str(exc)}, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+        return 2
     except (OSError, ValueError, TypeError) as exc:
         print(f"yim001: {exc}", file=sys.stderr)
         return 2
