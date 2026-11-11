@@ -37,7 +37,7 @@ The authoritative history boundary is determined by the actual authority and dat
 | Provenance event-append | Complete destination provenance ledger | The append extends the existing authoritative event sequence and hash chain. |
 | Read-only Core Memory show/verify | Complete Core Memory snapshot for the requested view/verification | Read-only; malformed/unreadable snapshot is reported, not repaired. |
 | Read-only event-show/event-verify | Complete provenance ledger | Read-only; malformed/unreadable ledger is reported, not repaired. |
-| Reconciliation | Complete authoritative history designated by the reconciliation contract for the evidence source | Complete-history validation precedes record-specific outcome calculation. The current API accepts caller-supplied evidence and a history-state label; persisted-ledger integration remains an implementation gap. |
+| Reconciliation | Complete authoritative history designated by the reconciliation contract for the evidence source | Complete-history validation precedes record-specific outcome calculation. The reconciliation function still accepts caller-supplied evidence and a history-state label. A read-only CLI adapter now validates and projects the complete persisted provenance ledger into that API; the adapter is limited to creation-event evidence and does not establish broader store/ledger integration. |
 | Future import that mutates an authoritative store | Complete destination snapshot plus every source history the import contract relies upon; validate any ledger to which the import will append | Import semantics and history dependencies must be specified before implementation. |
 | Future export that mutates authoritative state or appends authoritative history | Complete source history relied upon and complete destination history for each authoritative append | A read-only export that only produces a non-authoritative portable copy is not, by itself, an authoritative mutation; any authoritative ledger append is separately gated. |
 | Future recovery/repair | Governed by a separate recovery specification, not this ordinary-write path | Must preserve original evidence, require explicit authorization, and record the repair. Until specified, no implementation may silently bypass ordinary gating. |
@@ -69,7 +69,7 @@ The inspected implementation does not yet conform fully:
 - Core Memory mutators validate the memory snapshot but do not validate or append to a separate provenance ledger.
 - Provenance is a separate ledger and store mutations are not automatically instrumented.
 - Event append validates its complete ledger before append.
-- No integrated persisted-ledger-to-reconciliation caller was found in the inspected Python tree.
+- A read-only CLI persisted-ledger-to-creation-reconciliation adapter is implemented and tested. It validates the complete ledger before projecting evidence, including unrelated events; broader store/ledger integration and automatic event instrumentation remain unimplemented.
 - The reconciliation function's current precedence can return `AMBIGUOUS` when malformed history and duplicate matching evidence coexist; this conflicts with the adopted malformed-history-over-duplicate rule.
 - Recovery/repair has no adopted implementation contract.
 
