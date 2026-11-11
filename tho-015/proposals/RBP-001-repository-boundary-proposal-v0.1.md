@@ -2,7 +2,7 @@
 
 **Document:** RBP-001  
 **Version:** 0.1  
-**Status:** Proposed; not adopted  
+**Status:** Adopted as a repository-boundary decision; implementation and migration not authorized  
 **Prepared:** 2026-11-11  
 **Source checkpoint:** `mcoke9-lgtm/Yggdrasil-Lean`, branch `tho-015/probe1-ci-bootstrap`, commit `6ce49b472cc13bc7069a4adcf5a2729e333b2b04`
 
@@ -12,7 +12,11 @@ Define a boundary between formal models, executable implementation, and operatio
 
 This proposal does not authorize repository creation, source extraction, file movement, deletion, or a change of canonical authority.
 
-## 2. Proposed architecture
+## 2. Adopted architectural boundary
+
+The separation described below is adopted as the governing repository-boundary direction. Specific repository creation, hosting, canonical-remote selection, path-level extraction, operational storage, and migration execution remain subject to separate decisions and authorization.
+
+
 
 ### 2.1 Formal-model repository
 
@@ -80,7 +84,7 @@ A migration manifest must record:
 
 Do not rewrite the source branch as part of extraction.
 
-## 5. Proposed migration phases
+## 5. Migration phases (proposed; not authorized)
 
 1. Freeze and verify the source checkpoint.
 2. Finalize the source-to-destination path map.
@@ -119,7 +123,6 @@ The migration must preserve these qualifications and must not describe the imple
 
 ## 8. Decisions still open
 
-- Whether to adopt this repository boundary.
 - Whether the independent repository is initially local-only, self-hosted, or mirrored to GitHub.
 - Who/what controls the canonical remote and backups.
 - Which exact documentation and evidence paths are included in the implementation repository.
@@ -128,4 +131,4 @@ The migration must preserve these qualifications and must not describe the imple
 
 ## 9. Change control
 
-This document is a proposal only. It does not amend MRP-001 Revision 4, YIM-001-WGS, the YIM-001 linked-create contract, or any adopted implementation decision. It does not authorize code changes, repository creation, data migration, or deletion.
+The repository-boundary separation and principles in Sections 2–3 are adopted by the user's decision recorded in tho-015/decisions/RBP-001-adoption-decision-v0.1.md. The path mapping and migration phases remain proposed planning material. This adoption does not amend MRP-001 Revision 4, YIM-001-WGS, the YIM-001 linked-create contract, or any adopted implementation decision. It does not authorize code changes, repository creation, source extraction, data migration, canonical-authority transfer, or deletion.
