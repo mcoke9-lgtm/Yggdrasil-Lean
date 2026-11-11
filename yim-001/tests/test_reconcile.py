@@ -54,6 +54,20 @@ class ReconciliationTests(unittest.TestCase):
     def test_uncertain_malformed_history(self):
         self.assertEqual(self.run_case([self.good], history_state="malformed"), Outcome.UNCERTAIN)
 
+    def test_malformed_history_precedes_duplicate_ambiguity(self):
+        duplicate = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 1)
+        self.assertEqual(
+            self.run_case([self.good, duplicate], history_state="malformed"),
+            Outcome.UNCERTAIN,
+        )
+
+    def test_unreadable_history_precedes_duplicate_ambiguity(self):
+        duplicate = CreationEvidence("event-1", "record-1", "create", "sha256:abc", 1)
+        self.assertEqual(
+            self.run_case([self.good, duplicate], history_state="unreadable"),
+            Outcome.UNCERTAIN,
+        )
+
     def test_invalid_history_state_rejected(self):
         with self.assertRaises(ValueError):
             self.run_case([self.good], history_state="maybe")
