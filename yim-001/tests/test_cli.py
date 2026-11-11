@@ -141,5 +141,78 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("digest mismatch", result.stderr)
 
 
+    def _seed_memory_for_mutator(self):
+        self.run_cli("init", self.store)
+        self.write_json(self.content, {"value": "first"})
+        first = self.output(self.run_cli("create", self.store, self.content))
+        self.write_json(self.content, {"value": "second"})
+        second = self.output(self.run_cli("revise", self.store, first["record_id"], self.content))
+        commands = {
+            "create": ("create", self.store, self.content),
+            "revise": ("revise", self.store, first["record_id"], self.content),
+            "annotate-conflict": (
+                "annotate-conflict", self.store,
+                first["version_id"], second["version_id"],
+            ),
+        }
+        return commands
+
+    def test_memory_mutators_reject_malformed_or_unreadable_store_without_mutation(self):
+        for mutation_kind in ("malformed", "unreadable"):
+            for command_name in ("create", "revise", "annotate-conflict"):
+                with self.subTest(mutation_kind=mutation_kind, command=command_name):
+                    commands = self._seed_memory_for_mutator()
+                    if mutation_kind == "malformed":
+                        snapshot = json.loads(self.store.read_text(encoding="utf-8"))
+                        snapshot["records"][0]["version_ids"] = []
+                        self.store.write_text(json.dumps(snapshot), encoding="utf-8")
+                    else:
+                        self.store.write_bytes(b'{"format":')
+                    before = self.store.read_bytes()
+                    result = self.run_cli(*commands[command_name], expected=2)
+                    self.assertTrue(result.stderr.strip(), "rejected write should explain the validation failure")
+                    self.assertEqual(self.store.read_bytes(), before)
+
+    def _seed_event_ledger(self):
+        ledger = self.root / "events.json"
+        self.run_cli("event-init", ledger)
+        self.run_cli(
+            "event-append", ledger, "record.created", "node-a",
+            "--record", "unrelated-record", "--version", "unrelated-version",
+            "--timestamp", "2026-11-10T12:00:00Z",
+        )
+        self.run_cli(
+            "event-append", ledger, "record.revised", "node-a",
+            "--record", "unrelated-record", "--version", "unrelated-version-2",
+            "--timestamp", "2026-11-10T12:01:00Z",
+        )
+        return ledger
+
+    def test_event_append_rejects_malformed_or_unreadable_complete_ledger_without_mutation(self):
+        for corruption in ("unrelated-malformed-event", "boolean-sequence", "broken-chain", "unreadable"):
+            with self.subTest(corruption=corruption):
+                ledger = self._seed_event_ledger()
+                if corruption == "unreadable":
+                    ledger.write_bytes(b'{"format":')
+                else:
+                    snapshot = json.loads(ledger.read_text(encoding="utf-8"))
+                    if corruption == "unrelated-malformed-event":
+                        snapshot["events"][0]["event_type"] = "unsupported.event"
+                    elif corruption == "boolean-sequence":
+                        snapshot["events"][0]["sequence"] = True
+                    elif corruption == "broken-chain":
+                        snapshot["events"][1]["previous_digest"] = "f" * 64
+                    ledger.write_text(json.dumps(snapshot), encoding="utf-8")
+                before = ledger.read_bytes()
+                result = self.run_cli(
+                    "event-append", ledger, "record.created", "node-b",
+                    "--record", "different-record", "--version", "new-version",
+                    "--timestamp", "2026-11-10T12:02:00Z",
+                    expected=2,
+                )
+                self.assertTrue(result.stderr.strip(), "rejected append should explain the validation failure")
+                self.assertEqual(ledger.read_bytes(), before)
+
+
 if __name__ == "__main__":
     unittest.main()
