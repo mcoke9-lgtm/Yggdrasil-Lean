@@ -171,7 +171,9 @@ class CommandLineTests(unittest.TestCase):
                         self.store.write_bytes(b'{"format":')
                     before = self.store.read_bytes()
                     result = self.run_cli(*commands[command_name], expected=2)
-                    self.assertTrue(result.stderr.strip(), "rejected write should explain the validation failure")
+                    error = json.loads(result.stderr)
+                    self.assertEqual(error["outcome"], "UNCERTAIN")
+                    self.assertIn("required Core Memory history", error["error"])
                     self.assertEqual(self.store.read_bytes(), before)
 
     def test_event_append_rejects_malformed_or_unreadable_complete_ledger_without_mutation(self):
@@ -208,7 +210,9 @@ class CommandLineTests(unittest.TestCase):
                     "--timestamp", "2026-11-10T12:02:00Z",
                     expected=2,
                 )
-                self.assertTrue(result.stderr.strip(), "rejected append should explain the validation failure")
+                error = json.loads(result.stderr)
+                self.assertEqual(error["outcome"], "UNCERTAIN")
+                self.assertIn("required provenance history", error["error"])
                 self.assertEqual(ledger.read_bytes(), before)
 
 
