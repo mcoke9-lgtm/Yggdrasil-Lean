@@ -101,9 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             _emit({"status": "created", "ledger": str(args.ledger)})
             return 0
         if args.command == "reconcile-create":
-            try:
-                ledger = _load_required_ledger(args.ledger)
-            except FileNotFoundError:
+            if not args.ledger.exists():
                 result = reconcile_creation_event(
                     expected_event_id=args.event_id,
                     expected_record_id=args.record_id,
@@ -112,17 +110,20 @@ def main(argv: list[str] | None = None) -> int:
                     evidence=(),
                     history_state="missing",
                 )
-            except UncertainHistoryError as exc:
-                result = reconcile_creation_event(
+            else:
+                try:
+                    ledger = _load_required_ledger(args.ledger)
+                except UncertainHistoryError as exc:
+                    result = reconcile_creation_event(
                     expected_event_id=args.event_id,
                     expected_record_id=args.record_id,
                     expected_creation_type=args.creation_type,
                     expected_record_digest=args.record_digest,
                     evidence=(),
-                    history_state="unreadable" if "unreadable" in str(exc).lower() else "malformed",
-                )
-            else:
-                evidence = [
+                        history_state="unreadable" if "unreadable" in str(exc).lower() else "malformed",
+                    )
+                else:
+                    evidence = [
                     CreationEvidence(
                         event_id=event.event_id,
                         record_id=event.record_id,
@@ -130,16 +131,16 @@ def main(argv: list[str] | None = None) -> int:
                         record_digest=event.details.get("record_digest") if isinstance(event.details, dict) else None,
                         sequence=event.sequence,
                     )
-                    for event in ledger.events
-                ]
-                result = reconcile_creation_event(
-                    expected_event_id=args.event_id,
-                    expected_record_id=args.record_id,
-                    expected_creation_type=args.creation_type,
-                    expected_record_digest=args.record_digest,
-                    evidence=evidence,
-                    history_state="valid",
-                )
+                        for event in ledger.events
+                    ]
+                    result = reconcile_creation_event(
+                        expected_event_id=args.event_id,
+                        expected_record_id=args.record_id,
+                        expected_creation_type=args.creation_type,
+                        expected_record_digest=args.record_digest,
+                        evidence=evidence,
+                        history_state="valid",
+                    )
             _emit({
                 "outcome": result.outcome.value,
                 "findings": list(result.findings),
