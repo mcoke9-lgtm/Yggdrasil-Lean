@@ -137,7 +137,7 @@ def linked_create(
             return LinkedCreateResult("CONSISTENT", operation_id, ("operation already completed and verified",),
                                       record_id, version_id, intent.event_id, completion.event_id)
     else:
-        record_id = _new_candidate_id(set(store.to_snapshot()["records"][i]["record_id"] for i in range(len(store.to_snapshot()["records"]))))
+        record_id = _new_candidate_id({row["record_id"] for row in store.to_snapshot()["records"]} | {operation_id})
         version_ids = {row["version_id"] for row in store.to_snapshot()["versions"]}
         version_id = _new_candidate_id(version_ids | {record_id, operation_id})
         digest = initial_version_digest(record_id, version_id, content, metadata)
