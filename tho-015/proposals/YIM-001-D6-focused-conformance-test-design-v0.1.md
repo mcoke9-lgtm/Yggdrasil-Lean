@@ -111,3 +111,19 @@ Probe 2 observed a raw `TypeError` for a list-valued `event_type` during members
 - Package build and artifact upload were skipped because the test step failed.
 - This verifies the direct API precedence defect in the current implementation. It does not establish persisted-ledger integration behavior.
 - Source remains unchanged. No corrective implementation was made.
+
+
+## Bounded correction and verification — 2026-11-11
+
+- Corrective source commit: `d7283068522405e5d9143a476c22616a0a9b1792`.
+- Changed only `yim-001/src/yim001/reconcile.py`:
+  - malformed/unreadable history is now checked before duplicate-event ambiguity;
+  - direct-conflict handling remains in its prior position;
+  - comments explicitly preserve the unresolved direct-conflict versus malformed-history question rather than claiming it is decided.
+- No specification, decision record, unrelated source, or test files were changed in this corrective step.
+- Core Memory System CI: [run #43020607500](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43020607500) — **success**.
+  - `python -m unittest discover -s yim-001/tests -v`: **76 tests passed**, including both new precedence regressions.
+  - Portable package build/verification and artifact upload steps completed successfully.
+- Lean build CI: [run #43020607542](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43020607542) — **success**.
+- Verified scope: direct reconciliation API ordering and repository CI on this commit.
+- Not verified: persisted-ledger → reconciliation integration, complete S2 write-gating conformance, recovery/repair, or the unresolved direct-conflict + malformed-history combination.
