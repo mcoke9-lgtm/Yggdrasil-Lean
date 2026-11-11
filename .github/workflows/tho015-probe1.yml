@@ -1,0 +1,26 @@
+name: THO-015 Probe 1 isolated runtime
+
+on:
+  push:
+    branches:
+      - "tho-015/probe1-ci-bootstrap"
+    paths:
+      - "tho-015/**"
+      - ".github/workflows/tho015-probe1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Execute isolated uncertain-commit retry probe
+        env:
+          PYTHONPATH: yim-001/src
+        run: python tho-015/probe1_crash_retry.py
