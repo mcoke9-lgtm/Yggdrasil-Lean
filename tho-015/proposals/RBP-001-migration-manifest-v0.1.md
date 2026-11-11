@@ -2,7 +2,7 @@
 
 **Document:** RBP-001-MANIFEST  
 **Version:** 0.1  
-**Status:** Draft mapping; no migration performed  
+**Status:** Draft mapping; hosting direction adopted; no migration performed  
 **Prepared:** 2026-11-11
 
 ## 1. Immutable source checkpoint
@@ -66,7 +66,11 @@ This is a proposed mapping, not an instruction to move files. Any path not expli
 
 Blob hashes identify file content at the inspected checkpoint. Commit references identify repository history. They are distinct kinds of evidence and must not be conflated.
 
-## 4. Extraction and verification record
+## 4. Adopted hosting direction
+
+Local-first, GitHub-optional hosting is adopted by decision RBP-001-ADOPT-002. The destination is to be an ordinary Git repository usable without GitHub-specific runtime services. GitHub may be an optional mirror, collaboration interface, or CI host. No repository has been created, and no canonical remote, local filesystem location, backup topology, or recovery procedure has been selected.
+
+## 5. Extraction and verification record
 
 | Field | Status |
 |---|---|
@@ -79,7 +83,7 @@ Blob hashes identify file content at the inspected checkpoint. Commit references
 | Path/hash comparison | Not performed |
 | Canonical authority transfer | Not authorized |
 
-## 5. Required migration checks
+## 6. Required migration checks
 
 Before declaring extraction verified:
 1. Record exact source commit and tree hash.
@@ -93,7 +97,7 @@ Before declaring extraction verified:
 9. Keep the source repository and branch unchanged.
 10. Request a separate decision before changing canonical authority.
 
-## 6. Non-authorizations
+## 7. Non-authorizations
 
 This manifest does not authorize:
 - creating or paying for a new hosting service;
@@ -104,6 +108,7 @@ This manifest does not authorize:
 - changing YIM-001 specifications or implementation behavior;
 - declaring a new canonical source of truth.
 
-## 7. Change log
+## 8. Change log
 
 - v0.1 — Initial proposed path map and evidence anchors prepared from the read-only THO-015 source checkpoint. No migration performed.
+- v0.1 addendum — Local-first, GitHub-optional hosting direction adopted by RBP-001-ADOPT-002. Destination and migration remain uncreated/unperformed.
