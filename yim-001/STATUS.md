@@ -18,6 +18,11 @@
 - Status discipline: implementation is in progress; CI-tested does not mean canonical release adopted.
 - MRP-001 Revision 4 remains unchanged. No external code review is being pursued as the next step.
 
+## Adopted write-gating specification
+
+- [YIM-001 Ordinary Write-Gating Specification v0.1](WRITE-GATING-SPEC.md): adopted specification addendum, 2026-11-11.
+- It defines the current operation-to-history map and records known conformance gaps. Source and tests remain unchanged by the specification adoption.
+
 ## Next implementation priorities
 
 1. Connect memory-store operations to provenance events so create, revise, conflict annotation, import, export, and recovery produce linked audit entries without rewriting history.
