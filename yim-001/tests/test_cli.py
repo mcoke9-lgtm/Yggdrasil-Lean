@@ -174,26 +174,10 @@ class CommandLineTests(unittest.TestCase):
                     self.assertTrue(result.stderr.strip(), "rejected write should explain the validation failure")
                     self.assertEqual(self.store.read_bytes(), before)
 
-    def _seed_event_ledger(self):
-        ledger = self.root / "events.json"
-        self.run_cli("event-init", ledger)
-        self.run_cli(
-            "event-append", ledger, "record.created", "node-a",
-            "--record", "unrelated-record", "--version", "unrelated-version",
-            "--timestamp", "2026-11-10T12:00:00Z",
-        )
-        self.run_cli(
-            "event-append", ledger, "record.revised", "node-a",
-            "--record", "unrelated-record", "--version", "unrelated-version-2",
-            "--timestamp", "2026-11-10T12:01:00Z",
-        )
-        return ledger
-
     def test_event_append_rejects_malformed_or_unreadable_complete_ledger_without_mutation(self):
         for corruption in ("unrelated-malformed-event", "boolean-sequence", "broken-chain", "unreadable"):
             with self.subTest(corruption=corruption):
                 ledger = self.root / f"events-{corruption}.json"
-                self.store = self.root / "unused-memory.json"
                 # Seed each corruption case in its own fresh ledger path.
                 self.run_cli("event-init", ledger)
                 self.run_cli(
