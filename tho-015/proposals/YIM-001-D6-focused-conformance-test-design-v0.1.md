@@ -215,3 +215,32 @@ Only `yim-001/tests/test_cli.py` was changed in this batch.
 - **Not verified:** structured `UNCERTAIN` classification at the CLI boundary. These tests assert rejection, diagnostic presence, and no mutation; the current CLI still emits generic error text and exit code 2.
 - **Not verified:** persisted-ledger → reconciliation integration, recovery/repair, cross-file atomicity, or direct-conflict versus malformed-history precedence.
 - No production source, decision record, or normative specification was changed in this batch.
+
+
+## CLI UNCERTAIN classification correction — 2026-11-11
+
+### Implementation
+
+- CLI source commit: `45bd1258465dbf4cb4daf9344c9e0924bddb7850`.
+- Test assertion commit: `74fa4d54dc9cbb498fc2da8cbe1734bfdc0bcf95`.
+- Changed:
+  - Required Core Memory snapshot loading and required provenance-ledger loading now pass through explicit validation boundaries.
+  - A failure to parse, read, or validate required history is wrapped as `UncertainHistoryError`.
+  - CLI emits a JSON diagnostic on stderr with `outcome: "UNCERTAIN"` and an explanatory `error` field, and exits with code 2.
+  - This applies to Core Memory ordinary mutators and provenance event-append; read-only show/verify paths also use the same required-history classification.
+  - Other operation errors (for example, unknown record, invalid new input, destination already exists, or append payload validation) retain the existing generic CLI error behavior.
+- Tests now parse the structured stderr diagnostic and assert `outcome == "UNCERTAIN"` for the six memory snapshot and four provenance ledger rejection cases.
+- No precedence rule was changed. Direct conflict versus malformed-history remains unresolved.
+
+### Verification
+
+- Core Memory System CI: [run #43021993871](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43021993871) — **success**.
+  - Full suite: **78 tests passed**.
+  - Portable package build/verification and artifact upload completed.
+- Lean build CI: [run #43021993881](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43021993881) — **success**.
+
+### Scope and limitations
+
+- **Verified:** CLI now explicitly classifies unreadable/malformed required histories as `UNCERTAIN` in a machine-readable JSON diagnostic; the 78-test suite and Lean build pass.
+- **Not verified:** persisted-ledger → reconciliation integration; recovery/repair; cross-file atomicity; or complete S2 conformance beyond the currently tested operation boundaries.
+- **Not changed:** adopted specification, decision records, direct-conflict precedence, and MRP-001 Revision 4.
