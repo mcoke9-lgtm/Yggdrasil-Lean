@@ -184,3 +184,22 @@ Verified:
 - portable package build/verification and Lean build passing.
 
 This checkpoint covers only the foundation. It does not implement or test linked-create persistence ordering, retry orchestration, partial-state reconciliation, or recovery. Existing unlinked create behavior is unchanged. The next implementation batch must address linked-create orchestration only after this foundation checkpoint.
+
+
+## 9. Persistence implementation checkpoint — 2026-11-11
+
+The first linked-create persistence implementation batch is now saved and CI-verified. Evidence: `tho-015/evidence/YIM-001-linked-create-persistence-evidence-v0.1.md`.
+
+Implemented and tested:
+- opt-in `linked-create` CLI with explicit ledger, actor claim, and caller-supplied operation UUID;
+- complete Core Memory and provenance preflight before mutation;
+- intent append/read-back, exact candidate memory commit/read-back, completion append/read-back;
+- stable retry using the persisted candidate identities and digest;
+- intent-only resume, completed-operation idempotency, actor mismatch conflict, and record-without-completion `UNCERTAIN` without silent completion;
+- CLI invocation/retry and malformed-ledger no-mutation preflight.
+
+Final verification:
+- Core Memory System CI run #43025937816: 96 tests passed.
+- Lean build run #43025937848: passed.
+
+This is a partial implementation checkpoint, not full LCC-01 through LCC-08 conformance. The full before/after fault-injection matrix and the remaining duplicate/contradiction/partial-state combinations are outstanding. Recovery remains out of scope and unauthorized. Unlinked `create` and MRP-001 Revision 4 remain unchanged. No cross-file atomicity is claimed.
