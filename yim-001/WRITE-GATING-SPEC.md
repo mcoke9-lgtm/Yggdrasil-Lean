@@ -142,3 +142,95 @@ The Core Memory snapshot and provenance ledger remain separate persistence autho
 The linked-create path MUST NOT be implemented as conformant until all of the following are fixed and tested: event payload schemas; canonical digest byte profile and test vectors; operation-ID generation/surfacing/reuse contract; actor-claim argument contract; reconciliation outcomes for all partial states; and failure-injection tests at each persistence boundary.
 
 The linked-create path remains opt-in. This section does not authorize recovery implementation, alter MRP-001 Revision 4, or resolve the direct-conflict versus malformed-history precedence question.
+
+
+### 8.8 Frozen linked-create implementation contract (v0.1)
+
+This subsection freezes the design-level wire, digest, invocation, identity, and outcome contracts for the opt-in linked-create path. It does not itself implement them.
+
+#### 8.8.1 Event envelope and payload schemas
+
+The existing provenance event envelope remains unchanged:
+
+- `event_id`: independently generated unique provenance event ID;
+- `sequence`, `event_type`, `actor_id`, `timestamp`;
+- `record_id`, `version_id`;
+- `details`;
+- `previous_digest`, `digest`.
+
+For linked create, `actor_id` is the caller-supplied actor claim. It MUST be non-empty after whitespace validation and MUST be preserved exactly as supplied. It is not authenticated identity.
+
+The ledger event-type registry MUST add `record.create_intent`. Existing event types and existing `record.created` event rows remain valid.
+
+The intent event MUST have:
+
+- `event_type = "record.create_intent"`;
+- top-level `actor_id`, `record_id`, and `version_id` populated;
+- `details` as an object with exactly these keys:
+  - `schema`: `"YIM-001-LCC-INTENT/1"`;
+  - `operation_id`: canonical operation UUID;
+  - `record_digest`: lowercase 64-character SHA-256 hex digest.
+
+The linked completion event MUST have:
+
+- `event_type = "record.created"`;
+- the same top-level `actor_id`, `record_id`, and `version_id` as its intent;
+- `details` as an object with exactly these keys:
+  - `schema`: `"YIM-001-LCC-COMPLETION/1"`;
+  - `operation_id`: the same operation UUID;
+  - `intent_event_id`: the exact event ID of the matching intent;
+  - `record_digest`: the same lowercase 64-character SHA-256 hex digest.
+
+The event ID is never reused as the record ID, version ID, or operation ID. The event envelope's hash-chain digest remains separate from the record digest.
+
+#### 8.8.2 Canonical digest profile
+
+The digest profile identifier is `YIM-001-LCC-JCS/1`.
+
+1. Construct an initial-version envelope with exactly these members: `record_id`, `version_id`, `parents`, `content`, and `metadata`.
+2. `parents` MUST be the empty array.
+3. Canonicalize the envelope using JSON Canonicalization Scheme (JCS), RFC 8785, encoded as UTF-8 without a BOM or trailing newline.
+4. Reject non-finite numbers, strings containing unpaired UTF-16 surrogates, and numeric values that cannot be represented under JCS/IEEE-754 number rules. Do not silently round or normalize them.
+5. Do not perform Unicode normalization. Object member ordering and number serialization follow RFC 8785.
+6. Compute SHA-256 over the exact byte concatenation:
+   `YIM-001-LCC-INITIAL-VERSION-DIGEST\0v1\0` followed immediately by the canonical UTF-8 JCS bytes.
+7. Represent the result as 64 lowercase hexadecimal characters.
+
+The canonicalization profile and domain prefix are part of the digest contract. Event creation and reconciliation MUST share the same implementation/profile. Content-only digests and the provenance event hash-chain digest are not substitutes.
+
+#### 8.8.3 Operation ID and CLI contract
+
+1. The linked-create CLI invocation MUST require `--ledger PATH`, `--actor ACTOR_ID`, and `--operation-id UUID`. The existing positional store/content arguments remain.
+2. The caller supplies a canonical lowercase UUID version 4 string (36-character hyphenated form). The CLI MUST reject noncanonical UUID text and non-v4 UUIDs before mutation.
+3. The caller generates the operation ID once for a new request, retains it, and supplies the identical value for any retry of that request. A new request uses a new UUID.
+4. The implementation MUST persist the operation ID in the intent before committing the memory snapshot. The intent also persists the generated candidate record ID, version ID, actor claim, and digest in its event envelope/payload.
+5. On retry, the implementation MUST search the fully validated ledger for that operation ID before generating candidate identifiers. A matching intent supplies the original candidate identity and digest; the retry MUST compare the supplied content/metadata and actor claim against that intent.
+6. There MUST be at most one intent and one completion event per operation ID. A second intent or completion for the same operation ID is contradictory duplicate evidence and MUST NOT be appended.
+7. Candidate record/version IDs are generated once before the intent append and recovered from that intent on retry; they are not additional caller arguments.
+
+#### 8.8.4 Outcome vocabulary
+
+The reconciliation result vocabulary is fixed as follows:
+
+| Outcome | Meaning |
+|---|---|
+| `NOT_FOUND` | No intent or completion evidence exists for the queried operation ID in a valid ledger. |
+| `INCOMPLETE` | A unique valid intent exists, and the candidate record is absent; the exact operation may be resumed under Section 8.5.1. |
+| `CONSISTENT` | Exactly one matching intent, committed record, and linked completion event are present and all identities, actor claims, and digests agree. |
+| `UNCERTAIN` | Required history is missing, malformed, or unreadable; a read-back/commit result is indeterminate; or the record matches the intent but completion is absent. |
+| `CONFLICT` | Present evidence directly contradicts the operation, including mismatched actor, record/version identity, digest, or a completion without its matching intent/record. |
+| `AMBIGUOUS` | More than one candidate intent/completion association remains after complete-history validation and cannot be uniquely resolved. |
+
+Malformed or unreadable complete history MUST yield `UNCERTAIN` before duplicate/ambiguity calculation, consistent with the adopted malformed-history precedence. The separately unresolved direct-conflict versus malformed-history precedence remains unchanged.
+
+For the linked-create command, exit code 0 and ordinary success output are reserved for `CONSISTENT`. An unresolved or rejected partial state MUST NOT be presented as success. Machine-readable outcomes MUST include `outcome`, `operation_id`, `findings`, and relevant event IDs. The exact stdout/stderr presentation may follow the existing CLI convention but MUST be stable and tested.
+
+#### 8.8.5 Fault-injection contract
+
+Tests MUST inject failures through internal persistence seams or mocks at these boundaries: before/after intent append; intent read-back; before/during/after memory snapshot replacement; memory read-back; before/after completion append; and completion read-back.
+
+Fault injection MUST be test-only and MUST NOT add a user-accessible environment-variable or CLI bypass. Tests MUST assert actual persisted bytes and state after each injected failure. The implementation MUST distinguish a known pre-commit failure from an indeterminate post-replacement result; it MUST NOT infer failure merely because a write call raised after replacement may already have occurred.
+
+#### 8.8.6 Implementation dependency
+
+The current `EventLedger.EVENT_TYPES` registry does not yet include `record.create_intent`. Adding that event type and its strict schema validation is a required source change for implementation. Existing `record.created` events without the linked-completion schema remain valid and MUST retain their prior meaning.
