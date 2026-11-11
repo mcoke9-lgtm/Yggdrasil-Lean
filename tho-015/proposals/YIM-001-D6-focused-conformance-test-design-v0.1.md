@@ -244,3 +244,31 @@ Only `yim-001/tests/test_cli.py` was changed in this batch.
 - **Verified:** CLI now explicitly classifies unreadable/malformed required histories as `UNCERTAIN` in a machine-readable JSON diagnostic; the 78-test suite and Lean build pass.
 - **Not verified:** persisted-ledger → reconciliation integration; recovery/repair; cross-file atomicity; or complete S2 conformance beyond the currently tested operation boundaries.
 - **Not changed:** adopted specification, decision records, direct-conflict precedence, and MRP-001 Revision 4.
+
+
+## Persisted-ledger creation reconciliation adapter — 2026-11-11
+
+### Implementation
+
+- Adapter source commit: `40f9d723e52e85158b98f7a4f5fffc34d40bb8b6`; absent-ledger handling and formatting follow-ups: `830f3089da302b0b57a5b46f74c2d10cf0d63719`, `caaffe35a8e2c6ec90a12ee7a2f210f35ccd01bb`.
+- Integration test commit: `33bafec30377e17cdba0e9452c40638735302ea5`.
+- Added read-only CLI command `reconcile-create`.
+- It loads and validates the complete persisted provenance ledger before projecting event rows into `CreationEvidence`.
+- Projection uses event ID, record ID, event type as creation type, `details.record_digest` when present, and sequence.
+- Missing ledger is passed to reconciliation as missing history and yields `INCOMPLETE`.
+- A malformed or unreadable ledger is passed as malformed/unreadable history and yields `UNCERTAIN`.
+- An unrelated malformed event blocks reconciliation even when the requested creation event itself is intact.
+- The command emits JSON with `outcome`, `findings`, and `matching_event_ids`; it does not mutate the ledger.
+- The command is limited to creation-event reconciliation. It does not add automatic provenance instrumentation to Core Memory mutations or define cross-ledger synchronization.
+
+### Verification
+
+- Core Memory System CI: [run #43022457529](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43022457529) — **success**, **79 tests passed**, including valid persisted-ledger reconciliation, unrelated malformed-event rejection, unreadable-ledger uncertainty, and missing-ledger incompleteness.
+- Lean build CI: [run #43022457516](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43022457516) — **success**.
+- The integration test confirms byte-for-byte unchanged ledger content after reconciliation.
+
+### Boundaries retained
+
+- No change to direct-conflict versus malformed-history precedence; it remains unresolved.
+- No change to MRP-001 Revision 4.
+- No recovery/repair behavior, automatic Core Memory event instrumentation, cross-file transaction, or broader multi-ledger integration is claimed.
