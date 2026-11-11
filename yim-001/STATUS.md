@@ -29,3 +29,14 @@
 2. Define portable exchange between independent stores, preserving identities and histories and reporting conflicts rather than silently overwriting.
 3. Add independent ledger identity/checkpoint handling and cross-ledger verification.
 4. Build recovery workflows and a two-instance integration demonstration.
+
+
+## Opt-in linked Core Memory creation checkpoint
+
+- Linked-create event-schema and JCS digest foundation: implemented and CI-verified (89-test checkpoint).
+- Opt-in linked-create persistence sequence: implemented as a separate `linked-create` CLI path; complete-history preflight, intent → record → completion ordering, read-back checks, retry handling, and partial-state outcomes are covered by the initial implementation tests.
+- Latest Core Memory System CI: [run #43025937816](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43025937816), **96 tests passed**.
+- Latest Lean build: [run #43025937848](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43025937848), **passed**.
+- Evidence: [linked-create persistence evidence v0.1](../blob/tho-015/probe1-ci-bootstrap/tho-015/evidence/YIM-001-linked-create-persistence-evidence-v0.1.md).
+- Conformance remains partial: complete fault-injection matrix and remaining duplicate/contradictory/partial-state cases are outstanding. Recovery is not implemented or authorized.
+- Existing unlinked `create` behavior remains separate and unchanged. No cross-file atomicity is claimed. MRP-001 Revision 4 remains unchanged.
