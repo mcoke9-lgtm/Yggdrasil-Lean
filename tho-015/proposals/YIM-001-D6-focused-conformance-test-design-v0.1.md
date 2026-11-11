@@ -96,3 +96,18 @@ Probe 2 observed a raw `TypeError` for a list-valued `event_type` during members
 - Source: unchanged in this pass.
 - Normative specification: unchanged in this pass.
 - No new CI run was started.
+
+
+## Regression execution result — 2026-11-11
+
+- Commit under test: `a272a3d80e162cbae4747231c759f079723aff2e`.
+- GitHub Actions run: [Core Memory System tests #43019845054](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43019845054).
+- Job: `python-tests`; completed, conclusion: **failure**.
+- Test command: `python -m unittest discover -s yim-001/tests -v`.
+- Result: **76 tests run; 2 failures**. Both newly added tests failed exactly as predicted:
+  - `test_malformed_history_precedes_duplicate_ambiguity`: actual `AMBIGUOUS`, expected `UNCERTAIN`.
+  - `test_unreadable_history_precedes_duplicate_ambiguity`: actual `AMBIGUOUS`, expected `UNCERTAIN`.
+- The other 74 tests passed.
+- Package build and artifact upload were skipped because the test step failed.
+- This verifies the direct API precedence defect in the current implementation. It does not establish persisted-ledger integration behavior.
+- Source remains unchanged. No corrective implementation was made.
