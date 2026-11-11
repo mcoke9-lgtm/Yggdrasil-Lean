@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +11,9 @@ from yim001 import EventLedger, MemoryStore, save_store, write_json_atomic
 from yim001.linked_create import linked_create
 from yim001.provenance import LINKED_COMPLETION_SCHEMA
 from yim001.storage import read_json_strict
+
+PROJECT = Path(__file__).resolve().parents[1]
+SOURCE = PROJECT / "src"
 
 
 class LinkedCreatePersistenceTests(unittest.TestCase):
@@ -87,5 +93,27 @@ class LinkedCreatePersistenceTests(unittest.TestCase):
         self.assertEqual(result.outcome, "CONFLICT")
 
 
+    def test_cli_linked_create_requires_and_uses_explicit_contract(self):
+        content_path = self.store_path.parent / "content.json"
+        metadata_path = self.store_path.parent / "metadata.json"
+        content_path.write_text(json.dumps(self.content), encoding="utf-8")
+        metadata_path.write_text(json.dumps(self.metadata), encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH=str(SOURCE))
+        command = [sys.executable, "-m", "yim001", "linked-create", str(self.store_path), str(content_path), "--ledger", str(self.ledger_path), "--actor", "operator-a", "--operation-id", self.operation_id, "--metadata", str(metadata_path)]
+        result = subprocess.run(command, cwd=PROJECT, env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["outcome"], "CONSISTENT")
+        retry = subprocess.run(command, cwd=PROJECT, env=env, capture_output=True, text=True)
+        self.assertEqual(retry.returncode, 0, retry.stderr)
+        self.assertEqual(json.loads(retry.stdout)["outcome"], "CONSISTENT")
+
+    def test_malformed_required_history_blocks_before_any_mutation(self):
+        self.ledger_path.write_text('{"broken":true}', encoding="utf-8")
+        before_store = self.store_path.read_bytes()
+        before_ledger = self.ledger_path.read_bytes()
+        with self.assertRaises(ValueError):
+            self.run_linked()
+        self.assertEqual(self.store_path.read_bytes(), before_store)
+        self.assertEqual(self.ledger_path.read_bytes(), before_ledger)
 if __name__ == "__main__":
     unittest.main()
