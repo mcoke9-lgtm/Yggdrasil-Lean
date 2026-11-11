@@ -10,14 +10,18 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+import rfc8785
 
 from .core import ValidationError, _snapshot, _validate_json
 
 GENESIS = "0" * 64
 EVENT_TYPES = frozenset({
     "record.created",
+    "record.create_intent",
     "record.revised",
     "record.imported",
     "record.exported",
@@ -44,6 +48,94 @@ def _canonical(value: Any) -> bytes:
 
 def _event_digest(event_without_digest: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical(event_without_digest)).hexdigest()
+
+
+
+LINKED_INTENT_SCHEMA = "YIM-001-LCC-INTENT/1"
+LINKED_COMPLETION_SCHEMA = "YIM-001-LCC-COMPLETION/1"
+LINKED_DIGEST_PREFIX = b"YIM-001-LCC-INITIAL-VERSION-DIGEST\\x00v1\\x00"
+_LINKED_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _canonical_jcs(value: Any) -> bytes:
+    """Return RFC 8785 JCS UTF-8 bytes, rejecting values outside the profile."""
+    _validate_json(value, "linked-create digest")
+    try:
+        encoded = rfc8785.dumps(value)
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise ProvenanceError(f"cannot canonicalize linked-create digest: {exc}") from exc
+    if not isinstance(encoded, bytes):
+        raise ProvenanceError("JCS canonicalizer did not return bytes")
+    return encoded
+
+
+def initial_version_digest(
+    record_id: str,
+    version_id: str,
+    content: Any,
+    metadata: Any = None,
+) -> str:
+    """Digest the exact initial-version envelope under YIM-001-LCC-JCS/1."""
+    for field, value in (("record_id", record_id), ("version_id", version_id)):
+        if not isinstance(value, str) or not value.strip():
+            raise ProvenanceError(f"{field} must be a non-empty string")
+    envelope = {
+        "record_id": record_id,
+        "version_id": version_id,
+        "parents": [],
+        "content": content,
+        "metadata": metadata,
+    }
+    payload = LINKED_DIGEST_PREFIX + _canonical_jcs(envelope)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_operation_id(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ProvenanceError("linked-create operation_id must be a canonical UUIDv4")
+    try:
+        parsed = UUID(value)
+    except (ValueError, AttributeError) as exc:
+        raise ProvenanceError("linked-create operation_id must be a canonical UUIDv4") from exc
+    if str(parsed) != value or parsed.version != 4:
+        raise ProvenanceError("linked-create operation_id must be a canonical lowercase UUIDv4")
+
+
+def _validate_linked_create_event(
+    event_type: str,
+    actor_id: str,
+    record_id: str | None,
+    version_id: str | None,
+    details: Any,
+) -> None:
+    if event_type == "record.create_intent":
+        schema = LINKED_INTENT_SCHEMA
+        expected = {"schema", "operation_id", "record_digest"}
+    elif (
+        event_type == "record.created"
+        and isinstance(details, dict)
+        and details.get("schema") == LINKED_COMPLETION_SCHEMA
+    ):
+        schema = LINKED_COMPLETION_SCHEMA
+        expected = {"schema", "operation_id", "intent_event_id", "record_digest"}
+    else:
+        return
+    if not isinstance(actor_id, str) or not actor_id.strip():
+        raise ProvenanceError("linked-create actor claim must be a non-empty string")
+    if not isinstance(record_id, str) or not record_id.strip():
+        raise ProvenanceError("linked-create record_id is required")
+    if not isinstance(version_id, str) or not version_id.strip():
+        raise ProvenanceError("linked-create version_id is required")
+    if not isinstance(details, dict) or set(details) != expected or details.get("schema") != schema:
+        raise ProvenanceError(f"invalid {schema} details schema")
+    _validate_operation_id(details.get("operation_id"))
+    digest = details.get("record_digest")
+    if not isinstance(digest, str) or not _LINKED_DIGEST_RE.fullmatch(digest):
+        raise ProvenanceError("linked-create record_digest must be 64 lowercase hexadecimal characters")
+    if schema == LINKED_COMPLETION_SCHEMA:
+        intent_event_id = details.get("intent_event_id")
+        if not isinstance(intent_event_id, str) or not intent_event_id.strip():
+            raise ProvenanceError("linked completion intent_event_id must be a non-empty string")
 
 
 def _timestamp(value: str | None) -> str:
@@ -122,6 +214,7 @@ class EventLedger:
         if not isinstance(details, (dict, list, str, int, float, bool, type(None))):
             raise ProvenanceError("details must be JSON data")
         details_copy = _snapshot({} if details is None else details, "details")
+        _validate_linked_create_event(event_type, actor_id, record_id, version_id, details_copy)
         stamp = _timestamp(timestamp)
         identifier = str(uuid4()) if event_id is None else event_id
         if not isinstance(identifier, str) or not identifier.strip():
@@ -185,6 +278,7 @@ class EventLedger:
                 if value is not None and (not isinstance(value, str) or not value.strip()):
                     raise ProvenanceError(f"invalid {field} at index {index}")
             _validate_json(row["details"], f"events[{index}].details")
+            _validate_linked_create_event(row["event_type"], row["actor_id"], row["record_id"], row["version_id"], row["details"])
             if row["previous_digest"] != previous:
                 raise ProvenanceError(f"broken previous digest at index {index}")
             expected = _event_digest({key: value for key, value in row.items() if key != "digest"})
