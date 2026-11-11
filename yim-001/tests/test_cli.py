@@ -216,5 +216,67 @@ class CommandLineTests(unittest.TestCase):
                 self.assertEqual(ledger.read_bytes(), before)
 
 
+    def test_persisted_ledger_reconciliation_validates_complete_history_read_only(self):
+        details = self.root / "details.json"
+        self.write_json(details, {"record_digest": "sha256:abc"})
+        ledger = self.root / "reconcile-valid.json"
+        self.run_cli("event-init", ledger)
+        self.run_cli(
+            "event-append", ledger, "record.created", "node-a",
+            "--record", "record-1", "--version", "version-1",
+            "--details", details, "--timestamp", "2026-11-10T12:00:00Z",
+        )
+        before = ledger.read_bytes()
+        result = self.output(self.run_cli(
+            "reconcile-create", ledger, "--event", self._event_id_from_ledger(ledger),
+            "--record", "record-1", "--creation-type", "record.created",
+            "--record-digest", "sha256:abc",
+        ))
+        self.assertEqual(result["outcome"], "CONSISTENT")
+        self.assertEqual(len(result["matching_event_ids"]), 1)
+        self.assertEqual(ledger.read_bytes(), before)
+
+        # Corrupt an unrelated event: complete-ledger validation must still
+        # block reconciliation, even though the requested creation event is valid.
+        snapshot = json.loads(ledger.read_text(encoding="utf-8"))
+        snapshot["events"][0]["event_type"] = "unsupported.event"
+        ledger.write_text(json.dumps(snapshot), encoding="utf-8")
+        malformed_before = ledger.read_bytes()
+        uncertain = self.output(self.run_cli(
+            "reconcile-create", ledger, "--event", self._event_id_from_ledger_data(snapshot),
+            "--record", "record-1", "--creation-type", "record.created",
+            "--record-digest", "sha256:abc",
+        ))
+        self.assertEqual(uncertain["outcome"], "UNCERTAIN")
+        self.assertEqual(ledger.read_bytes(), malformed_before)
+
+        unreadable = self.root / "reconcile-unreadable.json"
+        unreadable.write_bytes(b'{"format":')
+        unreadable_before = unreadable.read_bytes()
+        unreadable_result = self.output(self.run_cli(
+            "reconcile-create", unreadable, "--event", "event-1",
+            "--record", "record-1", "--creation-type", "record.created",
+            "--record-digest", "sha256:abc",
+        ))
+        self.assertEqual(unreadable_result["outcome"], "UNCERTAIN")
+        self.assertEqual(unreadable.read_bytes(), unreadable_before)
+
+        missing = self.root / "reconcile-missing.json"
+        missing_result = self.output(self.run_cli(
+            "reconcile-create", missing, "--event", "event-1",
+            "--record", "record-1", "--creation-type", "record.created",
+            "--record-digest", "sha256:abc",
+        ))
+        self.assertEqual(missing_result["outcome"], "INCOMPLETE")
+        self.assertFalse(missing.exists())
+
+    def _event_id_from_ledger(self, path):
+        return self._event_id_from_ledger_data(json.loads(path.read_text(encoding="utf-8")))
+
+    @staticmethod
+    def _event_id_from_ledger_data(snapshot):
+        return snapshot["events"][0]["event_id"]
+
+
 if __name__ == "__main__":
     unittest.main()
