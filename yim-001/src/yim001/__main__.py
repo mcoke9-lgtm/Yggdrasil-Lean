@@ -115,22 +115,22 @@ def main(argv: list[str] | None = None) -> int:
                     ledger = _load_required_ledger(args.ledger)
                 except UncertainHistoryError as exc:
                     result = reconcile_creation_event(
-                    expected_event_id=args.event_id,
-                    expected_record_id=args.record_id,
-                    expected_creation_type=args.creation_type,
-                    expected_record_digest=args.record_digest,
-                    evidence=(),
+                        expected_event_id=args.event_id,
+                        expected_record_id=args.record_id,
+                        expected_creation_type=args.creation_type,
+                        expected_record_digest=args.record_digest,
+                        evidence=(),
                         history_state="unreadable" if "unreadable" in str(exc).lower() else "malformed",
                     )
                 else:
                     evidence = [
-                    CreationEvidence(
-                        event_id=event.event_id,
-                        record_id=event.record_id,
-                        creation_type=event.event_type,
-                        record_digest=event.details.get("record_digest") if isinstance(event.details, dict) else None,
-                        sequence=event.sequence,
-                    )
+                        CreationEvidence(
+                            event_id=event.event_id,
+                            record_id=event.record_id,
+                            creation_type=event.event_type,
+                            record_digest=event.details.get("record_digest") if isinstance(event.details, dict) else None,
+                            sequence=event.sequence,
+                        )
                         for event in ledger.events
                     ]
                     result = reconcile_creation_event(
