@@ -78,3 +78,67 @@ These are recorded gaps, not permission to change source or tests under this spe
 ## 7. Change control
 
 This addendum adopts the operation-to-history boundary above for the current command surface. New mutation operations, changed authority relationships, and recovery procedures require an explicit specification update and corresponding tests. MRP-001 Revision 4 remains unchanged.
+
+
+## 8. Opt-in linked Core Memory creation
+
+This section defines the normative design boundary for the opt-in linked-provenance form of Core Memory `create`. It does not make provenance-ledger integration mandatory for the existing unlinked create command.
+
+### 8.1 Applicability and compatibility
+
+1. The existing unlinked `create` path MUST retain its existing behavior and MUST NOT begin requiring a provenance ledger merely by virtue of this section.
+2. Linked creation is an explicit opt-in operation and MUST receive an explicit provenance-ledger path and caller-supplied actor ID.
+3. Missing required opt-in arguments MUST be rejected before any authoritative mutation.
+4. The actor ID is an actor claim. The implementation MUST preserve the supplied value in both linked events and MUST NOT describe it as authenticated identity or infer it from the host environment.
+5. The linked path MUST validate the complete existing Core Memory snapshot and the complete existing provenance ledger before its first authoritative mutation. Failure to read or validate either required history MUST yield `UNCERTAIN` and leave both authoritative files unchanged.
+
+### 8.2 Event protocol
+
+A linked create MUST use an intent event followed by a completion event:
+
+1. `record.create_intent` MUST be appended and durably verified before the Core Memory snapshot is changed.
+2. The exact candidate record/version described by the intent MUST then be committed to the Core Memory snapshot.
+3. `record.created` MUST be appended only after the candidate snapshot has been committed and verified.
+4. The completion event MUST reference the intent event ID.
+5. Both events MUST carry the same operation ID, actor claim, candidate record ID, version ID, and record digest.
+6. The intent is evidence of requested work, not proof that a record exists. The completion event is evidence of a completed linked create only when reconciled against the matching committed record.
+7. The command MUST report ordinary success only after read-back verification confirms the committed record and matching completion event.
+8. Events MUST be append-only. The implementation MUST NOT delete or rewrite an intent or completion event to conceal a partial outcome.
+
+The intent event payload MUST identify its payload schema version and include the operation ID, actor claim, candidate record ID, candidate version ID, and candidate record digest. The completion payload MUST identify its payload schema version and include the intent event ID plus the same operation ID, actor claim, record ID, version ID, and digest. Exact field placement and event schema identifiers MUST be fixed in the implementation contract before implementation.
+
+### 8.3 Canonical digest
+
+1. The initial-version digest MUST use SHA-256 over a versioned canonical JSON representation of the initial version envelope.
+2. The envelope MUST bind the record ID, version ID, empty parent list, content, and metadata.
+3. Serialization MUST use UTF-8, deterministic object-key ordering, deterministic separators, and a documented digest-domain prefix.
+4. Nondeterministic fields MUST be excluded unless explicitly included in the versioned envelope definition.
+5. Event creation and reconciliation MUST use the same canonicalization profile and digest-domain definition.
+6. The exact canonicalization profile, byte representation, prefix bytes, and test vectors MUST be specified before implementation. A digest of content alone is nonconformant.
+
+### 8.4 Operation identity and retries
+
+1. Each linked create attempt MUST have a stable operation ID, distinct from event IDs, record IDs, and version IDs.
+2. The operation ID MUST be established and durably available for reuse before the first intent append. The CLI/API contract MUST define how it is generated, surfaced, and supplied again after interruption before implementation.
+3. A retry of the same operation MUST reuse the same operation ID and exact candidate identities and digest.
+4. Before continuing a retry, the implementation MUST locate and reconcile the existing intent and any related completion/record evidence.
+5. Reuse of an operation ID with different actor claim, candidate identifiers, or digest MUST stop with a conflict or `UNCERTAIN` outcome; it MUST NOT create a second record or a second unrelated intent.
+6. A new operation ID denotes a new create request. The ledger MUST enforce uniqueness or provide deterministic lookup sufficient to reject or reconcile duplicate intents.
+
+### 8.5 Partial outcomes and recovery boundary
+
+1. If a matching intent exists and the candidate record is absent, ordinary retry MAY resume the exact candidate only when the operation ID, actor claim, candidate identifiers, and digest all match and the complete required histories validate.
+2. If the candidate record exists and matches the intent but the completion event is absent, the ordinary command MUST report `UNCERTAIN`. It MUST NOT silently append the completion event as an ordinary retry.
+3. If a matching completion event and matching committed record both exist, retry MUST return the already-completed result without creating another record or event.
+4. Contradictory identifiers, actor claims, digests, duplicate/ambiguous operation evidence, or malformed required history MUST stop processing with `UNCERTAIN` or the applicable conflict outcome. The unresolved direct-conflict versus malformed-history precedence elsewhere in this specification remains unchanged.
+5. Recovery from an unresolved partial operation is not an ordinary retry. Recovery MUST be separately specified and explicitly authorized, MUST preserve all original records and events, and MUST append its own evidence. Until a recovery specification is adopted, no automatic repair or completion is permitted.
+
+### 8.6 Atomicity and reporting
+
+The Core Memory snapshot and provenance ledger remain separate persistence authorities. This protocol MUST NOT be described as a cross-file transaction or as providing cross-file atomicity. A crash or write failure may leave an intent-only state or a committed record without completion. Such states MUST remain observable and MUST NOT be reported as ordinary success.
+
+### 8.7 Conformance gate
+
+The linked-create path MUST NOT be implemented as conformant until all of the following are fixed and tested: event payload schemas; canonical digest byte profile and test vectors; operation-ID generation/surfacing/reuse contract; actor-claim argument contract; reconciliation outcomes for all partial states; and failure-injection tests at each persistence boundary.
+
+The linked-create path remains opt-in. This section does not authorize recovery implementation, alter MRP-001 Revision 4, or resolve the direct-conflict versus malformed-history precedence question.
