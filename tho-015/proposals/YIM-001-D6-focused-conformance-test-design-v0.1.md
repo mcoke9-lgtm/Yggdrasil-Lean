@@ -127,3 +127,52 @@ Probe 2 observed a raw `TypeError` for a list-valued `event_type` during members
 - Lean build CI: [run #43020607542](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43020607542) — **success**.
 - Verified scope: direct reconciliation API ordering and repository CI on this commit.
 - Not verified: persisted-ledger → reconciliation integration, complete S2 write-gating conformance, recovery/repair, or the unresolved direct-conflict + malformed-history combination.
+
+
+## Persisted integration and S2 gate audit — 2026-11-11
+
+This audit follows corrective commit `d7283068522405e5d9143a476c22616a0a9b1792`. It is source/test inspection only; no source, test, or normative-specification changes were made in this audit.
+
+### 1. Persisted-ledger → reconciliation seam
+
+- `reconcile_creation_event()` accepts caller-supplied `CreationEvidence` rows and a caller-supplied `history_state` string.
+- It does not accept a ledger path or `EventLedger`, call `read_json_strict()`, or call `EventLedger.from_snapshot()`.
+- The inspected CLI has `event-show` and `event-verify`, but no reconciliation command or adapter.
+- No production caller connecting persisted provenance to reconciliation was found in the inspected Python package.
+- Therefore the direct API precedence correction is verified, but complete persisted-ledger validation before reconciliation remains **not integrated / not verified**. Probe 2's direct injection of `history_state="malformed"` is not evidence of this integration.
+
+### 2. Current ordinary-write preconditions
+
+| Operation | Observed source order | Audit result |
+|---|---|---|
+| Core Memory create | `load_store()` → read content/metadata → `create_record()` → `save_store()` | Complete existing Core Memory snapshot is loaded/validated before mutation. No provenance-ledger precondition is required under the adopted operation map. |
+| Core Memory revise | `load_store()` → read content/metadata → `revise()` → `save_store()` | Same pre-mutation snapshot gate. |
+| Core Memory annotate-conflict | `load_store()` → `annotate_conflict()` → `save_store()` | Same pre-mutation snapshot gate. |
+| Provenance event-append | strict JSON read → `EventLedger.from_snapshot()` → in-memory append → atomic write | Complete ledger is validated before append/write. |
+| Read-only show/verify commands | Load and validate complete corresponding snapshot/ledger before output | They do not repair or rewrite malformed history; current CLI reports an error rather than a structured reconciliation result. |
+
+### 3. Remaining S2 conformance gaps and tests
+
+**A. Rejected-write classification:** The CLI catches storage/provenance validation exceptions and prints an error with exit code 2. It does not emit a structured `UNCERTAIN` outcome for malformed/unreadable required history. The adopted specification says such a blocked ordinary write is reported as `UNCERTAIN`. This is a behavior gap to resolve, not merely a missing test.
+
+**B. Memory mutator preservation tests:** Existing tests cover malformed *input content* and unknown records preserving bytes, but do not seed a valid store, corrupt the existing authoritative snapshot, then test each of create/revise/annotate-conflict for rejection and byte-for-byte unchanged store. Source order appears to gate these operations correctly; the behavior is not yet demonstrated by these targeted tests.
+
+**C. Event append preservation tests:** Existing tests verify a tampered ledger is rejected by `event-verify`, but do not assert byte-for-byte unchanged ledger when `event-append` encounters malformed schema, invalid sequence, broken hash link, or unreadable/truncated JSON. Source order appears to gate append correctly; targeted preservation tests remain missing.
+
+**D. Unrelated malformed event:** No integration test proves that a malformed event unrelated to the requested record prevents reconciliation or an ordinary append based on complete-history validation. The append path's `EventLedger.from_snapshot()` validates every event, but this needs a CLI no-mutation regression. Reconciliation needs an adapter before this can be tested end-to-end.
+
+**E. Exception normalization:** Probe 2's list-valued `event_type` caused raw `TypeError` rather than `ProvenanceError`. Rejection occurred, but normalized schema failure remains a quality/conformance issue.
+
+### 4. Corrected reconciliation status
+
+The earlier audit row and execution-plan wording above that described malformed-history-before-duplicate as a current failing source behavior are historical and superseded by the corrective commit and successful run recorded above. Current direct API behavior for malformed/unreadable history versus duplicate ambiguity is **verified** by 76 passing tests. Direct conflict versus malformed-history precedence remains unresolved and unchanged.
+
+### 5. Recommended next bounded implementation/test batch
+
+1. Add memory-mutator tests for structurally malformed and unreadable existing snapshots; assert no authoritative bytes change for create, revise, and annotate-conflict.
+2. Add event-append tests for malformed unrelated event/schema, boolean sequence, broken chain, and unreadable ledger; assert no ledger bytes change on every rejected append.
+3. Decide whether to include structured `UNCERTAIN` in CLI errors as part of this batch or handle it in a separate narrowly scoped API/CLI change. The specification requires the classification, so tests should not silently settle for a generic exit-2 error.
+4. Keep persisted-ledger reconciliation adapter as a separate integration task with its own API contract and tests; do not imply it exists today.
+5. Do not resolve or encode direct-conflict versus malformed-history precedence without the user's decision.
+
+**Audit conclusion:** Source ordering for the current ordinary mutators is consistent with pre-mutation validation at the relevant single-file boundary, but the missing preservation tests and generic CLI error classification leave S2 conformance incomplete. Persisted-ledger reconciliation integration is absent in the inspected package.
