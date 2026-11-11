@@ -1,4 +1,4 @@
-name: THO-015 Probe 1 isolated runtime
+name: THO-015 isolated regression probes
 
 on:
   push:
@@ -13,14 +13,18 @@ permissions:
   contents: read
 
 jobs:
-  probe1:
+  probes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Execute isolated uncertain-commit retry probe
+      - name: Execute Probe 1 — uncertain-commit retry
         env:
           PYTHONPATH: yim-001/src
         run: python tho-015/probe1_crash_retry.py
+      - name: Execute Probe 2 — malformed-history validation
+        env:
+          PYTHONPATH: yim-001/src
+        run: python tho-015/probe2_malformed_history.py
