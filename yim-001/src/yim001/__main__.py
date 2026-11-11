@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
-from . import EventLedger, MemoryStore, load_store, read_json_strict, save_store, write_json_atomic
+from . import CreationEvidence, EventLedger, MemoryStore, load_store, read_json_strict, reconcile_creation_event, save_store, write_json_atomic
 
 class UncertainHistoryError(ValueError):
     """A required authoritative history could not be completely validated."""
@@ -65,6 +65,12 @@ def _parser() -> argparse.ArgumentParser:
     event_verify.add_argument("ledger", type=Path)
     event_show = commands.add_parser("event-show", help="display provenance events")
     event_show.add_argument("ledger", type=Path)
+    reconcile = commands.add_parser("reconcile-create", help="reconcile creation evidence against a complete provenance ledger")
+    reconcile.add_argument("ledger", type=Path)
+    reconcile.add_argument("--event", required=True, dest="event_id")
+    reconcile.add_argument("--record", required=True, dest="record_id")
+    reconcile.add_argument("--creation-type", required=True)
+    reconcile.add_argument("--record-digest", required=True)
     return parser
 
 def _read_optional(path: Path | None) -> Any:
@@ -93,6 +99,52 @@ def main(argv: list[str] | None = None) -> int:
             args.ledger.parent.mkdir(parents=True, exist_ok=True)
             write_json_atomic(args.ledger, EventLedger().to_snapshot())
             _emit({"status": "created", "ledger": str(args.ledger)})
+            return 0
+        if args.command == "reconcile-create":
+            try:
+                ledger = _load_required_ledger(args.ledger)
+            except FileNotFoundError:
+                result = reconcile_creation_event(
+                    expected_event_id=args.event_id,
+                    expected_record_id=args.record_id,
+                    expected_creation_type=args.creation_type,
+                    expected_record_digest=args.record_digest,
+                    evidence=(),
+                    history_state="missing",
+                )
+            except UncertainHistoryError as exc:
+                result = reconcile_creation_event(
+                    expected_event_id=args.event_id,
+                    expected_record_id=args.record_id,
+                    expected_creation_type=args.creation_type,
+                    expected_record_digest=args.record_digest,
+                    evidence=(),
+                    history_state="unreadable" if "unreadable" in str(exc).lower() else "malformed",
+                )
+            else:
+                evidence = [
+                    CreationEvidence(
+                        event_id=event.event_id,
+                        record_id=event.record_id,
+                        creation_type=event.event_type,
+                        record_digest=event.details.get("record_digest") if isinstance(event.details, dict) else None,
+                        sequence=event.sequence,
+                    )
+                    for event in ledger.events
+                ]
+                result = reconcile_creation_event(
+                    expected_event_id=args.event_id,
+                    expected_record_id=args.record_id,
+                    expected_creation_type=args.creation_type,
+                    expected_record_digest=args.record_digest,
+                    evidence=evidence,
+                    history_state="valid",
+                )
+            _emit({
+                "outcome": result.outcome.value,
+                "findings": list(result.findings),
+                "matching_event_ids": list(result.matching_event_ids),
+            })
             return 0
         if args.command in {"event-append", "event-verify", "event-show"}:
             ledger = _load_required_ledger(args.ledger)
