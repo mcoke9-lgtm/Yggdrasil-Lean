@@ -7,7 +7,7 @@ const records = [
   { material: "Metal", quantity_kg: 5, reusable_kg: 4, evidence_type: "reported_by_source" }
 ];
 const inputs = {
-  csv: Buffer.from("material,quantity_kg,reusable_kg,evidence_type\\nWood,10,8,directly_measured\\nMetal,5,4,reported_by_source\\n", "utf8"),
+  csv: Buffer.from("material,quantity_kg,reusable_kg,evidence_type\nWood,10,8,directly_measured\nMetal,5,4,reported_by_source\n", "utf8"),
   json: Buffer.from(JSON.stringify(records), "utf8")
 };
 const results = {};
@@ -36,5 +36,5 @@ for (const [format, bytes] of Object.entries(inputs)) {
   };
 }
 const outputPath = process.argv[2] ?? "portability-results.json";
-await writeFile(outputPath, JSON.stringify({ node_version: process.versions.node, platform: process.platform, results }, null, 2) + "\\n");
-process.stdout.write(`Wrote portability results for Node.js ${process.versions.node} to ${outputPath}\\n`);
+await writeFile(outputPath, JSON.stringify({ node_version: process.versions.node, platform: process.platform, results }, null, 2) + "\n");
+process.stdout.write(`Wrote portability results for Node.js ${process.versions.node} to ${outputPath}\n`);
