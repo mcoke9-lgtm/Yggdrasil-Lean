@@ -15,6 +15,7 @@ test("acceptance dataset produces 230 kg, 162 kg and 70.4348%", () => {
   assert.ok(Math.abs(report.results.reusable_percent - 70.43478260869566) < 1e-12);
   assert.equal(report.verification.passed, true);
   assert.equal(report.quality.accepted_records, 3);
+  assert.equal(report.version, "0.4.0");
 });
 
 test("CSV parser supports quoted commas, escaped quotes and CRLF", () => {
