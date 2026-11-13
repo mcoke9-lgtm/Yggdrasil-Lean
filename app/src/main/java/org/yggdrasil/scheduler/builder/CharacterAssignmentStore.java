@@ -179,7 +179,12 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
             db.update("assignments",v,"assignment_id=?",new String[]{id});
             event(db,id,current,next,"LIFECYCLE",detail); db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
-        if (next == Status.QUEUED) CharacterAssignmentWorkScheduler.enqueue(appContext);
+    }
+
+    /** Queue an already-authorized assignment and request one serialized WorkManager dispatch. */
+    public synchronized void queueForDispatch(String id, String detail) {
+        transition(id, Status.QUEUED, detail);
+        CharacterAssignmentWorkScheduler.enqueue(appContext);
     }
 
     /** Atomically claims the oldest authorized queued assignment for one dispatcher invocation. */
