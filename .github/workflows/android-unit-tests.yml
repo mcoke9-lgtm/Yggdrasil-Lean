@@ -11,8 +11,7 @@ on:
 
 jobs:
   android-unit-tests:
-    # Pin the hosted image while isolating the emulator startup failure observed
-    # on ubuntu-26.04 (ADB offline and emulator console startup failure).
+    # Keep the hosted image pinned while diagnosing emulator/ADB startup reliability.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -30,4 +29,39 @@ jobs:
           arch: x86_64
           target: google_apis
           emulator-boot-timeout: 900
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          script: |
+            set +e
+            mkdir -p artifacts/android-emulator-diagnostics
+            trap '
+              status=$?
+              adb devices -l > artifacts/android-emulator-diagnostics/adb-devices-at-exit.txt 2>&1
+              adb shell getprop > artifacts/android-emulator-diagnostics/device-properties-at-exit.txt 2>&1
+              adb logcat -d -v threadtime > artifacts/android-emulator-diagnostics/logcat-at-exit.txt 2>&1
+              exit "$status"
+            ' EXIT
+
+            adb devices -l
+            adb get-state
+            adb shell getprop sys.boot_completed
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+
+      # This also runs when emulator startup or the instrumentation step fails.
+      - name: Collect Android test diagnostics
+        if: always()
+        run: |
+          mkdir -p artifacts/android-emulator-diagnostics
+          adb devices -l > artifacts/android-emulator-diagnostics/adb-devices-after-step.txt 2>&1 || true
+          adb logcat -d -v threadtime > artifacts/android-emulator-diagnostics/logcat-after-step.txt 2>&1 || true
+          find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -print             > artifacts/android-emulator-diagnostics/test-output-files.txt 2>&1 || true
+
+      - name: Upload Android test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-emulator-diagnostics
+          path: |
+            artifacts/android-emulator-diagnostics/**
+            app/build/outputs/androidTest-results/**
+            app/build/reports/androidTests/**
+          if-no-files-found: warn
+          retention-days: 7
