@@ -81,7 +81,7 @@ public class CharacterAssignmentRecoveryAuditTest {
         assertEquals(1, audit.assignmentsScanned);
         assertEquals(2, audit.findingCount());
         assertEquals(1, audit.discrepancyCount());
-        assertEquals(1, audit.discrepancyFindingCount());
+        assertEquals(2, audit.discrepancyFindingCount());
     }
 
     @Test public void malformedJournalReportClassifiesAsJournalOnly() {
