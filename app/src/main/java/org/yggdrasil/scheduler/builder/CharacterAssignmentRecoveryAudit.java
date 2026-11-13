@@ -9,7 +9,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -131,9 +130,11 @@ public final class CharacterAssignmentRecoveryAudit {
             CharacterAssignmentReconciliation.Finding report =
                     CharacterAssignmentReconciliation.returnReport(
                             assignment.assignmentId, ledgerReportFingerprint, journalReportFingerprint);
-            if (journalReportCount > 1 && journalReportFingerprint == null) {
-                journalReportFingerprint = "multiple-journal-return-reports";
-                warnings.add("Multiple journal return reports require review");
+            if (journalReportCount > 0 && journalReportFingerprint == null) {
+                journalReportFingerprint = "unreadable-journal-report";
+                warnings.add("Journal return-report evidence could not be fingerprinted");
+            } else if (journalReportCount > 1 && !"multiple-distinct-journal-reports".equals(journalReportFingerprint)) {
+                warnings.add("Multiple journal return reports are present; inspect their source turns");
             }
             if (ledgerReportFingerprint != null || journalReportFingerprint != null || journalReportCount > 0) {
                 List<String> reportLedgerIds = new ArrayList<>();
