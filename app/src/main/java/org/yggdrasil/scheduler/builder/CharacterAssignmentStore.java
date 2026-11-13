@@ -17,7 +17,9 @@ import java.util.List;
  */
 public final class CharacterAssignmentStore extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "yggdrasil_character_assignments.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
+    public static final String PAYLOAD_CHECKPOINT = "CHECKPOINT";
+    public static final String PAYLOAD_RETURN_REPORT = "RETURN_REPORT";
 
     public enum Status {
         CREATED, AUTHORIZED, QUEUED, ACCEPTED, RUNNING, CHECKPOINTED,
@@ -48,6 +50,21 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         }
     }
 
+    /** Immutable version of a checkpoint or returned report. */
+    public static final class Payload {
+        public final long payloadId;
+        public final String assignmentId;
+        public final String payloadType;
+        public final String payloadJson;
+        public final long createdAt;
+
+        Payload(Cursor c) {
+            payloadId=c.getLong(0); assignmentId=c.getString(1);
+            payloadType=c.getString(2); payloadJson=c.getString(3);
+            createdAt=c.getLong(4);
+        }
+    }
+
     public CharacterAssignmentStore(Context context) {
         super(context.getApplicationContext(), DATABASE_NAME, null, DATABASE_VERSION);
     }
@@ -65,11 +82,42 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
                 "event_id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id TEXT NOT NULL, " +
                 "from_status TEXT, to_status TEXT NOT NULL, detail TEXT NOT NULL, " +
                 "created_at INTEGER NOT NULL)");
-        db.execSQL("CREATE INDEX assignment_events_assignment ON assignment_events(assignment_id, event_id)");
+        db.execSQL("ALTER TABLE assignment_events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'LIFECYCLE'");
+        createPayloadTable(db);
+        createAppendOnlyTriggers(db);
+    }
+
+    private static void createPayloadTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE assignment_payloads (" +
+                "payload_id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id TEXT NOT NULL, " +
+                "payload_type TEXT NOT NULL CHECK(payload_type IN ('CHECKPOINT','RETURN_REPORT')), " +
+                "payload_json TEXT NOT NULL, created_at INTEGER NOT NULL)");
+        db.execSQL("CREATE INDEX assignment_payloads_assignment ON assignment_payloads(assignment_id, payload_id)");
+    }
+
+    private static void createAppendOnlyTriggers(SQLiteDatabase db) {
+        db.execSQL("CREATE TRIGGER assignment_events_no_update BEFORE UPDATE ON assignment_events " +
+                "BEGIN SELECT RAISE(ABORT, 'assignment_events is append-only'); END");
+        db.execSQL("CREATE TRIGGER assignment_events_no_delete BEFORE DELETE ON assignment_events " +
+                "BEGIN SELECT RAISE(ABORT, 'assignment_events is append-only'); END");
+        db.execSQL("CREATE TRIGGER assignment_payloads_no_update BEFORE UPDATE ON assignment_payloads " +
+                "BEGIN SELECT RAISE(ABORT, 'assignment_payloads is append-only'); END");
+        db.execSQL("CREATE TRIGGER assignment_payloads_no_delete BEFORE DELETE ON assignment_payloads " +
+                "BEGIN SELECT RAISE(ABORT, 'assignment_payloads is append-only'); END");
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        throw new IllegalStateException("No destructive Character assignment migration is defined");
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE assignment_events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'LIFECYCLE'");
+            createPayloadTable(db);
+            db.execSQL("INSERT INTO assignment_payloads(assignment_id,payload_type,payload_json,created_at) " +
+                    "SELECT assignment_id,'CHECKPOINT',checkpoint_json,updated_at FROM assignments " +
+                    "WHERE checkpoint_json IS NOT NULL");
+            db.execSQL("INSERT INTO assignment_payloads(assignment_id,payload_type,payload_json,created_at) " +
+                    "SELECT assignment_id,'RETURN_REPORT',return_report_json,updated_at FROM assignments " +
+                    "WHERE return_report_json IS NOT NULL");
+            createAppendOnlyTriggers(db);
+        }
     }
 
     public synchronized void create(String id, String character, String requester,
@@ -89,7 +137,7 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
         try {
             db.insertOrThrow("assignments",null,v);
-            event(db,id,null,Status.CREATED,"Assignment recorded");
+            event(db,id,null,Status.CREATED,"LIFECYCLE","Assignment recorded");
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
     }
@@ -127,30 +175,46 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
             ContentValues v=new ContentValues(); v.put("status",next.name());
             v.put("updated_at",System.currentTimeMillis());
             db.update("assignments",v,"assignment_id=?",new String[]{id});
-            event(db,id,current,next,detail); db.setTransactionSuccessful();
+            event(db,id,current,next,"LIFECYCLE",detail); db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
     }
 
     public synchronized void checkpoint(String id, String checkpointJson) {
         requireText(checkpointJson,"checkpointJson");
-        updatePayload(id,"checkpoint_json",checkpointJson,"Checkpoint saved");
+        updatePayload(id,"checkpoint_json",checkpointJson,PAYLOAD_CHECKPOINT,"Checkpoint saved");
     }
 
     public synchronized void returnReport(String id, String reportJson) {
         requireText(reportJson,"reportJson");
-        updatePayload(id,"return_report_json",reportJson,"Return report saved");
+        updatePayload(id,"return_report_json",reportJson,PAYLOAD_RETURN_REPORT,"Return report saved");
     }
 
-    private void updatePayload(String id,String column,String payload,String detail) {
+    private void updatePayload(String id,String column,String payload,String payloadType,String detail) {
         SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
         try {
-            ContentValues v=new ContentValues(); v.put(column,payload);
-            v.put("updated_at",System.currentTimeMillis());
-            if(db.update("assignments",v,"assignment_id=?",new String[]{id})==0)
-                throw new IllegalArgumentException("Unknown assignment: "+id);
-            event(db,id,null,Status.valueOf(statusOf(db,id)),detail);
+            Status current=Status.valueOf(statusOf(db,id));
+            long now=System.currentTimeMillis();
+            ContentValues record=new ContentValues();
+            record.put("assignment_id",id); record.put("payload_type",payloadType);
+            record.put("payload_json",payload); record.put("created_at",now);
+            db.insertOrThrow("assignment_payloads",null,record);
+
+            // Convenience snapshot only; the immutable payload table is the history of record.
+            ContentValues latest=new ContentValues(); latest.put(column,payload);
+            latest.put("updated_at",now);
+            db.update("assignments",latest,"assignment_id=?",new String[]{id});
+            event(db,id,null,current,payloadType,detail);
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+    }
+
+    public synchronized List<Payload> listPayloads(String assignmentId) {
+        List<Payload> out=new ArrayList<>();
+        try (Cursor c=getReadableDatabase().query("assignment_payloads",null,
+                "assignment_id=?",new String[]{assignmentId},null,null,"payload_id ASC")) {
+            while(c.moveToNext()) out.add(new Payload(c));
+        }
+        return Collections.unmodifiableList(out);
     }
 
     private static String statusOf(SQLiteDatabase db,String id) {
@@ -161,10 +225,12 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         }
     }
 
-    private static void event(SQLiteDatabase db,String id,Status from,Status to,String detail) {
+    private static void event(SQLiteDatabase db,String id,Status from,Status to,
+            String eventType,String detail) {
         ContentValues e=new ContentValues(); e.put("assignment_id",id);
         if(from==null)e.putNull("from_status"); else e.put("from_status",from.name());
-        e.put("to_status",to.name()); e.put("detail",detail); e.put("created_at",System.currentTimeMillis());
+        e.put("to_status",to.name()); e.put("event_type",eventType);
+        e.put("detail",detail); e.put("created_at",System.currentTimeMillis());
         db.insertOrThrow("assignment_events",null,e);
     }
 
