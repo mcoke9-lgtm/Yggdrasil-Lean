@@ -251,7 +251,7 @@ export function analyze(records, { sourceName = "input", sourceText = "" } = {})
 
   return {
     engine: "Nine Builders Analysis Engine",
-    version: "0.3.0",
+    version: "0.4.0",
     source: { filename: sourceName, sha256: sha256(sourceText) },
     units: { quantity: "kg", reusable: "kg" },
     quality: {
