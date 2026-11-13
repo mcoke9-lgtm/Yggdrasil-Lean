@@ -5,6 +5,7 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import org.json.JSONObject;
+import java.util.UUID;
 
 /**
  * Claims at most one authorized assignment.
@@ -22,9 +23,11 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
         CharacterAssignmentStore store =
                 new CharacterAssignmentStore(getApplicationContext());
         CharacterAssignmentStore.Assignment assignment = null;
+        BuilderConversationStore journal = new BuilderConversationStore(getApplicationContext());
         try {
             assignment = store.claimNextQueued();
             if (assignment == null) return Result.success();
+            appendJournalTurn(journal, assignment, "WorkManager accepted the authorized assignment; execution has not started.");
 
             JSONObject report = new JSONObject();
             report.put("assignment_id", assignment.assignmentId);
@@ -37,6 +40,7 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             report.put("next_action", "Connect an approved provider adapter before execution.");
 
             store.returnReport(assignment.assignmentId, report.toString());
+            appendJournalTurn(journal, assignment, report.toString());
             store.transition(assignment.assignmentId,
                     CharacterAssignmentStore.Status.BLOCKED,
                     "Stopped safely: no execution adapter is connected");
@@ -58,7 +62,20 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             // Do not retry indefinitely or bypass the authorization boundary.
             return Result.failure();
         } finally {
+            journal.close();
             store.close();
         }
+    }
+
+    private static void appendJournalTurn(BuilderConversationStore journal,
+            CharacterAssignmentStore.Assignment assignment, String body) {
+        BuilderConversationProtocol.Turn turn = new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION,
+                "assignment-" + assignment.assignmentId, UUID.randomUUID().toString(),
+                BuilderConversationProtocol.Participant.valueOf(assignment.character),
+                null, null, BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                System.currentTimeMillis(), body, assignment.assignmentId);
+        journal.append(turn);
     }
 }
