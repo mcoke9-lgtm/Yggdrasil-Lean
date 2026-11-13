@@ -74,3 +74,10 @@ Turn IDs are deterministic per assignment and event, so a repeated handoff does 
 The bridge is a local projection between two existing stores, not a unified transaction across their separate SQLite databases. If journal persistence fails, the worker records an interruption where possible and leaves the ledger state available for recovery; operators must reconcile the two stores rather than assume atomic cross-database commit.
 
 Tests cover assignment-thread separation, accepted/return turn shape and provenance, and idempotent repeated handoff. Independent provider execution, real checkpoint/resume, and Living Registry synchronization remain unimplemented.
+
+
+## Journal recovery verification increment
+
+A follow-on test-only increment adds an actual version-1 journal fixture and opens it through the version-2 store, verifying that legacy turns survive with a null assignment ID. Failure-injection coverage interrupts the bridge after the assignment-request turn is persisted but before the Character acknowledgement is appended; it then reopens the journal, retries the handoff, and verifies that request, acknowledgement, and return report each appear exactly once. A separate test writes two assignment handoffs and checks their persisted journal threads and assignment provenance remain distinct.
+
+These tests exercise journal migration and partial journal-projection recovery. They do not establish an atomic transaction across the assignment ledger and conversation journal, nor do they simulate a full Android process death during WorkManager execution. The two stores remain independently durable and require reconciliation if a failure occurs between their transactions.

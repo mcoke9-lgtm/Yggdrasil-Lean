@@ -5,9 +5,11 @@ on:
     branches:
       - mdm-001-workmanager-dispatch-001
       - mdm-001-character-journal-handoff-001
+      - mdm-001-journal-recovery-tests-001
   pull_request:
     branches:
       - mdm-001-workmanager-dispatch-001
+      - mdm-001-character-journal-handoff-001
 
 permissions:
   contents: read
