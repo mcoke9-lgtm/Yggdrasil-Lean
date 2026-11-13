@@ -52,7 +52,7 @@ jobs:
             > artifacts/android-emulator-diagnostics/logcat-after-step.txt 2>&1 || true
           find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -print \
             > artifacts/android-emulator-diagnostics/test-output-files.txt 2>&1 || true
-          printf 'diagnostic collection completed\\n' \
+          echo 'diagnostic collection completed' \
             > artifacts/android-emulator-diagnostics/collection-status.txt
 
       - name: Upload Android test diagnostics
