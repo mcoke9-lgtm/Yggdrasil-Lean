@@ -59,6 +59,31 @@ public class CharacterAssignmentRecoveryAuditTest {
         assertTrue(finding.requiresReview());
     }
 
+    @Test public void reportCountsAssignmentsSeparatelyFromFindings() {
+        CharacterAssignmentReconciliation.Finding acceptance =
+                CharacterAssignmentReconciliation.acceptance("assignment-1", true, true, false);
+        CharacterAssignmentReconciliation.Finding report =
+                CharacterAssignmentReconciliation.returnReport("assignment-1", null, "journal-report");
+        java.util.List<CharacterAssignmentRecoveryAudit.Assessment> assessments =
+                java.util.Arrays.asList(
+                        new CharacterAssignmentRecoveryAudit.Assessment(acceptance,
+                                java.util.Collections.<String>emptyList(),
+                                java.util.Collections.<String>emptyList(),
+                                java.util.Collections.<String>emptyList()),
+                        new CharacterAssignmentRecoveryAudit.Assessment(report,
+                                java.util.Collections.<String>emptyList(),
+                                java.util.Collections.<String>emptyList(),
+                                java.util.Collections.<String>emptyList()));
+
+        CharacterAssignmentRecoveryAudit.Report audit =
+                new CharacterAssignmentRecoveryAudit.Report(assessments);
+
+        assertEquals(1, audit.assignmentsScanned);
+        assertEquals(2, audit.findingCount());
+        assertEquals(1, audit.discrepancyCount());
+        assertEquals(1, audit.discrepancyFindingCount());
+    }
+
     @Test public void malformedJournalReportClassifiesAsJournalOnly() {
         String journal = CharacterAssignmentRecoveryAudit.auditFingerprint(
                 java.util.Collections.<String>emptyList(), true, "journal");
