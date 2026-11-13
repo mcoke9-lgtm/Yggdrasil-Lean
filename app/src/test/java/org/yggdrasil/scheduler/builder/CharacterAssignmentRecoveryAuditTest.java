@@ -92,4 +92,52 @@ public class CharacterAssignmentRecoveryAuditTest {
         assertEquals(CharacterAssignmentReconciliation.State.JOURNAL_ONLY, finding.state);
         assertTrue(finding.requiresReview());
     }
+
+    @Test public void journalRequestRequiresExpectedSpeakerAndEnvelopeProvenance() {
+        BuilderConversationProtocol.Turn valid = new BuilderConversationProtocol.Turn(
+                2, "mdm-assignment:a1", "request-1",
+                BuilderConversationProtocol.Participant.USER, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED, 1L,
+                "{\"assignment_id\":\"a1\",\"event\":\"ASSIGNMENT_REQUEST\"}");
+        assertTrue(CharacterAssignmentRecoveryAudit.isRequestTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.USER));
+        assertFalse(CharacterAssignmentRecoveryAudit.isRequestTurn(valid, "a2",
+                BuilderConversationProtocol.Participant.USER));
+        assertFalse(CharacterAssignmentRecoveryAudit.isRequestTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.ODIN));
+    }
+
+    @Test public void acceptanceRequiresCharacterRecipientReplyAndNonExecution() {
+        BuilderConversationProtocol.Turn valid = new BuilderConversationProtocol.Turn(
+                2, "mdm-assignment:a1", "accepted-1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "request-1",
+                BuilderConversationProtocol.TurnType.ACKNOWLEDGEMENT,
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED, 2L,
+                "{\"assignment_id\":\"a1\",\"execution_started\":false}");
+        assertTrue(CharacterAssignmentRecoveryAudit.isAcceptanceTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "request-1"));
+        assertFalse(CharacterAssignmentRecoveryAudit.isAcceptanceTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "different-request"));
+    }
+
+    @Test public void returnReportRequiresResponseToTheOriginalRequest() {
+        BuilderConversationProtocol.Turn valid = new BuilderConversationProtocol.Turn(
+                2, "mdm-assignment:a1", "return-1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "request-1",
+                BuilderConversationProtocol.TurnType.RESPONSE,
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED, 3L,
+                "{\"assignment_id\":\"a1\",\"event\":\"RETURN_REPORT\",\"report\":{}}");
+        assertTrue(CharacterAssignmentRecoveryAudit.isReturnReportTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "request-1"));
+        assertFalse(CharacterAssignmentRecoveryAudit.isReturnReportTurn(valid, "a1",
+                BuilderConversationProtocol.Participant.HUGINN,
+                BuilderConversationProtocol.Participant.USER, "other-request"));
+    }
+
 }
