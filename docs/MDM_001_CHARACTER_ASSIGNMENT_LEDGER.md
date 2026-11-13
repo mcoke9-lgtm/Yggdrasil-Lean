@@ -119,3 +119,23 @@ A follow-on planning layer converts one reconciliation finding into a bounded re
 Every proposed acceptance replay requires explicit, assignment-scoped Týr authorization before any future write. The plan object itself always reports executionPermitted=false; it is not an authorization token and cannot be passed to a mutating operation. There is no authorization UI or repair executor in this increment.
 
 Tests verify that each finding maps to the expected recommendation, that proposed replay remains non-executable, and that journal-only and conflicting evidence cannot trigger ledger mutation. This is a planning contract only, not automated recovery.
+
+## Read-only cross-store recovery audit — integration increment
+
+The first integration of the reconciliation and recovery-planning contracts is a read-only audit API. It scans currently open assignments, reads their lifecycle acceptance evidence and append-only payload history, then reads the corresponding `mdm-assignment:<assignmentId>` journal thread.
+
+For each assignment it returns:
+- an acceptance finding and its non-executable recovery plan;
+- a return-report finding when return-report evidence exists;
+- ledger payload IDs and journal turn IDs supporting each finding;
+- warnings for malformed provenance, malformed reports, or multiple distinct report projections;
+- a report identifier, scan timestamp, distinct assignment count, finding count, distinct assignments with discrepancies, and review-required finding count.
+
+Report fingerprints are SHA-256 over canonical JSON: object keys are sorted recursively, equivalent numeric forms are normalized, and array order is preserved. Journal envelope metadata and timestamps are excluded. Every report payload and turn remains listed as evidence; multiple distinct fingerprints and malformed/empty payloads become explicit review-required sentinel findings rather than being silently overwritten. Repeated identical reports retain their shared fingerprint and produce a duplicate-evidence warning.
+
+The audit does not write either database, append an audit event, schedule WorkManager, change lifecycle, replay a projection, or grant Týr authorization. Its report is an in-memory result, not a durable audit log. The first scope intentionally excludes closed assignments and journal threads without a corresponding open ledger assignment; those exclusions must remain visible in any caller-facing summary. No UI or automatic invocation is added in this increment.
+
+Verification covers canonical fingerprint stability, malformed and empty payload handling, preservation of multiple distinct reports, duplicate identical reports, and the unchanged non-executable recovery boundary. This remains a diagnostic integration, not an executable repair workflow.
+
+
+Audit count semantics are explicit: `assignmentsScanned` counts distinct assignment IDs, `findingCount()` counts all assessments (an assignment may have both acceptance and return-report findings), `discrepancyCount()` counts distinct assignments with at least one review-required finding, and `discrepancyFindingCount()` counts individual review-required findings. A regression test verifies the two-finding/one-assignment case.

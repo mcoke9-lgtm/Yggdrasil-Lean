@@ -241,6 +241,18 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         } finally { db.endTransaction(); }
     }
 
+    /** Read-only query used by recovery audits; it does not alter assignment state. */
+    public synchronized boolean hasLifecycleEvent(String assignmentId, String toStatus) {
+        requireText(assignmentId, "assignmentId");
+        requireText(toStatus, "toStatus");
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM assignment_events WHERE assignment_id=? " +
+                        "AND event_type='LIFECYCLE' AND to_status=? LIMIT 1",
+                new String[]{assignmentId, toStatus})) {
+            return c.moveToFirst();
+        }
+    }
+
     public synchronized List<Payload> listPayloads(String assignmentId) {
         List<Payload> out=new ArrayList<>();
         try (Cursor c=getReadableDatabase().query("assignment_payloads",null,
