@@ -3,6 +3,7 @@
 | Date | Commit | Toolchain | Result | Evidence |
 |---|---|---|---|---|
 | 2026-10-23 | `e097d568ca56ce3cb0d7de759f27dca90ae3b30a` | `leanprover/lean4:v4.19.0` | **PASS: Lake build** | [GitHub Actions run 40036718668](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/40036718668); job completed successfully and log states “Build completed successfully.” |
+| 2026-11-13 | `15c14e4f187a781b9eb03cca86f8c962daa619d0` | GitHub Actions; Node.js 22 | **PASS: Analysis Engine + Independent Scheduler CI** | [Workflow run 43445729024](https://github.com/mcoke9-lgtm/Yggdrasil-Lean/actions/runs/43445729024); `test` and `scheduler-test` jobs both completed successfully. Engine syntax checks, automated tests, both sample CSV analyses, scheduler syntax checks, and scheduler tests all passed. |
 
 ## Scope of this verification
 
