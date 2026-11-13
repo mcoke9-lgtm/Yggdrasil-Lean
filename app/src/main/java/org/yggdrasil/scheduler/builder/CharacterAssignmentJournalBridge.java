@@ -36,7 +36,7 @@ public final class CharacterAssignmentJournalBridge {
         put(body, "execution_started", false);
         append(journal, threadId, turnId, participant(assignment.character), null, null,
                 BuilderConversationProtocol.TurnType.CONTRIBUTION,
-                BuilderConversationProtocol.EvidenceStatus.OBSERVED, body);
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED, body, assignment.assignmentId);
     }
 
     /**
@@ -83,13 +83,14 @@ public final class CharacterAssignmentJournalBridge {
             BuilderConversationProtocol.Participant speaker,
             BuilderConversationProtocol.Participant recipient, String replyTo,
             BuilderConversationProtocol.TurnType type,
-            BuilderConversationProtocol.EvidenceStatus evidence, JSONObject body) {
+            BuilderConversationProtocol.EvidenceStatus evidence, JSONObject body,
+            String assignmentId) {
         List<BuilderConversationProtocol.Turn> prior = journal.readThread(threadId);
         long last = prior.isEmpty() ? 0L : prior.get(prior.size() - 1).timestampEpochMillis;
         BuilderConversationProtocol.Turn turn = new BuilderConversationProtocol.Turn(
                 BuilderConversationProtocol.CURRENT_VERSION, threadId, turnId, speaker,
                 recipient, replyTo, type, evidence,
-                Math.max(System.currentTimeMillis(), last + 1L), body.toString());
+                Math.max(System.currentTimeMillis(), last + 1L), body.toString(), assignmentId);
         journal.append(turn);
     }
 
