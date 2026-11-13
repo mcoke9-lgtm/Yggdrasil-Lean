@@ -3,6 +3,7 @@ package org.yggdrasil.scheduler.builder;
 import static org.junit.Assert.*;
 import android.content.Context;
 import android.database.sqlite.SQLiteException;
+import android.database.sqlite.SQLiteDatabase;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -100,6 +101,41 @@ public class CharacterAssignmentStoreTest {
             assertTrue(expected.getMessage().contains("append-only"));
         }
         assertEquals(1,store.listPayloads("a-001").size());
+    }
+
+    @Test public void versionOnePayloadSnapshotsMigrateIntoHistory() {
+        store.close();
+        SQLiteDatabase legacy=SQLiteDatabase.openOrCreateDatabase(
+                context.getDatabasePath(CharacterAssignmentStore.DATABASE_NAME),null);
+        legacy.execSQL("CREATE TABLE assignments (" +
+                "assignment_id TEXT PRIMARY KEY, character TEXT NOT NULL, requester TEXT NOT NULL, " +
+                "objective TEXT NOT NULL, scope TEXT NOT NULL, permissions_json TEXT NOT NULL, " +
+                "constraints_json TEXT NOT NULL, evidence_requirements TEXT NOT NULL, " +
+                "checkpoint_json TEXT, return_report_json TEXT, status TEXT NOT NULL, " +
+                "created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
+        legacy.execSQL("CREATE TABLE assignment_events (" +
+                "event_id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id TEXT NOT NULL, " +
+                "from_status TEXT, to_status TEXT NOT NULL, detail TEXT NOT NULL, created_at INTEGER NOT NULL)");
+        legacy.execSQL("INSERT INTO assignments VALUES(" +
+                "'legacy-1','HUGINN','ODIN','Legacy','Observe','{}','{}','logs'," +
+                "'{\\"checkpoint\\":1}','{\\"report\\":1}','RUNNING',10,20)");
+        legacy.execSQL("INSERT INTO assignment_events(assignment_id,to_status,detail,created_at) " +
+                "VALUES('legacy-1','CREATED','legacy event',10)");
+        legacy.setVersion(1);
+        legacy.close();
+
+        store=new CharacterAssignmentStore(context);
+        java.util.List<CharacterAssignmentStore.Payload> history=store.listPayloads("legacy-1");
+        assertEquals(2,history.size());
+        assertEquals(CharacterAssignmentStore.PAYLOAD_CHECKPOINT,history.get(0).payloadType);
+        assertTrue(history.get(0).payloadJson.contains("checkpoint"));
+        assertEquals(CharacterAssignmentStore.PAYLOAD_RETURN_REPORT,history.get(1).payloadType);
+        assertTrue(history.get(1).payloadJson.contains("report"));
+        try (android.database.Cursor c=store.getReadableDatabase().rawQuery(
+                "SELECT event_type FROM assignment_events WHERE assignment_id='legacy-1'",null)) {
+            assertTrue(c.moveToFirst());
+            assertEquals("LIFECYCLE",c.getString(0));
+        }
     }
 
     @Test public void rejectsUnknownCharacter() {
