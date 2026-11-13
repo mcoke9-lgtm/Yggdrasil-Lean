@@ -131,8 +131,8 @@ For each assignment it returns:
 - warnings for malformed provenance, malformed reports, or multiple distinct report projections;
 - a report identifier, scan timestamp, assignment count, and discrepancy count.
 
-Report fingerprints are SHA-256 over canonical JSON: object keys are sorted recursively, equivalent numeric forms are normalized, and array order is preserved. Journal envelope metadata and timestamps are excluded.
+Report fingerprints are SHA-256 over canonical JSON: object keys are sorted recursively, equivalent numeric forms are normalized, and array order is preserved. Journal envelope metadata and timestamps are excluded. Every report payload and turn remains listed as evidence; multiple distinct fingerprints and malformed/empty payloads become explicit review-required sentinel findings rather than being silently overwritten. Repeated identical reports retain their shared fingerprint and produce a duplicate-evidence warning.
 
 The audit does not write either database, append an audit event, schedule WorkManager, change lifecycle, replay a projection, or grant Týr authorization. Its report is an in-memory result, not a durable audit log. The first scope intentionally excludes closed assignments and journal threads without a corresponding open ledger assignment; those exclusions must remain visible in any caller-facing summary. No UI or automatic invocation is added in this increment.
 
-Verification must cover canonical fingerprint stability, malformed payload handling, report conflicts, and the unchanged non-executable recovery boundary. This remains a diagnostic integration, not an executable repair workflow.
+Verification covers canonical fingerprint stability, malformed and empty payload handling, preservation of multiple distinct reports, duplicate identical reports, and the unchanged non-executable recovery boundary. This remains a diagnostic integration, not an executable repair workflow.
