@@ -36,7 +36,9 @@ public final class CharacterAssignmentJournalBridge {
             JSONObject request = envelope(assignment, "ASSIGNMENT_REQUEST");
             append(journal, threadId, requestId, requester, null, null,
                     BuilderConversationProtocol.TurnType.CONTRIBUTION,
-                    BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED,
+                    requester == BuilderConversationProtocol.Participant.USER
+                            ? BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED
+                            : BuilderConversationProtocol.EvidenceStatus.OBSERVED,
                     request, assignment.assignmentId);
         }
         if (containsTurn(journal.readThread(threadId), acceptedId)) return;
