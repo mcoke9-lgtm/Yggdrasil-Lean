@@ -147,6 +147,21 @@ public class BuilderConversationStoreTest {
         assertEquals(BuilderConversationProtocol.Participant.USER, recovered.get(1).recipient);
     }
 
+    @Test public void persistsAssignmentLinkAndExportsIt() throws Exception {
+        BuilderConversationStore journal = openStore();
+        journal.append(new BuilderConversationProtocol.Turn(
+                BuilderConversationProtocol.CURRENT_VERSION, "assignment-a1", "linked-1",
+                BuilderConversationProtocol.Participant.HUGINN, null, null,
+                BuilderConversationProtocol.TurnType.CONTRIBUTION,
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED,
+                100, "Assignment accepted.", "a1"));
+        assertEquals("a1", journal.readThread("assignment-a1").get(0).assignmentId);
+        org.json.JSONObject snapshot = journal.exportSnapshot();
+        org.json.JSONObject exported = snapshot.getJSONArray("threads").getJSONObject(0)
+                .getJSONArray("turns").getJSONObject(0);
+        assertEquals("a1", exported.getString("assignment_id"));
+    }
+
     @Test public void rejectsBlankThreadLookup() {
         BuilderConversationStore journal = openStore();
         assertThrows(IllegalArgumentException.class, () -> journal.readThread("  "));
