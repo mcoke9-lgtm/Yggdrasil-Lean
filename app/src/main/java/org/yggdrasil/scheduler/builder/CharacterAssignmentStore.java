@@ -65,8 +65,11 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         }
     }
 
+    private final Context appContext;
+
     public CharacterAssignmentStore(Context context) {
         super(context.getApplicationContext(), DATABASE_NAME, null, DATABASE_VERSION);
+        appContext = context.getApplicationContext();
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -175,6 +178,32 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
             v.put("updated_at",System.currentTimeMillis());
             db.update("assignments",v,"assignment_id=?",new String[]{id});
             event(db,id,current,next,"LIFECYCLE",detail); db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
+        if (next == Status.QUEUED) CharacterAssignmentWorkScheduler.enqueue(appContext);
+    }
+
+    /** Atomically claims the oldest authorized queued assignment for one dispatcher invocation. */
+    public synchronized Assignment claimNextQueued() {
+        SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
+        try {
+            String id=null;
+            try (Cursor c=db.rawQuery("SELECT assignment_id FROM assignments WHERE status=? ORDER BY created_at ASC LIMIT 1",
+                    new String[]{Status.QUEUED.name()})) {
+                if (c.moveToFirst()) id=c.getString(0);
+            }
+            if (id==null) { db.setTransactionSuccessful(); return null; }
+            ContentValues v=new ContentValues(); v.put("status",Status.ACCEPTED.name());
+            v.put("updated_at",System.currentTimeMillis());
+            int changed=db.update("assignments",v,"assignment_id=? AND status=?",
+                    new String[]{id,Status.QUEUED.name()});
+            if (changed!=1) { db.setTransactionSuccessful(); return null; }
+            event(db,id,Status.QUEUED,Status.ACCEPTED,"LIFECYCLE","WorkManager dispatcher claimed assignment");
+            Assignment claimed;
+            try (Cursor c=db.query("assignments",null,"assignment_id=?",new String[]{id},null,null,null)) {
+                claimed=c.moveToFirst()?new Assignment(c):null;
+            }
+            db.setTransactionSuccessful();
+            return claimed;
         } finally { db.endTransaction(); }
     }
 
