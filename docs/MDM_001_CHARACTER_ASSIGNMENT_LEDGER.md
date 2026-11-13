@@ -64,7 +64,6 @@ Each dispatcher invocation claims at most one oldest queued assignment in a data
 
 This is a tested queue/claim integration target, not independent Character execution. Provider routing, capacity checks, checkpoint/resume during execution, canonical journal return, and human authorization UX remain future increments.
 
-
 ## WorkManager dispatch increment 2 — canonical journal handoff
 
 The dispatcher now projects the assignment request, Character acknowledgement, and structured bounded return report into the existing append-only `BuilderConversationStore`. Each assignment receives a separate journal thread named with the `mdm-assignment:` namespace. Every turn carries the explicit `assignment_id` field as well as an envelope in its body. The Character acknowledgement and return response are linked to the originating assignment-request turn using the protocol's reply lineage.
@@ -75,9 +74,34 @@ The bridge is a local projection between two existing stores, not a unified tran
 
 Tests cover assignment-thread separation, accepted/return turn shape and provenance, and idempotent repeated handoff. Independent provider execution, real checkpoint/resume, and Living Registry synchronization remain unimplemented.
 
-
 ## Journal recovery verification increment
 
 A follow-on test-only increment adds an actual version-1 journal fixture and opens it through the version-2 store, verifying that legacy turns survive with a null assignment ID. Failure-injection coverage interrupts the bridge after the assignment-request turn is persisted but before the Character acknowledgement is appended; it then reopens the journal, retries the handoff, and verifies that request, acknowledgement, and return report each appear exactly once. A separate test writes two assignment handoffs and checks their persisted journal threads and assignment provenance remain distinct.
 
 These tests exercise journal migration and partial journal-projection recovery. They do not establish an atomic transaction across the assignment ledger and conversation journal, nor do they simulate a full Android process death during WorkManager execution. The two stores remain independently durable and require reconciliation if a failure occurs between their transactions.
+
+## Cross-store reconciliation contract — test-first increment
+
+This increment adds a read-only classifier and tests; it does not connect reconciliation to the WorkManager worker or mutate either database.
+
+The classifier uses these states:
+
+- `NO_EVIDENCE`: neither store contains the relevant event. This is not itself a discrepancy.
+- `MATCHED`: both stores contain the same logical event; for reports, their deterministic canonical-payload fingerprints match.
+- `LEDGER_ONLY`: the assignment ledger contains evidence that the journal projection is absent.
+- `JOURNAL_ONLY`: the journal contains evidence with no corresponding ledger evidence.
+- `INCOMPLETE`: an acceptance request exists without its acknowledgement, whether or not the ledger has recorded acceptance.
+- `CONFLICT`: acknowledgement exists without its request, or both report records exist with different fingerprints.
+
+Required invariants:
+
+1. Assignment ID is the correlation key; evidence from different assignments must never be combined.
+2. The assignment ledger remains authoritative for assignment lifecycle and authorization. A journal turn cannot create or grant either.
+3. The journal remains append-only. Reconciliation must not edit or delete existing turns, payloads, or lifecycle events.
+4. A missing projection may be eligible for a later idempotent append, but classification alone never authorizes that append.
+5. A journal-only record must not silently recreate or advance an assignment.
+6. Conflicting reports remain separately preserved. No "latest wins", automatic overwrite, or inferred resolution is permitted.
+7. Report comparison uses a deterministic fingerprint of canonical report JSON; timestamps and enclosing journal metadata are excluded.
+8. Any future repair must be separately authorized, append its own provenance record, and be restart-safe.
+
+The test suite exercises ledger-only, journal-only, incomplete, matched, and conflicting evidence, including persisted store reopen and a report conflict where both original payloads remain unchanged. This is a contract and classification layer only: it does not yet enumerate every lifecycle event from the ledger, perform automated reconciliation, establish cross-database atomicity, or simulate full Android process death.
