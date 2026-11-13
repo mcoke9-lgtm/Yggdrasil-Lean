@@ -1,0 +1,34 @@
+name: Core Memory System tests
+
+on:
+  push:
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim001-tests.yml"
+  pull_request:
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim001-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run Core Memory System tests
+        env:
+          PYTHONPATH: yim-001/src
+        run: python -m unittest discover -s yim-001/tests -v
+      - name: Build and verify portable package
+        run: python yim-001/scripts/package.py --output dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: YIM-001-Core-Memory-System-checkpoint-1
+          path: dist/YIM-001-Core-Memory-System-checkpoint-1.zip
+          if-no-files-found: error
+          retention-days: 30
