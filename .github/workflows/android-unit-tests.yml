@@ -11,8 +11,8 @@ on:
 
 jobs:
   android-unit-tests:
-    # Bound the whole job so a wedged emulator cannot occupy a runner indefinitely.
-    timeout-minutes: 35
+    # Reserve time for emulator provisioning plus a bounded connected-test window.
+    timeout-minutes: 55
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,8 @@ jobs:
         run: ./gradlew --no-daemon :app:testDebugUnitTest
 
       - name: Run nine-process Android instrumentation test
-        timeout-minutes: 20
+        # Includes up to 15 minutes for emulator boot, then a 25-minute Gradle test cap.
+        timeout-minutes: 40
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -35,7 +36,7 @@ jobs:
             adb devices -l
             adb get-state
             adb shell getprop sys.boot_completed
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            timeout --signal=TERM 25m ./gradlew --no-daemon :app:connectedDebugAndroidTest
 
       # Every ADB operation is time-bounded so an offline emulator cannot block upload.
       - name: Collect Android test diagnostics
@@ -51,7 +52,7 @@ jobs:
             > artifacts/android-emulator-diagnostics/logcat-after-step.txt 2>&1 || true
           find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -print \
             > artifacts/android-emulator-diagnostics/test-output-files.txt 2>&1 || true
-          printf 'diagnostic collection completed\n' \
+          printf 'diagnostic collection completed\\n' \
             > artifacts/android-emulator-diagnostics/collection-status.txt
 
       - name: Upload Android test diagnostics
