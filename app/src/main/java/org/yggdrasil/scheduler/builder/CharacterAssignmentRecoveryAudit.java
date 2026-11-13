@@ -109,7 +109,7 @@ public final class CharacterAssignmentRecoveryAudit {
                 }
                 String event = eventOf(turn, warnings);
                 if ("ASSIGNMENT_REQUEST".equals(event)) {
-                    if (isRequestTurn(turn, assignment)) {
+                    if (isRequestTurn(turn, assignment.assignmentId, requesterParticipant(assignment.requester))) {
                         if (request) warnings.add("Multiple assignment request turns are present");
                         request = true;
                         requestTurnId = turn.turnId;
@@ -118,7 +118,8 @@ public final class CharacterAssignmentRecoveryAudit {
                         warnings.add("Turn " + turn.turnId + " does not satisfy the assignment-request protocol");
                     }
                 } else if ("ACCEPTED".equals(event)) {
-                    if (isAcceptanceTurn(turn, assignment, requestTurnId)) {
+                    if (isAcceptanceTurn(turn, assignment.assignmentId, characterParticipant(assignment.character),
+                            requesterParticipant(assignment.requester), requestTurnId)) {
                         if (acknowledgement) warnings.add("Multiple acceptance acknowledgement turns are present");
                         acknowledgement = true;
                         journalIds.add(turn.turnId);
@@ -128,7 +129,8 @@ public final class CharacterAssignmentRecoveryAudit {
                 } else if ("RETURN_REPORT".equals(event)) {
                     journalReportCount++;
                     journalIds.add(turn.turnId);
-                    if (!isReturnReportTurn(turn, assignment, requestTurnId)) {
+                    if (!isReturnReportTurn(turn, assignment.assignmentId, characterParticipant(assignment.character),
+                            requesterParticipant(assignment.requester), requestTurnId)) {
                         warnings.add("Return-report turn " + turn.turnId + " has invalid protocol provenance");
                         malformedJournalReport = true;
                         continue;
@@ -221,37 +223,39 @@ public final class CharacterAssignmentRecoveryAudit {
         return false;
     }
 
-    private static boolean isRequestTurn(BuilderConversationProtocol.Turn turn,
-            CharacterAssignmentStore.Assignment assignment) {
+    static boolean isRequestTurn(BuilderConversationProtocol.Turn turn, String assignmentId,
+            BuilderConversationProtocol.Participant requester) {
         return turn.protocolVersion == BuilderConversationProtocol.CURRENT_VERSION
                 && turn.type == BuilderConversationProtocol.TurnType.CONTRIBUTION
-                && turn.speaker == requesterParticipant(assignment.requester)
+                && turn.speaker == requester
                 && turn.recipient == null
                 && turn.replyToTurnId == null
-                && assignment.assignmentId.equals(assignmentIdOf(turn));
+                && assignmentId.equals(assignmentIdOf(turn));
     }
 
-    private static boolean isAcceptanceTurn(BuilderConversationProtocol.Turn turn,
-            CharacterAssignmentStore.Assignment assignment, String requestTurnId) {
+    static boolean isAcceptanceTurn(BuilderConversationProtocol.Turn turn, String assignmentId,
+            BuilderConversationProtocol.Participant character,
+            BuilderConversationProtocol.Participant requester, String requestTurnId) {
         return requestTurnId != null
                 && turn.protocolVersion == BuilderConversationProtocol.CURRENT_VERSION
                 && turn.type == BuilderConversationProtocol.TurnType.ACKNOWLEDGEMENT
-                && turn.speaker == characterParticipant(assignment.character)
-                && turn.recipient == requesterParticipant(assignment.requester)
+                && turn.speaker == character
+                && turn.recipient == requester
                 && requestTurnId.equals(turn.replyToTurnId)
-                && assignment.assignmentId.equals(assignmentIdOf(turn))
+                && assignmentId.equals(assignmentIdOf(turn))
                 && executionNotStarted(turn);
     }
 
-    private static boolean isReturnReportTurn(BuilderConversationProtocol.Turn turn,
-            CharacterAssignmentStore.Assignment assignment, String requestTurnId) {
+    static boolean isReturnReportTurn(BuilderConversationProtocol.Turn turn, String assignmentId,
+            BuilderConversationProtocol.Participant character,
+            BuilderConversationProtocol.Participant requester, String requestTurnId) {
         return requestTurnId != null
                 && turn.protocolVersion == BuilderConversationProtocol.CURRENT_VERSION
                 && turn.type == BuilderConversationProtocol.TurnType.RESPONSE
-                && turn.speaker == characterParticipant(assignment.character)
-                && turn.recipient == requesterParticipant(assignment.requester)
+                && turn.speaker == character
+                && turn.recipient == requester
                 && requestTurnId.equals(turn.replyToTurnId)
-                && assignment.assignmentId.equals(assignmentIdOf(turn));
+                && assignmentId.equals(assignmentIdOf(turn));
     }
 
     private static String assignmentIdOf(BuilderConversationProtocol.Turn turn) {
