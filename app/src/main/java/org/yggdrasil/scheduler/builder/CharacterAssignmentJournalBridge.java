@@ -68,7 +68,7 @@ public final class CharacterAssignmentJournalBridge {
         append(journal, threadId, returnTurnId, participant(assignment.character),
                 BuilderConversationProtocol.Participant.USER, acceptedTurnId,
                 BuilderConversationProtocol.TurnType.RESPONSE,
-                BuilderConversationProtocol.EvidenceStatus.OBSERVED, body);
+                BuilderConversationProtocol.EvidenceStatus.OBSERVED, body, assignment.assignmentId);
     }
 
     private static JSONObject envelope(CharacterAssignmentStore.Assignment assignment, String event) {
