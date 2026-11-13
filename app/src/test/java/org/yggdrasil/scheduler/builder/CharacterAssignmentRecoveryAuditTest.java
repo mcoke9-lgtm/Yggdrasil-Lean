@@ -49,4 +49,22 @@ public class CharacterAssignmentRecoveryAuditTest {
     public void emptyReportPayloadIsRejected() {
         CharacterAssignmentRecoveryAudit.fingerprintJson("   ");
     }
+
+    @Test public void multipleDistinctLedgerReportsClassifyAsConflict() {
+        String ledger = CharacterAssignmentRecoveryAudit.auditFingerprint(
+                java.util.Arrays.asList("sha-a", "sha-b"), false, "ledger");
+        CharacterAssignmentReconciliation.Finding finding =
+                CharacterAssignmentReconciliation.returnReport("assignment-1", ledger, "sha-a");
+        assertEquals(CharacterAssignmentReconciliation.State.CONFLICT, finding.state);
+        assertTrue(finding.requiresReview());
+    }
+
+    @Test public void malformedJournalReportClassifiesAsJournalOnly() {
+        String journal = CharacterAssignmentRecoveryAudit.auditFingerprint(
+                java.util.Collections.<String>emptyList(), true, "journal");
+        CharacterAssignmentReconciliation.Finding finding =
+                CharacterAssignmentReconciliation.returnReport("assignment-1", null, journal);
+        assertEquals(CharacterAssignmentReconciliation.State.JOURNAL_ONLY, finding.state);
+        assertTrue(finding.requiresReview());
+    }
 }
