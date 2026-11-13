@@ -14,9 +14,13 @@ Introduce durable, bounded assignment records for the Nine Characters. This is t
 
 ## Assignment contract
 
-Each record contains a stable assignment ID, Character identity, requester, objective, scope, permission and constraint documents, evidence requirements, checkpoint payload, return-report payload, lifecycle status, and timestamps.
+Each record contains a stable assignment ID, Character identity, requester, objective, scope, permission and constraint documents, latest checkpoint/report snapshots, lifecycle status, and timestamps.
 
-A separate append-only event table records lifecycle transitions and checkpoint/return payload events. State transitions are validated by the store rather than accepted as arbitrary status overwrites.
+The authoritative payload history is a separate append-only `assignment_payloads` table. Every checkpoint and return report is inserted as a new typed, timestamped record; previous versions are retained and can be read in sequence. The assignment row's checkpoint/report columns are convenience snapshots only, not the history of record.
+
+The append-only `assignment_events` table now distinguishes `LIFECYCLE`, `CHECKPOINT`, and `RETURN_REPORT` event types. SQLite triggers reject updates and deletes to both event and payload history. State transitions remain validated by the store.
+
+Database version 2 migrates any pre-existing latest checkpoint/report values from version 1 into the payload history before normal operation continues.
 
 The nine Character identities are validated against the existing role enum. Existing role descriptions and routing semantics still require reconciliation with the current adopted Nine Characters protocol; this milestone deliberately does not rewrite them.
 
@@ -48,6 +52,6 @@ Add a governed dispatcher that claims authorized queued assignments, checks capa
 ## Verification requirements
 
 - JVM build and unit tests pass.
-- Robolectric/SQLite tests cover create/read, invalid Character, legal and illegal transitions, checkpoint persistence, return-report persistence, event history, and process/store reopen.
+- Robolectric/SQLite tests cover create/read, invalid Character, legal and illegal transitions, multiple checkpoint/report versions, ordered payload history, rejection of payload-history updates/deletes, and process/store reopen.
 - No migration or destructive change to existing scheduler/runtime databases.
 - Existing PR #48–#51 experiments remain untouched and independently reviewable.
