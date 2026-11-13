@@ -9,7 +9,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -27,7 +29,7 @@ public final class CharacterAssignmentRecoveryAudit {
         public final List<String> journalEvidenceIds;
         public final List<String> warnings;
 
-        private Assessment(CharacterAssignmentReconciliation.Finding finding,
+        Assessment(CharacterAssignmentReconciliation.Finding finding,
                 List<String> ledgerIds, List<String> journalIds, List<String> warnings) {
             this.finding = finding;
             this.plan = CharacterAssignmentRecoveryPlan.from(finding);
@@ -43,14 +45,33 @@ public final class CharacterAssignmentRecoveryAudit {
         public final int assignmentsScanned;
         public final List<Assessment> assessments;
 
-        private Report(List<Assessment> assessments) {
+        Report(List<Assessment> assessments) {
             this.auditId = UUID.randomUUID().toString();
             this.createdAtEpochMillis = System.currentTimeMillis();
-            this.assignmentsScanned = assessments.size();
+            Set<String> assignmentIds = new HashSet<>();
+            for (Assessment item : assessments) assignmentIds.add(item.finding.assignmentId);
+            this.assignmentsScanned = assignmentIds.size();
             this.assessments = immutable(assessments);
         }
 
+        /** Number of distinct assignments with at least one review-required finding. */
         public int discrepancyCount() {
+            Set<String> assignmentsWithDiscrepancies = new HashSet<>();
+            for (Assessment item : assessments) {
+                if (item.finding.requiresReview()) {
+                    assignmentsWithDiscrepancies.add(item.finding.assignmentId);
+                }
+            }
+            return assignmentsWithDiscrepancies.size();
+        }
+
+        /** Total number of findings, including multiple findings for one assignment. */
+        public int findingCount() {
+            return assessments.size();
+        }
+
+        /** Number of individual findings that require review. */
+        public int discrepancyFindingCount() {
             int count = 0;
             for (Assessment item : assessments) if (item.finding.requiresReview()) count++;
             return count;
