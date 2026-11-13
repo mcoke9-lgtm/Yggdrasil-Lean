@@ -259,7 +259,7 @@ These are acceptance criteria, not completed test results.
 
 The existing Analysis Engine 0.4.0 provides CSV/JSON parsing, material recovery calculations, evidence metadata preservation, conservative bounds, source-record references, a second-pass arithmetic check, and source/report manifest hashing.
 
-It does not yet implement this portable request envelope, request validation, contract-version negotiation, execution receipts, a normative output-schema validator, or cross-environment comparison.
+A first dependency-free request validator is now implemented for the version 0.1.0 envelope. It checks the supported contract and operation identifiers, required fields, initial CSV/JSON format declaration, UTF-8 declaration, kilogram units, engine minimum-version syntax, expected output identifier/version, and verification flag. It also verifies the SHA-256 digest against the exact supplied input bytes. This is an initial validator, not a complete implementation of every normative requirement in this document. Contract-version negotiation, normative output-schema validation, execution receipts, transport, and cross-environment comparison are not yet implemented.
 
 The Independent Scheduler is not part of the analysis result contract. It may later schedule or initiate a request through a separately authorized integration, but scheduling does not establish analysis correctness or execution independence.
 
