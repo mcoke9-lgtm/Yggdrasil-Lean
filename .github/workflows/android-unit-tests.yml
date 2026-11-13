@@ -11,7 +11,8 @@ on:
 
 jobs:
   android-unit-tests:
-    # Keep the hosted image pinned while diagnosing emulator/ADB startup reliability.
+    # Bound the whole job so a wedged emulator cannot occupy a runner indefinitely.
+    timeout-minutes: 35
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +24,7 @@ jobs:
         run: ./gradlew --no-daemon :app:testDebugUnitTest
 
       - name: Run nine-process Android instrumentation test
+        timeout-minutes: 20
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -30,29 +32,27 @@ jobs:
           target: google_apis
           emulator-boot-timeout: 900
           script: |
-            set +e
-            mkdir -p artifacts/android-emulator-diagnostics
-            trap '
-              status=$?
-              adb devices -l > artifacts/android-emulator-diagnostics/adb-devices-at-exit.txt 2>&1
-              adb shell getprop > artifacts/android-emulator-diagnostics/device-properties-at-exit.txt 2>&1
-              adb logcat -d -v threadtime > artifacts/android-emulator-diagnostics/logcat-at-exit.txt 2>&1
-              exit "$status"
-            ' EXIT
-
             adb devices -l
             adb get-state
             adb shell getprop sys.boot_completed
             ./gradlew --no-daemon :app:connectedDebugAndroidTest
 
-      # This also runs when emulator startup or the instrumentation step fails.
+      # Every ADB operation is time-bounded so an offline emulator cannot block upload.
       - name: Collect Android test diagnostics
         if: always()
+        timeout-minutes: 2
         run: |
           mkdir -p artifacts/android-emulator-diagnostics
-          adb devices -l > artifacts/android-emulator-diagnostics/adb-devices-after-step.txt 2>&1 || true
-          adb logcat -d -v threadtime > artifacts/android-emulator-diagnostics/logcat-after-step.txt 2>&1 || true
-          find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -print             > artifacts/android-emulator-diagnostics/test-output-files.txt 2>&1 || true
+          timeout --signal=TERM 8s adb devices -l \
+            > artifacts/android-emulator-diagnostics/adb-devices-after-step.txt 2>&1 || true
+          timeout --signal=TERM 8s adb shell getprop \
+            > artifacts/android-emulator-diagnostics/device-properties-after-step.txt 2>&1 || true
+          timeout --signal=TERM 12s adb logcat -d -v threadtime \
+            > artifacts/android-emulator-diagnostics/logcat-after-step.txt 2>&1 || true
+          find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -print \
+            > artifacts/android-emulator-diagnostics/test-output-files.txt 2>&1 || true
+          printf 'diagnostic collection completed\n' \
+            > artifacts/android-emulator-diagnostics/collection-status.txt
 
       - name: Upload Android test diagnostics
         if: always()
