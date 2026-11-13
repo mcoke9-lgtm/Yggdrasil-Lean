@@ -55,3 +55,87 @@ Add a governed dispatcher that claims authorized queued assignments, checks capa
 - Robolectric/SQLite tests cover create/read, invalid Character, legal and illegal transitions, multiple checkpoint/report versions, ordered payload history, rejection of payload-history updates/deletes, and process/store reopen.
 - No migration or destructive change to existing scheduler/runtime databases.
 - Existing PR #48–#51 experiments remain untouched and independently reviewable.
+
+## WorkManager dispatch increment 1
+
+The follow-on branch adds an explicit `queueForDispatch` operation. It may only queue an assignment whose current lifecycle permits the transition from `AUTHORIZED` to `QUEUED`. The operation appends a unique WorkManager request using a serialized unique-work chain.
+
+Each dispatcher invocation claims at most one oldest queued assignment in a database transaction and records `QUEUED → ACCEPTED`. The current worker deliberately does not invoke a model or provider: because no approved execution adapter is connected to this worker yet, it writes a structured `NO_EXECUTION_ADAPTER` return report and transitions the assignment to `BLOCKED`. It never marks work `RUNNING` or implies that a Character performed the objective.
+
+This is a tested queue/claim integration target, not independent Character execution. Provider routing, capacity checks, checkpoint/resume during execution, canonical journal return, and human authorization UX remain future increments.
+
+## WorkManager dispatch increment 2 — canonical journal handoff
+
+The dispatcher now projects the assignment request, Character acknowledgement, and structured bounded return report into the existing append-only `BuilderConversationStore`. Each assignment receives a separate journal thread named with the `mdm-assignment:` namespace. Every turn carries the explicit `assignment_id` field as well as an envelope in its body. The Character acknowledgement and return response are linked to the originating assignment-request turn using the protocol's reply lineage.
+
+Turn IDs are deterministic per assignment and event, so a repeated handoff does not append duplicate acceptance or return entries. Journal entries preserve the assignment ID and report fields but do not grant authorization, change the ledger's lifecycle authority, or imply that the objective was executed. The current no-provider outcome remains `BLOCKED` with `execution_started=false`.
+
+The bridge is a local projection between two existing stores, not a unified transaction across their separate SQLite databases. If journal persistence fails, the worker records an interruption where possible and leaves the ledger state available for recovery; operators must reconcile the two stores rather than assume atomic cross-database commit.
+
+Tests cover assignment-thread separation, accepted/return turn shape and provenance, and idempotent repeated handoff. Independent provider execution, real checkpoint/resume, and Living Registry synchronization remain unimplemented.
+
+## Journal recovery verification increment
+
+A follow-on test-only increment adds an actual version-1 journal fixture and opens it through the version-2 store, verifying that legacy turns survive with a null assignment ID. Failure-injection coverage interrupts the bridge after the assignment-request turn is persisted but before the Character acknowledgement is appended; it then reopens the journal, retries the handoff, and verifies that request, acknowledgement, and return report each appear exactly once. A separate test writes two assignment handoffs and checks their persisted journal threads and assignment provenance remain distinct.
+
+These tests exercise journal migration and partial journal-projection recovery. They do not establish an atomic transaction across the assignment ledger and conversation journal, nor do they simulate a full Android process death during WorkManager execution. The two stores remain independently durable and require reconciliation if a failure occurs between their transactions.
+
+## Cross-store reconciliation contract — test-first increment
+
+This increment adds a read-only classifier and tests; it does not connect reconciliation to the WorkManager worker or mutate either database.
+
+The classifier uses these states:
+
+- `NO_EVIDENCE`: neither store contains the relevant event. This is not itself a discrepancy.
+- `MATCHED`: both stores contain the same logical event; for reports, their deterministic canonical-payload fingerprints match.
+- `LEDGER_ONLY`: the assignment ledger contains evidence that the journal projection is absent.
+- `JOURNAL_ONLY`: the journal contains evidence with no corresponding ledger evidence.
+- `INCOMPLETE`: an acceptance request exists without its acknowledgement, whether or not the ledger has recorded acceptance.
+- `CONFLICT`: acknowledgement exists without its request, or both report records exist with different fingerprints.
+
+Required invariants:
+
+1. Assignment ID is the correlation key; evidence from different assignments must never be combined.
+2. The assignment ledger remains authoritative for assignment lifecycle and authorization. A journal turn cannot create or grant either.
+3. The journal remains append-only. Reconciliation must not edit or delete existing turns, payloads, or lifecycle events.
+4. A missing projection may be eligible for a later idempotent append, but classification alone never authorizes that append.
+5. A journal-only record must not silently recreate or advance an assignment.
+6. Conflicting reports remain separately preserved. No "latest wins", automatic overwrite, or inferred resolution is permitted.
+7. Report comparison uses a deterministic fingerprint of canonical report JSON; timestamps and enclosing journal metadata are excluded.
+8. Any future repair must be separately authorized, append its own provenance record, and be restart-safe.
+
+The test suite exercises ledger-only, journal-only, incomplete, matched, and conflicting evidence, including persisted store reopen and a report conflict where both original payloads remain unchanged. This is a contract and classification layer only: it does not yet enumerate every lifecycle event from the ledger, perform automated reconciliation, establish cross-database atomicity, or simulate full Android process death.
+
+## Authorized recovery planning — non-executable increment
+
+A follow-on planning layer converts one reconciliation finding into a bounded recommendation. It does not open either database, append a journal turn, change assignment status, or invoke WorkManager.
+
+- MATCHED and NO_EVIDENCE produce NO_ACTION.
+- Acceptance LEDGER_ONLY and INCOMPLETE findings produce PROPOSE_ACCEPTANCE_PROJECTION_REPLAY, which is only a candidate for later review.
+- JOURNAL_ONLY evidence produces REVIEW_WITHOUT_MUTATION; journal evidence cannot create or advance ledger lifecycle state.
+- CONFLICT produces PRESERVE_CONFLICT; both records remain untouched.
+- Return-report discrepancies remain review-only in this increment. A dedicated idempotent return-report repair contract is not yet defined.
+
+Every proposed acceptance replay requires explicit, assignment-scoped Týr authorization before any future write. The plan object itself always reports executionPermitted=false; it is not an authorization token and cannot be passed to a mutating operation. There is no authorization UI or repair executor in this increment.
+
+Tests verify that each finding maps to the expected recommendation, that proposed replay remains non-executable, and that journal-only and conflicting evidence cannot trigger ledger mutation. This is a planning contract only, not automated recovery.
+
+## Read-only cross-store recovery audit — integration increment
+
+The first integration of the reconciliation and recovery-planning contracts is a read-only audit API. It scans currently open assignments, reads their lifecycle acceptance evidence and append-only payload history, then reads the corresponding `mdm-assignment:<assignmentId>` journal thread.
+
+For each assignment it returns:
+- an acceptance finding and its non-executable recovery plan;
+- a return-report finding when return-report evidence exists;
+- ledger payload IDs and journal turn IDs supporting each finding;
+- warnings for malformed provenance, malformed reports, or multiple distinct report projections;
+- a report identifier, scan timestamp, distinct assignment count, finding count, distinct assignments with discrepancies, and review-required finding count.
+
+Report fingerprints are SHA-256 over canonical JSON: object keys are sorted recursively, equivalent numeric forms are normalized, and array order is preserved. Journal envelope metadata and timestamps are excluded. Every report payload and turn remains listed as evidence; multiple distinct fingerprints and malformed/empty payloads become explicit review-required sentinel findings rather than being silently overwritten. Repeated identical reports retain their shared fingerprint and produce a duplicate-evidence warning.
+
+The audit does not write either database, append an audit event, schedule WorkManager, change lifecycle, replay a projection, or grant Týr authorization. Its report is an in-memory result, not a durable audit log. The first scope intentionally excludes closed assignments and journal threads without a corresponding open ledger assignment; those exclusions must remain visible in any caller-facing summary. No UI or automatic invocation is added in this increment.
+
+Verification covers canonical fingerprint stability, malformed and empty payload handling, preservation of multiple distinct reports, duplicate identical reports, and the unchanged non-executable recovery boundary. This remains a diagnostic integration, not an executable repair workflow.
+
+
+Audit count semantics are explicit: `assignmentsScanned` counts distinct assignment IDs, `findingCount()` counts all assessments (an assignment may have both acceptance and return-report findings), `discrepancyCount()` counts distinct assignments with at least one review-required finding, and `discrepancyFindingCount()` counts individual review-required findings. A regression test verifies the two-finding/one-assignment case.

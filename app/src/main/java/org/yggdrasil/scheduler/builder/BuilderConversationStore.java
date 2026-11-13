@@ -17,14 +17,14 @@ import java.util.List;
  * remote senders, invoke models, synchronize devices, or authorize execution.
  */
 public final class BuilderConversationStore extends SQLiteOpenHelper implements BuilderConversationJournal {
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DEFAULT_DATABASE_NAME = "builder-conversations.db";
     private static final String TABLE = "conversation_turns";
 
     private static final String[] COLUMNS = {
             "_id", "thread_id", "turn_id", "protocol_version", "speaker",
             "recipient", "reply_to_turn_id", "turn_type", "evidence_status",
-            "timestamp_epoch_millis", "body"
+            "timestamp_epoch_millis", "body", "assignment_id"
     };
 
     public BuilderConversationStore(Context context) {
@@ -51,6 +51,7 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
                 + "evidence_status TEXT NOT NULL, "
                 + "timestamp_epoch_millis INTEGER NOT NULL, "
                 + "body TEXT NOT NULL, "
+                + "assignment_id TEXT, "
                 + "UNIQUE(thread_id, turn_id))");
         db.execSQL("CREATE INDEX conversation_thread_order ON "
                 + TABLE + "(thread_id, _id)");
@@ -58,10 +59,9 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Never silently discard conversation history. Future schema changes need
-        // an explicit, tested migration before the database version is increased.
-        throw new IllegalStateException("No conversation-store migration from "
-                + oldVersion + " to " + newVersion);
+        // Preserve legacy turns; their assignment link is null.
+        if (oldVersion < 2) db.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN assignment_id TEXT");
+        if (oldVersion > 2) throw new IllegalStateException("Unsupported conversation-store version " + oldVersion);
     }
 
     /**
@@ -132,6 +132,7 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
                     item.put("evidence_status", turn.evidenceStatus.name());
                     item.put("timestamp_epoch_millis", turn.timestampEpochMillis);
                     item.put("body", turn.body);
+                    item.put("assignment_id", turn.assignmentId == null ? org.json.JSONObject.NULL : turn.assignmentId);
                     turns.put(item);
                     totalTurns++;
                 }
@@ -186,6 +187,8 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
         values.put("evidence_status", turn.evidenceStatus.name());
         values.put("timestamp_epoch_millis", turn.timestampEpochMillis);
         values.put("body", turn.body);
+        if (turn.assignmentId == null) values.putNull("assignment_id");
+        else values.put("assignment_id", turn.assignmentId);
         return values;
     }
 
@@ -202,7 +205,8 @@ public final class BuilderConversationStore extends SQLiteOpenHelper implements 
                 BuilderConversationProtocol.TurnType.valueOf(cursor.getString(7)),
                 BuilderConversationProtocol.EvidenceStatus.valueOf(cursor.getString(8)),
                 cursor.getLong(9),
-                cursor.getString(10));
+                cursor.getString(10),
+                cursor.isNull(11) ? null : cursor.getString(11));
     }
 
     private static String requireDatabaseName(String name) {

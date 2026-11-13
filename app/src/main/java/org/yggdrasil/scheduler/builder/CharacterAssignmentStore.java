@@ -65,8 +65,11 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         }
     }
 
+    private final Context appContext;
+
     public CharacterAssignmentStore(Context context) {
         super(context.getApplicationContext(), DATABASE_NAME, null, DATABASE_VERSION);
+        appContext = context.getApplicationContext();
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -178,6 +181,37 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         } finally { db.endTransaction(); }
     }
 
+    /** Queue an already-authorized assignment and request one serialized WorkManager dispatch. */
+    public synchronized void queueForDispatch(String id, String detail) {
+        transition(id, Status.QUEUED, detail);
+        CharacterAssignmentWorkScheduler.enqueue(appContext);
+    }
+
+    /** Atomically claims the oldest authorized queued assignment for one dispatcher invocation. */
+    public synchronized Assignment claimNextQueued() {
+        SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
+        try {
+            String id=null;
+            try (Cursor c=db.rawQuery("SELECT assignment_id FROM assignments WHERE status=? ORDER BY created_at ASC LIMIT 1",
+                    new String[]{Status.QUEUED.name()})) {
+                if (c.moveToFirst()) id=c.getString(0);
+            }
+            if (id==null) { db.setTransactionSuccessful(); return null; }
+            ContentValues v=new ContentValues(); v.put("status",Status.ACCEPTED.name());
+            v.put("updated_at",System.currentTimeMillis());
+            int changed=db.update("assignments",v,"assignment_id=? AND status=?",
+                    new String[]{id,Status.QUEUED.name()});
+            if (changed!=1) { db.setTransactionSuccessful(); return null; }
+            event(db,id,Status.QUEUED,Status.ACCEPTED,"LIFECYCLE","WorkManager dispatcher claimed assignment");
+            Assignment claimed;
+            try (Cursor c=db.query("assignments",null,"assignment_id=?",new String[]{id},null,null,null)) {
+                claimed=c.moveToFirst()?new Assignment(c):null;
+            }
+            db.setTransactionSuccessful();
+            return claimed;
+        } finally { db.endTransaction(); }
+    }
+
     public synchronized void checkpoint(String id, String checkpointJson) {
         requireText(checkpointJson,"checkpointJson");
         updatePayload(id,"checkpoint_json",checkpointJson,PAYLOAD_CHECKPOINT,"Checkpoint saved");
@@ -205,6 +239,18 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
             event(db,id,null,current,payloadType,detail);
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+    }
+
+    /** Read-only query used by recovery audits; it does not alter assignment state. */
+    public synchronized boolean hasLifecycleEvent(String assignmentId, String toStatus) {
+        requireText(assignmentId, "assignmentId");
+        requireText(toStatus, "toStatus");
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM assignment_events WHERE assignment_id=? " +
+                        "AND event_type='LIFECYCLE' AND to_status=? LIMIT 1",
+                new String[]{assignmentId, toStatus})) {
+            return c.moveToFirst();
+        }
     }
 
     public synchronized List<Payload> listPayloads(String assignmentId) {
