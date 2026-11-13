@@ -61,3 +61,46 @@ jobs:
       - name: Run scheduler tests
         working-directory: scheduler
         run: npm test
+
+  portability-runtime:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Execute identical CSV and JSON contract fixtures
+        working-directory: analysis-engine
+        run: node src/contract-portability-fixture.js /tmp/portability-node-${{ matrix.node-version }}.json
+      - name: Upload runtime results
+        uses: actions/upload-artifact@v4
+        with:
+          name: portability-node-${{ matrix.node-version }}
+          path: /tmp/portability-node-${{ matrix.node-version }}.json
+          if-no-files-found: error
+
+  portability-compare:
+    runs-on: ubuntu-latest
+    needs: portability-runtime
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up comparison runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Download runtime results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: portability-node-*
+          path: /tmp/portability
+          merge-multiple: true
+      - name: Compare portable outputs and receipts
+        working-directory: analysis-engine
+        run: node src/compare-portability.js /tmp/portability/portability-node-20.json /tmp/portability/portability-node-22.json
