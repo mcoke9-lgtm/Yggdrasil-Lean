@@ -39,11 +39,19 @@ public final class BuilderConversationProtocol {
         public final EvidenceStatus evidenceStatus;
         public final long timestampEpochMillis;
         public final String body;
+        public final String assignmentId;
 
         public Turn(int protocolVersion, String threadId, String turnId,
                     Participant speaker, Participant recipient, String replyToTurnId,
                     TurnType type, EvidenceStatus evidenceStatus,
                     long timestampEpochMillis, String body) {
+            this(protocolVersion, threadId, turnId, speaker, recipient, replyToTurnId, type, evidenceStatus, timestampEpochMillis, body, null);
+        }
+
+        public Turn(int protocolVersion, String threadId, String turnId,
+                    Participant speaker, Participant recipient, String replyToTurnId,
+                    TurnType type, EvidenceStatus evidenceStatus,
+                    long timestampEpochMillis, String body, String assignmentId) {
             if (protocolVersion != CURRENT_VERSION && protocolVersion != LEGACY_VERSION)
                 throw new IllegalArgumentException("Unsupported conversation protocol version");
             this.protocolVersion = protocolVersion;
@@ -62,6 +70,7 @@ public final class BuilderConversationProtocol {
                 throw new IllegalArgumentException("timestamp must be positive");
             this.timestampEpochMillis = timestampEpochMillis;
             this.body = required(body, "body");
+            this.assignmentId = optional(assignmentId);
             if (body.length() > MAX_BODY_LENGTH)
                 throw new IllegalArgumentException("body exceeds " + MAX_BODY_LENGTH + " characters");
             validateShape(this);

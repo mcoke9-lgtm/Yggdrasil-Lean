@@ -7,10 +7,10 @@ import androidx.work.WorkerParameters;
 import org.json.JSONObject;
 
 /**
- * Claims at most one authorized assignment.
+ * Claims at most one authorized assignment and records the bounded result in the
+ * canonical local Character conversation journal.
  *
- * This first integration increment intentionally stops at the provider boundary:
- * no model/provider adapter is invoked and no work is represented as RUNNING.
+ * No model/provider adapter is invoked and no work is represented as RUNNING.
  */
 public final class CharacterAssignmentDispatchWorker extends Worker {
     public CharacterAssignmentDispatchWorker(@NonNull Context context,
@@ -21,10 +21,14 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
     @NonNull @Override public Result doWork() {
         CharacterAssignmentStore store =
                 new CharacterAssignmentStore(getApplicationContext());
+        BuilderConversationStore journal = null;
         CharacterAssignmentStore.Assignment assignment = null;
         try {
             assignment = store.claimNextQueued();
             if (assignment == null) return Result.success();
+
+            journal = new BuilderConversationStore(getApplicationContext());
+            CharacterAssignmentJournalBridge.appendAccepted(assignment, journal);
 
             JSONObject report = new JSONObject();
             report.put("assignment_id", assignment.assignmentId);
@@ -37,6 +41,8 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             report.put("next_action", "Connect an approved provider adapter before execution.");
 
             store.returnReport(assignment.assignmentId, report.toString());
+            CharacterAssignmentJournalBridge.appendReturnReport(
+                    assignment, report.toString(), journal);
             store.transition(assignment.assignmentId,
                     CharacterAssignmentStore.Status.BLOCKED,
                     "Stopped safely: no execution adapter is connected");
@@ -58,6 +64,7 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             // Do not retry indefinitely or bypass the authorization boundary.
             return Result.failure();
         } finally {
+            if (journal != null) journal.close();
             store.close();
         }
     }
