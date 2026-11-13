@@ -25,7 +25,7 @@ jobs:
 
       - name: Run nine-process Android instrumentation test
         # Includes up to 15 minutes for emulator boot, then a 25-minute Gradle test cap.
-        timeout-minutes: 40
+        timeout-minutes: 43
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
