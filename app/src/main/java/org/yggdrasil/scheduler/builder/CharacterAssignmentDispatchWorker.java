@@ -5,13 +5,12 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import org.json.JSONObject;
-import java.util.UUID;
 
 /**
- * Claims at most one authorized assignment.
+ * Claims at most one authorized assignment and records the bounded result in the
+ * canonical local Character conversation journal.
  *
- * This first integration increment intentionally stops at the provider boundary:
- * no model/provider adapter is invoked and no work is represented as RUNNING.
+ * No model/provider adapter is invoked and no work is represented as RUNNING.
  */
 public final class CharacterAssignmentDispatchWorker extends Worker {
     public CharacterAssignmentDispatchWorker(@NonNull Context context,
@@ -22,12 +21,14 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
     @NonNull @Override public Result doWork() {
         CharacterAssignmentStore store =
                 new CharacterAssignmentStore(getApplicationContext());
+        BuilderConversationStore journal = null;
         CharacterAssignmentStore.Assignment assignment = null;
-        BuilderConversationStore journal = new BuilderConversationStore(getApplicationContext());
         try {
             assignment = store.claimNextQueued();
             if (assignment == null) return Result.success();
-            appendJournalTurn(journal, assignment, "WorkManager accepted the authorized assignment; execution has not started.");
+
+            journal = new BuilderConversationStore(getApplicationContext());
+            CharacterAssignmentJournalBridge.appendAccepted(assignment, journal);
 
             JSONObject report = new JSONObject();
             report.put("assignment_id", assignment.assignmentId);
@@ -40,7 +41,8 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             report.put("next_action", "Connect an approved provider adapter before execution.");
 
             store.returnReport(assignment.assignmentId, report.toString());
-            appendJournalTurn(journal, assignment, report.toString());
+            CharacterAssignmentJournalBridge.appendReturnReport(
+                    assignment, report.toString(), journal);
             store.transition(assignment.assignmentId,
                     CharacterAssignmentStore.Status.BLOCKED,
                     "Stopped safely: no execution adapter is connected");
@@ -62,20 +64,8 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
             // Do not retry indefinitely or bypass the authorization boundary.
             return Result.failure();
         } finally {
-            journal.close();
+            if (journal != null) journal.close();
             store.close();
         }
-    }
-
-    private static void appendJournalTurn(BuilderConversationStore journal,
-            CharacterAssignmentStore.Assignment assignment, String body) {
-        BuilderConversationProtocol.Turn turn = new BuilderConversationProtocol.Turn(
-                BuilderConversationProtocol.CURRENT_VERSION,
-                "assignment-" + assignment.assignmentId, UUID.randomUUID().toString(),
-                BuilderConversationProtocol.Participant.valueOf(assignment.character),
-                null, null, BuilderConversationProtocol.TurnType.CONTRIBUTION,
-                BuilderConversationProtocol.EvidenceStatus.OBSERVED,
-                System.currentTimeMillis(), body, assignment.assignmentId);
-        journal.append(turn);
     }
 }
