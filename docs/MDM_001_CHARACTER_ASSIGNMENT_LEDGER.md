@@ -67,7 +67,7 @@ This is a tested queue/claim integration target, not independent Character execu
 
 ## WorkManager dispatch increment 2 — canonical journal handoff
 
-The dispatcher now projects its accepted assignment and structured bounded return report into the existing append-only `BuilderConversationStore`. Each assignment receives a separate journal thread named with the `mdm-assignment:` namespace. The acceptance entry identifies the Character and assignment; the return entry replies to that acceptance and carries the structured report.
+The dispatcher now projects the assignment request, Character acknowledgement, and structured bounded return report into the existing append-only `BuilderConversationStore`. Each assignment receives a separate journal thread named with the `mdm-assignment:` namespace. Every turn carries the explicit `assignment_id` field as well as an envelope in its body. The Character acknowledgement and return response are linked to the originating assignment-request turn using the protocol's reply lineage.
 
 Turn IDs are deterministic per assignment and event, so a repeated handoff does not append duplicate acceptance or return entries. Journal entries preserve the assignment ID and report fields but do not grant authorization, change the ledger's lifecycle authority, or imply that the objective was executed. The current no-provider outcome remains `BLOCKED` with `execution_started=false`.
 
