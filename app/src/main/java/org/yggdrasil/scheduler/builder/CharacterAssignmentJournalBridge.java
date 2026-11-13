@@ -43,7 +43,8 @@ public final class CharacterAssignmentJournalBridge {
         }
         if (containsTurn(journal.readThread(threadId), acceptedId)) return;
         JSONObject body = envelope(assignment, "ACCEPTED");
-        put(body, "execution_started", false);
+        try { body.put("execution_started", false); }
+        catch (JSONException impossible) { throw new IllegalStateException(impossible); }
         append(journal, threadId, acceptedId, participant(assignment.character),
                 requester, requestId,
                 BuilderConversationProtocol.TurnType.ACKNOWLEDGEMENT,
