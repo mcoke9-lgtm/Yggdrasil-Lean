@@ -18,7 +18,7 @@ const atLeast = (actual, minimum) => {
  * Execute a validated Portable Analysis Contract request against exact input bytes.
  * Returns report, receipt, and validation details; does not persist or transmit data.
  */
-export function executeContract(request, inputBytes, { platform = process.platform } = {}) {
+export function executeContract(request, inputBytes) {
   const startedAt = new Date().toISOString();
   const executionId = randomUUID();
   const errors = [];
@@ -90,7 +90,7 @@ export function executeContract(request, inputBytes, { platform = process.platfo
       version: request?.request?.operation_version ?? "unknown"
     },
     engine: {name:ENGINE_NAME,version:ENGINE_VERSION},
-    environment: {runtime:"Node.js",runtime_version:process.versions.node,platform},
+    environment: {runtime:"Node.js",runtime_version:process.versions.node,platform:process.platform},
     started_at:startedAt,
     completed_at:completedAt,
     outcome,
