@@ -76,7 +76,8 @@ public final class CharacterAssignmentRecoveryAudit {
             List<String> warnings = new ArrayList<>();
             boolean request = false;
             boolean acknowledgement = false;
-            String journalReportFingerprint = null;
+            List<String> journalReportFingerprints = new ArrayList<>();
+            boolean malformedJournalReport = false;
             int journalReportCount = 0;
 
             for (BuilderConversationProtocol.Turn turn : turns) {
@@ -95,11 +96,8 @@ public final class CharacterAssignmentRecoveryAudit {
                     journalReportCount++;
                     journalIds.add(turn.turnId);
                     String fingerprint = reportFingerprintFromTurn(turn, warnings);
-                    if (journalReportFingerprint == null) journalReportFingerprint = fingerprint;
-                    else if (fingerprint != null && !journalReportFingerprint.equals(fingerprint)) {
-                        journalReportFingerprint = "multiple-distinct-journal-reports";
-                        warnings.add("Multiple distinct journal return reports are preserved for review");
-                    }
+                    if (fingerprint == null) malformedJournalReport = true;
+                    else journalReportFingerprints.add(fingerprint);
                 }
             }
 
@@ -108,15 +106,18 @@ public final class CharacterAssignmentRecoveryAudit {
                     assignment.assignmentId, CharacterAssignmentStore.Status.ACCEPTED.name());
             if (ledgerAccepted) ledgerIds.add("lifecycle:ACCEPTED");
 
-            String ledgerReportFingerprint = null;
+            List<String> ledgerReportFingerprints = new ArrayList<>();
+            boolean malformedLedgerReport = false;
             List<CharacterAssignmentStore.Payload> payloads = ledger.listPayloads(assignment.assignmentId);
             for (CharacterAssignmentStore.Payload payload : payloads) {
                 if (CharacterAssignmentStore.PAYLOAD_RETURN_REPORT.equals(payload.payloadType)) {
                     ledgerIds.add("payload:" + payload.payloadId);
                     try {
-                        ledgerReportFingerprint = fingerprintJson(payload.payloadJson);
+                        String fingerprint = fingerprintJson(payload.payloadJson);
+                        if (fingerprint == null) throw new IllegalArgumentException("empty report payload");
+                        ledgerReportFingerprints.add(fingerprint);
                     } catch (IllegalArgumentException malformed) {
-                        ledgerReportFingerprint = "malformed-ledger-report";
+                        malformedLedgerReport = true;
                         warnings.add("Ledger return-report payload " + payload.payloadId + " is malformed");
                     }
                 }
@@ -127,16 +128,22 @@ public final class CharacterAssignmentRecoveryAudit {
                             assignment.assignmentId, ledgerAccepted, request, acknowledgement);
             assessments.add(new Assessment(acceptance, ledgerIds, journalIds, warnings));
 
+            String ledgerReportFingerprint = auditFingerprint(
+                    ledgerReportFingerprints, malformedLedgerReport, "ledger");
+            String journalReportFingerprint = auditFingerprint(
+                    journalReportFingerprints, malformedJournalReport, "journal");
+            if (journalReportCount > 1 && !malformedJournalReport
+                    && journalReportFingerprints.size() <= 1) {
+                warnings.add("Multiple identical journal return reports are present; inspect their source turns");
+            }
+            if (ledgerReportFingerprints.size() > 1 && !malformedLedgerReport
+                    && distinctCount(ledgerReportFingerprints) == 1) {
+                warnings.add("Multiple identical ledger return reports are present; inspect their source payloads");
+            }
             CharacterAssignmentReconciliation.Finding report =
                     CharacterAssignmentReconciliation.returnReport(
                             assignment.assignmentId, ledgerReportFingerprint, journalReportFingerprint);
-            if (journalReportCount > 0 && journalReportFingerprint == null) {
-                journalReportFingerprint = "unreadable-journal-report";
-                warnings.add("Journal return-report evidence could not be fingerprinted");
-            } else if (journalReportCount > 1 && !"multiple-distinct-journal-reports".equals(journalReportFingerprint)) {
-                warnings.add("Multiple journal return reports are present; inspect their source turns");
-            }
-            if (ledgerReportFingerprint != null || journalReportFingerprint != null || journalReportCount > 0) {
+            if (journalReportCount > 0 || !ledgerIds.isEmpty() && hasReportPayload(ledgerIds)) {
                 List<String> reportLedgerIds = new ArrayList<>();
                 List<String> reportJournalIds = new ArrayList<>();
                 for (String id : ledgerIds) if (id.startsWith("payload:")) reportLedgerIds.add(id);
@@ -151,6 +158,27 @@ public final class CharacterAssignmentRecoveryAudit {
             }
         }
         return new Report(assessments);
+    }
+
+    /** Collapse a store's report history without discarding conflicts or unreadable entries. */
+    static String auditFingerprint(List<String> fingerprints, boolean malformed, String store) {
+        if (malformed) return "unreadable-" + store + "-report";
+        int distinct = distinctCount(fingerprints);
+        if (distinct > 1) return "multiple-distinct-" + store + "-reports";
+        return fingerprints.isEmpty() ? null : fingerprints.get(0);
+    }
+
+    private static int distinctCount(List<String> fingerprints) {
+        List<String> distinct = new ArrayList<>();
+        for (String fingerprint : fingerprints) {
+            if (!distinct.contains(fingerprint)) distinct.add(fingerprint);
+        }
+        return distinct.size();
+    }
+
+    private static boolean hasReportPayload(List<String> evidenceIds) {
+        for (String id : evidenceIds) if (id.startsWith("payload:")) return true;
+        return false;
     }
 
     private static String eventOf(BuilderConversationProtocol.Turn turn, List<String> warnings) {
@@ -179,7 +207,9 @@ public final class CharacterAssignmentRecoveryAudit {
     }
 
     static String fingerprintJson(String json) {
-        if (json == null || json.trim().isEmpty()) return null;
+        if (json == null || json.trim().isEmpty()) {
+            throw new IllegalArgumentException("Report payload must not be empty");
+        }
         try {
             Object parsed = json.trim().startsWith("{")
                     ? new JSONObject(json) : new JSONArray(json);
