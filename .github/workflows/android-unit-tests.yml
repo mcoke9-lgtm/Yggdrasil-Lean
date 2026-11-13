@@ -65,3 +65,5 @@ jobs:
             app/build/reports/androidTests/**
           if-no-files-found: warn
           retention-days: 7
+
+# Diagnostic safeguards are exercised by the controlled PR validation run.
