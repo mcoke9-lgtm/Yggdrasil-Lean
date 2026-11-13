@@ -9,7 +9,7 @@ export const OUTPUT_SCHEMA_VERSION = "1.0";
 
 const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const nonEmptyString = value => typeof value === "string" && value.trim().length > 0;
-const semver = value => typeof value === "string" && /^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(value);
+const semver = value => typeof value === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value);
 
 export function validateRequest(request) {
   const errors = [];
