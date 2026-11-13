@@ -118,7 +118,7 @@ public class CharacterAssignmentStoreTest {
                 "from_status TEXT, to_status TEXT NOT NULL, detail TEXT NOT NULL, created_at INTEGER NOT NULL)");
         legacy.execSQL("INSERT INTO assignments VALUES(" +
                 "'legacy-1','HUGINN','ODIN','Legacy','Observe','{}','{}','logs'," +
-                "'{\\"checkpoint\\":1}','{\\"report\\":1}','RUNNING',10,20)");
+                "'{\"checkpoint\":1}','{\"report\":1}','RUNNING',10,20)");
         legacy.execSQL("INSERT INTO assignment_events(assignment_id,to_status,detail,created_at) " +
                 "VALUES('legacy-1','CREATED','legacy event',10)");
         legacy.setVersion(1);
