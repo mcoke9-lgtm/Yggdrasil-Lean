@@ -132,12 +132,14 @@ public final class CharacterAssignmentRecoveryAudit {
                     ledgerReportFingerprints, malformedLedgerReport, "ledger");
             String journalReportFingerprint = auditFingerprint(
                     journalReportFingerprints, malformedJournalReport, "journal");
-            if (journalReportCount > 1 && !malformedJournalReport
-                    && journalReportFingerprints.size() <= 1) {
+            if (distinctCount(journalReportFingerprints) > 1) {
+                warnings.add("Multiple distinct journal return reports are preserved for review");
+            } else if (journalReportCount > 1 && !malformedJournalReport) {
                 warnings.add("Multiple identical journal return reports are present; inspect their source turns");
             }
-            if (ledgerReportFingerprints.size() > 1 && !malformedLedgerReport
-                    && distinctCount(ledgerReportFingerprints) == 1) {
+            if (distinctCount(ledgerReportFingerprints) > 1) {
+                warnings.add("Multiple distinct ledger return reports are preserved for review");
+            } else if (ledgerReportFingerprints.size() > 1 && !malformedLedgerReport) {
                 warnings.add("Multiple identical ledger return reports are present; inspect their source payloads");
             }
             CharacterAssignmentReconciliation.Finding report =
