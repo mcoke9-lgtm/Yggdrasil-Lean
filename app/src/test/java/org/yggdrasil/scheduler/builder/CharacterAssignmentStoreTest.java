@@ -2,7 +2,6 @@ package org.yggdrasil.scheduler.builder;
 
 import static org.junit.Assert.*;
 import android.content.Context;
-import androidx.test.core.app.ApplicationProvider;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
