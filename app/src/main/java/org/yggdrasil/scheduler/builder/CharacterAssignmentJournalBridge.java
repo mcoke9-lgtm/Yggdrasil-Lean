@@ -30,11 +30,12 @@ public final class CharacterAssignmentJournalBridge {
         String threadId = threadId(assignment.assignmentId);
         String requestId = stableTurnId(assignment.assignmentId, REQUEST_SUFFIX);
         String acceptedId = stableTurnId(assignment.assignmentId, ACCEPTED_SUFFIX);
+        BuilderConversationProtocol.Participant requester = requesterParticipant(assignment.requester);
         List<BuilderConversationProtocol.Turn> turns = journal.readThread(threadId);
         if (!containsTurn(turns, requestId)) {
             JSONObject request = envelope(assignment, "ASSIGNMENT_REQUEST");
-            append(journal, threadId, requestId, BuilderConversationProtocol.Participant.USER,
-                    null, null, BuilderConversationProtocol.TurnType.CONTRIBUTION,
+            append(journal, threadId, requestId, requester, null, null,
+                    BuilderConversationProtocol.TurnType.CONTRIBUTION,
                     BuilderConversationProtocol.EvidenceStatus.USER_CONFIRMED,
                     request, assignment.assignmentId);
         }
@@ -42,7 +43,7 @@ public final class CharacterAssignmentJournalBridge {
         JSONObject body = envelope(assignment, "ACCEPTED");
         put(body, "execution_started", false);
         append(journal, threadId, acceptedId, participant(assignment.character),
-                BuilderConversationProtocol.Participant.USER, requestId,
+                requester, requestId,
                 BuilderConversationProtocol.TurnType.ACKNOWLEDGEMENT,
                 BuilderConversationProtocol.EvidenceStatus.OBSERVED, body, assignment.assignmentId);
     }
@@ -70,7 +71,7 @@ public final class CharacterAssignmentJournalBridge {
             throw new IllegalArgumentException("return report must be a JSON object", notObject);
         }
         append(journal, threadId, returnId, participant(assignment.character),
-                BuilderConversationProtocol.Participant.USER, requestId,
+                requesterParticipant(assignment.requester), requestId,
                 BuilderConversationProtocol.TurnType.RESPONSE,
                 BuilderConversationProtocol.EvidenceStatus.OBSERVED, body, assignment.assignmentId);
     }
@@ -116,6 +117,16 @@ public final class CharacterAssignmentJournalBridge {
             return BuilderConversationProtocol.Participant.valueOf(character);
         } catch (IllegalArgumentException invalid) {
             throw new IllegalArgumentException("Character has no conversation participant: " + character, invalid);
+        }
+    }
+
+    /** Preserve a named Nine Character requester; otherwise represent the human director as USER. */
+    private static BuilderConversationProtocol.Participant requesterParticipant(String requester) {
+        try {
+            return BuilderConversationProtocol.Participant.valueOf(
+                    requester.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException invalid) {
+            return BuilderConversationProtocol.Participant.USER;
         }
     }
 
