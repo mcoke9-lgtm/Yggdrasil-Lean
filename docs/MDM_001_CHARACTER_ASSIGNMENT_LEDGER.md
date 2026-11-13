@@ -119,3 +119,20 @@ A follow-on planning layer converts one reconciliation finding into a bounded re
 Every proposed acceptance replay requires explicit, assignment-scoped Týr authorization before any future write. The plan object itself always reports executionPermitted=false; it is not an authorization token and cannot be passed to a mutating operation. There is no authorization UI or repair executor in this increment.
 
 Tests verify that each finding maps to the expected recommendation, that proposed replay remains non-executable, and that journal-only and conflicting evidence cannot trigger ledger mutation. This is a planning contract only, not automated recovery.
+
+## Read-only cross-store recovery audit — integration increment
+
+The first integration of the reconciliation and recovery-planning contracts is a read-only audit API. It scans currently open assignments, reads their lifecycle acceptance evidence and append-only payload history, then reads the corresponding `mdm-assignment:<assignmentId>` journal thread.
+
+For each assignment it returns:
+- an acceptance finding and its non-executable recovery plan;
+- a return-report finding when return-report evidence exists;
+- ledger payload IDs and journal turn IDs supporting each finding;
+- warnings for malformed provenance, malformed reports, or multiple distinct report projections;
+- a report identifier, scan timestamp, assignment count, and discrepancy count.
+
+Report fingerprints are SHA-256 over canonical JSON: object keys are sorted recursively, equivalent numeric forms are normalized, and array order is preserved. Journal envelope metadata and timestamps are excluded.
+
+The audit does not write either database, append an audit event, schedule WorkManager, change lifecycle, replay a projection, or grant Týr authorization. Its report is an in-memory result, not a durable audit log. The first scope intentionally excludes closed assignments and journal threads without a corresponding open ledger assignment; those exclusions must remain visible in any caller-facing summary. No UI or automatic invocation is added in this increment.
+
+Verification must cover canonical fingerprint stability, malformed payload handling, report conflicts, and the unchanged non-executable recovery boundary. This remains a diagnostic integration, not an executable repair workflow.
