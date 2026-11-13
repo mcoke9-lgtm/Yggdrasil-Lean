@@ -21,8 +21,9 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
     @NonNull @Override public Result doWork() {
         CharacterAssignmentStore store =
                 new CharacterAssignmentStore(getApplicationContext());
+        CharacterAssignmentStore.Assignment assignment = null;
         try {
-            CharacterAssignmentStore.Assignment assignment = store.claimNextQueued();
+            assignment = store.claimNextQueued();
             if (assignment == null) return Result.success();
 
             JSONObject report = new JSONObject();
@@ -41,6 +42,19 @@ public final class CharacterAssignmentDispatchWorker extends Worker {
                     "Stopped safely: no execution adapter is connected");
             return Result.success();
         } catch (Exception failure) {
+            // Preserve a recoverable state instead of leaving a claimed assignment silently ACCEPTED.
+            if (assignment != null) {
+                try {
+                    String detail = failure.getMessage() == null
+                            ? failure.getClass().getSimpleName() : failure.getMessage();
+                    if (detail.length() > 240) detail = detail.substring(0, 240);
+                    store.transition(assignment.assignmentId,
+                            CharacterAssignmentStore.Status.INTERRUPTED,
+                            "Dispatcher interrupted: " + detail);
+                } catch (Exception ignored) {
+                    // The durable ACCEPTED state remains visible for explicit recovery.
+                }
+            }
             // Do not retry indefinitely or bypass the authorization boundary.
             return Result.failure();
         } finally {
