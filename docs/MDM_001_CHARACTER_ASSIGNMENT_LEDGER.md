@@ -55,3 +55,11 @@ Add a governed dispatcher that claims authorized queued assignments, checks capa
 - Robolectric/SQLite tests cover create/read, invalid Character, legal and illegal transitions, multiple checkpoint/report versions, ordered payload history, rejection of payload-history updates/deletes, and process/store reopen.
 - No migration or destructive change to existing scheduler/runtime databases.
 - Existing PR #48–#51 experiments remain untouched and independently reviewable.
+
+## WorkManager dispatch increment 1
+
+The follow-on branch adds an explicit `queueForDispatch` operation. It may only queue an assignment whose current lifecycle permits the transition from `AUTHORIZED` to `QUEUED`. The operation appends a unique WorkManager request using a serialized unique-work chain.
+
+Each dispatcher invocation claims at most one oldest queued assignment in a database transaction and records `QUEUED → ACCEPTED`. The current worker deliberately does not invoke a model or provider: because no approved execution adapter is connected to this worker yet, it writes a structured `NO_EXECUTION_ADAPTER` return report and transitions the assignment to `BLOCKED`. It never marks work `RUNNING` or implies that a Character performed the objective.
+
+This is a tested queue/claim integration target, not independent Character execution. Provider routing, capacity checks, checkpoint/resume during execution, canonical journal return, and human authorization UX remain future increments.
