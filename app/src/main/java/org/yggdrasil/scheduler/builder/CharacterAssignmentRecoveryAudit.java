@@ -98,6 +98,7 @@ public final class CharacterAssignmentRecoveryAudit {
                     String fingerprint = reportFingerprintFromTurn(turn, warnings);
                     if (journalReportFingerprint == null) journalReportFingerprint = fingerprint;
                     else if (fingerprint != null && !journalReportFingerprint.equals(fingerprint)) {
+                        journalReportFingerprint = "multiple-distinct-journal-reports";
                         warnings.add("Multiple distinct journal return reports are preserved for review");
                     }
                 }
@@ -113,7 +114,12 @@ public final class CharacterAssignmentRecoveryAudit {
             for (CharacterAssignmentStore.Payload payload : payloads) {
                 if (CharacterAssignmentStore.PAYLOAD_RETURN_REPORT.equals(payload.payloadType)) {
                     ledgerIds.add("payload:" + payload.payloadId);
-                    ledgerReportFingerprint = fingerprintJson(payload.payloadJson);
+                    try {
+                        ledgerReportFingerprint = fingerprintJson(payload.payloadJson);
+                    } catch (IllegalArgumentException malformed) {
+                        ledgerReportFingerprint = "malformed-ledger-report";
+                        warnings.add("Ledger return-report payload " + payload.payloadId + " is malformed");
+                    }
                 }
             }
 
@@ -125,6 +131,10 @@ public final class CharacterAssignmentRecoveryAudit {
             CharacterAssignmentReconciliation.Finding report =
                     CharacterAssignmentReconciliation.returnReport(
                             assignment.assignmentId, ledgerReportFingerprint, journalReportFingerprint);
+            if (journalReportCount > 1 && journalReportFingerprint == null) {
+                journalReportFingerprint = "multiple-journal-return-reports";
+                warnings.add("Multiple journal return reports require review");
+            }
             if (ledgerReportFingerprint != null || journalReportFingerprint != null || journalReportCount > 0) {
                 List<String> reportLedgerIds = new ArrayList<>();
                 List<String> reportJournalIds = new ArrayList<>();
