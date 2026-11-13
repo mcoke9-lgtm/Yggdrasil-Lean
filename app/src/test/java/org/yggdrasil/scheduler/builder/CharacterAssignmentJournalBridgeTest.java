@@ -59,17 +59,17 @@ public class CharacterAssignmentJournalBridgeTest {
         List<BuilderConversationProtocol.Turn> turns =
                 journal.readThread(CharacterAssignmentJournalBridge.threadId("bridge-001"));
         assertEquals(3, turns.size());
-        assertEquals(BuilderConversationProtocol.Participant.USER, turns.get(0).speaker);
+        assertEquals(BuilderConversationProtocol.Participant.ODIN, turns.get(0).speaker);
         assertEquals(BuilderConversationProtocol.TurnType.CONTRIBUTION, turns.get(0).type);
         assertEquals("bridge-001", turns.get(0).assignmentId);
         assertEquals(BuilderConversationProtocol.Participant.HUGINN, turns.get(1).speaker);
         assertEquals(BuilderConversationProtocol.TurnType.ACKNOWLEDGEMENT, turns.get(1).type);
-        assertEquals(BuilderConversationProtocol.Participant.USER, turns.get(1).recipient);
+        assertEquals(BuilderConversationProtocol.Participant.ODIN, turns.get(1).recipient);
         assertEquals(turns.get(0).turnId, turns.get(1).replyToTurnId);
         assertTrue(turns.get(1).body.contains("\"event\":\"ACCEPTED\""));
         assertEquals(BuilderConversationProtocol.Participant.HUGINN, turns.get(2).speaker);
         assertEquals(BuilderConversationProtocol.TurnType.RESPONSE, turns.get(2).type);
-        assertEquals(BuilderConversationProtocol.Participant.USER, turns.get(2).recipient);
+        assertEquals(BuilderConversationProtocol.Participant.ODIN, turns.get(2).recipient);
         assertEquals(turns.get(0).turnId, turns.get(2).replyToTurnId);
         assertEquals("bridge-001", turns.get(2).assignmentId);
         assertTrue(turns.get(2).body.contains("\"NO_EXECUTION_ADAPTER\""));
