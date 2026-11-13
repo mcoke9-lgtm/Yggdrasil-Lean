@@ -63,3 +63,14 @@ The follow-on branch adds an explicit `queueForDispatch` operation. It may only 
 Each dispatcher invocation claims at most one oldest queued assignment in a database transaction and records `QUEUED → ACCEPTED`. The current worker deliberately does not invoke a model or provider: because no approved execution adapter is connected to this worker yet, it writes a structured `NO_EXECUTION_ADAPTER` return report and transitions the assignment to `BLOCKED`. It never marks work `RUNNING` or implies that a Character performed the objective.
 
 This is a tested queue/claim integration target, not independent Character execution. Provider routing, capacity checks, checkpoint/resume during execution, canonical journal return, and human authorization UX remain future increments.
+
+
+## WorkManager dispatch increment 2 — canonical journal handoff
+
+The dispatcher now projects its accepted assignment and structured bounded return report into the existing append-only `BuilderConversationStore`. Each assignment receives a separate journal thread named with the `mdm-assignment:` namespace. The acceptance entry identifies the Character and assignment; the return entry replies to that acceptance and carries the structured report.
+
+Turn IDs are deterministic per assignment and event, so a repeated handoff does not append duplicate acceptance or return entries. Journal entries preserve the assignment ID and report fields but do not grant authorization, change the ledger's lifecycle authority, or imply that the objective was executed. The current no-provider outcome remains `BLOCKED` with `execution_started=false`.
+
+The bridge is a local projection between two existing stores, not a unified transaction across their separate SQLite databases. If journal persistence fails, the worker records an interruption where possible and leaves the ledger state available for recovery; operators must reconcile the two stores rather than assume atomic cross-database commit.
+
+Tests cover assignment-thread separation, accepted/return turn shape and provenance, and idempotent repeated handoff. Independent provider execution, real checkpoint/resume, and Living Registry synchronization remain unimplemented.
