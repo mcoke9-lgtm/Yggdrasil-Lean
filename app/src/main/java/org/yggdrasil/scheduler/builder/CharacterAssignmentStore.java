@@ -80,9 +80,8 @@ public final class CharacterAssignmentStore extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX assignments_character_updated ON assignments(character, updated_at)");
         db.execSQL("CREATE TABLE assignment_events (" +
                 "event_id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id TEXT NOT NULL, " +
-                "from_status TEXT, to_status TEXT NOT NULL, detail TEXT NOT NULL, " +
-                "created_at INTEGER NOT NULL)");
-        db.execSQL("ALTER TABLE assignment_events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'LIFECYCLE'");
+                "from_status TEXT, to_status TEXT NOT NULL, event_type TEXT NOT NULL, " +
+                "detail TEXT NOT NULL, created_at INTEGER NOT NULL)");
         createPayloadTable(db);
         createAppendOnlyTriggers(db);
     }
