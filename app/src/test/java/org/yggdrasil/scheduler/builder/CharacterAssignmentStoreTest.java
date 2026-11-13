@@ -2,6 +2,7 @@ package org.yggdrasil.scheduler.builder;
 
 import static org.junit.Assert.*;
 import android.content.Context;
+import android.database.sqlite.SQLiteException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,13 +65,41 @@ public class CharacterAssignmentStoreTest {
         store.transition("a-001",CharacterAssignmentStore.Status.ACCEPTED,"Huginn accepted");
         store.transition("a-001",CharacterAssignmentStore.Status.RUNNING,"Monitoring started");
         store.checkpoint("a-001","{\"last_seen_run\":123}");
+        store.checkpoint("a-001","{\"last_seen_run\":124}");
+        store.returnReport("a-001","{\"outcome\":\"preliminary\"}");
         store.returnReport("a-001","{\"outcome\":\"observed\",\"evidence\":[\"job steps\"]}");
         store.transition("a-001",CharacterAssignmentStore.Status.RETURNED,"Report returned");
         CharacterAssignmentStore.Assignment a=store.get("a-001");
         assertEquals(CharacterAssignmentStore.Status.RETURNED,a.status);
-        assertTrue(a.checkpointJson.contains("123"));
+        assertTrue(a.checkpointJson.contains("124"));
         assertTrue(a.returnReportJson.contains("observed"));
         assertEquals(1,store.listOpen().size());
+        java.util.List<CharacterAssignmentStore.Payload> history=store.listPayloads("a-001");
+        assertEquals(4,history.size());
+        assertEquals(CharacterAssignmentStore.PAYLOAD_CHECKPOINT,history.get(0).payloadType);
+        assertTrue(history.get(0).payloadJson.contains("123"));
+        assertTrue(history.get(1).payloadJson.contains("124"));
+        assertEquals(CharacterAssignmentStore.PAYLOAD_RETURN_REPORT,history.get(2).payloadType);
+        assertTrue(history.get(2).payloadJson.contains("preliminary"));
+        assertTrue(history.get(3).payloadJson.contains("observed"));
+    }
+
+    @Test public void payloadHistoryRejectsMutationAndDeletion() {
+        create();
+        store.checkpoint("a-001","{\"step\":1}");
+        try {
+            store.getWritableDatabase().execSQL("UPDATE assignment_payloads SET payload_json='{}' WHERE assignment_id='a-001'");
+            fail("Expected append-only update rejection");
+        } catch (SQLiteException expected) {
+            assertTrue(expected.getMessage().contains("append-only"));
+        }
+        try {
+            store.getWritableDatabase().execSQL("DELETE FROM assignment_payloads WHERE assignment_id='a-001'");
+            fail("Expected append-only delete rejection");
+        } catch (SQLiteException expected) {
+            assertTrue(expected.getMessage().contains("append-only"));
+        }
+        assertEquals(1,store.listPayloads("a-001").size());
     }
 
     @Test public void rejectsUnknownCharacter() {
