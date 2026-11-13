@@ -152,4 +152,16 @@ public class CharacterAssignmentStoreTest {
         store.transition("a-001",CharacterAssignmentStore.Status.CLOSED,"Cancelled before authorization");
         assertTrue(store.listOpen().isEmpty());
     }
+    @Test public void dispatcherClaimsOnlyOneAuthorizedQueuedAssignment() {
+        create();
+        store.transition("a-001",CharacterAssignmentStore.Status.AUTHORIZED,"Tyr authorization recorded");
+        store.transition("a-001",CharacterAssignmentStore.Status.QUEUED,"Ready for WorkManager");
+        CharacterAssignmentStore.Assignment claimed=store.claimNextQueued();
+        assertNotNull(claimed);
+        assertEquals("a-001",claimed.assignmentId);
+        assertEquals(CharacterAssignmentStore.Status.ACCEPTED,claimed.status);
+        assertNull(store.claimNextQueued());
+        store.transition("a-001",CharacterAssignmentStore.Status.BLOCKED,"No execution adapter connected");
+        assertEquals(CharacterAssignmentStore.Status.BLOCKED,store.get("a-001").status);
+    }
 }
