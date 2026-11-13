@@ -39,8 +39,8 @@ public class CharacterAssignmentRecoveryAuditIntegrationTest {
 
     @Test public void scanMatchesBothStoresAndDoesNotMutateEitherDatabase() throws Exception {
         ledger.create("audit-001", "HUGINN", "ODIN", "Inspect evidence",
-                "Read-only audit", "{\\"repository_write\\":false}",
-                "{\\"max_checks\\":1}", "Return report");
+                "Read-only audit", "{\"repository_write\":false}",
+                "{\"max_checks\":1}", "Return report");
         ledger.transition("audit-001", CharacterAssignmentStore.Status.AUTHORIZED, "Tyr authorized");
         ledger.transition("audit-001", CharacterAssignmentStore.Status.QUEUED, "Queued");
         ledger.transition("audit-001", CharacterAssignmentStore.Status.ACCEPTED, "Huginn accepted");
@@ -82,7 +82,7 @@ public class CharacterAssignmentRecoveryAuditIntegrationTest {
     private static String snapshot(SQLiteDatabase db, String... tables) {
         StringBuilder snapshot = new StringBuilder();
         for (String table : tables) {
-            snapshot.append(table).append('\\n');
+            snapshot.append(table).append('\n');
             try (Cursor cursor = db.rawQuery("SELECT * FROM " + table
                     + " ORDER BY 1", null)) {
                 int columns = cursor.getColumnCount();
@@ -91,7 +91,7 @@ public class CharacterAssignmentRecoveryAuditIntegrationTest {
                         if (i > 0) snapshot.append('|');
                         snapshot.append(cursor.isNull(i) ? "<NULL>" : cursor.getString(i));
                     }
-                    snapshot.append('\\n');
+                    snapshot.append('\n');
                 }
             }
         }
