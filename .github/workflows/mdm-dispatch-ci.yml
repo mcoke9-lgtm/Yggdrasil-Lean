@@ -7,6 +7,7 @@ on:
       - mdm-001-character-journal-handoff-001
       - mdm-001-journal-recovery-tests-001
       - mdm-001-cross-store-reconciliation-contract-001
+      - mdm-001-authorized-recovery-planning-001
   pull_request:
     branches:
       - mdm-001-workmanager-dispatch-001

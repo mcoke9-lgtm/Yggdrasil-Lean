@@ -105,3 +105,17 @@ Required invariants:
 8. Any future repair must be separately authorized, append its own provenance record, and be restart-safe.
 
 The test suite exercises ledger-only, journal-only, incomplete, matched, and conflicting evidence, including persisted store reopen and a report conflict where both original payloads remain unchanged. This is a contract and classification layer only: it does not yet enumerate every lifecycle event from the ledger, perform automated reconciliation, establish cross-database atomicity, or simulate full Android process death.
+
+## Authorized recovery planning — non-executable increment
+
+A follow-on planning layer converts one reconciliation finding into a bounded recommendation. It does not open either database, append a journal turn, change assignment status, or invoke WorkManager.
+
+- MATCHED and NO_EVIDENCE produce NO_ACTION.
+- Acceptance LEDGER_ONLY and INCOMPLETE findings produce PROPOSE_ACCEPTANCE_PROJECTION_REPLAY, which is only a candidate for later review.
+- JOURNAL_ONLY evidence produces REVIEW_WITHOUT_MUTATION; journal evidence cannot create or advance ledger lifecycle state.
+- CONFLICT produces PRESERVE_CONFLICT; both records remain untouched.
+- Return-report discrepancies remain review-only in this increment. A dedicated idempotent return-report repair contract is not yet defined.
+
+Every proposed acceptance replay requires explicit, assignment-scoped Týr authorization before any future write. The plan object itself always reports executionPermitted=false; it is not an authorization token and cannot be passed to a mutating operation. There is no authorization UI or repair executor in this increment.
+
+Tests verify that each finding maps to the expected recommendation, that proposed replay remains non-executable, and that journal-only and conflicting evidence cannot trigger ledger mutation. This is a planning contract only, not automated recovery.
