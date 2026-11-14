@@ -87,6 +87,8 @@ The disposable CI signing gate is complete. This does not authorize production-k
 
 ## Distinguishing the CI installation
 
-- The debug/CI APK overrides the launcher label to **Builder Key Steward CI** through `key-steward/src/debug/AndroidManifest.xml`.
-- The production manifest label remains **Builder Key Steward**. The CI package ID remains `org.yggdrasil.keysteward.ci`; the production package ID remains `org.yggdrasil.keysteward`.
+- Production uses the Sun symbol and launcher label **☉ Builder Key Steward**; its package ID remains `org.yggdrasil.keysteward`.
+- CI uses the Mars symbol and launcher label **♂ Builder Key Steward — CI** through `key-steward/src/debug/AndroidManifest.xml`; its package ID remains `org.yggdrasil.keysteward.ci`.
+- Research uses the Jupiter symbol and launcher label **♃ Builder Key Steward — Research** through `key-steward/src/development/AndroidManifest.xml`; it retains the existing `.dev` package ID `org.yggdrasil.keysteward.dev` to avoid stranding an existing installation.
+- The three roles remain separate installable identities. Their visible planetary labels are intended to make them distinguishable on-device.
 - This visible label is intended to make the disposable test installation identifiable on-device without changing or replacing the production app.
