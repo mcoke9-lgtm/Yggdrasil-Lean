@@ -25,7 +25,7 @@ public final class MemoryGateService extends Service {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
                 throws RemoteException {
-            if (code == INTERFACE_TRANSACTION) {
+            if (code == IBinder.INTERFACE_TRANSACTION) {
                 reply.writeString(DESCRIPTOR);
                 return true;
             }
