@@ -97,8 +97,8 @@ jobs:
           test "$PROD_ID" != "$DEV_ID"
           test "$CI_ID" != "$DEV_ID"
           grep -F "application-label:'Builder Key Steward'" "$RUNNER_TEMP/production-badging.txt"
-          grep -F "application-label:'Builder Key Steward CI'" "$RUNNER_TEMP/ci-badging.txt"
-          grep -F "application-label:'Builder Key Steward Development'" "$RUNNER_TEMP/development-badging.txt"
+          grep -F "application-label:'♂ Builder Key Steward — CI'" "$RUNNER_TEMP/ci-badging.txt"
+          grep -F "application-label:'♃ Builder Key Steward — Research'" "$RUNNER_TEMP/development-badging.txt"
           echo "Three APK manifests have distinct package IDs and labels; no provider or custom permission collision surface is currently declared."
           echo "Production APK is unsigned and is not an installable release artifact."
       - name: Repeat both APK assemblies with the same disposable signing identity
