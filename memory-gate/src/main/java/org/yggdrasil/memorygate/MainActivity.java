@@ -20,7 +20,7 @@ public final class MainActivity extends Activity {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             MemoryGateService.GateBinder local =
-                    (MemoryGateService.LocalBinder) service;
+                    (MemoryGateService.GateBinder) service;
             boolean issued = local.approveFromVisibleConfirmation(
                     "project-fact-001",
                     "Validate the Memory Gate retrieval boundary",
