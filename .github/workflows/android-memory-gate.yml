@@ -1,0 +1,54 @@
+name: Memory Gate Android Prototype
+
+on:
+  push:
+    branches: [memory-access-gate-android-prototype-001]
+    paths:
+      - 'memory-gate/**'
+      - 'memory-client/**'
+      - 'memory-adversary/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/android-memory-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-build-and-tests:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run Memory Gate unit tests and build all three applications
+        run: |
+          gradle --no-daemon \
+            :memory-gate:testDebugUnitTest \
+            :memory-gate:assembleDebug \
+            :memory-client:assembleDebug \
+            :memory-adversary:assembleDebug
+      - name: Upload prototype APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-gate-cross-app-debug-apks
+          path: |
+            memory-gate/build/outputs/apk/debug/*.apk
+            memory-client/build/outputs/apk/debug/*.apk
+            memory-adversary/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
