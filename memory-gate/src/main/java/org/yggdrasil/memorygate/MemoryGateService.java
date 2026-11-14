@@ -2,6 +2,7 @@ package org.yggdrasil.memorygate;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
@@ -9,8 +10,8 @@ import android.os.Process;
 import android.os.RemoteException;
 
 /**
- * Narrow protected Binder endpoint. The caller is checked both when binding
- * and again for every retrieval transaction. Grant contents remain in-process.
+ * Narrow protected Binder endpoint. Remote callers are checked on every
+ * retrieval. A same-app local binder is reserved for the visible approval UI.
  */
 public final class MemoryGateService extends Service {
     static final String TRUSTED_CLIENT_PACKAGE = "org.yggdrasil.memoryclient";
@@ -21,7 +22,41 @@ public final class MemoryGateService extends Service {
     private GrantRegistry grantRegistry;
     private MemoryRecordStore recordStore;
 
-    private final IBinder binder = new Binder() {
+    final class LocalBinder extends Binder {
+        boolean approveFromVisibleConfirmation(
+                String recordId, String objective, String purpose, long durationMillis) {
+            if (Binder.getCallingUid() != Process.myUid()) return false;
+
+            final int clientUid;
+            try {
+                clientUid = getPackageManager().getPackageUid(
+                        TRUSTED_CLIENT_PACKAGE, 0);
+            } catch (PackageManager.NameNotFoundException missingClient) {
+                return false;
+            }
+            if (clientUid < 0 || clientUid == Process.myUid()) return false;
+            if (getPackageManager().checkSignatures(
+                    getPackageName(), TRUSTED_CLIENT_PACKAGE)
+                    != PackageManager.SIGNATURE_MATCH) {
+                return false;
+            }
+
+            long now = System.currentTimeMillis();
+            if (durationMillis <= 0
+                    || durationMillis > GrantApprovalPolicy.MAX_DURATION_MILLIS) {
+                return false;
+            }
+            MemoryAccessGrant grant = GrantApprovalPolicy.create(
+                    recordId, objective, purpose, now, now + durationMillis);
+            if (grant == null) return false;
+
+            return grantRegistry.issueForApprovedCaller(clientUid, grant) != null;
+        }
+    }
+
+    private final LocalBinder localBinder = new LocalBinder();
+
+    private final IBinder remoteBinder = new Binder() {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
                 throws RemoteException {
@@ -77,16 +112,8 @@ public final class MemoryGateService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (Binder.getCallingUid() == Process.myUid()) return localBinder;
         if (!callerVerifier.isTrustedBinderCaller()) return null;
-        return binder;
-    }
-
-    /**
-     * Reserved for a future in-process approval component. No client-facing
-     * transaction can mint or alter a grant.
-     */
-    private String issueApprovedGrant(int approvedUid, MemoryAccessGrant grant) {
-        if (approvedUid < 0 || approvedUid == Process.myUid()) return null;
-        return grantRegistry.issueForApprovedCaller(approvedUid, grant);
+        return remoteBinder;
     }
 }
