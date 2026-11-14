@@ -38,6 +38,11 @@ public final class MemoryGateService extends Service {
                 return false;
             }
             if (clientUid < 0 || clientUid == Process.myUid()) return false;
+            String[] clientPackages = getPackageManager().getPackagesForUid(clientUid);
+            if (clientPackages == null || clientPackages.length != 1
+                    || !TRUSTED_CLIENT_PACKAGE.equals(clientPackages[0])) {
+                return false;
+            }
             if (getPackageManager().checkSignatures(
                     getPackageName(), TRUSTED_CLIENT_PACKAGE)
                     != PackageManager.SIGNATURE_MATCH) {
