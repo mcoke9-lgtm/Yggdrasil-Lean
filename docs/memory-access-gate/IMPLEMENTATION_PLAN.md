@@ -1,6 +1,6 @@
 # Memory Access Gate — Android Prototype
 
-**Status:** implementation plan committed to an isolated development branch; no application source code has been added and no security behavior has been tested.
+**Status:** isolated Android application shell created and source files re-fetched for verification; no build or security behavior has been tested.
 
 ## Purpose
 
@@ -78,8 +78,9 @@ A test passes only when the Android service permission, caller identity check, p
 
 - Isolated branch: created.
 - Implementation plan: recorded here.
-- Android modules: not created.
-- Source code: not added.
+- Memory Gate Android module: created as a launchable, closed-by-default shell.
+- Trusted client and adversarial test client modules: not created.
+- Gate service, database, authorization checks, and audit log: not implemented.
 - CI build: not run.
 - Device installation: not attempted.
 - Enforcement: not demonstrated.
