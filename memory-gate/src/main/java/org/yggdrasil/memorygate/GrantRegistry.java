@@ -50,6 +50,24 @@ final class GrantRegistry {
         return entry.grant;
     }
 
+    synchronized String claimForUid(int callingUid, long nowMillis) {
+        if (callingUid < 0) return null;
+        String match = null;
+        for (Map.Entry<String, Entry> candidate : entries.entrySet()) {
+            Entry entry = candidate.getValue();
+            if (entry.ownerUid != callingUid) continue;
+            if (AuthorizationDecision.evaluate(entry.grant,
+                    entry.grant.permittedRecordIds.isEmpty() ? null
+                            : entry.grant.permittedRecordIds.iterator().next(),
+                    nowMillis) != AuthorizationDecision.Outcome.ALLOW) {
+                continue;
+            }
+            if (match != null) return null; // Ambiguous grants fail closed.
+            match = candidate.getKey();
+        }
+        return match;
+    }
+
     synchronized void revoke(String token) {
         if (token != null) entries.remove(token);
     }
