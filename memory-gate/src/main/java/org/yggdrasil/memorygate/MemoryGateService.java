@@ -18,6 +18,7 @@ public final class MemoryGateService extends Service {
     static final String TRUSTED_CLIENT_PACKAGE = "org.yggdrasil.memoryclient";
     private static final String DESCRIPTOR = "org.yggdrasil.memorygate.IMemoryGate";
     private static final int TRANSACTION_READ_RECORD = IBinder.FIRST_CALL_TRANSACTION;
+    private static final int TRANSACTION_CLAIM_GRANT = IBinder.FIRST_CALL_TRANSACTION + 1;
 
     private TrustedCallerVerifier callerVerifier;
     private GrantRegistry grantRegistry;
@@ -61,21 +62,32 @@ public final class MemoryGateService extends Service {
                 reply.writeString(DESCRIPTOR);
                 return true;
             }
-            if (code != TRANSACTION_READ_RECORD) {
+            if (code != TRANSACTION_READ_RECORD && code != TRANSACTION_CLAIM_GRANT) {
                 return super.onTransact(code, data, reply, flags);
             }
 
             data.enforceInterface(DESCRIPTOR);
             final int callingUid = Binder.getCallingUid();
-            final String grantToken = data.readString();
-            final String recordId = data.readString();
-
             if (callingUid == Process.myUid() || !callerVerifier.isTrustedBinderCaller()) {
                 reply.writeNoException();
-                reply.writeInt(0);
+                if (code == TRANSACTION_CLAIM_GRANT) {
+                    reply.writeString(null);
+                } else {
+                    reply.writeInt(0);
+                }
                 return true;
             }
 
+            if (code == TRANSACTION_CLAIM_GRANT) {
+                String claimedToken = grantRegistry.claimForUid(
+                        callingUid, System.currentTimeMillis());
+                reply.writeNoException();
+                reply.writeString(claimedToken);
+                return true;
+            }
+
+            final String grantToken = data.readString();
+            final String recordId = data.readString();
             MemoryAccessGrant grant = grantRegistry.resolve(
                     grantToken, callingUid, recordId, System.currentTimeMillis());
             if (grant == null) {
