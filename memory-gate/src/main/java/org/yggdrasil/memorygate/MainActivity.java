@@ -19,7 +19,7 @@ public final class MainActivity extends Activity {
     private final ServiceConnection approvalConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            MemoryGateService.LocalBinder local =
+            MemoryGateService.GateBinder local =
                     (MemoryGateService.LocalBinder) service;
             boolean issued = local.approveFromVisibleConfirmation(
                     "project-fact-001",
