@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
                     "User-approved prototype test",
                     10L * 60L * 1000L);
             status.setText(issued
-                    ? "A 10-minute, single-record grant was issued to the signed trusted client."
+                    ? "A 10-minute, single-record grant is stored for the signed trusted client. Only that client can claim its token through the protected service."
                     : "No grant issued. The trusted client is absent, has a different signature, or approval validation failed.");
             unbindService(this);
         }
