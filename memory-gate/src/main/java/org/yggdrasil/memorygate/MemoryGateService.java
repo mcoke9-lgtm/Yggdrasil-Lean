@@ -10,8 +10,9 @@ import android.os.Process;
 import android.os.RemoteException;
 
 /**
- * Narrow protected Binder endpoint. Remote callers are checked on every
- * retrieval. A same-app local binder is reserved for the visible approval UI.
+ * Narrow protected Binder endpoint. Android's signature permission gates
+ * binding; the live caller is independently checked on every remote read.
+ * The local approval method is an in-process Java call, not a Binder transaction.
  */
 public final class MemoryGateService extends Service {
     static final String TRUSTED_CLIENT_PACKAGE = "org.yggdrasil.memoryclient";
@@ -22,9 +23,10 @@ public final class MemoryGateService extends Service {
     private GrantRegistry grantRegistry;
     private MemoryRecordStore recordStore;
 
-    final class LocalBinder extends Binder {
+    final class GateBinder extends Binder {
         boolean approveFromVisibleConfirmation(
                 String recordId, String objective, String purpose, long durationMillis) {
+            // This method is only directly callable by code in this app process.
             if (Binder.getCallingUid() != Process.myUid()) return false;
 
             final int clientUid;
@@ -48,15 +50,10 @@ public final class MemoryGateService extends Service {
             }
             MemoryAccessGrant grant = GrantApprovalPolicy.create(
                     recordId, objective, purpose, now, now + durationMillis);
-            if (grant == null) return false;
-
-            return grantRegistry.issueForApprovedCaller(clientUid, grant) != null;
+            return grant != null
+                    && grantRegistry.issueForApprovedCaller(clientUid, grant) != null;
         }
-    }
 
-    private final LocalBinder localBinder = new LocalBinder();
-
-    private final IBinder remoteBinder = new Binder() {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
                 throws RemoteException {
@@ -100,7 +97,9 @@ public final class MemoryGateService extends Service {
             }
             return true;
         }
-    };
+    }
+
+    private final GateBinder gateBinder = new GateBinder();
 
     @Override
     public void onCreate() {
@@ -112,8 +111,8 @@ public final class MemoryGateService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        if (Binder.getCallingUid() == Process.myUid()) return localBinder;
-        if (!callerVerifier.isTrustedBinderCaller()) return null;
-        return remoteBinder;
+        // Do not infer the original client from onBind: Android dispatches this
+        // callback through its service lifecycle. Verify identity per transaction.
+        return gateBinder;
     }
 }
