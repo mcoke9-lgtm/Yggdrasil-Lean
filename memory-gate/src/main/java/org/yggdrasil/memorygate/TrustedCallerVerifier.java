@@ -1,7 +1,6 @@
 package org.yggdrasil.memorygate;
 
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Process;
 
@@ -35,7 +34,7 @@ final class TrustedCallerVerifier {
             return context.getPackageManager().checkSignatures(
                     context.getPackageName(), expectedPackage)
                     == PackageManager.SIGNATURE_MATCH;
-        } catch (PackageManager.NameNotFoundException | RuntimeException failure) {
+        } catch (RuntimeException failure) {
             return false;
         }
     }
