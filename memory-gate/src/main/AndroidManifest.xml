@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <permission
+        android:name="org.yggdrasil.memorygate.permission.ACCESS"
+        android:protectionLevel="signature" />
+
     <application
         android:allowBackup="false"
         android:label="Memory Gate"
@@ -13,5 +18,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".MemoryGateService"
+            android:exported="true"
+            android:permission="org.yggdrasil.memorygate.permission.ACCESS" />
     </application>
 </manifest>
