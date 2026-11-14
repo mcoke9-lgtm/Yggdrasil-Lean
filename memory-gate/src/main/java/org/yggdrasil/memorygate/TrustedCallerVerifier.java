@@ -1,6 +1,7 @@
 package org.yggdrasil.memorygate;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Process;
 
