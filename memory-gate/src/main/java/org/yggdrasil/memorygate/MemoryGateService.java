@@ -122,7 +122,7 @@ public final class MemoryGateService extends Service {
     public void onCreate() {
         super.onCreate();
         callerVerifier = new TrustedCallerVerifier(this, TRUSTED_CLIENT_PACKAGE);
-        grantRegistry = new GrantRegistry();
+        grantRegistry = new GrantRegistry(this);
         recordStore = new MemoryRecordStore(this);
     }
 
