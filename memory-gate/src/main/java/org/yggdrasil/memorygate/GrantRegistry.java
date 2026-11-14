@@ -54,5 +54,5 @@ final class GrantRegistry {
         if (token != null) entries.remove(token);
     }
 
-    private GrantRegistry() { }
+    GrantRegistry() { }
 }
