@@ -112,7 +112,7 @@ final class GrantRegistry extends SQLiteOpenHelper {
         }
         String match = null;
         try (Cursor cursor = db.query("grants",
-                new String[]{"token", "request_id", "objective", "purpose",
+                new String[]{"token", "owner_uid", "request_id", "objective", "purpose",
                         "record_ids", "expires_at", "stop_at"},
                 "owner_uid = ?", new String[]{Integer.toString(callingUid)},
                 null, null, null)) {
