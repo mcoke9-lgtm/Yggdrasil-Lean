@@ -39,6 +39,26 @@ public class GrantRegistryTest {
     }
 
     @Test
+    public void onlyOwningUidCanClaimApprovedToken() {
+        GrantRegistry registry = new GrantRegistry();
+        String token = registry.issueForApprovedCaller(
+                12001, grant("record-a", System.currentTimeMillis() + 60_000));
+
+        assertNull(registry.claimForUid(12002, System.currentTimeMillis()));
+        assertEquals(token, registry.claimForUid(12001, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void ambiguousClaimsFailClosed() {
+        GrantRegistry registry = new GrantRegistry();
+        long expiry = System.currentTimeMillis() + 60_000;
+        registry.issueForApprovedCaller(12001, grant("record-a", expiry));
+        registry.issueForApprovedCaller(12001, grant("record-b", expiry));
+
+        assertNull(registry.claimForUid(12001, System.currentTimeMillis()));
+    }
+
+    @Test
     public void revokedTokenIsRejected() {
         GrantRegistry registry = new GrantRegistry();
         String token = registry.issueForApprovedCaller(
