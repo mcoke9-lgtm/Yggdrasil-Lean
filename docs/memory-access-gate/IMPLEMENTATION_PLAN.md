@@ -77,10 +77,14 @@ A test passes only when the Android service permission, caller identity check, p
 ## Current status
 
 - Isolated branch: created.
-- Implementation plan: recorded here.
 - Memory Gate Android module: created as a launchable, closed-by-default shell.
+- Exact-record authorization evaluator: implemented with default-deny checks for missing purpose/objective, record scope, expiry, and stop time.
+- Private SQLite store: implemented with fictional fixtures and decision/release-intent events in one transaction; content is returned only after the transaction succeeds.
+- Unit tests: added for exact-record scope, expiry, stop time, and incomplete grants; execution pending.
 - Trusted client and adversarial test client modules: not created.
-- Gate service, database, authorization checks, and audit log: not implemented.
+- Android service, caller UID/signature verification, and cross-application permission boundary: not implemented.
 - CI build: not run.
 - Device installation: not attempted.
-- Enforcement: not demonstrated.
+- Operating-system enforcement: not demonstrated.
+
+The current grant object is an internal prototype value, not an authenticated authorization token. It must not be exposed to a client or treated as sufficient authorization until the service boundary validates caller identity and grant provenance.
