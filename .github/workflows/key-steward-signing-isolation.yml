@@ -1,0 +1,118 @@
+name: Key Steward Signing Isolation
+
+on:
+  push:
+    branches: [keysteward-signing-isolation-integration-001]
+    paths:
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/key-steward-signing-isolation.yml'
+  pull_request:
+    branches: [independent-builder-runtime-foundation-001]
+    paths:
+      - 'key-steward/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/key-steward-signing-isolation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  key-steward:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run Key Steward unit tests
+        run: |
+          gradle --no-daemon :key-steward:testDebugUnitTest :key-steward:testDevelopmentUnitTest
+      - name: Assemble production identity and isolated CI and Development APKs
+        run: |
+          gradle --no-daemon :key-steward:assembleRelease :key-steward:assembleDebug :key-steward:assembleDevelopment
+      - name: Verify package identities, labels, permissions, and manifest collision surface
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          PROD_APK="key-steward/build/outputs/apk/release/key-steward-release-unsigned.apk"
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          for APK in "$PROD_APK" "$CI_APK" "$DEV_APK"; do test -f "$APK"; done
+          for VARIANT in production ci development; do
+            case "$VARIANT" in
+              production) APK="$PROD_APK" ;;
+              ci) APK="$CI_APK" ;;
+              development) APK="$DEV_APK" ;;
+            esac
+            "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/$VARIANT-badging.txt"
+            "$AAPT" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/$VARIANT-manifest.txt"
+            "$AAPT" dump permissions "$APK" > "$RUNNER_TEMP/$VARIANT-permissions.txt"
+            if grep -q 'android.permission.INTERNET' "$RUNNER_TEMP/$VARIANT-permissions.txt"; then
+              echo "::error::Key Steward must remain offline."
+              exit 1
+            fi
+            if grep -Eq 'E: (provider|permission)( |$)' "$RUNNER_TEMP/$VARIANT-manifest.txt"; then
+              echo "::error::A provider or custom permission requires an explicit per-variant identity audit."
+              exit 1
+            fi
+          done
+          PROD_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/production-badging.txt")"
+          CI_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/ci-badging.txt")"
+          DEV_ID="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/development-badging.txt")"
+          test "$PROD_ID" = "org.yggdrasil.keysteward"
+          test "$CI_ID" = "org.yggdrasil.keysteward.ci"
+          test "$DEV_ID" = "org.yggdrasil.keysteward.dev"
+          test "$PROD_ID" != "$CI_ID" && test "$PROD_ID" != "$DEV_ID" && test "$CI_ID" != "$DEV_ID"
+          grep -F "application-label:'Builder Key Steward'" "$RUNNER_TEMP/production-badging.txt"
+          grep -F "application-label:'Builder Key Steward CI'" "$RUNNER_TEMP/ci-badging.txt"
+          grep -F "application-label:'Builder Key Steward Development'" "$RUNNER_TEMP/development-badging.txt"
+          echo "Package IDs and labels are distinct. Production artifact is unsigned and not installable."
+      - name: Repeat CI and Development builds and verify signer continuity within this run
+        run: |
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          CI_APK="key-steward/build/outputs/apk/debug/key-steward-debug.apk"
+          DEV_APK="key-steward/build/outputs/apk/development/key-steward-development.apk"
+          cp "$CI_APK" "$RUNNER_TEMP/first-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/first-development.apk"
+          rm "$CI_APK" "$DEV_APK"
+          gradle --no-daemon :key-steward:assembleDebug :key-steward:assembleDevelopment
+          cp "$CI_APK" "$RUNNER_TEMP/second-ci.apk"
+          cp "$DEV_APK" "$RUNNER_TEMP/second-development.apk"
+          for APK in "$RUNNER_TEMP/first-ci.apk" "$RUNNER_TEMP/second-ci.apk" "$RUNNER_TEMP/first-development.apk" "$RUNNER_TEMP/second-development.apk"; do
+            "$APKSIGNER" verify --verbose --print-certs "$APK"
+          done
+          "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/first-ci.apk" > "$RUNNER_TEMP/first-ci-cert.txt"
+          "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/second-ci.apk" > "$RUNNER_TEMP/second-ci-cert.txt"
+          "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/first-development.apk" > "$RUNNER_TEMP/first-dev-cert.txt"
+          "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/second-development.apk" > "$RUNNER_TEMP/second-dev-cert.txt"
+          for REPORT in "$RUNNER_TEMP/second-ci-cert.txt" "$RUNNER_TEMP/first-dev-cert.txt" "$RUNNER_TEMP/second-dev-cert.txt"; do
+            FIRST="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/first-ci-cert.txt" | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+            NEXT="$(sed -n 's/.*SHA-256 digest: //p' "$REPORT" | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+            test -n "$FIRST" && test "$FIRST" = "$NEXT"
+          done
+          echo "Signer fingerprint is stable across repeat assemblies in this CI run only; ephemeral debug identity is not a cross-run production signer."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: key-steward-isolated-ci-development-apks
+          path: |
+            key-steward/build/outputs/apk/debug/key-steward-debug.apk
+            key-steward/build/outputs/apk/development/key-steward-development.apk
+          if-no-files-found: error
+          retention-days: 14
