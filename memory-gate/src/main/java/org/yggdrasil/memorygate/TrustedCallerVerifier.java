@@ -20,16 +20,10 @@ final class TrustedCallerVerifier {
         if (callingUid < 0 || callingUid == Process.myUid()) return false;
 
         final String[] packages = context.getPackageManager().getPackagesForUid(callingUid);
-        if (packages == null) return false;
-
-        boolean packageMatches = false;
-        for (String packageName : packages) {
-            if (expectedPackage.equals(packageName)) {
-                packageMatches = true;
-                break;
-            }
-        }
-        if (!packageMatches) return false;
+        // Reject shared UIDs: an additional package could otherwise inherit the
+        // allow-listed UID without being the named client application.
+        if (packages == null || packages.length != 1
+                || !expectedPackage.equals(packages[0])) return false;
 
         try {
             return context.getPackageManager().checkSignatures(
