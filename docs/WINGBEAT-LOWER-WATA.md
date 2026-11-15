@@ -44,7 +44,7 @@ LowerWataInterpreter is a **pure state interpreter**:
 - Crossing a system boundary requires flying capability, macrocosmic scope and explicit operator approval.
 - Boon integration requires a recorded boon, the Hero's Journey return stage and explicit operator approval.
 - Invalid instructions do not change the model state or boon flag.
-- Every attempted instruction appends an accepted/rejected entry to an in-memory audit list.
+- Every attempted instruction appends an accepted/rejected entry to an in-memory audit list, including whether the supplied operator-approval flag was true or false. This flag is not an authenticated operator identity or a complete authorization proof.
 - Wingbeat alternates scope and increments the beat counter; it does not implicitly advance the Particle–Wave–Particle phase or Hero's Journey stage.
 
 The interpreter does not perform IO, persist state, contact external systems, schedule tasks, or operate autonomous agents. crossBoundary is currently a validated simulated instruction with no external effect. The audit list is in-memory and is not yet a durable append-only archive.
