@@ -62,6 +62,12 @@ inductive CharacterCapability where
 /-- A minimal typed vocabulary for the proposed Lower WATA language. -/
 inductive WataCommand where
   | observe
+  | wingbeat
+  | advanceCycle
+  | depart
+  | separate
+  | learnDance
+  | learnFlight
   | hunt
   | distinguish
   | coordinate
