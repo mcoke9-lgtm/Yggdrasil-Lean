@@ -49,3 +49,13 @@
 - The registry explicitly does not enable external actions or instantiate autonomous agents.
 - Added regression examples for nine-record cardinality, role mappings, starting capability, individual promotion and external-action disablement.
 - Status: committed draft; Lean compiler/CI verification pending.
+
+## 2026-11-15 — Nine Character Council 001 (implementation draft)
+
+- Added nine distinct Council voices mapped to the established Character roles.
+- Added a readiness assessment that recommends remaining in Particle mode when no meaningful boon requires capabilities beyond the local system.
+- When expansion is justified, the Council defers if capacity is outside Kvasir's limits, a return/reintegration plan is missing, or no proposed participant is recorded at Flying capability.
+- Differentiated participation is allowed: at least one proposed Flying participant is sufficient; all nine are not required to be Flying.
+- A recommendation to prepare a Wingbeat is advisory only. It does not execute the Wingbeat, authorize boundary crossing, or enable external actions.
+- Týr's Council contribution reports authorization state and does not replace operator authorization.
+- Status: committed implementation draft; compiler/CI verification pending. The Council is a pure assessment function, not autonomous deliberation, authenticated evidence, durable history, or a consensus runtime.
