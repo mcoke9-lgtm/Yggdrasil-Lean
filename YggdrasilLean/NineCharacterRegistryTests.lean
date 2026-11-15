@@ -32,10 +32,10 @@ example :
   decide
 
 example :
-    (findCharacter (promoteToFlying initialCharacterRegistry .loki true).getD [])
-      .loki = none := by
-  simp [findCharacter, promoteToFlying, initialCharacterRegistry,
-    allCharacterIds, roleOf]
+    (findCharacter
+      ((promoteToFlying initialCharacterRegistry .loki true).getD []) .loki).map
+        CharacterRecord.capability = some .flying := by
+  decide
 
 example :
     registryEnablesExternalActions initialCharacterRegistry = false := by
