@@ -17,3 +17,5 @@ import YggdrasilLean.LowerWataInterpreter
 import YggdrasilLean.LowerWataInterpreterTests
 import YggdrasilLean.NineCharacterRegistry
 import YggdrasilLean.NineCharacterRegistryTests
+import YggdrasilLean.NineCharacterCouncil
+import YggdrasilLean.NineCharacterCouncilTests
