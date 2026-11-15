@@ -60,16 +60,40 @@ def canFly : CharacterCapability → Bool
   | .dancing => false
   | .flying => true
 
+/-- A fresh instance starts in its home system with hunting capability. -/
+def initialWataState : WataRuntimeState :=
+  { model :=
+      { scale := .microcosm
+        cycle := .particleStart
+        journey := .departure
+        capability := .hunting
+        beat := 0 }
+    boonRecorded := false
+    audit := [] }
+
 /-- Apply a permitted command to the model. This function has no external effects. -/
 def applyWataCommand (state : WataRuntimeState)
     (command : WataCommand) : WataRuntimeState :=
   match command with
   | .observe => state
+  | .wingbeat =>
+      { state with model := wingbeat state.model }
+  | .advanceCycle =>
+      { state with model :=
+          { state.model with cycle := nextCyclePhase state.model.cycle } }
+  | .depart =>
+      { state with model := { state.model with journey := .separation } }
+  | .separate =>
+      { state with model := { state.model with journey := .exploration } }
+  | .learnDance =>
+      { state with model := { state.model with capability := .dancing } }
+  | .learnFlight =>
+      { state with model := { state.model with capability := .flying } }
   | .hunt => state
   | .distinguish => state
   | .coordinate => state
   | .explore =>
-      { state with model := { state.model with journey := .exploration } }
+      { state with model := { state.model with journey := .transformation } }
   | .crossBoundary => state
   | .recordBoon =>
       { state with boonRecorded := true }
@@ -87,6 +111,26 @@ def validateWataInstruction (state : WataRuntimeState)
   else
     match instruction.command with
     | .observe => none
+    | .wingbeat =>
+        if canFly state.model.capability then none
+        else some .insufficientCapability
+    | .advanceCycle => none
+    | .depart =>
+        if state.model.journey == .departure then none
+        else some .invalidJourneyTransition
+    | .separate =>
+        if state.model.journey == .separation then none
+        else some .invalidJourneyTransition
+    | .learnDance =>
+        if state.model.capability != .hunting then
+          some .invalidJourneyTransition
+        else if !permit.operatorApproved then some .authorizationRequired
+        else none
+    | .learnFlight =>
+        if state.model.capability != .dancing then
+          some .invalidJourneyTransition
+        else if !permit.operatorApproved then some .authorizationRequired
+        else none
     | .hunt =>
         if canHunt state.model.capability then none
         else some .insufficientCapability
@@ -96,7 +140,9 @@ def validateWataInstruction (state : WataRuntimeState)
     | .coordinate =>
         if canCoordinate state.model.capability then none
         else some .insufficientCapability
-    | .explore => none
+    | .explore =>
+        if state.model.journey == .exploration then none
+        else some .invalidJourneyTransition
     | .crossBoundary =>
         if state.model.scale != .macrocosm then some .wrongScale
         else if !canFly state.model.capability then some .insufficientCapability
@@ -109,6 +155,8 @@ def validateWataInstruction (state : WataRuntimeState)
         else none
     | .returnHome =>
         if !state.boonRecorded then some .boonNotRecorded
+        else if state.model.journey != .transformation then
+          some .invalidJourneyTransition
         else none
     | .integrateBoon =>
         if !state.boonRecorded then some .boonNotRecorded
