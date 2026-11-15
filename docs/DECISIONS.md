@@ -38,3 +38,14 @@
 - Every attempted instruction appends an in-memory accepted/rejected audit entry, including the supplied approval flag. This is not authenticated identity, durable storage, or a complete authorization system.
 - Added theorem-level regression examples for denied capability promotion, successful Hero's Journey reintegration, Wingbeat alternation and cross-boundary authorization gating.
 - Status: committed draft; compiler/CI verification pending. No external action, persistent runtime, scheduler or autonomous agent is implemented.
+
+
+## 2026-11-15 — Nine Character Registry 001 (implementation draft)
+
+- Added stable typed identities and role mappings for Odin, Baldr, Kvasir, Höðr, Mari, Muninn, Huginn, Loki and Týr.
+- Kept identity, role and capability as separate dimensions.
+- Initial records place all nine at Dancing capability, reflecting the adopted Hunting → Dancing → Flying progression; Flying promotion is individual and requires an explicit operator-approval flag.
+- Týr is represented as authorization governance, not as an independent grantor of operator permission.
+- The registry explicitly does not enable external actions or instantiate autonomous agents.
+- Added regression examples for nine-record cardinality, role mappings, starting capability, individual promotion and external-action disablement.
+- Status: committed draft; Lean compiler/CI verification pending.
