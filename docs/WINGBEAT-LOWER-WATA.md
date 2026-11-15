@@ -72,3 +72,26 @@ These examples must compile under the repository's Lean 4.19.0 CI before being c
 ## Verification boundary
 
 The repository uses Lean 4.19.0 and a GitHub Actions build workflow. Earlier build evidence applies only to earlier revisions. This interpreter and its regression examples are not compiler-verified until the CI result for this branch is observed. Compilation will validate the formal declarations and proofs, not the conceptual interpretation or a deployed machine runtime.
+
+
+## Nine Character Registry 001
+
+The branch also contains a canonical typed registry for the Nine Characters:
+
+| Character | Registered function |
+|---|---|
+| Odin | Coordination and reconciliation |
+| Baldr | Review |
+| Kvasir | Limits and capacity |
+| Höðr | Scheduling |
+| Mari | Alternatives and constructive disagreement |
+| Muninn | History and continuity |
+| Huginn | Evidence |
+| Loki | Capability boundaries and recovery |
+| Týr | Authorization governance |
+
+Identity, role and developmental capability are separate fields. The initial registry records all nine at **Dancing** capability, reflecting the adopted progression that they have learned to hunt and dance. Promotion to Flying is individual and requires an explicit operator-approval flag.
+
+The registry does not instantiate agents or grant external permissions. Týr's role is authorization governance, not unilateral authority to approve actions. The registry's external-action capability is explicitly disabled. CharacterDecision is a vocabulary for observe/propose/review/recommend, not an execution permission system.
+
+Regression examples cover registry cardinality, representative role mappings, starting capability, individual promotion and the external-action boundary. These remain unverified until Lean CI compiles the branch.
