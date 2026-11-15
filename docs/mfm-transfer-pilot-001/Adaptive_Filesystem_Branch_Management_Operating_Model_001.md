@@ -42,7 +42,7 @@ The trunk is continuously aware but selectively intervenes. Routine intake shoul
 
 **Branch B: Thoth Tarot** — Tarot Star, six-member set, RA center, Valknut, hexagrams, build/tool arrangements, symbolic prompts, and graph topology. Tarot is an orientation and memory interface, not mathematical authority. Original edges and vertex mappings must come from original evidence; SAT–CLIQUE candidate edges must never be substituted for Tarot Star edges.
 
-**Branch C: Language work** — Gasametu grammar and roots, English↔Gasametu translation, the three distinct “Me” components, typed intermediary graph, parse/type checks, and translation provenance. The recovered G1–G6 outcomes remain fixed. \`Argument\` and the G4 derivation remain unresolved; the candidate checker is not the historical parser.
+**Branch C: Language work** — Gasametu grammar and roots, English↔Gasametu translation, the three distinct “Me” components, typed intermediary graph, parse/type checks, and translation provenance. The recovered G1–G6 outcomes remain fixed. `Argument` and the G4 derivation remain unresolved; the candidate checker is not the historical parser.
 
 Branches share methods and dependencies, but each keeps its own source records, vocabulary, acceptance tests, and unresolved questions.
 
@@ -128,7 +128,7 @@ These are audits of the current documentation and proposed process, not tests of
 - Keep Tarot's interface prompts separate: OTO asks “Why is this connected?”, Unicursal Hexagram asks “How is this useful?”, Fool asks “What path does this provide?”
 
 **C — Language work**
-- GA-01: rebuild parser only after recovering \`Argument\` and the eight-root inventory. Keep syntax parsing separate from value/type checking.
+- GA-01: rebuild parser only after recovering `Argument` and the eight-root inventory. Keep syntax parsing separate from value/type checking.
 - Lock the recorded regression outcomes: G1–G4 ACCEPT (G4 derivation unresolved); G5–G6 REJECT. Do not alter expectations to fit the candidate checker.
 - Translation tests L1–L12 remain specified/conceptually reviewed, not executed against an implemented translator. L6 needs a source-backed multi-root expression and validated grammar.
 
@@ -148,7 +148,7 @@ These are audits of the current documentation and proposed process, not tests of
 - **D3:** correction propagation to recipients/copies outside system visibility.
 - **Count audit:** actual faulty 7-item/6-item object and first divergence stage not recovered.
 - **Tarot:** original Star edges and vertex mapping not recovered.
-- **Language:** \`Argument\`, full root inventory, and G4 derivation unresolved.
+- **Language:** `Argument`, full root inventory, and G4 derivation unresolved.
 - **Formal validation:** Lean toolchain/build outputs and exact particle/wave graph-classification definitions not verified.
 
 Do not elevate these to user decisions unless the next evidence-gathering pass shows a genuine policy choice or irreducible ambiguity. Missing source artifacts should first trigger another bounded retrieval pass, not a request for the user to reconstruct them from memory.
