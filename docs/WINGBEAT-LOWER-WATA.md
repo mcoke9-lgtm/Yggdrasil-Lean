@@ -95,3 +95,32 @@ Identity, role and developmental capability are separate fields. The initial reg
 The registry does not instantiate agents or grant external permissions. Týr's role is authorization governance, not unilateral authority to approve actions. The registry's external-action capability is explicitly disabled. CharacterDecision is a vocabulary for observe/propose/review/recommend, not an execution permission system.
 
 Regression examples cover registry cardinality, representative role mappings, starting capability, individual promotion and the external-action boundary. These remain unverified until Lean CI compiles the branch.
+
+## Nine Character Council 001
+
+The Council adds differentiated voices for the established roles:
+
+| Character | Council contribution |
+|---|---|
+| Odin | Coordinate continuity |
+| Baldr | Review consequences |
+| Kvasir | Assess capacity |
+| Höðr | Identify timing |
+| Mari | Offer alternatives |
+| Muninn | Report history |
+| Huginn | Submit evidence |
+| Loki | Identify boundary options |
+| Týr | Report authorization state |
+
+The readiness assessment is deliberately conservative:
+
+1. An incomplete canonical registry causes deferral.
+2. If no meaningful boon presently requires capabilities beyond the local system, recommend remaining in Particle mode.
+3. If expansion is justified, defer when Kvasir's capacity condition is not met.
+4. Defer when a return and reintegration plan is absent.
+5. Defer unless at least one proposed participant is actually recorded at Flying capability.
+6. Otherwise recommend **preparing** a Wingbeat.
+
+This is differentiated participation: the model does not require all nine Characters to reach Flying capability. The readiness assessment is advisory only. It does not initiate a Wingbeat, authorize boundary crossing, or grant external-action permission. Týr's Council voice reports authorization state; it does not replace operator authorization.
+
+The current evidence fields are explicit Boolean/list inputs supplied to a pure function. They are not yet authenticated evidence, a consensus protocol, durable records, or autonomous Character deliberation. The Council's decision logic and regression examples remain subject to Lean 4.19.0 CI verification.
