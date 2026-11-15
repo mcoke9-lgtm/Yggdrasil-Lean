@@ -15,3 +15,5 @@ import YggdrasilLean.ReviewHistoryAppendHistoryConflictTests
 import YggdrasilLean.Wingbeat
 import YggdrasilLean.LowerWataInterpreter
 import YggdrasilLean.LowerWataInterpreterTests
+import YggdrasilLean.NineCharacterRegistry
+import YggdrasilLean.NineCharacterRegistryTests
