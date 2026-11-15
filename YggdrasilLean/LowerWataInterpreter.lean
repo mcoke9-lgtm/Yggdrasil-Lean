@@ -36,6 +36,7 @@ inductive ExecutionStatus where
 structure WataAuditEntry where
   instruction : WataInstruction
   status : ExecutionStatus
+  operatorApproved : Bool
   beatBefore : Nat
   beatAfter : Nat
   deriving DecidableEq, Repr
@@ -180,13 +181,17 @@ def interpretOne (state : WataRuntimeState)
   let entry : WataAuditEntry :=
     { instruction := instruction
       status := status
+      operatorApproved := permit.operatorApproved
       beatBefore := state.model.beat
       beatAfter := nextState.model.beat }
   { nextState with audit := state.audit ++ [entry] }
 
+/-- A program pairs every instruction with its explicit operator permit. -/
+abbrev AuthorizedWataProgram := List (WataInstruction × WataPermit)
+
 /-- Interpret an ordered program using one explicit permit per instruction. -/
 def interpretProgram (initial : WataRuntimeState)
-    (program : List (WataInstruction × WataPermit)) : WataRuntimeState :=
+    (program : AuthorizedWataProgram) : WataRuntimeState :=
   program.foldl (fun state item => interpretOne state item.1 item.2) initial
 
 theorem rejected_instruction_preserves_model
