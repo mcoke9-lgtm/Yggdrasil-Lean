@@ -27,3 +27,14 @@
 - First Lean representation is on branch wingbeat-foundation-001. The typed Lower WATA vocabulary is a draft, not yet a parser or executable runtime.
 - Preserve axis distinction: TERA is the reference; FIRA is horizontal; WATA is vertical. Wilderness as thought/conception is WATA; hunting movement across wilderness is horizontal FIRA.
 - Verification and implementation status must be updated only after GitHub Actions and later runtime tests provide evidence.
+
+
+## 2026-11-15 — Lower WATA interpreter foundation (implementation draft)
+
+- Added a pure Lean interpreter that validates typed instructions against explicit scale, journey stage, developmental capability and an operator-approval flag.
+- Added state transitions for the Hero's Journey, Particle–Wave–Particle phase advancement, capability progression (Hunting → Dancing → Flying), and Wingbeat scale alternation.
+- Cross-boundary operation is currently simulation-only and requires macrocosmic scope, Flying capability and an explicit approval flag.
+- Boon integration requires a recorded boon, the return stage and an explicit approval flag.
+- Every attempted instruction appends an in-memory accepted/rejected audit entry, including the supplied approval flag. This is not authenticated identity, durable storage, or a complete authorization system.
+- Added theorem-level regression examples for denied capability promotion, successful Hero's Journey reintegration, Wingbeat alternation and cross-boundary authorization gating.
+- Status: committed draft; compiler/CI verification pending. No external action, persistent runtime, scheduler or autonomous agent is implemented.
