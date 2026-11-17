@@ -66,11 +66,35 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(f"intake packet not found: {args.packet_id}")
             packet = matches[0]
             if packet["placement_status"] == "imported":
+                # Do not trust the queue marker alone: confirm the audited store
+                # still contains the exact imported version and recorded placement.
+                audited = load_audited(args.store)
+                version = audited.get_version(packet["imported_version_id"])
+                if version.record_id != packet["imported_record_id"]:
+                    raise ValueError("queue import identity does not match the audited version")
+                capture = version.metadata.get("capture") if isinstance(version.metadata, dict) else None
+                identity = {"queue_id": queue.queue_id, "packet_id": packet["packet_id"]}
+                if (
+                    version.content != packet["content"]
+                    or not isinstance(capture, dict)
+                    or capture.get("intake_identity") != identity
+                    or capture.get("primary_logical_location") != packet["primary_logical_location"]
+                    or capture.get("contextual_logical_locations") != packet["contextual_logical_locations"]
+                ):
+                    raise ValueError("queue import marker does not match audited content or Tree placement")
+                placements = audited.placements_for(version.record_id)
+                actual_primary = [item.node_id for item in placements if item.role == "primary"]
+                actual_contextual = [item.node_id for item in placements if item.role == "contextual"]
+                if (
+                    actual_primary != [packet["primary_logical_location"]]
+                    or actual_contextual != packet["contextual_logical_locations"]
+                ):
+                    raise ValueError("audited Tree placements do not match the imported queue packet")
                 _emit({
-                    "status": "already_imported",
+                    "status": "already_imported_verified",
                     "packet_id": args.packet_id,
-                    "record_id": packet["imported_record_id"],
-                    "version_id": packet["imported_version_id"],
+                    "record_id": version.record_id,
+                    "version_id": version.version_id,
                     "primary_location": packet["primary_logical_location"],
                 })
                 return 0
