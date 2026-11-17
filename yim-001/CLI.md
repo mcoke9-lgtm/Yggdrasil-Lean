@@ -131,8 +131,8 @@ PYTHONPATH=yim-001/src python -m yim001.intake_cli import ./intake.json ./audite
   --context-location branches.project
 ```
 
-The audited store is saved before the queue is marked imported. A provenance identity ties the capture to the queue and packet, including a SHA-256 fingerprint of the submitted packet. If the process stops after the audited save but before the queue update, rerunning the import returns the existing record/version rather than creating another record. A retry with changed packet content or a different Tree placement is rejected.
+The audited store is saved before the queue is marked imported. A provenance identity ties the capture to the queue and packet, including a SHA-256 fingerprint of the submitted packet. If the process stops after the audited save but before the queue update, rerunning the import returns the existing record/version rather than creating another record. A retry with changed packet content, source metadata, language, or a different Tree placement is rejected after comparing the existing capture against the pending packet.
 
-The queue records the resulting record and version identities and the confirmed logical placements. Queue format version 2 migrates version 1 pending queues when loaded.
+The queue records the resulting record and version identities and the confirmed logical placements. The current queue format is version 1; no version 2 migration is implemented.
 
 This is a recoverable two-file handoff, not a single atomic transaction across both files. It assumes one writer at a time; concurrent writers are not protected by filesystem locks. Keep backups of both files. A completed import is local to the supplied paths and does not imply Android synchronization or automatic ChatGPT history access.
