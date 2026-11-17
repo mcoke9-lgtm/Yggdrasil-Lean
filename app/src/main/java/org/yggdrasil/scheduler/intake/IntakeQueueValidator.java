@@ -91,7 +91,8 @@ public final class IntakeQueueValidator {
     public static final class ValidatedQueue {
         public final String queueId, rawJson;
         public final int packetCount, pendingCount;
-        public final JSONObject root;
+        private final JSONObject root;
+        public JSONObject copyRoot() throws JSONException { return new JSONObject(rawJson); }
         ValidatedQueue(String queueId, int packetCount, int pendingCount, String rawJson, JSONObject root) {
             this.queueId=queueId; this.packetCount=packetCount; this.pendingCount=pendingCount;
             this.rawJson=rawJson; this.root=root;
