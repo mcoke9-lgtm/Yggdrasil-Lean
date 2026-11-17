@@ -7,6 +7,9 @@ import unittest
 from pathlib import Path
 
 from yim001.audited import AuditedMemoryStore, load_audited, save_audited
+from yim001.recovery import (
+    create_recovery_backup, save_recovery_backup, restore_recovery_backup,
+)
 
 
 class IntakeTransferCliTests(unittest.TestCase):
@@ -39,9 +42,17 @@ class IntakeTransferCliTests(unittest.TestCase):
 
             audited = AuditedMemoryStore("phone")
             audited.add_tree_location("roots.archive", "roots", "Living Archive")
+            audited.add_tree_location(
+                "branches.projects", "branches", "Projects",
+                parent_id="roots.archive",
+            )
             save_audited(audited, store)
 
-            imported = run("import-pending", queue, store, "--primary-location", "roots.archive")
+            imported = run(
+                "import-pending", queue, store,
+                "--primary-location", "roots.archive",
+                "--context-location", "branches.projects",
+            )
             self.assertEqual(imported.returncode, 0, imported.stderr)
             result = json.loads(imported.stdout)
             self.assertEqual(result["status"], "imported_pending_packets")
@@ -52,6 +63,32 @@ class IntakeTransferCliTests(unittest.TestCase):
             self.assertEqual(len(final_store.events), 2)
             for item in result["packets"]:
                 self.assertEqual(len(final_store.versions(item["record_id"])), 1)
+                self.assertIn(item["record_id"], final_store.records_at_tree_location("roots.archive"))
+                self.assertIn(item["record_id"], final_store.records_at_tree_location("branches.projects"))
+                self.assertEqual(
+                    [(p.node_id, p.role) for p in final_store.placements_for(item["record_id"])],
+                    [("roots.archive", "primary"), ("branches.projects", "contextual")],
+                )
+
+            # Verify that a validated backup can restore the imported records,
+            # Tree relationships, and source content into a fresh store file.
+            backup_path = root / "audited-backup.json"
+            restored_path = root / "restored-audited.json"
+            backup = create_recovery_backup(
+                final_store, "batch-import-test",
+                created_at="2026-11-17T16:30:00Z",
+            )
+            save_recovery_backup(backup, backup_path)
+            restore_recovery_backup(
+                backup, restored_path, authorized=True,
+            )
+            restored = load_audited(restored_path)
+            for item in result["packets"]:
+                restored_version = restored.versions(item["record_id"])[0]
+                self.assertEqual(restored_version.content, {"text": "first"} if item["packet_id"] == packet_ids[0] else {"text": "second"})
+                self.assertIn(item["record_id"], restored.records_at_tree_location("roots.archive"))
+                self.assertIn(item["record_id"], restored.records_at_tree_location("branches.projects"))
+            self.assertEqual(restored.events[-1].event_type, "snapshot.recovered")
 
             repeated = run("import-pending", queue, store, "--primary-location", "roots.archive")
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
