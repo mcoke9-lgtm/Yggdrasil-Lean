@@ -86,3 +86,20 @@ PYTHONPATH=yim-001/src python -m yim001 audited-verify ./audited.json
 The audited commands append provenance events for successful create, revise, and conflict annotation. Each write replaces one combined JSON snapshot containing both streams. Optional `--timestamp` arguments support reproducible tests and controlled imports; otherwise event timestamps are generated in UTC. A failed operation or event validation does not replace the existing combined file.
 
 The audited file remains local and single-writer. It does not provide authenticated actors, concurrent-writer locking, network synchronization, or automatic backups. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md).
+
+## Capture supplied work into the Living Tree
+
+The `audited-capture` command is the first explicit intake path that creates a memory record, preserves the submitted source content and language, assigns one primary logical location, adds optional contextual locations, and appends a provenance event as one in-memory transaction before saving the combined snapshot:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 audited-capture ./audited.json content.json \
+  --primary-location roots.archive \
+  --context-location branches.project \
+  --source-kind chat_exchange \
+  --source-reference checkpoint-001 \
+  --language English
+```
+
+The logical locations must already exist in the store. The command rejects an unknown location without creating a partial memory record. Supply `--language undetermined` when the language is not known; do not silently omit it. The source reference is caller-supplied and is not independently verified.
+
+This is **explicit local intake**, not automatic ChatGPT conversation capture. It does not read chat history, discover new conversations, classify placement automatically, or synchronize across devices. Those remain implementation work. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for the combined-store boundaries.
