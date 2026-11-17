@@ -111,6 +111,34 @@ class AuditedCommandLineTests(unittest.TestCase):
         self.assertEqual(verified["events"], 3)
         self.assertEqual(verified["records"], 1)
 
+    def test_transform_creates_distinct_record_and_preserves_original(self):
+        self.run_cli("audited-init", self.store, "lineage-test")
+        self.write_content({"text": "Original wording", "language": "en"})
+        original = self.output(self.run_cli(
+            "audited-create", self.store, self.content,
+            "--timestamp", "2026-11-17T13:00:00Z",
+        ))
+        self.write_content({"text": "Translated wording", "language": "fr"})
+        transformed = self.output(self.run_cli(
+            "audited-transform", self.store, original["record_id"],
+            original["version_id"], "translation", self.content,
+            "--description", "Translate English source into French",
+            "--evidence-ref", "translator-note-001",
+            "--timestamp", "2026-11-17T13:01:00Z",
+        ))
+        self.assertNotEqual(transformed["record_id"], original["record_id"])
+        original_after = self.output(self.run_cli(
+            "audited-show", self.store, "--version", original["version_id"]
+        ))
+        self.assertEqual(original_after["content"], {"text": "Original wording", "language": "en"})
+        events = self.output(self.run_cli("audited-show", self.store, "--events"))
+        transformation = events[-1]
+        self.assertEqual(transformation["event_type"], "record.transformed")
+        self.assertEqual(transformation["details"]["source_record_id"], original["record_id"])
+        self.assertEqual(transformation["details"]["source_version_id"], original["version_id"])
+        self.assertEqual(transformation["details"]["transformation_kind"], "translation")
+        self.assertEqual(transformation["details"]["evidence_refs"], ["translator-note-001"])
+
     def test_failed_audited_event_does_not_change_combined_file(self):
         self.run_cli("audited-init", self.store, "cli-node")
         self.write_content({"value": 1})
