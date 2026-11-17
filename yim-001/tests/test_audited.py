@@ -70,6 +70,14 @@ class AuditedMemoryStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ProvenanceError, "digest mismatch"):
             AuditedMemoryStore.from_snapshot(snapshot)
 
+    def test_presence_reports_loaded_store_scope_without_claiming_deletion(self):
+        present = self.audited.create_record("source", timestamp="2026-11-17T14:00:00Z")
+        found = self.audited.record_presence(present.record_id)
+        self.assertEqual(found["status"], "present_in_loaded_store")
+        absent = self.audited.record_presence("record-not-in-this-store")
+        self.assertEqual(absent["status"], "not_found_in_loaded_store")
+        self.assertIn("does not establish deletion", absent["interpretation"])
+
     def test_actor_identity_is_required(self):
         with self.assertRaisesRegex(ValueError, "actor_id"):
             AuditedMemoryStore(" ")
