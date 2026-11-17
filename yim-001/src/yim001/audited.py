@@ -133,6 +133,84 @@ class AuditedMemoryStore:
             timestamp=timestamp,
         )
 
+    def capture_work(
+        self,
+        content: Any,
+        *,
+        primary_node_id: str,
+        source_kind: str,
+        language: str,
+        source_reference: str | None = None,
+        contextual_node_ids: list[str] | None = None,
+        metadata: Any = None,
+        timestamp=None,
+    ):
+        """Atomically capture supplied work, preserve its language/source, and place it in the Tree.
+
+        This is an explicit local intake API. It does not read chat history or
+        automatically discover source material.
+        """
+        if not isinstance(primary_node_id, str) or not primary_node_id.strip():
+            raise ValueError("primary_node_id must be a non-empty logical Tree node")
+        if not isinstance(source_kind, str) or not source_kind.strip():
+            raise ValueError("source_kind must be a non-empty description")
+        if not isinstance(language, str) or not language.strip():
+            raise ValueError("language must be supplied or explicitly marked undetermined")
+        if source_reference is not None and (
+            not isinstance(source_reference, str) or not source_reference.strip()
+        ):
+            raise ValueError("source_reference must be null or a non-empty reference")
+        if contextual_node_ids is None:
+            contextual_node_ids = []
+        if not isinstance(contextual_node_ids, list) or not all(
+            isinstance(item, str) and item.strip() for item in contextual_node_ids
+        ):
+            raise ValueError("contextual_node_ids must be a list of non-empty Tree node IDs")
+        if primary_node_id in contextual_node_ids or len(set(contextual_node_ids)) != len(contextual_node_ids):
+            raise ValueError("contextual locations must be unique and differ from the primary location")
+        capture_metadata = {
+            "capture": {
+                "source_kind": source_kind,
+                "source_reference": source_reference,
+                "language": language,
+                "primary_logical_location": primary_node_id,
+                "contextual_logical_locations": list(contextual_node_ids),
+                "source_content_preserved_as_submitted": True,
+            }
+        }
+        if metadata is not None:
+            capture_metadata["user_metadata"] = metadata
+        candidate_store = MemoryStore.from_snapshot(self.__store.to_snapshot())
+        candidate_ledger = EventLedger.from_snapshot(self.__ledger.to_snapshot())
+        candidate_tree = LivingTreeIndex.from_snapshot(self.__living_tree.to_snapshot())
+        # Validate all logical locations before committing any part of the capture.
+        if primary_node_id not in {node.node_id for node in candidate_tree.nodes}:
+            raise ValueError(f"primary Tree location not found: {primary_node_id}")
+        for node_id in contextual_node_ids:
+            if node_id not in {node.node_id for node in candidate_tree.nodes}:
+                raise ValueError(f"contextual Tree location not found: {node_id}")
+        version = candidate_store.create_record(content, capture_metadata)
+        candidate_tree.place_record(version.record_id, primary_node_id, "primary")
+        for node_id in contextual_node_ids:
+            candidate_tree.place_record(version.record_id, node_id, "contextual")
+        candidate_ledger.append(
+            "work.captured", self.actor_id,
+            record_id=version.record_id, version_id=version.version_id,
+            details={
+                "source_kind": source_kind,
+                "source_reference": source_reference,
+                "language": language,
+                "primary_logical_location": primary_node_id,
+                "contextual_logical_locations": list(contextual_node_ids),
+                "source_content_preserved_as_submitted": True,
+            },
+            timestamp=timestamp,
+        )
+        self.__store = candidate_store
+        self.__ledger = candidate_ledger
+        self.__living_tree = candidate_tree
+        return version
+
     def record_presence(self, record_id: str):
         """Report presence only within this loaded store; absence is not deletion."""
         placements = self.__living_tree.placements_for(record_id)
