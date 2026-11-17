@@ -40,6 +40,28 @@ class RecoverySearchTests(unittest.TestCase):
             self.assertEqual(result["status"], "not_found_in_searched_locations")
             self.assertIn("does not establish deletion", result["interpretation"])
 
+    def test_lineage_reports_unlocated_requested_member_without_claiming_deletion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "backup.json"
+            save_recovery_backup(self.backup, path)
+            result = search_recovery_locations(
+                "record-not-in-this-backup", backup_paths=[path]
+            )
+            lineage = result["lineage"]
+            self.assertEqual(lineage["member_status"], [{
+                "record_id": "record-not-in-this-backup",
+                "status": "not_found_in_supplied_validated_backups",
+                "interpretation": (
+                    "No supplied validated backup contains this identity. "
+                    "Its existence, deletion, or availability elsewhere is not established."
+                ),
+            }])
+            self.assertEqual(lineage["unresolved_relationships"], [{
+                "record_id": "record-not-in-this-backup",
+                "missing_from_supplied_validated_backups": True,
+                "status": "unresolved_evidence_gap",
+            }])
+
     def test_reports_missing_and_inaccessible_locations(self):
         with tempfile.TemporaryDirectory() as directory:
             missing = Path(directory) / "missing.json"
