@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
+from .recovery_search import search_recovery_locations
 from . import (
     AuditedMemoryStore, EventLedger, MemoryStore, load_audited, load_store,
     read_json_strict, save_audited, save_store, write_json_atomic,
@@ -71,6 +72,12 @@ def _parser() -> argparse.ArgumentParser:
     audited_presence = commands.add_parser("audited-presence", help="check whether a record exists in this loaded store")
     audited_presence.add_argument("store", type=Path)
     audited_presence.add_argument("record_id")
+    recovery_search = commands.add_parser("audited-search-recovery", help="search only explicitly supplied backup and checkpoint files")
+    recovery_search.add_argument("record_id")
+    recovery_search.add_argument("--backup", action="append", type=Path, required=True)
+    recovery_search.add_argument("--checkpoint", action="append", type=Path, default=[])
+    recovery_search.add_argument("--source-instance")
+    recovery_search.add_argument("--logical-location")
     audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
@@ -133,6 +140,15 @@ def _emit(value: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "audited-search-recovery":
+            _emit(search_recovery_locations(
+                args.record_id,
+                backup_paths=args.backup,
+                checkpoint_paths=args.checkpoint,
+                expected_source_instance_id=args.source_instance,
+                expected_logical_location=args.logical_location,
+            ))
+            return 0
         if args.command == "init":
             if args.store.exists():
                 raise FileExistsError(f"refusing to overwrite existing store: {args.store}")
