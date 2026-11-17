@@ -36,6 +36,10 @@ class RecoveryRegistryTests(unittest.TestCase):
             self.assertEqual(result["expected_logical_locations"], ["roots.memory"])
             self.assertEqual(result["status"], "no_supplied_locations_available")
             self.assertEqual(result["registered_dependencies"][0]["depends_on"], ["location-000001"])
+            dependency = result["dependency_report"][1]["dependencies"][0]
+            self.assertEqual(dependency["entry_id"], "location-000001")
+            self.assertEqual(dependency["search_status"], "not_present_at_supplied_path")
+            self.assertTrue(dependency["dependency_is_metadata_not_custody_proof"])
 
 
     def test_registry_search_connects_lineage_members_to_registered_evidence(self):
