@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 const html = fs.readFileSync("yim-001/phone-intake/index.html", "utf8");
-const match = html.match(/<script>([\\s\\S]*?)<\\/script>/i);
+const match = html.match(/<script>([\s\S]*?)<\/script>/i);
 assert.ok(match, "phone intake page must contain its local application script");
 
 class Element {
