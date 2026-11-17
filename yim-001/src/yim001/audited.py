@@ -144,6 +144,7 @@ class AuditedMemoryStore:
         contextual_node_ids: list[str] | None = None,
         metadata: Any = None,
         timestamp=None,
+        intake_identity: dict[str, str] | None = None,
     ):
         """Atomically capture supplied work, preserve its language/source, and place it in the Tree.
 
@@ -168,6 +169,11 @@ class AuditedMemoryStore:
             raise ValueError("contextual_node_ids must be a list of non-empty Tree node IDs")
         if primary_node_id in contextual_node_ids or len(set(contextual_node_ids)) != len(contextual_node_ids):
             raise ValueError("contextual locations must be unique and differ from the primary location")
+        if intake_identity is not None:
+            if not isinstance(intake_identity, dict) or set(intake_identity) != {"queue_id", "packet_id"}:
+                raise ValueError("intake_identity must contain exactly queue_id and packet_id")
+            if not all(isinstance(value, str) and value.strip() for value in intake_identity.values()):
+                raise ValueError("intake queue and packet identities must be non-empty strings")
         capture_metadata = {
             "capture": {
                 "source_kind": source_kind,
@@ -176,6 +182,7 @@ class AuditedMemoryStore:
                 "primary_logical_location": primary_node_id,
                 "contextual_logical_locations": list(contextual_node_ids),
                 "source_content_preserved_as_submitted": True,
+                "intake_identity": intake_identity,
             }
         }
         if metadata is not None:
@@ -203,6 +210,7 @@ class AuditedMemoryStore:
                 "primary_logical_location": primary_node_id,
                 "contextual_logical_locations": list(contextual_node_ids),
                 "source_content_preserved_as_submitted": True,
+                "intake_identity": intake_identity,
             },
             timestamp=timestamp,
         )
@@ -210,6 +218,42 @@ class AuditedMemoryStore:
         self.__ledger = candidate_ledger
         self.__living_tree = candidate_tree
         return version
+
+    def import_intake_packet(
+        self, packet: dict[str, Any], *, queue_id: str,
+        primary_node_id: str, contextual_node_ids: list[str] | None = None,
+    ):
+        """Import one pending packet; repeated calls return the original capture."""
+        required = {
+            "packet_id", "captured_at", "source_kind", "source_reference",
+            "language", "content", "metadata", "placement_status",
+        }
+        if not isinstance(packet, dict) or not required.issubset(packet):
+            raise ValueError("invalid intake packet")
+        if packet["placement_status"] != "awaiting_placement":
+            raise ValueError("only packets awaiting placement can be imported")
+        if not isinstance(queue_id, str) or not queue_id.strip():
+            raise ValueError("queue_id must be a non-empty identifier")
+        identity = {"queue_id": queue_id, "packet_id": packet["packet_id"]}
+        for event in self.__ledger.events:
+            if event.event_type == "work.captured" and event.details.get("intake_identity") == identity:
+                if event.record_id is None or event.version_id is None:
+                    raise ValueError("existing intake capture event lacks record/version identity")
+                version = self.__store.get_version(event.version_id)
+                if version.record_id != event.record_id:
+                    raise ValueError("existing intake capture provenance identity is inconsistent")
+                return version
+        return self.capture_work(
+            packet["content"],
+            primary_node_id=primary_node_id,
+            contextual_node_ids=contextual_node_ids,
+            source_kind=packet["source_kind"],
+            source_reference=packet["source_reference"],
+            language=packet["language"],
+            metadata=packet["metadata"],
+            timestamp=packet["captured_at"],
+            intake_identity=identity,
+        )
 
     def record_presence(self, record_id: str):
         """Report presence only within this loaded store; absence is not deletion."""
