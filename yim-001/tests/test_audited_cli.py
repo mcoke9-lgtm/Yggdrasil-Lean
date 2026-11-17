@@ -111,6 +111,15 @@ class AuditedCommandLineTests(unittest.TestCase):
         self.assertEqual(verified["events"], 3)
         self.assertEqual(verified["records"], 1)
 
+    def test_bounded_recovery_search_cli_reports_exact_scope(self):
+        missing = self.root / "not-created-backup.json"
+        result = self.output(self.run_cli(
+            "audited-search-recovery", "record-unknown", "--backup", missing
+        ))
+        self.assertEqual(result["status"], "no_supplied_locations_available")
+        self.assertEqual(result["searched_locations"][0]["path"], str(missing))
+        self.assertIn("Only the exact", result["scope_limit"])
+
     def test_audited_presence_cli_does_not_infer_deletion(self):
         self.run_cli("audited-init", self.store, "presence-test")
         absent = self.output(self.run_cli("audited-presence", self.store, "not-here"))
