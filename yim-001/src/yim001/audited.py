@@ -242,6 +242,33 @@ class AuditedMemoryStore:
                 version = self.__store.get_version(event.version_id)
                 if version.record_id != event.record_id:
                     raise ValueError("existing intake capture provenance identity is inconsistent")
+                expected_contextual = [] if contextual_node_ids is None else list(contextual_node_ids)
+                expected_capture = {
+                    "source_kind": packet["source_kind"],
+                    "source_reference": packet["source_reference"],
+                    "language": packet["language"],
+                    "primary_logical_location": primary_node_id,
+                    "contextual_logical_locations": expected_contextual,
+                    "source_content_preserved_as_submitted": True,
+                    "intake_identity": identity,
+                }
+                stored_metadata = version.metadata
+                stored_capture = stored_metadata.get("capture") if isinstance(stored_metadata, dict) else None
+                expected_metadata = {"capture": expected_capture}
+                if packet["metadata"] is not None:
+                    expected_metadata["user_metadata"] = packet["metadata"]
+                actual_placements = self.__living_tree.placements_for(version.record_id)
+                actual_primary = [item.node_id for item in actual_placements if item.role == "primary"]
+                actual_contextual = [item.node_id for item in actual_placements if item.role == "contextual"]
+                if (
+                    version.content != packet["content"]
+                    or stored_metadata != expected_metadata
+                    or actual_primary != [primary_node_id]
+                    or actual_contextual != expected_contextual
+                ):
+                    raise ValueError(
+                        "existing intake capture differs from packet content, metadata, or requested Tree placement"
+                    )
                 return version
         return self.capture_work(
             packet["content"],
