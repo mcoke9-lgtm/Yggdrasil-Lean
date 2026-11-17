@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from yim001 import AuditedMemoryStore, create_recovery_backup, save_recovery_backup
 from yim001.recovery_registry import (
     RecoveryRegistryError, create_recovery_registry, load_recovery_registry,
     register_recovery_location, search_recovery_registry,
@@ -35,6 +36,46 @@ class RecoveryRegistryTests(unittest.TestCase):
             self.assertEqual(result["expected_logical_locations"], ["roots.memory"])
             self.assertEqual(result["status"], "no_supplied_locations_available")
             self.assertEqual(result["registered_dependencies"][0]["depends_on"], ["location-000001"])
+
+
+    def test_registry_search_connects_lineage_members_to_registered_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            registry_path = root / "locations.json"
+            backup_path = root / "phone-backup.json"
+            create_recovery_registry(registry_path, "lineage-registry")
+            store = AuditedMemoryStore("phone-A")
+            original = store.create_record({"text": "source"})
+            derived = store.transform_record(
+                original.record_id, original.version_id, "translation",
+                {"text": "translated"}, description="Translated source text",
+            )
+            save_recovery_backup(create_recovery_backup(store, "phone-A"), backup_path)
+            registered = register_recovery_location(
+                registry_path, backup_path, "backup",
+                source_instance_id="phone-A",
+                logical_location="roots.memory",
+            )
+            result = search_recovery_registry(derived.record_id, registry_path)
+            lineage = result["lineage"]
+            self.assertEqual(set(lineage["members"]), {original.record_id, derived.record_id})
+            self.assertEqual(
+                {item["record_id"] for item in lineage["member_evidence"]},
+                {original.record_id, derived.record_id},
+            )
+            for evidence in lineage["member_evidence"]:
+                self.assertEqual(
+                    evidence["registry_location"]["entry_id"],
+                    registered["payload"]["entry_id"],
+                )
+                self.assertEqual(
+                    evidence["registry_location"]["logical_location"],
+                    "roots.memory",
+                )
+            self.assertEqual(
+                lineage["relationships"][0]["evidence"][0]["registry_location"]["entry_id"],
+                registered["payload"]["entry_id"],
+            )
 
     def test_registry_refuses_overwrite_and_unknown_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
