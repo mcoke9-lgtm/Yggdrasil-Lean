@@ -448,5 +448,6 @@ public final class MainActivity extends Activity {
                     + (detail.isEmpty() ? "" : "\n" + detail), 13));
         }
         if (activities.isEmpty()) history.addView(text("No activity yet",13));
+        refreshIntakeStatus();
     }
 }
