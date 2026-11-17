@@ -24,6 +24,7 @@ EVENT_TYPES = frozenset({
     "record.reconciled",
     "record.tree_placed",
     "record.transformed",
+    "work.captured",
     "conflict.annotated",
     "snapshot.recovered",
 })
