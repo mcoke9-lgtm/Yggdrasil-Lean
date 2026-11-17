@@ -84,12 +84,13 @@ public final class IntakeStagingTest {
             fail("Version 1 must not be accepted by the Android v2 staging adapter");
         } catch (IllegalArgumentException expected) { }
 
-        String duplicate = valid.replace("}]}",
-                "},{\"packet_id\":\"60d49085-b029-400a-adc2-f746b2bc2eb4\"}]}");
         try {
-            IntakeQueueValidator.validate(duplicate);
+            JSONObject root = new JSONObject(valid);
+            org.json.JSONArray packets = root.getJSONArray("packets");
+            packets.put(new JSONObject(packets.getJSONObject(0).toString()));
+            IntakeQueueValidator.validate(root.toString());
             fail("Duplicate packet IDs must be rejected");
-        } catch (Exception expected) { }
+        } catch (IllegalArgumentException expected) { }
 
         String altered = valid.replace("\"source_content_preserved_as_submitted\":true",
                 "\"source_content_preserved_as_submitted\":\"true\"");
