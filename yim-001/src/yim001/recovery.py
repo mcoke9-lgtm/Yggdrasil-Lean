@@ -269,8 +269,11 @@ def revalidate_recovery_restore_plan(plan: Any) -> dict[str, Any]:
         raise RecoveryError("recovery restore plan is incomplete") from exc
     if not source_path.is_file():
         raise RecoveryError("restore plan is stale: source backup is unavailable")
-    backup = load_recovery_backup(source_path)
-    checked = inspect_recovery_backup(backup)
+    try:
+        backup = load_recovery_backup(source_path)
+        checked = inspect_recovery_backup(backup)
+    except (OSError, RecoveryError, ValueError, TypeError) as exc:
+        raise RecoveryError(f"restore plan is stale: source backup is no longer valid ({exc})") from exc
     if checked["source_instance_id"] != expected_source_id or checked["sha256"] != expected_backup_digest:
         raise RecoveryError("restore plan is stale: source backup identity or digest changed")
     snapshot = checked["audited_snapshot"]
