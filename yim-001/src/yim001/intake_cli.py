@@ -17,6 +17,71 @@ def _emit(value: Any) -> None:
     sys.stdout.write("\n")
 
 
+def _verify_imported_packet(queue, packet, audited, packet_id: str) -> dict[str, Any]:
+    version = audited.get_version(packet["imported_version_id"])
+    if version.record_id != packet["imported_record_id"]:
+        raise ValueError("queue import identity does not match the audited version")
+    capture = version.metadata.get("capture") if isinstance(version.metadata, dict) else None
+    identity = {"queue_id": queue.queue_id, "packet_id": packet["packet_id"]}
+    if (
+        version.content != packet["content"]
+        or not isinstance(capture, dict)
+        or capture.get("intake_identity") != identity
+        or capture.get("source_kind") != packet["source_kind"]
+        or capture.get("source_reference") != packet["source_reference"]
+        or capture.get("language") != packet["language"]
+        or capture.get("source_content_preserved_as_submitted") is not True
+        or capture.get("primary_logical_location") != packet["primary_logical_location"]
+        or capture.get("contextual_logical_locations") != packet["contextual_logical_locations"]
+        or version.metadata.get("user_metadata", {}) != packet["metadata"]
+    ):
+        raise ValueError("queue import marker does not match audited content or Tree placement")
+    placements = audited.placements_for(version.record_id)
+    actual_primary = [item.node_id for item in placements if item.role == "primary"]
+    actual_contextual = [item.node_id for item in placements if item.role == "contextual"]
+    if (
+        actual_primary != [packet["primary_logical_location"]]
+        or actual_contextual != packet["contextual_logical_locations"]
+    ):
+        raise ValueError("audited Tree placements do not match the imported queue packet")
+    return {
+        "status": "already_imported_verified",
+        "packet_id": packet_id,
+        "record_id": version.record_id,
+        "version_id": version.version_id,
+        "primary_location": packet["primary_logical_location"],
+    }
+
+
+def _import_packet(queue, packet, audited, store_path: Path, queue_path: Path,
+                   primary_location: str, context_locations: list[str]) -> dict[str, Any]:
+    if packet["placement_status"] == "imported":
+        return _verify_imported_packet(queue, packet, audited, packet["packet_id"])
+    version = audited.import_intake_packet(
+        packet, queue_id=queue.queue_id,
+        primary_node_id=primary_location,
+        contextual_node_ids=context_locations,
+    )
+    # Persist the audited capture first. A retry can recognize it if the queue
+    # update is interrupted; each batch item is checkpointed independently.
+    save_audited(audited, store_path)
+    queue.mark_imported(
+        packet["packet_id"],
+        primary_logical_location=primary_location,
+        contextual_logical_locations=context_locations,
+        record_id=version.record_id, version_id=version.version_id,
+    )
+    save_intake_queue(queue, queue_path)
+    return {
+        "status": "imported",
+        "packet_id": packet["packet_id"],
+        "record_id": version.record_id,
+        "version_id": version.version_id,
+        "primary_location": primary_location,
+        "contextual_locations": context_locations,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="yim001-intake")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -37,8 +102,15 @@ def main(argv: list[str] | None = None) -> int:
     transfer.add_argument("queue", type=Path)
     transfer.add_argument("store", type=Path)
     transfer.add_argument("packet_id")
-    transfer.add_argument("--primary-location", required=True)
-    transfer.add_argument("--context-location", action="append", dest="context_locations", default=[])
+    batch = commands.add_parser(
+        "import-pending",
+        help="import all pending packets to one explicitly selected Tree location, checkpointing each",
+    )
+    batch.add_argument("queue", type=Path)
+    batch.add_argument("store", type=Path)
+    for command in (transfer, batch):
+        command.add_argument("--primary-location", required=True)
+        command.add_argument("--context-location", action="append", dest="context_locations", default=[])
     args = parser.parse_args(argv)
     try:
         if args.command == "init":
@@ -59,73 +131,37 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "list":
             queue = load_intake_queue(args.queue)
             _emit({"queue_id": queue.queue_id, "pending_count": len(queue.pending()), "packets": list(queue.pending())})
-        else:
+        elif args.command == "import":
             queue = load_intake_queue(args.queue)
             matches = [packet for packet in queue.packets if packet["packet_id"] == args.packet_id]
             if not matches:
                 raise ValueError(f"intake packet not found: {args.packet_id}")
-            packet = matches[0]
-            if packet["placement_status"] == "imported":
-                # Do not trust the queue marker alone: confirm the audited store
-                # still contains the exact imported version and recorded placement.
-                audited = load_audited(args.store)
-                version = audited.get_version(packet["imported_version_id"])
-                if version.record_id != packet["imported_record_id"]:
-                    raise ValueError("queue import identity does not match the audited version")
-                capture = version.metadata.get("capture") if isinstance(version.metadata, dict) else None
-                identity = {"queue_id": queue.queue_id, "packet_id": packet["packet_id"]}
-                if (
-                    version.content != packet["content"]
-                    or not isinstance(capture, dict)
-                    or capture.get("intake_identity") != identity
-                    or capture.get("source_kind") != packet["source_kind"]
-                    or capture.get("source_reference") != packet["source_reference"]
-                    or capture.get("language") != packet["language"]
-                    or capture.get("source_content_preserved_as_submitted") is not True
-                    or capture.get("primary_logical_location") != packet["primary_logical_location"]
-                    or capture.get("contextual_logical_locations") != packet["contextual_logical_locations"]
-                    or version.metadata.get("user_metadata", {}) != packet["metadata"]
-                ):
-                    raise ValueError("queue import marker does not match audited content or Tree placement")
-                placements = audited.placements_for(version.record_id)
-                actual_primary = [item.node_id for item in placements if item.role == "primary"]
-                actual_contextual = [item.node_id for item in placements if item.role == "contextual"]
-                if (
-                    actual_primary != [packet["primary_logical_location"]]
-                    or actual_contextual != packet["contextual_logical_locations"]
-                ):
-                    raise ValueError("audited Tree placements do not match the imported queue packet")
-                _emit({
-                    "status": "already_imported_verified",
-                    "packet_id": args.packet_id,
-                    "record_id": version.record_id,
-                    "version_id": version.version_id,
-                    "primary_location": packet["primary_logical_location"],
-                })
+            audited = load_audited(args.store)
+            result = _import_packet(
+                queue, matches[0], audited, args.store, args.queue,
+                args.primary_location, args.context_locations,
+            )
+            _emit(result)
+        else:
+            queue = load_intake_queue(args.queue)
+            pending = list(queue.pending())
+            if not pending:
+                _emit({"status": "no_pending_packets", "queue_id": queue.queue_id, "imported_count": 0, "packets": []})
                 return 0
             audited = load_audited(args.store)
-            version = audited.import_intake_packet(
-                packet, queue_id=queue.queue_id,
-                primary_node_id=args.primary_location,
-                contextual_node_ids=args.context_locations,
-            )
-            # Save the audited capture first. If the queue update is interrupted,
-            # retry finds the provenance identity and returns this same version.
-            save_audited(audited, args.store)
-            queue.mark_imported(
-                args.packet_id,
-                primary_logical_location=args.primary_location,
-                contextual_logical_locations=args.context_locations,
-                record_id=version.record_id, version_id=version.version_id,
-            )
-            save_intake_queue(queue, args.queue)
+            results = []
+            for packet in pending:
+                results.append(_import_packet(
+                    queue, packet, audited, args.store, args.queue,
+                    args.primary_location, args.context_locations,
+                ))
             _emit({
-                "status": "imported",
-                "packet_id": args.packet_id,
-                "record_id": version.record_id,
-                "version_id": version.version_id,
+                "status": "imported_pending_packets",
+                "queue_id": queue.queue_id,
+                "imported_count": len(results),
                 "primary_location": args.primary_location,
                 "contextual_locations": args.context_locations,
+                "packets": results,
             })
         return 0
     except (OSError, ValueError, TypeError) as exc:
