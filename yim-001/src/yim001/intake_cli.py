@@ -78,8 +78,13 @@ def main(argv: list[str] | None = None) -> int:
                     version.content != packet["content"]
                     or not isinstance(capture, dict)
                     or capture.get("intake_identity") != identity
+                    or capture.get("source_kind") != packet["source_kind"]
+                    or capture.get("source_reference") != packet["source_reference"]
+                    or capture.get("language") != packet["language"]
+                    or capture.get("source_content_preserved_as_submitted") is not True
                     or capture.get("primary_logical_location") != packet["primary_logical_location"]
                     or capture.get("contextual_logical_locations") != packet["contextual_logical_locations"]
+                    or version.metadata.get("user_metadata", {}) != packet["metadata"]
                 ):
                     raise ValueError("queue import marker does not match audited content or Tree placement")
                 placements = audited.placements_for(version.record_id)
