@@ -35,6 +35,18 @@ class AuditedMemoryStore:
     def events(self):
         return self.__ledger.events
 
+    def get_version(self, version_id: str):
+        return self.__store.get_version(version_id)
+
+    def versions(self, record_id: str):
+        return self.__store.versions(record_id)
+
+    def tips(self, record_id: str):
+        return self.__store.tips(record_id)
+
+    def conflicts(self, record_id: str | None = None):
+        return self.__store.conflicts(record_id)
+
     @property
     def living_tree(self) -> LivingTreeIndex:
         """Return the logical index; callers should mutate it through this facade."""
