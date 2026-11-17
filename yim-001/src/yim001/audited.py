@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .core import MemoryStore
+from .core import MemoryStore, NotFoundError
 from .living_tree import LivingTreeIndex
 from .provenance import EventLedger
 from .storage import read_json_strict, write_json_atomic
@@ -132,6 +132,52 @@ class AuditedMemoryStore:
             lambda store: store.annotate_conflict(source_version_id, target_version_id),
             timestamp=timestamp,
         )
+
+    def record_presence(self, record_id: str):
+        """Report presence only within this loaded store; absence is not deletion."""
+        placements = self.__living_tree.placements_for(record_id)
+        try:
+            versions = self.__store.versions(record_id)
+        except NotFoundError:
+            return {
+                "status": "not_found_in_loaded_store",
+                "record_id": record_id,
+                "tree_placements": [
+                    {"node_id": item.node_id, "role": item.role} for item in placements
+                ],
+                "interpretation": "This store does not contain the record. This does not establish deletion, nonexistence, or loss elsewhere.",
+            }
+        return {
+            "status": "present_in_loaded_store",
+            "record_id": record_id,
+            "version_ids": [item.version_id for item in versions],
+            "tree_placements": [
+                {"node_id": item.node_id, "role": item.role} for item in placements
+            ],
+        }
+
+    def record_recovery(self, source_instance_id: str, backup_sha256: str, *, timestamp=None):
+        """Append evidence that a validated backup snapshot was restored."""
+        if not isinstance(source_instance_id, str) or not source_instance_id.strip():
+            raise ValueError("source_instance_id must be a non-empty identifier")
+        if not isinstance(backup_sha256, str) or len(backup_sha256) != 64 or any(
+            char not in "0123456789abcdef" for char in backup_sha256
+        ):
+            raise ValueError("backup_sha256 must be a lowercase SHA-256 digest")
+        candidate = EventLedger.from_snapshot(self.__ledger.to_snapshot())
+        event = candidate.append(
+            "snapshot.recovered", self.actor_id,
+            details={
+                "source_instance_id": source_instance_id,
+                "backup_sha256": backup_sha256,
+                "recovery_kind": "restored_backup_snapshot",
+                "original_record_identities_preserved": True,
+                "reconstruction": False,
+            },
+            timestamp=timestamp,
+        )
+        self.__ledger = candidate
+        return event
 
     def transform_record(self, source_record_id: str, source_version_id: str,
                          kind: str, content: Any, *, description: str,
