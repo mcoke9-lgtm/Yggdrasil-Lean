@@ -67,10 +67,36 @@ def _lineage_report(record_id: str, valid_backups: list[dict[str, Any]]) -> dict
         edge for edge in edges
         if edge["source_record_id"] in connected and edge["derived_record_id"] in connected
     ]
+    member_evidence = []
+    for item in valid_backups:
+        snapshot = item["info"]["audited_snapshot"]
+        memory = snapshot["memory"]
+        for member_id in sorted(connected):
+            records = [row for row in memory["records"] if row["record_id"] == member_id]
+            if not records:
+                continue
+            versions = [
+                row for row in memory["versions"]
+                if row["record_id"] == member_id
+            ]
+            placements = [
+                row for row in snapshot.get("living_tree", {}).get("placements", [])
+                if row.get("record_id") == member_id
+            ]
+            member_evidence.append({
+                "record_id": member_id,
+                "path": item["path"],
+                "source_instance_id": item["info"]["source_instance_id"],
+                "backup_sha256": item["info"]["sha256"],
+                "version_ids": [row["version_id"] for row in versions],
+                "tree_placements": placements,
+                "evidence_status": "present_in_validated_backup",
+            })
     return {
         "requested_record_id": record_id,
         "members": sorted(connected),
         "relationships": relevant,
+        "member_evidence": member_evidence,
         "status": "lineage_links_found" if relevant else "no_lineage_links_in_supplied_evidence",
         "interpretation": (
             "Relationships are limited to transformation events in the validated backups supplied to this search. "
