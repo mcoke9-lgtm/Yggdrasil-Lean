@@ -287,7 +287,7 @@ public final class MainActivity extends Activity {
                     throw new java.io.IOException("Queue exceeds the 5 MB limit");
                 bytes.write(buffer, 0, read);
             }
-            final String raw = new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            final String raw = java.nio.charset.StandardCharsets.UTF_8.newDecoder()\n                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)\n                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)\n                    .decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())).toString();
             final IntakeQueueValidator.ValidatedQueue queue = IntakeQueueValidator.validate(raw);
             new AlertDialog.Builder(this)
                     .setTitle("Stage Living Tree intake queue?")
