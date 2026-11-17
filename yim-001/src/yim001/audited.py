@@ -133,6 +133,44 @@ class AuditedMemoryStore:
             timestamp=timestamp,
         )
 
+    def transform_record(self, source_record_id: str, source_version_id: str,
+                         kind: str, content: Any, *, description: str,
+                         evidence_refs: list[str] | None = None,
+                         metadata: Any = None, timestamp=None):
+        """Create a distinct derived record while preserving its source unchanged."""
+        allowed = {"copy", "derivative", "translation", "reconstruction"}
+        if kind not in allowed:
+            raise ValueError(f"kind must be one of {sorted(allowed)}")
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError("description must explain the transformation")
+        if evidence_refs is None:
+            evidence_refs = []
+        if not isinstance(evidence_refs, list) or not all(
+            isinstance(item, str) and item.strip() for item in evidence_refs
+        ):
+            raise ValueError("evidence_refs must be a list of non-empty identifiers")
+        source = self.__store.get_version(source_version_id)
+        if source.record_id != source_record_id:
+            raise ValueError("source version does not belong to source record")
+        candidate_store = MemoryStore.from_snapshot(self.__store.to_snapshot())
+        candidate_ledger = EventLedger.from_snapshot(self.__ledger.to_snapshot())
+        derived = candidate_store.create_record(content, metadata)
+        candidate_ledger.append(
+            "record.transformed", self.actor_id, record_id=derived.record_id,
+            version_id=derived.version_id,
+            details={
+                "source_record_id": source_record_id,
+                "source_version_id": source_version_id,
+                "transformation_kind": kind,
+                "description": description,
+                "evidence_refs": list(evidence_refs),
+                "identity_relation": "reconstruction_not_original" if kind == "reconstruction" else "distinct_derived_record",
+            }, timestamp=timestamp,
+        )
+        self.__store = candidate_store
+        self.__ledger = candidate_ledger
+        return derived
+
     def _adopt(self, candidate: "AuditedMemoryStore") -> None:
         if not isinstance(candidate, AuditedMemoryStore):
             raise TypeError("candidate must be an AuditedMemoryStore")
