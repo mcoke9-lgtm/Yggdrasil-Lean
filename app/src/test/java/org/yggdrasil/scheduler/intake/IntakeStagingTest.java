@@ -101,7 +101,7 @@ public final class IntakeStagingTest {
             fail("String truth values must not satisfy the boolean preservation marker");
         } catch (Exception expected) { }
 
-        String numericIdentity = valid.replace("\\\"queue_id\\\":\\\"phone-intake\\\"", "\\\"queue_id\\\":123");
+        String numericIdentity = valid.replace("\"queue_id\":\"phone-intake\"", "\"queue_id\":123");
         try {
             IntakeQueueValidator.validate(numericIdentity);
             fail("Queue identity must be a string");
