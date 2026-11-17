@@ -48,3 +48,6 @@ No APK has been built or installed by this change. The pull request remains draf
 ## Verification record
 
 The source and test files are committed on the draft implementation branch. GitHub Actions execution has not yet been observed for this PR; no Android build or unit-test pass is claimed until the workflow reports results.
+
+
+Build retry checkpoint: an initial CI run exposed a malformed Java string literal in the intake confirmation dialog. That source defect was corrected in commit `31c4b4337179c8243898a31689e42cc6f3862046`. A new CI result is still required.
