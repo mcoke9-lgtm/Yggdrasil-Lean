@@ -171,7 +171,7 @@ class AuditedMemoryStoreTests(unittest.TestCase):
         self.assertEqual((retry.record_id, retry.version_id), (first.record_id, first.version_id))
         self.assertEqual(len(self.audited.versions(first.record_id)), 1)
         changed_content = dict(packet, content={"text": "Altered source"})
-        with self.assertRaisesRegex(ValueError, "differs from packet content"):
+        with self.assertRaisesRegex(ValueError, "content or metadata changed"):
             self.audited.import_intake_packet(
                 changed_content, queue_id="phone-intake",
                 primary_node_id="roots.archive",
