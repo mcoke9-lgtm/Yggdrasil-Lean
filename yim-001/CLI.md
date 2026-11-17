@@ -119,3 +119,20 @@ PYTHONPATH=yim-001/src python -m yim001.intake_cli list ./intake.json
 ```
 
 Each packet retains the submitted JSON content, source kind/reference, language, capture time, and metadata, and is explicitly marked `awaiting_placement`. The queue refuses duplicate packet IDs and validates its structure on load. It is append-only at the packet level in this first version; it has no packet deletion, placement assignment, or automatic import into the audited memory store yet. To move a packet into the Living Tree, an operator must still select a valid logical location and use the audited capture path. This queue does not access ChatGPT conversation history or sync across devices; it is a concrete local handoff mechanism, not automatic capture.
+
+
+### Import a pending packet into the Living Tree
+
+After creating an audited store and its logical Tree nodes, import a selected packet:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001.intake_cli import ./intake.json ./audited.json packet-001 \
+  --primary-location roots.archive \
+  --context-location branches.project
+```
+
+The audited store is saved before the queue is marked imported. A provenance identity ties the capture to the queue and packet, including a SHA-256 fingerprint of the submitted packet. If the process stops after the audited save but before the queue update, rerunning the import returns the existing record/version rather than creating another record. A retry with changed packet content or a different Tree placement is rejected.
+
+The queue records the resulting record and version identities and the confirmed logical placements. Queue format version 2 migrates version 1 pending queues when loaded.
+
+This is a recoverable two-file handoff, not a single atomic transaction across both files. It assumes one writer at a time; concurrent writers are not protected by filesystem locks. Keep backups of both files. A completed import is local to the supplied paths and does not imply Android synchronization or automatic ChatGPT history access.
