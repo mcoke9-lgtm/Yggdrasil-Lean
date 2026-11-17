@@ -73,7 +73,15 @@ class RecoveryBackupTests(unittest.TestCase):
                 preserve_path=preservation,
             )
             self.assertEqual(preservation.read_bytes(), original)
-            self.assertEqual(load_audited(destination).to_snapshot(), self.source.to_snapshot())
+            restored = load_audited(destination)
+            self.assertEqual(restored.to_snapshot()["memory"], self.source.to_snapshot()["memory"])
+            self.assertEqual(restored.to_snapshot()["living_tree"], self.source.to_snapshot()["living_tree"])
+            recovery_event = restored.events[-1]
+            self.assertEqual(recovery_event.event_type, "snapshot.recovered")
+            self.assertEqual(recovery_event.details["recovery_kind"], "restored_backup_snapshot")
+            self.assertTrue(recovery_event.details["original_record_identities_preserved"])
+            self.assertFalse(recovery_event.details["reconstruction"])
+            self.assertEqual(recovery_event.details["backup_sha256"], self.backup["sha256"])
             self.assertTrue(result["previous_destination_preserved"])
 
     def test_restore_refuses_existing_destination_without_preservation_path(self):
@@ -122,7 +130,9 @@ class RecoveryBackupTests(unittest.TestCase):
                 self.backup, destination, authorized=True
             )
             self.assertFalse(result["previous_destination_existed"])
-            self.assertEqual(load_audited(destination).to_snapshot(), self.source.to_snapshot())
+            restored = load_audited(destination)
+            self.assertEqual(restored.to_snapshot()["memory"], self.source.to_snapshot()["memory"])
+            self.assertEqual(restored.events[-1].event_type, "snapshot.recovered")
 
     def test_restore_file_helper_checks_authorization_before_read(self):
         with tempfile.TemporaryDirectory() as directory:
