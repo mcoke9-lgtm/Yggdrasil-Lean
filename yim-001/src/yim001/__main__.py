@@ -48,6 +48,16 @@ def _parser() -> argparse.ArgumentParser:
     audited_create.add_argument("content", type=Path)
     audited_create.add_argument("--metadata", type=Path)
     audited_create.add_argument("--timestamp")
+    audited_capture = commands.add_parser("audited-capture", help="capture supplied work with source language and logical Tree placement")
+    audited_capture.add_argument("store", type=Path)
+    audited_capture.add_argument("content", type=Path)
+    audited_capture.add_argument("--primary-location", required=True)
+    audited_capture.add_argument("--context-location", action="append", dest="context_locations", default=[])
+    audited_capture.add_argument("--source-kind", required=True)
+    audited_capture.add_argument("--source-reference")
+    audited_capture.add_argument("--language", required=True, help="language name or explicitly 'undetermined'")
+    audited_capture.add_argument("--metadata", type=Path)
+    audited_capture.add_argument("--timestamp")
     audited_revise = commands.add_parser("audited-revise", help="revise a record and automatically append provenance")
     audited_revise.add_argument("store", type=Path)
     audited_revise.add_argument("record_id")
@@ -196,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             save_audited(AuditedMemoryStore(args.actor_id), args.store)
             _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
             return 0
-        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-presence", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
+        if args.command in {"audited-capture", "audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-presence", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
             audited = load_audited(args.store)
             if args.command == "tree-add-node":
                 node = audited.add_tree_location(args.node_id, args.part, args.label, args.description, args.parent)
@@ -211,6 +221,25 @@ def main(argv: list[str] | None = None) -> int:
             elif args.command == "tree-show":
                 records = audited.records_at_tree_location(args.node_id, not args.direct_only)
                 _emit({"node_id": args.node_id, "include_descendants": not args.direct_only, "record_ids": list(records)})
+            elif args.command == "audited-capture":
+                version = audited.capture_work(
+                    read_json_strict(args.content),
+                    primary_node_id=args.primary_location,
+                    contextual_node_ids=args.context_locations,
+                    source_kind=args.source_kind,
+                    source_reference=args.source_reference,
+                    language=args.language,
+                    metadata=_read_optional(args.metadata),
+                    timestamp=args.timestamp,
+                )
+                save_audited(audited, args.store)
+                _emit({
+                    **_version_data(version),
+                    "capture_status": "captured_and_placed",
+                    "primary_location": args.primary_location,
+                    "contextual_locations": args.context_locations,
+                    "language": args.language,
+                })
             elif args.command == "audited-create":
                 version = audited.create_record(
                     read_json_strict(args.content), _read_optional(args.metadata), timestamp=args.timestamp
