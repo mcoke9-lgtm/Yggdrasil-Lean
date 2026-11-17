@@ -61,9 +61,11 @@ class WorkIntakeQueue:
         if any(packet["packet_id"] == identifier for packet in self._packets):
             raise IntakeQueueError(f"duplicate intake packet: {identifier}")
         stamp = captured_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        if not isinstance(stamp, str) or not stamp.strip():
+            raise IntakeQueueError("captured_at must be an ISO-8601 timestamp")
         try:
             datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-        except (AttributeError, ValueError) as exc:
+        except ValueError as exc:
             raise IntakeQueueError("captured_at must be an ISO-8601 timestamp") from exc
         packet = {
             "packet_id": identifier,
@@ -122,6 +124,12 @@ class WorkIntakeQueue:
                 raise IntakeQueueError(f"invalid or duplicate packet identity at index {index}")
             if packet["placement_status"] != "awaiting_placement":
                 raise IntakeQueueError(f"unsupported placement status at index {index}")
+            if not isinstance(packet["captured_at"], str) or not packet["captured_at"].strip():
+                raise IntakeQueueError(f"invalid capture timestamp at index {index}")
+            try:
+                datetime.fromisoformat(packet["captured_at"].replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise IntakeQueueError(f"invalid capture timestamp at index {index}") from exc
             if packet["primary_logical_location"] is not None or packet["contextual_logical_locations"] != []:
                 raise IntakeQueueError(f"unplaced packet contains Tree placements at index {index}")
             if packet["source_content_preserved_as_submitted"] is not True:
@@ -130,7 +138,9 @@ class WorkIntakeQueue:
                 raise IntakeQueueError(f"invalid source kind at index {index}")
             if not isinstance(packet["language"], str) or not packet["language"].strip():
                 raise IntakeQueueError(f"invalid language at index {index}")
-            if packet["source_reference"] is not None and not isinstance(packet["source_reference"], str):
+            if packet["source_reference"] is not None and (
+                not isinstance(packet["source_reference"], str) or not packet["source_reference"].strip()
+            ):
                 raise IntakeQueueError(f"invalid source reference at index {index}")
             _validate_json(packet["content"], f"packets[{index}].content")
             _validate_json(packet["metadata"], f"packets[{index}].metadata")
