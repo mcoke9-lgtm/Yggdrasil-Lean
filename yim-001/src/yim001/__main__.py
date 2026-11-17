@@ -68,6 +68,9 @@ def _parser() -> argparse.ArgumentParser:
     audited_transform.add_argument("--evidence-ref", action="append", dest="evidence_refs")
     audited_transform.add_argument("--metadata", type=Path)
     audited_transform.add_argument("--timestamp")
+    audited_presence = commands.add_parser("audited-presence", help="check whether a record exists in this loaded store")
+    audited_presence.add_argument("store", type=Path)
+    audited_presence.add_argument("record_id")
     audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
@@ -144,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
             save_audited(AuditedMemoryStore(args.actor_id), args.store)
             _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
             return 0
-        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
+        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-presence", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
             audited = load_audited(args.store)
             if args.command == "tree-add-node":
                 node = audited.add_tree_location(args.node_id, args.part, args.label, args.description, args.parent)
@@ -188,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 save_audited(audited, args.store)
                 _emit(_version_data(derived))
+            elif args.command == "audited-presence":
+                _emit(audited.record_presence(args.record_id))
             elif args.command == "audited-verify":
                 snapshot = audited.to_snapshot()
                 _emit({
