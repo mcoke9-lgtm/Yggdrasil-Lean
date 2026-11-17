@@ -63,6 +63,8 @@ public final class IntakeStagingTest {
         assertEquals(0, retry.inserted);
         assertEquals(1, retry.alreadyPresent);
         assertEquals(1, store.countPending());
+        store.close();
+        assertEquals(1, new IntakeStagingStore(context).countPending());
     }
 
     @Test public void changedContentUnderSamePacketIdentityIsRejected() throws Exception {
@@ -97,6 +99,12 @@ public final class IntakeStagingTest {
         try {
             IntakeQueueValidator.validate(altered);
             fail("String truth values must not satisfy the boolean preservation marker");
+        } catch (Exception expected) { }
+
+        String numericIdentity = valid.replace("\\\"queue_id\\\":\\\"phone-intake\\\"", "\\\"queue_id\\\":123");
+        try {
+            IntakeQueueValidator.validate(numericIdentity);
+            fail("Queue identity must be a string");
         } catch (Exception expected) { }
     }
 }
