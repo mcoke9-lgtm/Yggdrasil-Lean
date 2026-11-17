@@ -17,6 +17,8 @@ import android.widget.Toast;
 import org.yggdrasil.scheduler.builder.BuilderEventJournal;
 import org.yggdrasil.scheduler.builder.BuilderLocalExchange;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
+import org.yggdrasil.scheduler.intake.IntakeQueueValidator;
+import org.yggdrasil.scheduler.intake.IntakeStagingStore;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -81,6 +83,11 @@ public final class MainActivity extends Activity {
         root.addView(button("Export Builder memory", this::beginContinuityExport));
         root.addView(button("Import Builder memory", this::beginContinuityImport));
         root.addView(button("Test recovery safeguards (safe)", this::runRecoverySafetyTest));
+        root.addView(text("Living Tree intake · private staging only", 20));
+        intakeStatus = text("No intake queue staged yet · staging is not Roots import", 13);
+        root.addView(intakeStatus);
+        root.addView(button("Stage Living Tree intake queue", this::beginYimQueueImport));
+        root.addView(button("Check pending intake packets", this::refreshIntakeStatus));
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
         root.addView(text("Recent activity", 20)); history = new LinearLayout(this); history.setOrientation(LinearLayout.VERTICAL); root.addView(history);
@@ -122,6 +129,8 @@ public final class MainActivity extends Activity {
     }
     private static final int REQUEST_EXPORT_CONTINUITY = 7101;
     private static final int REQUEST_IMPORT_CONTINUITY = 7102;
+    private static final int REQUEST_IMPORT_YIM_QUEUE = 7103;
+    private TextView intakeStatus;
 
     /**
      * Exercises tamper rejection against the live journal without intentionally
@@ -213,6 +222,8 @@ public final class MainActivity extends Activity {
             } finally { pendingContinuityExport = null; }
         } else if (requestCode == REQUEST_IMPORT_CONTINUITY) {
             previewContinuityImport(uri);
+        } else if (requestCode == REQUEST_IMPORT_YIM_QUEUE) {
+            previewYimQueue(uri);
         }
     }
 
@@ -255,6 +266,65 @@ public final class MainActivity extends Activity {
         }
     }
 
+
+
+    private void beginYimQueueImport() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        startActivityForResult(intent, REQUEST_IMPORT_YIM_QUEUE);
+    }
+
+    private void previewYimQueue(Uri uri) {
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new java.io.IOException("Could not open selected queue");
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int total = 0, read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > IntakeQueueValidator.MAX_BYTES)
+                    throw new java.io.IOException("Queue exceeds the 5 MB limit");
+                bytes.write(buffer, 0, read);
+            }
+            final String raw = java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())).toString();
+            final IntakeQueueValidator.ValidatedQueue queue = IntakeQueueValidator.validate(raw);
+            new AlertDialog.Builder(this)
+                    .setTitle("Stage Living Tree intake queue?")
+                    .setMessage("Queue: " + queue.queueId + "\\nPackets: " + queue.packetCount
+                            + "\\nAwaiting Tree placement: " + queue.pendingCount
+                            + "\\n\\nThis stores the submitted queue in a separate private staging database. "
+                            + "It does not import into Roots or assign Tree locations.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Stage queue", (dialog, which) -> {
+                        try {
+                            IntakeStagingStore.StageResult result =
+                                    new IntakeStagingStore(getApplicationContext()).stage(queue);
+                            intakeStatus.setText("Staged locally · " + result.inserted + " new · "
+                                    + result.alreadyPresent + " already present · " + result.pending
+                                    + " awaiting Roots import · not yet in Roots");
+                        } catch (Exception e) {
+                            intakeStatus.setText("Staging failed; transaction rolled back: " + e.getMessage());
+                        }
+                    }).show();
+        } catch (Exception e) {
+            if (intakeStatus != null)
+                intakeStatus.setText("Queue rejected; no staging write made: " + e.getMessage());
+        }
+    }
+
+    private void refreshIntakeStatus() {
+        try {
+            int pending = new IntakeStagingStore(getApplicationContext()).countPending();
+            intakeStatus.setText("Private intake staging: " + pending
+                    + " packet(s) awaiting Roots import · no canonical Tree placement is implied");
+        } catch (Exception e) {
+            intakeStatus.setText("Could not read intake staging: " + e.getMessage());
+        }
+    }
 
     private String providerConfigurationSummary() {
         try {
@@ -381,5 +451,6 @@ public final class MainActivity extends Activity {
                     + (detail.isEmpty() ? "" : "\n" + detail), 13));
         }
         if (activities.isEmpty()) history.addView(text("No activity yet",13));
+        refreshIntakeStatus();
     }
 }

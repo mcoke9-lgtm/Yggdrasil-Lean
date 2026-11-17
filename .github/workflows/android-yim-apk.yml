@@ -1,0 +1,53 @@
+name: Android YIM Intake APK
+
+on:
+  push:
+    branches: [android-yim-intake-staging-002]
+    paths:
+      - 'app/**'
+      - '*.gradle'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - '.github/workflows/android-yim-apk.yml'
+  pull_request:
+    branches: [independent-builder-runtime-foundation-001]
+    paths:
+      - 'app/**'
+      - '*.gradle'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - '.github/workflows/android-yim-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Run unit tests and assemble debug APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yggdrasil-yim-intake-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
