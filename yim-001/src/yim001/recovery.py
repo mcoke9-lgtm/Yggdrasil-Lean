@@ -248,12 +248,101 @@ def create_recovery_restore_plan(
     }
 
 
+
+def revalidate_recovery_restore_plan(plan: Any) -> dict[str, Any]:
+    """Recheck the exact source, record membership, and destination state."""
+    if not isinstance(plan, dict) or plan.get("plan_is_not_a_restore") is not True:
+        raise RecoveryError("invalid recovery restore plan")
+    if plan.get("authorized") is not False or plan.get("authorization_required") is not True:
+        raise RecoveryError("restore plan authorization state is invalid")
+    try:
+        source_path = Path(plan["source"]["path"])
+        expected_source_id = plan["source"]["source_instance_id"]
+        expected_backup_digest = plan["source"]["backup_sha256"]
+        record_id = plan["requested_record"]["record_id"]
+        expected_versions = plan["requested_record"]["version_ids"]
+        destination = Path(plan["destination"]["path"])
+        expected_exists = plan["destination"]["existed_when_planned"]
+        expected_destination_digest = plan["destination"]["sha256_when_planned"]
+        preserve_value = plan["destination"]["preserve_path"]
+    except (KeyError, TypeError) as exc:
+        raise RecoveryError("recovery restore plan is incomplete") from exc
+    if not source_path.is_file():
+        raise RecoveryError("restore plan is stale: source backup is unavailable")
+    backup = load_recovery_backup(source_path)
+    checked = inspect_recovery_backup(backup)
+    if checked["source_instance_id"] != expected_source_id or checked["sha256"] != expected_backup_digest:
+        raise RecoveryError("restore plan is stale: source backup identity or digest changed")
+    snapshot = checked["audited_snapshot"]
+    if not any(row["record_id"] == record_id for row in snapshot["memory"]["records"]):
+        raise RecoveryError("restore plan is stale: requested record is no longer present")
+    current_versions = [
+        row["version_id"] for row in snapshot["memory"]["versions"]
+        if row["record_id"] == record_id
+    ]
+    if current_versions != expected_versions:
+        raise RecoveryError("restore plan is stale: requested record versions changed")
+    if destination.is_symlink():
+        raise RecoveryError("restore plan is stale: destination is now a symbolic link")
+    exists_now = destination.exists()
+    if exists_now != expected_exists:
+        raise RecoveryError("restore plan is stale: destination existence changed")
+    current_destination_digest = None
+    if exists_now:
+        if not destination.is_file():
+            raise RecoveryError("restore plan is stale: destination is no longer a regular file")
+        current_destination_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+    if current_destination_digest != expected_destination_digest:
+        raise RecoveryError("restore plan is stale: destination contents changed")
+    if exists_now:
+        if not isinstance(preserve_value, str):
+            raise RecoveryError("restore plan is missing its required preservation path")
+        preservation = Path(preserve_value)
+        if preservation == destination or preservation.exists() or preservation.is_symlink():
+            raise RecoveryError("restore plan is stale: preservation path is unavailable")
+    elif preserve_value is not None:
+        raise RecoveryError("restore plan is invalid: unexpected preservation path")
+    return {
+        "status": "valid_pending_authorization",
+        "source_backup_sha256": checked["sha256"],
+        "requested_record_id": record_id,
+        "destination_exists": exists_now,
+        "destination_sha256": current_destination_digest,
+        "authorization_required": True,
+        "authorized": False,
+        "no_files_modified": True,
+    }
+
+
+def restore_recovery_plan(plan: Any, *, authorized: bool = False) -> dict[str, Any]:
+    """Revalidate a plan immediately before an explicitly authorized restore."""
+    if authorized is not True:
+        raise RecoveryError("explicit authorization is required to execute a recovery plan")
+    revalidated = revalidate_recovery_restore_plan(plan)
+    source_path = Path(plan["source"]["path"])
+    backup = load_recovery_backup(source_path)
+    checked = inspect_recovery_backup(backup)
+    if checked["sha256"] != revalidated["source_backup_sha256"]:
+        raise RecoveryError("restore plan is stale: source backup changed after revalidation")
+    destination = Path(plan["destination"]["path"])
+    return restore_recovery_backup(
+        backup,
+        destination,
+        authorized=True,
+        preserve_path=plan["destination"]["preserve_path"],
+        expected_destination_exists=plan["destination"]["existed_when_planned"],
+        expected_destination_sha256=plan["destination"]["sha256_when_planned"],
+    )
+
+
 def restore_recovery_backup(
     backup: Any,
     destination_path: str | os.PathLike[str],
     *,
     authorized: bool = False,
     preserve_path: str | os.PathLike[str] | None = None,
+    expected_destination_exists: bool | None = None,
+    expected_destination_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Restore a validated backup, preserving existing destination bytes first.
 
@@ -268,6 +357,16 @@ def restore_recovery_backup(
     if destination.is_symlink():
         raise RecoveryError("refusing to restore through a symbolic-link destination")
     existed = destination.exists()
+    if expected_destination_exists is not None and existed is not expected_destination_exists:
+        raise RecoveryError("destination state changed since recovery plan validation")
+    if existed and expected_destination_sha256 is not None:
+        if not destination.is_file():
+            raise RecoveryError("existing destination is not a regular file")
+        current_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if current_digest != expected_destination_sha256:
+            raise RecoveryError("destination contents changed since recovery plan validation")
+    if not existed and expected_destination_sha256 is not None:
+        raise RecoveryError("unexpected destination digest for missing destination")
     preserved = False
     if existed:
         if not destination.is_file():
