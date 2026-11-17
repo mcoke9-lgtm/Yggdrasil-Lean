@@ -58,6 +58,16 @@ def _parser() -> argparse.ArgumentParser:
     audited_conflict.add_argument("source_version_id")
     audited_conflict.add_argument("target_version_id")
     audited_conflict.add_argument("--timestamp")
+    audited_transform = commands.add_parser("audited-transform", help="create a distinct traceable transformed record")
+    audited_transform.add_argument("store", type=Path)
+    audited_transform.add_argument("source_record_id")
+    audited_transform.add_argument("source_version_id")
+    audited_transform.add_argument("kind", choices=("copy", "derivative", "translation", "reconstruction"))
+    audited_transform.add_argument("content", type=Path)
+    audited_transform.add_argument("--description", required=True)
+    audited_transform.add_argument("--evidence-ref", action="append", dest="evidence_refs")
+    audited_transform.add_argument("--metadata", type=Path)
+    audited_transform.add_argument("--timestamp")
     audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
@@ -134,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
             save_audited(AuditedMemoryStore(args.actor_id), args.store)
             _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
             return 0
-        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
+        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
             audited = load_audited(args.store)
             if args.command == "tree-add-node":
                 node = audited.add_tree_location(args.node_id, args.part, args.label, args.description, args.parent)
@@ -169,6 +179,15 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 save_audited(audited, args.store)
                 _emit({"source_version_id": conflict.source_version_id, "target_version_id": conflict.target_version_id, "directional": True})
+            elif args.command == "audited-transform":
+                derived = audited.transform_record(
+                    args.source_record_id, args.source_version_id, args.kind,
+                    read_json_strict(args.content), description=args.description,
+                    evidence_refs=args.evidence_refs, metadata=_read_optional(args.metadata),
+                    timestamp=args.timestamp,
+                )
+                save_audited(audited, args.store)
+                _emit(_version_data(derived))
             elif args.command == "audited-verify":
                 snapshot = audited.to_snapshot()
                 _emit({
