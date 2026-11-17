@@ -108,6 +108,95 @@ class RecoveryBackupTests(unittest.TestCase):
             self.assertEqual(destination.read_bytes(), b"old")
             self.assertEqual(preservation.read_bytes(), b"keep")
 
+    def test_plan_revalidation_detects_changed_source_and_destination(self):
+        from yim001.recovery import create_recovery_restore_plan, revalidate_recovery_restore_plan
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            backup_path = root / "backup.json"
+            destination = root / "memory.json"
+            preservation = root / "before.bin"
+            save_recovery_backup(self.backup, backup_path)
+            destination.write_bytes(b"original destination")
+            plan = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination,
+                preserve_path=preservation,
+            )
+            self.assertEqual(
+                revalidate_recovery_restore_plan(plan)["status"],
+                "valid_pending_authorization",
+            )
+            destination.write_bytes(b"changed destination")
+            with self.assertRaisesRegex(RecoveryError, "destination contents changed"):
+                revalidate_recovery_restore_plan(plan)
+            destination.write_bytes(b"original destination")
+            backup_path.write_bytes(b"{}")
+            with self.assertRaisesRegex(RecoveryError, "source backup"):
+                revalidate_recovery_restore_plan(plan)
+
+    def test_plan_revalidation_detects_new_destination_and_preservation_collision(self):
+        from yim001.recovery import create_recovery_restore_plan, revalidate_recovery_restore_plan
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            backup_path = root / "backup.json"
+            destination = root / "memory.json"
+            save_recovery_backup(self.backup, backup_path)
+            plan = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination
+            )
+            destination.write_bytes(b"appeared after planning")
+            with self.assertRaisesRegex(RecoveryError, "existence changed"):
+                revalidate_recovery_restore_plan(plan)
+            destination.unlink()
+            plan = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination
+            )
+            self.assertEqual(
+                revalidate_recovery_restore_plan(plan)["status"],
+                "valid_pending_authorization",
+            )
+
+    def test_restore_plan_requires_authorization_and_revalidates_before_write(self):
+        from yim001.recovery import create_recovery_restore_plan, restore_recovery_plan
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            backup_path = root / "backup.json"
+            destination = root / "memory.json"
+            preservation = root / "before.bin"
+            save_recovery_backup(self.backup, backup_path)
+            destination.write_bytes(b"old destination")
+            plan = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination,
+                preserve_path=preservation,
+            )
+            with self.assertRaisesRegex(RecoveryError, "authorization"):
+                restore_recovery_plan(plan, authorized=False)
+            self.assertEqual(destination.read_bytes(), b"old destination")
+            destination.write_bytes(b"changed after plan")
+            with self.assertRaisesRegex(RecoveryError, "destination contents changed"):
+                restore_recovery_plan(plan, authorized=True)
+            self.assertEqual(destination.read_bytes(), b"changed after plan")
+            self.assertFalse(preservation.exists())
+
+    def test_restore_plan_executes_only_after_revalidation_and_preserves_destination(self):
+        from yim001.recovery import create_recovery_restore_plan, restore_recovery_plan
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            backup_path = root / "backup.json"
+            destination = root / "memory.json"
+            preservation = root / "before.bin"
+            save_recovery_backup(self.backup, backup_path)
+            destination.write_bytes(b"old destination bytes")
+            plan = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination,
+                preserve_path=preservation,
+            )
+            result = restore_recovery_plan(plan, authorized=True)
+            self.assertEqual(result["status"], "restored")
+            self.assertEqual(preservation.read_bytes(), b"old destination bytes")
+            restored = load_audited(destination)
+            self.assertEqual(restored.to_snapshot()["memory"], self.source.to_snapshot()["memory"])
+            self.assertEqual(restored.events[-1].event_type, "snapshot.recovered")
+
     def test_unauthorized_restore_fails_before_file_access(self):
         with tempfile.TemporaryDirectory() as directory:
             missing = Path(directory) / "missing.json"
