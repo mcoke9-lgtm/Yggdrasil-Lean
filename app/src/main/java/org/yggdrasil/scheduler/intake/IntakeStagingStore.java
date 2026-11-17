@@ -23,7 +23,7 @@ public final class IntakeStagingStore extends SQLiteOpenHelper {
 
     public IntakeStagingStore(Context context) { super(context.getApplicationContext(), DB_NAME, null, DB_VERSION); }
 
-    @Override public void onCreate(SQLiteDatabase db) {
+    @Override public void onConfigure(SQLiteDatabase db) {\n        db.setForeignKeyConstraintsEnabled(true);\n    }\n\n    @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + SOURCES + " ("
                 + "source_sha256 TEXT PRIMARY KEY, queue_id TEXT NOT NULL, "
                 + "source_queue_json TEXT NOT NULL, staged_at_ms INTEGER NOT NULL)");
