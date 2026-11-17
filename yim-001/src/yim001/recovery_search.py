@@ -13,6 +13,71 @@ from .recovery import RecoveryError, inspect_recovery_backup, load_recovery_back
 from .storage import read_json_strict
 
 
+
+def _lineage_report(record_id: str, valid_backups: list[dict[str, Any]]) -> dict[str, Any]:
+    """Trace only transformation links recorded in validated supplied backups."""
+    edges_by_key: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for item in valid_backups:
+        snapshot = item["info"]["audited_snapshot"]
+        for event in snapshot.get("provenance", {}).get("events", []):
+            if event.get("event_type") != "record.transformed":
+                continue
+            details = event.get("details")
+            if not isinstance(details, dict):
+                continue
+            source_id = details.get("source_record_id")
+            derived_id = event.get("record_id")
+            if not isinstance(source_id, str) or not isinstance(derived_id, str):
+                continue
+            kind = details.get("transformation_kind")
+            if kind not in {"copy", "derivative", "translation", "reconstruction"}:
+                continue
+            key = (source_id, derived_id, event.get("version_id") or "", kind)
+            edge = edges_by_key.setdefault(key, {
+                "source_record_id": source_id,
+                "source_version_id": details.get("source_version_id"),
+                "derived_record_id": derived_id,
+                "derived_version_id": event.get("version_id"),
+                "relationship": kind,
+                "identity_relation": details.get("identity_relation"),
+                "description": details.get("description"),
+                "evidence": [],
+            })
+            evidence = {
+                "path": item["path"],
+                "source_instance_id": item["info"]["source_instance_id"],
+                "backup_sha256": item["info"]["sha256"],
+                "event_id": event.get("event_id"),
+                "event_digest": event.get("digest"),
+            }
+            if evidence not in edge["evidence"]:
+                edge["evidence"].append(evidence)
+
+    edges = list(edges_by_key.values())
+    connected = {record_id}
+    changed = True
+    while changed:
+        changed = False
+        for edge in edges:
+            endpoints = {edge["source_record_id"], edge["derived_record_id"]}
+            if connected.intersection(endpoints) and not endpoints.issubset(connected):
+                connected.update(endpoints)
+                changed = True
+    relevant = [
+        edge for edge in edges
+        if edge["source_record_id"] in connected and edge["derived_record_id"] in connected
+    ]
+    return {
+        "requested_record_id": record_id,
+        "members": sorted(connected),
+        "relationships": relevant,
+        "status": "lineage_links_found" if relevant else "no_lineage_links_in_supplied_evidence",
+        "interpretation": (
+            "Relationships are limited to transformation events in the validated backups supplied to this search. "
+            "A missing link is unresolved, not proof that no relationship exists."
+        ),
+    }
+
 def search_recovery_locations(
     record_id: str,
     *,
@@ -129,8 +194,11 @@ def search_recovery_locations(
         status = "no_supplied_locations_available"
         interpretation = "No supplied backup or checkpoint file was available to inspect. No conclusion about deletion or nonexistence is supported."
 
+    lineage = _lineage_report(record_id, valid_backups)
+
     return {
         "status": status,
+        "lineage": lineage,
         "record_id": record_id,
         "expected_logical_location": expected_logical_location,
         "searched_locations": searched,
