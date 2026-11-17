@@ -34,7 +34,7 @@ public final class IntakeStagingStore extends SQLiteOpenHelper {
     /** Atomically stages every packet; exact submitted queue text is retained in each row. */
     public synchronized StageResult stage(IntakeQueueValidator.ValidatedQueue queue) throws Exception {
         if (queue == null) throw new IllegalArgumentException("Validated queue is required");
-        JSONArray packets = queue.root.getJSONArray("packets");
+        JSONArray packets = queue.copyRoot().getJSONArray("packets");
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         int inserted = 0, alreadyPresent = 0;
