@@ -151,6 +151,10 @@ class AuditedMemoryStore:
         store = MemoryStore.from_snapshot(snapshot["memory"])
         ledger = EventLedger.from_snapshot(snapshot["provenance"])
         tree = LivingTreeIndex.from_snapshot(snapshot["living_tree"]) if "living_tree" in snapshot else LivingTreeIndex()
+        valid_record_ids = {row["record_id"] for row in snapshot["memory"]["records"]}
+        orphaned = sorted({placement.record_id for placement in tree.placements} - valid_record_ids)
+        if orphaned:
+            raise ValueError(f"Living Tree placements reference missing memory records: {orphaned}")
         return cls(actor_id, store=store, ledger=ledger, living_tree=tree)
 
 
