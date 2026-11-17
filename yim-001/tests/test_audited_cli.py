@@ -77,6 +77,40 @@ class AuditedCommandLineTests(unittest.TestCase):
         self.assertEqual(verified["versions"], 2)
         self.assertEqual(verified["conflicts"], 1)
 
+    def test_living_tree_cli_workflow_survives_process_restarts(self):
+        self.run_cli("audited-init", self.store, "tree-cli")
+        self.write_content({"text": "A preserved source about language and meaning"})
+        record = self.output(self.run_cli(
+            "audited-create", self.store, self.content,
+            "--timestamp", "2026-11-17T12:00:00Z",
+        ))
+        self.run_cli("tree-add-node", self.store, "root-memory", "roots", "Memory",
+                     "--description", "durable preserved source records")
+        self.run_cli("tree-add-node", self.store, "branch-language", "branches", "Language",
+                     "--description", "meaning and translation", "--parent", "root-memory")
+        placed = self.output(self.run_cli(
+            "tree-place", self.store, record["record_id"], "root-memory"
+        ))
+        self.assertEqual(placed["role"], "primary")
+        self.output(self.run_cli(
+            "tree-place", self.store, record["record_id"], "branch-language",
+            "--role", "contextual",
+        ))
+
+        # Each command is a fresh process, reloading the combined snapshot from disk.
+        matches = self.output(self.run_cli("tree-find", self.store, "durable preserved source"))
+        self.assertEqual([item["node_id"] for item in matches], ["root-memory"])
+        retrieved = self.output(self.run_cli("tree-show", self.store, "root-memory"))
+        self.assertEqual(retrieved["record_ids"], [record["record_id"]])
+        events = self.output(self.run_cli("audited-show", self.store, "--events"))
+        self.assertEqual(
+            [event["event_type"] for event in events],
+            ["record.created", "record.tree_placed", "record.tree_placed"],
+        )
+        verified = self.output(self.run_cli("audited-verify", self.store))
+        self.assertEqual(verified["events"], 3)
+        self.assertEqual(verified["records"], 1)
+
     def test_failed_audited_event_does_not_change_combined_file(self):
         self.run_cli("audited-init", self.store, "cli-node")
         self.write_content({"value": 1})
