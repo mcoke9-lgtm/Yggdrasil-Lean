@@ -187,6 +187,32 @@ class AuditedCommandLineTests(unittest.TestCase):
         result = self.run_cli("audited-verify", self.store, expected=2)
         self.assertIn("digest mismatch", result.stderr)
 
+    def test_recovery_registry_cli_persists_across_processes(self):
+        registry = self.root / "recovery-locations.json"
+        backup = self.root / "expected-backup.json"
+        checkpoint = self.root / "expected-checkpoint.json"
+        created = self.output(self.run_cli("recovery-registry-init", registry, "phone-registry"))
+        self.assertEqual(created["registry_id"], "phone-registry")
+        first = self.output(self.run_cli(
+            "recovery-registry-add", registry, "backup", backup,
+            "--source-instance", "phone-A", "--logical-location", "roots.memory",
+            "--note", "Primary source backup",
+            "--timestamp", "2026-11-17T12:00:00Z",
+        ))
+        self.output(self.run_cli(
+            "recovery-registry-add", registry, "checkpoint", checkpoint,
+            "--source-instance", "phone-A", "--logical-location", "roots.memory",
+            "--depends-on", first["payload"]["entry_id"],
+            "--timestamp", "2026-11-17T12:01:00Z",
+        ))
+        searched = self.output(self.run_cli(
+            "audited-search-registry", "record-unknown", registry
+        ))
+        self.assertEqual(searched["registry"]["hash_chain_entries_validated"], 2)
+        self.assertEqual(searched["expected_logical_locations"], ["roots.memory"])
+        self.assertEqual(searched["status"], "no_supplied_locations_available")
+        self.assertIn("not proof", searched["scope_limit"])
+
 
 if __name__ == "__main__":
     unittest.main()
