@@ -59,6 +59,16 @@ class LivingTreePersistenceTests(unittest.TestCase):
         self.assertEqual(restored.tree_nodes(), ())
         self.assertEqual(restored.to_snapshot()["format_version"], 2)
 
+    def test_snapshot_rejects_tree_placement_for_missing_record(self):
+        store = AuditedMemoryStore("test-operator")
+        store.add_tree_location("roots", "roots", "Memory")
+        snapshot = store.to_snapshot()
+        snapshot["living_tree"]["placements"] = [
+            {"record_id": "missing-record", "node_id": "roots", "role": "primary"}
+        ]
+        with self.assertRaisesRegex(ValueError, "missing memory records"):
+            AuditedMemoryStore.from_snapshot(snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()
