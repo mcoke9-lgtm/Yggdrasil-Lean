@@ -162,6 +162,39 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
         "hash_chain_entries_validated": len(entries),
         "registry_digest": registry["entries"][-1]["digest"] if entries else None,
     }
+    entries_by_path = {
+        str(Path(item["path"]).expanduser().absolute()): item
+        for item in entries
+    }
+    lineage = result.get("lineage", {})
+    for evidence in lineage.get("member_evidence", []):
+        registered = entries_by_path.get(
+            str(Path(evidence["path"]).expanduser().absolute())
+        )
+        if registered is not None:
+            evidence["registry_location"] = {
+                "entry_id": registered["entry_id"],
+                "kind": registered["kind"],
+                "logical_location": registered["logical_location"],
+                "depends_on": list(registered["depends_on"]),
+                "registered_at": registered["registered_at"],
+            }
+        else:
+            evidence["registry_location"] = None
+    for relationship in lineage.get("relationships", []):
+        for evidence in relationship.get("evidence", []):
+            registered = entries_by_path.get(
+                str(Path(evidence["path"]).expanduser().absolute())
+            )
+            if registered is not None:
+                evidence["registry_location"] = {
+                    "entry_id": registered["entry_id"],
+                    "kind": registered["kind"],
+                    "logical_location": registered["logical_location"],
+                    "depends_on": list(registered["depends_on"]),
+                }
+            else:
+                evidence["registry_location"] = None
     result["expected_logical_locations"] = sorted({
         item["logical_location"] for item in entries
         if item["logical_location"] is not None
