@@ -95,8 +95,13 @@ def run_demo(root: Path) -> dict[str, object]:
     restored = load_audited(damaged_memory)
     if preserved_bytes.read_bytes() != before:
         raise RuntimeError("pre-restore evidence bytes changed")
-    if restored.to_snapshot() != store.to_snapshot():
-        raise RuntimeError("restored memory differs from original snapshot")
+    if restored.to_snapshot()["memory"] != store.to_snapshot()["memory"]:
+        raise RuntimeError("restored record identities or content differ from original snapshot")
+    if restored.to_snapshot()["living_tree"] != store.to_snapshot()["living_tree"]:
+        raise RuntimeError("restored Living Tree placements differ from original snapshot")
+    recovery_events = [event for event in restored.events if event.event_type == "snapshot.recovered"]
+    if not recovery_events or recovery_events[-1].details.get("reconstruction") is not False:
+        raise RuntimeError("restore provenance does not distinguish original restoration from reconstruction")
 
     return {
         "status": "DEMONSTRATION_PASSED",
