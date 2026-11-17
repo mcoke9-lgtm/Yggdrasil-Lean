@@ -27,7 +27,8 @@ public final class IntakeQueueValidator {
             throw new IllegalArgumentException("Queue is empty or exceeds the 5 MB limit");
         JSONObject root = new JSONObject(raw);
         requireKeys(root, QUEUE_KEYS, "queue");
-        if (!FORMAT.equals(root.getString("format")) || !(root.get("format_version") instanceof Integer)\n                || root.getInt("format_version") != FORMAT_VERSION)
+        if (!FORMAT.equals(root.getString("format")) || !(root.get("format_version") instanceof Integer)
+                || root.getInt("format_version") != FORMAT_VERSION)
             throw new IllegalArgumentException("Only YIM-001 work-intake queue version 2 is accepted");
         String queueId = nonBlank(root.getString("queue_id"), "queue_id");
         JSONArray packets = root.getJSONArray("packets");
