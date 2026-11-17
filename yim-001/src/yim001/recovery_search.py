@@ -92,11 +92,39 @@ def _lineage_report(record_id: str, valid_backups: list[dict[str, Any]]) -> dict
                 "tree_placements": placements,
                 "evidence_status": "present_in_validated_backup",
             })
+    evidenced_ids = {item["record_id"] for item in member_evidence}
+    member_status = [
+        {
+            "record_id": member_id,
+            "status": (
+                "present_in_validated_backup"
+                if member_id in evidenced_ids
+                else "not_found_in_supplied_validated_backups"
+            ),
+            "interpretation": (
+                "At least one supplied validated backup contains this identity."
+                if member_id in evidenced_ids
+                else "No supplied validated backup contains this identity. Its existence, deletion, or availability elsewhere is not established."
+            ),
+        }
+        for member_id in sorted(connected)
+    ]
+    unresolved_relationships = [
+        {
+            "record_id": member_id,
+            "missing_from_supplied_validated_backups": True,
+            "status": "unresolved_evidence_gap",
+        }
+        for member_id in sorted(connected)
+        if member_id not in evidenced_ids
+    ]
     return {
         "requested_record_id": record_id,
         "members": sorted(connected),
         "relationships": relevant,
         "member_evidence": member_evidence,
+        "member_status": member_status,
+        "unresolved_relationships": unresolved_relationships,
         "status": "lineage_links_found" if relevant else "no_lineage_links_in_supplied_evidence",
         "interpretation": (
             "Relationships are limited to transformation events in the validated backups supplied to this search. "
