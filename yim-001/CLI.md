@@ -103,3 +103,19 @@ PYTHONPATH=yim-001/src python -m yim001 audited-capture ./audited.json content.j
 The logical locations must already exist in the store. The command rejects an unknown location without creating a partial memory record. Supply `--language undetermined` when the language is not known; do not silently omit it. The source reference is caller-supplied and is not independently verified.
 
 This is **explicit local intake**, not automatic ChatGPT conversation capture. It does not read chat history, discover new conversations, classify placement automatically, or synchronize across devices. Those remain implementation work. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for the combined-store boundaries.
+
+
+## Persistent intake handoff (awaiting placement)
+
+A source-neutral local intake queue can preserve supplied work before a logical Tree location has been selected. This prevents an item from being silently discarded or forced into an arbitrary location:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001.intake_cli init ./intake.json phone-intake
+PYTHONPATH=yim-001/src python -m yim001.intake_cli add ./intake.json content.json \\
+  --source-kind chat_exchange \\
+  --source-reference session-checkpoint-7 \\
+  --language English
+PYTHONPATH=yim-001/src python -m yim001.intake_cli list ./intake.json
+```
+
+Each packet retains the submitted JSON content, source kind/reference, language, capture time, and metadata, and is explicitly marked `awaiting_placement`. The queue refuses duplicate packet IDs and validates its structure on load. It is append-only at the packet level in this first version; it has no packet deletion, placement assignment, or automatic import into the audited memory store yet. To move a packet into the Living Tree, an operator must still select a valid logical location and use the audited capture path. This queue does not access ChatGPT conversation history or sync across devices; it is a concrete local handoff mechanism, not automatic capture.
