@@ -63,8 +63,10 @@ let queue=null;
 const el=id=>document.getElementById(id);
 function say(id,message){el(id).textContent=message;}
 function validateQueue(value){
+  const queueKeys=["format","format_version","queue_id","packets"].sort();
   if(!value||typeof value!=="object"||Array.isArray(value)||
-     value.format!==FORMAT||value.format_version!==VERSION||
+     JSON.stringify(Object.keys(value).sort())!==JSON.stringify(queueKeys)||
+     value.format!==FORMAT||!Number.isInteger(value.format_version)||value.format_version!==VERSION||
      typeof value.queue_id!=="string"||!value.queue_id.trim()||
      !Array.isArray(value.packets)) throw new Error("Unsupported or invalid queue file. Expected a version 2 Living Tree intake queue.");
   const ids=new Set();
@@ -74,13 +76,21 @@ function validateQueue(value){
     if(JSON.stringify(Object.keys(p).sort())!==JSON.stringify(keys)) throw new Error("Queue packet fields do not match the supported format.");
     if(typeof p.packet_id!=="string"||!p.packet_id.trim()||ids.has(p.packet_id)) throw new Error("Queue contains a missing or duplicate packet identity.");
     ids.add(p.packet_id);
+    if(p.source_reference!==null&&(typeof p.source_reference!=="string"||!p.source_reference.trim())) throw new Error("Packet source reference must be null or non-empty text.");
     if(p.placement_status!=="awaiting_placement"&&p.placement_status!=="imported") throw new Error("Queue contains an unsupported placement state.");
     if(typeof p.source_kind!=="string"||!p.source_kind.trim()||typeof p.language!=="string"||!p.language.trim()) throw new Error("Packet source type and language are required.");
     if(typeof p.captured_at!=="string"||Number.isNaN(Date.parse(p.captured_at))||!/(Z|[+-]\d\d:\d\d)$/.test(p.captured_at)) throw new Error("Packet timestamp must include a UTC offset.");
     if(p.source_content_preserved_as_submitted!==true) throw new Error("Packet source-preservation marker is invalid.");
     if(!Array.isArray(p.contextual_logical_locations)) throw new Error("Packet contextual locations must be an array.");
     if(p.placement_status==="awaiting_placement"&&(p.primary_logical_location!==null||p.contextual_logical_locations.length!==0||p.imported_record_id!==null||p.imported_version_id!==null)) throw new Error("Pending packet contains placement or import identity.");
-    if(p.placement_status==="imported"&&(typeof p.primary_logical_location!=="string"||typeof p.imported_record_id!=="string"||typeof p.imported_version_id!=="string"||!Array.isArray(p.contextual_logical_locations))) throw new Error("Imported packet is missing placement or import identity.");
+    if(p.placement_status==="imported"){
+      if(typeof p.primary_logical_location!=="string"||!p.primary_logical_location.trim()||
+         typeof p.imported_record_id!=="string"||!p.imported_record_id.trim()||
+         typeof p.imported_version_id!=="string"||!p.imported_version_id.trim()) throw new Error("Imported packet is missing placement or import identity.");
+      if(p.contextual_logical_locations.some(node=>typeof node!=="string"||!node.trim())||
+         new Set(p.contextual_logical_locations).size!==p.contextual_logical_locations.length||
+         p.contextual_logical_locations.includes(p.primary_logical_location)) throw new Error("Imported packet contains invalid or duplicate Tree placements.");
+    }
   }
   return value;
 }
