@@ -64,7 +64,7 @@ class LivingTreeIndex:
             raise TreeIndexError("node_id must be a non-empty string")
         if node_id in self._nodes:
             raise TreeIndexError(f"duplicate Tree node: {node_id}")
-        if part not in PARTS:
+        if not isinstance(part, str) or part not in PARTS:
             raise TreeIndexError(f"part must be one of: {', '.join(sorted(PARTS))}")
         if not isinstance(label, str) or not label.strip():
             raise TreeIndexError("label must be a non-empty string")
