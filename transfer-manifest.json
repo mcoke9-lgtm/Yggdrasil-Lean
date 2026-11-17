@@ -1,0 +1,10 @@
+{
+  "protocol": "G2L-001",
+  "files": [
+    {
+      "source": "docs/LT-WAVE2-DECISION-001.md",
+      "artifact_path": "LT-WAVE2-DECISION-001.md",
+      "destination_path": "/The Living Tree/LT-WAVE2-DECISION-001.md"
+    }
+  ]
+}
