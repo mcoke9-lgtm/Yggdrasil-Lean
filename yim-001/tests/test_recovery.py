@@ -156,7 +156,10 @@ class RecoveryBackupTests(unittest.TestCase):
                 preserve_path=preservation,
             )
             self.assertTrue(result["previous_destination_preserved"])
-            self.assertEqual(load_audited(destination).to_snapshot(), self.source.to_snapshot())
+            restored = load_audited(destination)
+            self.assertEqual(restored.to_snapshot()["memory"], self.source.to_snapshot()["memory"])
+            self.assertEqual(restored.to_snapshot()["living_tree"], self.source.to_snapshot()["living_tree"])
+            self.assertEqual(restored.events[-1].event_type, "snapshot.recovered")
             self.assertTrue(preservation.exists())
 
 
