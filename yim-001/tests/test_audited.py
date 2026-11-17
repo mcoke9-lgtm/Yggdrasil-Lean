@@ -177,7 +177,7 @@ class AuditedMemoryStoreTests(unittest.TestCase):
                 primary_node_id="roots.archive",
                 contextual_node_ids=["branches.project"],
             )
-        with self.assertRaisesRegex(ValueError, "differs from packet content"):
+        with self.assertRaisesRegex(ValueError, "different Tree placement"):
             self.audited.import_intake_packet(
                 packet, queue_id="phone-intake",
                 primary_node_id="branches.project",
