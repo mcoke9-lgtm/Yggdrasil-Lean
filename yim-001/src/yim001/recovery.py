@@ -200,6 +200,7 @@ def restore_recovery_backup(
         raise RecoveryError("preserve_path is only valid when the destination already exists")
 
     restored = AuditedMemoryStore.from_snapshot(incoming["audited_snapshot"])
+    restored.record_recovery(incoming["source_instance_id"], incoming["sha256"])
     save_audited(restored, destination)
     return {
         "status": "restored",
