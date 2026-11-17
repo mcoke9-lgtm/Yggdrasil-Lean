@@ -67,6 +67,26 @@ def _parser() -> argparse.ArgumentParser:
     audited_verify = commands.add_parser("audited-verify", help="verify both memory snapshot and provenance chain")
     audited_verify.add_argument("store", type=Path)
 
+    tree_node = commands.add_parser("tree-add-node", help="add a logical Living Tree location")
+    tree_node.add_argument("store", type=Path)
+    tree_node.add_argument("node_id")
+    tree_node.add_argument("part", choices=("roots", "trunk", "branches", "leaves"))
+    tree_node.add_argument("label")
+    tree_node.add_argument("--description", default="")
+    tree_node.add_argument("--parent")
+    tree_place = commands.add_parser("tree-place", help="assign a primary or contextual Tree location")
+    tree_place.add_argument("store", type=Path)
+    tree_place.add_argument("record_id")
+    tree_place.add_argument("node_id")
+    tree_place.add_argument("--role", choices=("primary", "contextual"), default="primary")
+    tree_find = commands.add_parser("tree-find", help="find Tree locations by meaning")
+    tree_find.add_argument("store", type=Path)
+    tree_find.add_argument("phrase")
+    tree_show = commands.add_parser("tree-show", help="retrieve records at a Tree location")
+    tree_show.add_argument("store", type=Path)
+    tree_show.add_argument("node_id")
+    tree_show.add_argument("--direct-only", action="store_true")
+
     event_init = commands.add_parser("event-init", help="create a separate provenance ledger")
     event_init.add_argument("ledger", type=Path)
     event_append = commands.add_parser("event-append", help="append a provenance event")
@@ -114,9 +134,22 @@ def main(argv: list[str] | None = None) -> int:
             save_audited(AuditedMemoryStore(args.actor_id), args.store)
             _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
             return 0
-        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-show", "audited-verify"}:
+        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
             audited = load_audited(args.store)
-            if args.command == "audited-create":
+            if args.command == "tree-add-node":
+                node = audited.add_tree_location(args.node_id, args.part, args.label, args.description, args.parent)
+                save_audited(audited, args.store)
+                _emit({"node_id": node.node_id, "part": node.part, "label": node.label, "description": node.description, "parent_id": node.parent_id})
+            elif args.command == "tree-place":
+                placement = audited.place_record(args.record_id, args.node_id, args.role)
+                save_audited(audited, args.store)
+                _emit({"record_id": placement.record_id, "node_id": placement.node_id, "role": placement.role})
+            elif args.command == "tree-find":
+                _emit([{"node_id": n.node_id, "part": n.part, "label": n.label, "description": n.description, "parent_id": n.parent_id} for n in audited.find_tree_locations(args.phrase)])
+            elif args.command == "tree-show":
+                records = audited.records_at_tree_location(args.node_id, not args.direct_only)
+                _emit({"node_id": args.node_id, "include_descendants": not args.direct_only, "record_ids": list(records)})
+            elif args.command == "audited-create":
                 version = audited.create_record(
                     read_json_strict(args.content), _read_optional(args.metadata), timestamp=args.timestamp
                 )
