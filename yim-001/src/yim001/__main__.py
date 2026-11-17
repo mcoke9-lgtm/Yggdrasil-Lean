@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from typing import Any
 from .recovery_search import search_recovery_locations
+from .recovery_registry import create_recovery_registry, register_recovery_location, search_recovery_registry
 from . import (
     AuditedMemoryStore, EventLedger, MemoryStore, load_audited, load_store,
     read_json_strict, save_audited, save_store, write_json_atomic,
@@ -78,7 +79,23 @@ def _parser() -> argparse.ArgumentParser:
     recovery_search.add_argument("--checkpoint", action="append", type=Path, default=[])
     recovery_search.add_argument("--source-instance")
     recovery_search.add_argument("--logical-location")
-    audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
+    registry_init = commands.add_parser("recovery-registry-init", help="create a persistent known-evidence location registry")
+    registry_init.add_argument("registry", type=Path)
+    registry_init.add_argument("registry_id")
+    registry_add = commands.add_parser("recovery-registry-add", help="append a known backup or checkpoint location")
+    registry_add.add_argument("registry", type=Path)
+    registry_add.add_argument("kind", choices=("backup", "checkpoint"))
+    registry_add.add_argument("evidence_path", type=Path)
+    registry_add.add_argument("--source-instance")
+    registry_add.add_argument("--logical-location")
+    registry_add.add_argument("--depends-on", action="append", default=[])
+    registry_add.add_argument("--note", default="")
+    registry_add.add_argument("--timestamp")
+    registry_search = commands.add_parser("audited-search-registry", help="search recovery evidence registered in a persistent location registry")
+    registry_search.add_argument("record_id")
+    registry_search.add_argument("registry", type=Path)
+
+        audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
     audited_target.add_argument("--record", dest="record_id")
@@ -140,6 +157,22 @@ def _emit(value: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "recovery-registry-init":
+            _emit({"status": "created", "registry": str(args.registry),
+                   "registry_id": create_recovery_registry(args.registry, args.registry_id)["registry_id"]})
+            return 0
+        if args.command == "recovery-registry-add":
+            entry = register_recovery_location(
+                args.registry, args.evidence_path, args.kind,
+                source_instance_id=args.source_instance,
+                logical_location=args.logical_location,
+                depends_on=args.depends_on, note=args.note, registered_at=args.timestamp,
+            )
+            _emit(entry)
+            return 0
+        if args.command == "audited-search-registry":
+            _emit(search_recovery_registry(args.record_id, args.registry))
+            return 0
         if args.command == "audited-search-recovery":
             _emit(search_recovery_locations(
                 args.record_id,
