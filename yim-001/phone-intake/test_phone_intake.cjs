@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 
+async function main() {
+
 const html = fs.readFileSync("yim-001/phone-intake/index.html", "utf8");
 const match = html.match(/<script>([\s\S]*?)<\/script>/i);
 assert.ok(match, "phone intake page must contain its local application script");
@@ -90,3 +92,6 @@ await elements.queueFile.listeners.change({ target: elements.queueFile });
 assert.match(elements.queueStatus.textContent, /invalid or duplicate Tree placements/);
 
 console.log("Phone intake browser-logic tests passed: create, preserve, export, reopen, reject invalid placement.");
+}
+
+main().catch(error => { console.error(error); process.exitCode = 1; });
