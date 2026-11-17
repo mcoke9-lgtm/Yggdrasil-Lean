@@ -267,7 +267,7 @@ class AuditedMemoryStore:
                     or actual_contextual != expected_contextual
                 ):
                     raise ValueError(
-                        "existing intake capture differs from packet content, metadata, or requested Tree placement"
+                        "existing intake capture content or metadata changed, or requested a different Tree placement"
                     )
                 return version
         return self.capture_work(
