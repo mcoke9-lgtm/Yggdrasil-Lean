@@ -40,6 +40,9 @@ class RecoveryRegistryTests(unittest.TestCase):
             self.assertEqual(dependency["entry_id"], "location-000001")
             self.assertEqual(dependency["search_status"], "not_present_at_supplied_path")
             self.assertTrue(dependency["dependency_is_metadata_not_custody_proof"])
+            self.assertIsNone(dependency["contains_requested_record"])
+            self.assertEqual(dependency["recovery_assessment"], "registered_path_not_validated")
+            self.assertEqual(dependency["restore_suitability"], "not_assessed_by_search")
 
 
     def test_registry_search_connects_lineage_members_to_registered_evidence(self):
@@ -132,6 +135,13 @@ class RecoveryRegistryTests(unittest.TestCase):
                 result["dependency_report"][1]["dependencies"][0]["entry_id"],
                 first["payload"]["entry_id"],
             )
+            self.assertFalse(
+                result["dependency_report"][1]["dependencies"][0]["contains_requested_record"]
+            )
+            self.assertEqual(
+                result["dependency_report"][1]["dependencies"][0]["recovery_assessment"],
+                "validated_backup_does_not_contain_requested_record",
+            )
             self.assertEqual(second["payload"]["depends_on"], ["location-000001"])
             third = register_recovery_location(
                 registry_path, derived_backup, "backup",
@@ -143,6 +153,13 @@ class RecoveryRegistryTests(unittest.TestCase):
             self.assertEqual(
                 extended["dependency_report"][2]["transitive_dependency_entry_ids"],
                 ["location-000002", "location-000001"],
+            )
+            self.assertTrue(
+                extended["dependency_report"][2]["dependencies"][0]["contains_requested_record"]
+            )
+            self.assertEqual(
+                extended["dependency_report"][2]["dependencies"][0]["recovery_assessment"],
+                "validated_backup_contains_requested_record",
             )
             self.assertEqual(third["payload"]["depends_on"], ["location-000002"])
             self.assertEqual(lineage["status"], "lineage_links_found")
