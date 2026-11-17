@@ -11,7 +11,7 @@ The staging database is separate from:
 - the Builder append-only event journal; and
 - the canonical YIM-001 audited Roots store.
 
-Each staged row retains the exact submitted queue text, the packet identity and parsed packet content, capture time, source kind, language, original placement status, and staging time. A repeat import of the same queue and packet with the same packet content is idempotent. Reuse of the same queue/packet identity with changed packet content is rejected. Staging all packets is one SQLite transaction.
+Each submitted queue file is retained once in a source table, keyed by its SHA-256 digest, rather than duplicated once per packet. Staged packet rows refer to that preserved source. Packet identity, parsed packet content, capture time, source kind, language, original placement status, and staging time are retained. A repeat import of the same queue and packet with the same packet content is idempotent. Reuse of the same queue/packet identity with changed packet content is rejected. Staging the source and all packets is one SQLite transaction. Invalid UTF-8 is rejected rather than silently replaced.
 
 ## Deliberate boundary
 
@@ -26,7 +26,7 @@ The UI explicitly tells the operator that staged packets are not yet in Roots.
 
 ## Validation
 
-The adapter accepts only `YIM-001-Work-Intake-Queue` version 2, exact queue and packet field sets, typed string identities and source fields, ISO-8601 timestamps with offsets, unique packet IDs within a queue, valid pending/imported placement state, and the true source-preservation marker. It enforces a 5 MB file limit and a 1,000 packet limit.
+The adapter accepts only `YIM-001-Work-Intake-Queue` version 2, exact queue and packet field sets, typed string identities and source fields, ISO-8601 timestamps with offsets, unique packet IDs within a queue, valid pending/imported placement state, and the true source-preservation marker. It enforces a 5 MB file limit and a 1,000 packet limit. SQLite foreign-key enforcement protects each staged packet's link to its preserved source file.
 
 ## Source files
 
