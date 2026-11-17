@@ -52,7 +52,13 @@ small,.muted{opacity:.8}
 
 <h2>Queue contents</h2>
 <div id="packets"><p class="muted">No packets yet.</p></div>
-<button id="exportQueue" class="primary" disabled>Export queue JSON</button>
+<div class="actions">
+<button id="exportQueue" class="primary" disabled>Download queue JSON</button>
+<button id="copyQueue" disabled>Copy queue JSON</button>
+</div>
+<label for="queueText">Manual copy fallback</label>
+<textarea id="queueText" readonly hidden aria-label="Queue JSON for manual copying"></textarea>
+<small id="copyHelp" class="muted">If downloading is unavailable, use Copy queue JSON. If clipboard access is blocked, the JSON will appear above for manual selection and copying.</small>
 <p class="muted">After export, transfer the JSON file to the device or computer running the Living Tree command-line importer. Each item remains marked “awaiting placement” until it is explicitly imported.</p>
 
 <script>
@@ -96,7 +102,7 @@ function validateQueue(value){
 }
 function refresh(){
   const host=el("packets");host.replaceChildren();
-  if(!queue||queue.packets.length===0){host.textContent="No packets yet.";el("exportQueue").disabled=!queue;return;}
+  if(!queue||queue.packets.length===0){host.textContent="No packets yet.";el("exportQueue").disabled=!queue;el("copyQueue").disabled=!queue;return;}
   for(const p of queue.packets){
     const card=document.createElement("section");card.className="packet";
     const title=document.createElement("strong");title.textContent=p.source_kind+" — "+p.placement_status;card.append(title);
@@ -104,7 +110,7 @@ function refresh(){
     const preview=document.createElement("pre");preview.textContent=JSON.stringify(p.content,null,2).slice(0,700);card.append(preview);
     host.append(card);
   }
-  el("exportQueue").disabled=false;
+  el("exportQueue").disabled=false;el("copyQueue").disabled=false;
 }
 el("newQueue").addEventListener("click",()=>{
   const id=el("queueId").value.trim();if(!id){say("queueStatus","Enter a queue identity first.");return;}
@@ -142,7 +148,24 @@ el("exportQueue").addEventListener("click",()=>{
   const url=URL.createObjectURL(blob),link=document.createElement("a");
   link.href=url;link.download=queue.queue_id.replace(/[^a-zA-Z0-9._-]+/g,"-")+"-intake.json";
   document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
-  say("actionStatus","Queue export requested. Confirm the file appears in this device's Downloads.");
+  say("actionStatus","Queue download requested. Confirm the file appears in this device's Downloads.");
+});
+el("copyQueue").addEventListener("click",async()=>{
+  if(!queue)return;
+  const text=JSON.stringify(queue,null,2)+"\n";
+  try{
+    if(typeof navigator!=="undefined"&&navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      el("queueText").hidden=true;
+      say("actionStatus","Queue JSON copied to the clipboard. Paste it into a file named "+queue.queue_id+"-intake.json.");
+      return;
+    }
+  }catch(error){/* Fall through to the manual copy path. */}
+  el("queueText").value=text;
+  el("queueText").hidden=false;
+  el("queueText").focus();
+  el("queueText").select();
+  say("actionStatus","Clipboard access is unavailable. The queue JSON is selected above; copy it and save it as "+queue.queue_id+"-intake.json.");
 });
 </script>
 </body>
