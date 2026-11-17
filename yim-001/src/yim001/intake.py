@@ -21,7 +21,7 @@ class IntakeQueueError(ValueError):
 
 class WorkIntakeQueue:
     FORMAT = "YIM-001-Work-Intake-Queue"
-    FORMAT_VERSION = 1
+    FORMAT_VERSION = 2
 
     def __init__(self, queue_id: str, packets: list[dict[str, Any]] | None = None) -> None:
         if not isinstance(queue_id, str) or not queue_id.strip():
@@ -139,11 +139,22 @@ class WorkIntakeQueue:
         required = {"format", "format_version", "queue_id", "packets"}
         if not isinstance(snapshot, dict) or set(snapshot) != required:
             raise IntakeQueueError("invalid work intake queue structure")
-        if snapshot["format"] != cls.FORMAT or type(snapshot["format_version"]) is not int or snapshot["format_version"] != cls.FORMAT_VERSION:
+        if snapshot["format"] != cls.FORMAT or type(snapshot["format_version"]) is not int or snapshot["format_version"] not in {1, cls.FORMAT_VERSION}:
             raise IntakeQueueError("unsupported work intake queue format or version")
         if not isinstance(snapshot["packets"], list):
             raise IntakeQueueError("packets must be an array")
-        return cls(snapshot["queue_id"], snapshot["packets"])
+        packets = _snapshot(snapshot["packets"], "packets")
+        if snapshot["format_version"] == 1:
+            for index, packet in enumerate(packets):
+                if not isinstance(packet, dict):
+                    raise IntakeQueueError(f"invalid intake packet at index {index}")
+                if packet.get("placement_status") == "awaiting_placement":
+                    packet.setdefault("imported_record_id", None)
+                    packet.setdefault("imported_version_id", None)
+                elif packet.get("placement_status") == "imported":
+                    if "imported_record_id" not in packet or "imported_version_id" not in packet:
+                        raise IntakeQueueError(f"legacy imported packet lacks import identity at index {index}")
+        return cls(snapshot["queue_id"], packets)
 
     def _validate_packets(self) -> None:
         seen: set[str] = set()
