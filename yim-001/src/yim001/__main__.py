@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
+from .recovery_search import search_recovery_locations
+from .recovery_registry import create_recovery_registry, register_recovery_location, search_recovery_registry
 from . import (
     AuditedMemoryStore, EventLedger, MemoryStore, load_audited, load_store,
     read_json_strict, save_audited, save_store, write_json_atomic,
@@ -46,6 +48,16 @@ def _parser() -> argparse.ArgumentParser:
     audited_create.add_argument("content", type=Path)
     audited_create.add_argument("--metadata", type=Path)
     audited_create.add_argument("--timestamp")
+    audited_capture = commands.add_parser("audited-capture", help="capture supplied work with source language and logical Tree placement")
+    audited_capture.add_argument("store", type=Path)
+    audited_capture.add_argument("content", type=Path)
+    audited_capture.add_argument("--primary-location", required=True)
+    audited_capture.add_argument("--context-location", action="append", dest="context_locations", default=[])
+    audited_capture.add_argument("--source-kind", required=True)
+    audited_capture.add_argument("--source-reference")
+    audited_capture.add_argument("--language", required=True, help="language name or explicitly 'undetermined'")
+    audited_capture.add_argument("--metadata", type=Path)
+    audited_capture.add_argument("--timestamp")
     audited_revise = commands.add_parser("audited-revise", help="revise a record and automatically append provenance")
     audited_revise.add_argument("store", type=Path)
     audited_revise.add_argument("record_id")
@@ -58,6 +70,41 @@ def _parser() -> argparse.ArgumentParser:
     audited_conflict.add_argument("source_version_id")
     audited_conflict.add_argument("target_version_id")
     audited_conflict.add_argument("--timestamp")
+    audited_transform = commands.add_parser("audited-transform", help="create a distinct traceable transformed record")
+    audited_transform.add_argument("store", type=Path)
+    audited_transform.add_argument("source_record_id")
+    audited_transform.add_argument("source_version_id")
+    audited_transform.add_argument("kind", choices=("copy", "derivative", "translation", "reconstruction"))
+    audited_transform.add_argument("content", type=Path)
+    audited_transform.add_argument("--description", required=True)
+    audited_transform.add_argument("--evidence-ref", action="append", dest="evidence_refs")
+    audited_transform.add_argument("--metadata", type=Path)
+    audited_transform.add_argument("--timestamp")
+    audited_presence = commands.add_parser("audited-presence", help="check whether a record exists in this loaded store")
+    audited_presence.add_argument("store", type=Path)
+    audited_presence.add_argument("record_id")
+    recovery_search = commands.add_parser("audited-search-recovery", help="search only explicitly supplied backup and checkpoint files")
+    recovery_search.add_argument("record_id")
+    recovery_search.add_argument("--backup", action="append", type=Path, required=True)
+    recovery_search.add_argument("--checkpoint", action="append", type=Path, default=[])
+    recovery_search.add_argument("--source-instance")
+    recovery_search.add_argument("--logical-location")
+    registry_init = commands.add_parser("recovery-registry-init", help="create a persistent known-evidence location registry")
+    registry_init.add_argument("registry", type=Path)
+    registry_init.add_argument("registry_id")
+    registry_add = commands.add_parser("recovery-registry-add", help="append a known backup or checkpoint location")
+    registry_add.add_argument("registry", type=Path)
+    registry_add.add_argument("kind", choices=("backup", "checkpoint"))
+    registry_add.add_argument("evidence_path", type=Path)
+    registry_add.add_argument("--source-instance")
+    registry_add.add_argument("--logical-location")
+    registry_add.add_argument("--depends-on", action="append", default=[])
+    registry_add.add_argument("--note", default="")
+    registry_add.add_argument("--timestamp")
+    registry_search = commands.add_parser("audited-search-registry", help="search recovery evidence registered in a persistent location registry")
+    registry_search.add_argument("record_id")
+    registry_search.add_argument("registry", type=Path)
+
     audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
@@ -66,6 +113,26 @@ def _parser() -> argparse.ArgumentParser:
     audited_target.add_argument("--events", action="store_true")
     audited_verify = commands.add_parser("audited-verify", help="verify both memory snapshot and provenance chain")
     audited_verify.add_argument("store", type=Path)
+
+    tree_node = commands.add_parser("tree-add-node", help="add a logical Living Tree location")
+    tree_node.add_argument("store", type=Path)
+    tree_node.add_argument("node_id")
+    tree_node.add_argument("part", choices=("roots", "trunk", "branches", "leaves"))
+    tree_node.add_argument("label")
+    tree_node.add_argument("--description", default="")
+    tree_node.add_argument("--parent")
+    tree_place = commands.add_parser("tree-place", help="assign a primary or contextual Tree location")
+    tree_place.add_argument("store", type=Path)
+    tree_place.add_argument("record_id")
+    tree_place.add_argument("node_id")
+    tree_place.add_argument("--role", choices=("primary", "contextual"), default="primary")
+    tree_find = commands.add_parser("tree-find", help="find Tree locations by meaning")
+    tree_find.add_argument("store", type=Path)
+    tree_find.add_argument("phrase")
+    tree_show = commands.add_parser("tree-show", help="retrieve records at a Tree location")
+    tree_show.add_argument("store", type=Path)
+    tree_show.add_argument("node_id")
+    tree_show.add_argument("--direct-only", action="store_true")
 
     event_init = commands.add_parser("event-init", help="create a separate provenance ledger")
     event_init.add_argument("ledger", type=Path)
@@ -100,6 +167,31 @@ def _emit(value: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "recovery-registry-init":
+            _emit({"status": "created", "registry": str(args.registry),
+                   "registry_id": create_recovery_registry(args.registry, args.registry_id)["registry_id"]})
+            return 0
+        if args.command == "recovery-registry-add":
+            entry = register_recovery_location(
+                args.registry, args.evidence_path, args.kind,
+                source_instance_id=args.source_instance,
+                logical_location=args.logical_location,
+                depends_on=args.depends_on, note=args.note, registered_at=args.timestamp,
+            )
+            _emit(entry)
+            return 0
+        if args.command == "audited-search-registry":
+            _emit(search_recovery_registry(args.record_id, args.registry))
+            return 0
+        if args.command == "audited-search-recovery":
+            _emit(search_recovery_locations(
+                args.record_id,
+                backup_paths=args.backup,
+                checkpoint_paths=args.checkpoint,
+                expected_source_instance_id=args.source_instance,
+                expected_logical_location=args.logical_location,
+            ))
+            return 0
         if args.command == "init":
             if args.store.exists():
                 raise FileExistsError(f"refusing to overwrite existing store: {args.store}")
@@ -114,9 +206,41 @@ def main(argv: list[str] | None = None) -> int:
             save_audited(AuditedMemoryStore(args.actor_id), args.store)
             _emit({"status": "created", "store": str(args.store), "actor_id": args.actor_id, "audited": True})
             return 0
-        if args.command in {"audited-create", "audited-revise", "audited-annotate-conflict", "audited-show", "audited-verify"}:
+        if args.command in {"audited-capture", "audited-create", "audited-revise", "audited-annotate-conflict", "audited-transform", "audited-presence", "audited-show", "audited-verify", "tree-add-node", "tree-place", "tree-find", "tree-show"}:
             audited = load_audited(args.store)
-            if args.command == "audited-create":
+            if args.command == "tree-add-node":
+                node = audited.add_tree_location(args.node_id, args.part, args.label, args.description, args.parent)
+                save_audited(audited, args.store)
+                _emit({"node_id": node.node_id, "part": node.part, "label": node.label, "description": node.description, "parent_id": node.parent_id})
+            elif args.command == "tree-place":
+                placement = audited.place_record(args.record_id, args.node_id, args.role)
+                save_audited(audited, args.store)
+                _emit({"record_id": placement.record_id, "node_id": placement.node_id, "role": placement.role})
+            elif args.command == "tree-find":
+                _emit([{"node_id": n.node_id, "part": n.part, "label": n.label, "description": n.description, "parent_id": n.parent_id} for n in audited.find_tree_locations(args.phrase)])
+            elif args.command == "tree-show":
+                records = audited.records_at_tree_location(args.node_id, not args.direct_only)
+                _emit({"node_id": args.node_id, "include_descendants": not args.direct_only, "record_ids": list(records)})
+            elif args.command == "audited-capture":
+                version = audited.capture_work(
+                    read_json_strict(args.content),
+                    primary_node_id=args.primary_location,
+                    contextual_node_ids=args.context_locations,
+                    source_kind=args.source_kind,
+                    source_reference=args.source_reference,
+                    language=args.language,
+                    metadata=_read_optional(args.metadata),
+                    timestamp=args.timestamp,
+                )
+                save_audited(audited, args.store)
+                _emit({
+                    **_version_data(version),
+                    "capture_status": "captured_and_placed",
+                    "primary_location": args.primary_location,
+                    "contextual_locations": args.context_locations,
+                    "language": args.language,
+                })
+            elif args.command == "audited-create":
                 version = audited.create_record(
                     read_json_strict(args.content), _read_optional(args.metadata), timestamp=args.timestamp
                 )
@@ -136,6 +260,17 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 save_audited(audited, args.store)
                 _emit({"source_version_id": conflict.source_version_id, "target_version_id": conflict.target_version_id, "directional": True})
+            elif args.command == "audited-transform":
+                derived = audited.transform_record(
+                    args.source_record_id, args.source_version_id, args.kind,
+                    read_json_strict(args.content), description=args.description,
+                    evidence_refs=args.evidence_refs, metadata=_read_optional(args.metadata),
+                    timestamp=args.timestamp,
+                )
+                save_audited(audited, args.store)
+                _emit(_version_data(derived))
+            elif args.command == "audited-presence":
+                _emit(audited.record_presence(args.record_id))
             elif args.command == "audited-verify":
                 snapshot = audited.to_snapshot()
                 _emit({

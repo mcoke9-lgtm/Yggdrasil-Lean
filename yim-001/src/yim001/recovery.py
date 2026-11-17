@@ -163,12 +163,189 @@ def load_recovery_backup(path: str | os.PathLike[str]) -> dict[str, Any]:
         raise RecoveryError(f"unreadable recovery backup: {exc}") from exc
 
 
+def create_recovery_restore_plan(
+    backup_path: str | os.PathLike[str],
+    record_id: str,
+    destination_path: str | os.PathLike[str],
+    *,
+    preserve_path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Create a non-mutating, evidence-backed plan for a whole-store restore.
+
+    The requested record is checked as a reason to select the backup, but the
+    restore operation replaces the destination with the complete snapshot.
+    This function never writes files and never authorizes a restore.
+    """
+    if not isinstance(record_id, str) or not record_id.strip():
+        raise RecoveryError("record_id must be a non-empty identifier")
+    source = Path(backup_path).expanduser().absolute()
+    destination = Path(destination_path).expanduser().absolute()
+    if not source.is_file():
+        raise RecoveryError("backup source is not an available regular file")
+    backup = load_recovery_backup(source)
+    checked = inspect_recovery_backup(backup)
+    snapshot = checked["audited_snapshot"]
+    records = [
+        item for item in snapshot["memory"]["records"]
+        if item["record_id"] == record_id
+    ]
+    if not records:
+        raise RecoveryError("validated backup does not contain the requested record")
+    versions = [
+        item for item in snapshot["memory"]["versions"]
+        if item["record_id"] == record_id
+    ]
+    if destination.is_symlink():
+        raise RecoveryError("refusing to plan restoration through a symbolic-link destination")
+    if not destination.parent.is_dir():
+        raise RecoveryError("destination parent directory is unavailable")
+    destination_exists = destination.exists()
+    destination_digest = None
+    if destination_exists:
+        if not destination.is_file():
+            raise RecoveryError("existing destination is not a regular file")
+        if preserve_path is None:
+            raise RecoveryError("preserve_path is required when destination already exists")
+        preservation = Path(preserve_path).expanduser().absolute()
+        if preservation == destination:
+            raise RecoveryError("preservation path must differ from destination path")
+        if preservation.exists() or preservation.is_symlink():
+            raise RecoveryError("preservation path already exists; refusing to overwrite it")
+        destination_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+    elif preserve_path is not None:
+        raise RecoveryError("preserve_path is only valid when destination already exists")
+    return {
+        "status": "plan_ready_pending_authorization",
+        "source": {
+            "path": str(source),
+            "source_instance_id": checked["source_instance_id"],
+            "backup_sha256": checked["sha256"],
+            "validated": True,
+        },
+        "requested_record": {
+            "record_id": record_id,
+            "version_ids": [item["version_id"] for item in versions],
+            "present_in_validated_backup": True,
+        },
+        "destination": {
+            "path": str(destination),
+            "existed_when_planned": destination_exists,
+            "sha256_when_planned": destination_digest,
+            "preserve_path": (
+                str(Path(preserve_path).expanduser().absolute())
+                if preserve_path is not None else None
+            ),
+        },
+        "restore_scope": "entire_audited_store_snapshot",
+        "restore_will_replace_destination_store": True,
+        "authorization_required": True,
+        "authorized": False,
+        "plan_is_not_a_restore": True,
+        "staleness_warning": (
+            "Revalidate source digest and destination state immediately before restore; "
+            "this plan does not lock either file or prevent later changes."
+        ),
+    }
+
+
+
+def revalidate_recovery_restore_plan(plan: Any) -> dict[str, Any]:
+    """Recheck the exact source, record membership, and destination state."""
+    if not isinstance(plan, dict) or plan.get("plan_is_not_a_restore") is not True:
+        raise RecoveryError("invalid recovery restore plan")
+    if plan.get("authorized") is not False or plan.get("authorization_required") is not True:
+        raise RecoveryError("restore plan authorization state is invalid")
+    try:
+        source_path = Path(plan["source"]["path"])
+        expected_source_id = plan["source"]["source_instance_id"]
+        expected_backup_digest = plan["source"]["backup_sha256"]
+        record_id = plan["requested_record"]["record_id"]
+        expected_versions = plan["requested_record"]["version_ids"]
+        destination = Path(plan["destination"]["path"])
+        expected_exists = plan["destination"]["existed_when_planned"]
+        expected_destination_digest = plan["destination"]["sha256_when_planned"]
+        preserve_value = plan["destination"]["preserve_path"]
+    except (KeyError, TypeError) as exc:
+        raise RecoveryError("recovery restore plan is incomplete") from exc
+    if not source_path.is_file():
+        raise RecoveryError("restore plan is stale: source backup is unavailable")
+    try:
+        backup = load_recovery_backup(source_path)
+        checked = inspect_recovery_backup(backup)
+    except (OSError, RecoveryError, ValueError, TypeError) as exc:
+        raise RecoveryError(f"restore plan is stale: source backup is no longer valid ({exc})") from exc
+    if checked["source_instance_id"] != expected_source_id or checked["sha256"] != expected_backup_digest:
+        raise RecoveryError("restore plan is stale: source backup identity or digest changed")
+    snapshot = checked["audited_snapshot"]
+    if not any(row["record_id"] == record_id for row in snapshot["memory"]["records"]):
+        raise RecoveryError("restore plan is stale: requested record is no longer present")
+    current_versions = [
+        row["version_id"] for row in snapshot["memory"]["versions"]
+        if row["record_id"] == record_id
+    ]
+    if current_versions != expected_versions:
+        raise RecoveryError("restore plan is stale: requested record versions changed")
+    if destination.is_symlink():
+        raise RecoveryError("restore plan is stale: destination is now a symbolic link")
+    exists_now = destination.exists()
+    if exists_now != expected_exists:
+        raise RecoveryError("restore plan is stale: destination existence changed")
+    current_destination_digest = None
+    if exists_now:
+        if not destination.is_file():
+            raise RecoveryError("restore plan is stale: destination is no longer a regular file")
+        current_destination_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+    if current_destination_digest != expected_destination_digest:
+        raise RecoveryError("restore plan is stale: destination contents changed")
+    if exists_now:
+        if not isinstance(preserve_value, str):
+            raise RecoveryError("restore plan is missing its required preservation path")
+        preservation = Path(preserve_value)
+        if preservation == destination or preservation.exists() or preservation.is_symlink():
+            raise RecoveryError("restore plan is stale: preservation path is unavailable")
+    elif preserve_value is not None:
+        raise RecoveryError("restore plan is invalid: unexpected preservation path")
+    return {
+        "status": "valid_pending_authorization",
+        "source_backup_sha256": checked["sha256"],
+        "requested_record_id": record_id,
+        "destination_exists": exists_now,
+        "destination_sha256": current_destination_digest,
+        "authorization_required": True,
+        "authorized": False,
+        "no_files_modified": True,
+    }
+
+
+def restore_recovery_plan(plan: Any, *, authorized: bool = False) -> dict[str, Any]:
+    """Revalidate a plan immediately before an explicitly authorized restore."""
+    if authorized is not True:
+        raise RecoveryError("explicit authorization is required to execute a recovery plan")
+    revalidated = revalidate_recovery_restore_plan(plan)
+    source_path = Path(plan["source"]["path"])
+    backup = load_recovery_backup(source_path)
+    checked = inspect_recovery_backup(backup)
+    if checked["sha256"] != revalidated["source_backup_sha256"]:
+        raise RecoveryError("restore plan is stale: source backup changed after revalidation")
+    destination = Path(plan["destination"]["path"])
+    return restore_recovery_backup(
+        backup,
+        destination,
+        authorized=True,
+        preserve_path=plan["destination"]["preserve_path"],
+        expected_destination_exists=plan["destination"]["existed_when_planned"],
+        expected_destination_sha256=plan["destination"]["sha256_when_planned"],
+    )
+
+
 def restore_recovery_backup(
     backup: Any,
     destination_path: str | os.PathLike[str],
     *,
     authorized: bool = False,
     preserve_path: str | os.PathLike[str] | None = None,
+    expected_destination_exists: bool | None = None,
+    expected_destination_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Restore a validated backup, preserving existing destination bytes first.
 
@@ -183,6 +360,16 @@ def restore_recovery_backup(
     if destination.is_symlink():
         raise RecoveryError("refusing to restore through a symbolic-link destination")
     existed = destination.exists()
+    if expected_destination_exists is not None and existed is not expected_destination_exists:
+        raise RecoveryError("destination state changed since recovery plan validation")
+    if existed and expected_destination_sha256 is not None:
+        if not destination.is_file():
+            raise RecoveryError("existing destination is not a regular file")
+        current_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if current_digest != expected_destination_sha256:
+            raise RecoveryError("destination contents changed since recovery plan validation")
+    if not existed and expected_destination_sha256 is not None:
+        raise RecoveryError("unexpected destination digest for missing destination")
     preserved = False
     if existed:
         if not destination.is_file():
@@ -200,6 +387,7 @@ def restore_recovery_backup(
         raise RecoveryError("preserve_path is only valid when the destination already exists")
 
     restored = AuditedMemoryStore.from_snapshot(incoming["audited_snapshot"])
+    restored.record_recovery(incoming["source_instance_id"], incoming["sha256"])
     save_audited(restored, destination)
     return {
         "status": "restored",

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173b32">
+<title>Living Tree — Phone Intake</title>
+<style>
+:root{color-scheme:light dark;font:16px/1.45 system-ui,sans-serif}
+body{max-width:46rem;margin:0 auto;padding:1rem;background:Canvas;color:CanvasText}
+h1{font-size:1.45rem}h2{font-size:1.1rem;margin-top:1.5rem}
+label{display:block;font-weight:600;margin:.8rem 0 .25rem}
+input,textarea,button{box-sizing:border-box;width:100%;font:inherit;padding:.7rem;border:1px solid #888;border-radius:.5rem;background:Canvas;color:CanvasText}
+textarea{min-height:7rem}button{margin-top:.7rem;font-weight:650;cursor:pointer}
+button.primary{background:#173b32;color:white;border-color:#173b32}
+small,.muted{opacity:.8}
+.packet{border:1px solid #888;border-radius:.5rem;padding:.8rem;margin:.6rem 0;overflow-wrap:anywhere}
+.status{min-height:1.5rem;margin:.6rem 0}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+@media(prefers-color-scheme:dark){button.primary{background:#9bc9b5;color:#10251f}}
+</style>
+</head>
+<body>
+<h1>The Living Tree — Phone Intake</h1>
+<p>Capture a work item on this device and export a queue file for later placement in the Living Tree. This page works locally; it does not upload or transmit your content.</p>
+<p class="muted"><strong>Boundary:</strong> this is an explicit handoff. It does not read ChatGPT history automatically and does not place records into the audited Tree store.</p>
+
+<h2>Queue</h2>
+<label for="queueId">Queue identity</label>
+<input id="queueId" value="phone-intake" autocomplete="off">
+<div class="actions">
+<button id="newQueue">Start new queue</button>
+<button id="openQueue">Open queue file</button>
+</div>
+<input id="queueFile" type="file" accept="application/json,.json" hidden>
+<p id="queueStatus" class="status" role="status">No queue loaded. Start a new queue or open an existing queue file.</p>
+
+<h2>Add a work item</h2>
+<label for="sourceKind">Source type</label>
+<input id="sourceKind" value="chat_exchange" required>
+<label for="sourceReference">Source reference (optional)</label>
+<input id="sourceReference" placeholder="Chat title, checkpoint, or other reference">
+<label for="language">Language</label>
+<input id="language" value="English" required>
+<label for="content">Original content as JSON</label>
+<textarea id="content" spellcheck="false" placeholder='{"text":"Paste or enter the original content here"}'></textarea>
+<small>Keep the source wording intact. The content field must contain valid JSON; use a JSON string if the source is plain text.</small>
+<label for="metadata">Additional metadata as JSON (optional)</label>
+<textarea id="metadata" spellcheck="false">{}</textarea>
+<button id="addPacket" class="primary">Preserve work item in queue</button>
+<p id="actionStatus" class="status" role="status" aria-live="polite"></p>
+
+<h2>Queue contents</h2>
+<div id="packets"><p class="muted">No packets yet.</p></div>
+<div class="actions">
+<button id="exportQueue" class="primary" disabled>Download queue JSON</button>
+<button id="copyQueue" disabled>Copy queue JSON</button>
+</div>
+<label for="queueText">Manual copy fallback</label>
+<textarea id="queueText" readonly hidden aria-label="Queue JSON for manual copying"></textarea>
+<small id="copyHelp" class="muted">If downloading is unavailable, use Copy queue JSON. If clipboard access is blocked, the JSON will appear above for manual selection and copying.</small>
+<p class="muted">After export, transfer the JSON file to the device or computer running the Living Tree command-line importer. Each item remains marked “awaiting placement” until it is explicitly imported.</p>
+
+<script>
+"use strict";
+const FORMAT="YIM-001-Work-Intake-Queue";
+const VERSION=2;
+let queue=null;
+const el=id=>document.getElementById(id);
+function say(id,message){el(id).textContent=message;}
+function validateQueue(value){
+  const queueKeys=["format","format_version","queue_id","packets"].sort();
+  if(!value||typeof value!=="object"||Array.isArray(value)||
+     JSON.stringify(Object.keys(value).sort())!==JSON.stringify(queueKeys)||
+     value.format!==FORMAT||!Number.isInteger(value.format_version)||value.format_version!==VERSION||
+     typeof value.queue_id!=="string"||!value.queue_id.trim()||
+     !Array.isArray(value.packets)) throw new Error("Unsupported or invalid queue file. Expected a version 2 Living Tree intake queue.");
+  const ids=new Set();
+  for(const p of value.packets){
+    if(!p||typeof p!=="object"||Array.isArray(p)) throw new Error("Queue contains an invalid packet.");
+    const keys=["packet_id","captured_at","source_kind","source_reference","language","content","metadata","placement_status","primary_logical_location","contextual_logical_locations","source_content_preserved_as_submitted","imported_record_id","imported_version_id"].sort();
+    if(JSON.stringify(Object.keys(p).sort())!==JSON.stringify(keys)) throw new Error("Queue packet fields do not match the supported format.");
+    if(typeof p.packet_id!=="string"||!p.packet_id.trim()||ids.has(p.packet_id)) throw new Error("Queue contains a missing or duplicate packet identity.");
+    ids.add(p.packet_id);
+    if(p.source_reference!==null&&(typeof p.source_reference!=="string"||!p.source_reference.trim())) throw new Error("Packet source reference must be null or non-empty text.");
+    if(p.placement_status!=="awaiting_placement"&&p.placement_status!=="imported") throw new Error("Queue contains an unsupported placement state.");
+    if(typeof p.source_kind!=="string"||!p.source_kind.trim()||typeof p.language!=="string"||!p.language.trim()) throw new Error("Packet source type and language are required.");
+    if(typeof p.captured_at!=="string"||Number.isNaN(Date.parse(p.captured_at))||!/(Z|[+-]\d\d:\d\d)$/.test(p.captured_at)) throw new Error("Packet timestamp must include a UTC offset.");
+    if(p.source_content_preserved_as_submitted!==true) throw new Error("Packet source-preservation marker is invalid.");
+    if(!Array.isArray(p.contextual_logical_locations)) throw new Error("Packet contextual locations must be an array.");
+    if(p.placement_status==="awaiting_placement"&&(p.primary_logical_location!==null||p.contextual_logical_locations.length!==0||p.imported_record_id!==null||p.imported_version_id!==null)) throw new Error("Pending packet contains placement or import identity.");
+    if(p.placement_status==="imported"){
+      if(typeof p.primary_logical_location!=="string"||!p.primary_logical_location.trim()||
+         typeof p.imported_record_id!=="string"||!p.imported_record_id.trim()||
+         typeof p.imported_version_id!=="string"||!p.imported_version_id.trim()) throw new Error("Imported packet is missing placement or import identity.");
+      if(p.contextual_logical_locations.some(node=>typeof node!=="string"||!node.trim())||
+         new Set(p.contextual_logical_locations).size!==p.contextual_logical_locations.length||
+         p.contextual_logical_locations.includes(p.primary_logical_location)) throw new Error("Imported packet contains invalid or duplicate Tree placements.");
+    }
+  }
+  return value;
+}
+function refresh(){
+  const host=el("packets");host.replaceChildren();
+  if(!queue||queue.packets.length===0){host.textContent="No packets yet.";el("exportQueue").disabled=!queue;el("copyQueue").disabled=!queue;return;}
+  for(const p of queue.packets){
+    const card=document.createElement("section");card.className="packet";
+    const title=document.createElement("strong");title.textContent=p.source_kind+" — "+p.placement_status;card.append(title);
+    const details=document.createElement("p");details.textContent="Packet: "+p.packet_id+" · Language: "+p.language+" · Captured: "+p.captured_at;card.append(details);
+    const preview=document.createElement("pre");preview.textContent=JSON.stringify(p.content,null,2).slice(0,700);card.append(preview);
+    host.append(card);
+  }
+  el("exportQueue").disabled=false;el("copyQueue").disabled=false;
+}
+el("newQueue").addEventListener("click",()=>{
+  const id=el("queueId").value.trim();if(!id){say("queueStatus","Enter a queue identity first.");return;}
+  queue={format:FORMAT,format_version:VERSION,queue_id:id,packets:[]};refresh();say("queueStatus","New empty queue ready. It is stored in this page until you export it.");
+});
+el("openQueue").addEventListener("click",()=>el("queueFile").click());
+el("queueFile").addEventListener("change",async event=>{
+  const file=event.target.files[0];if(!file)return;
+  try{const parsed=validateQueue(JSON.parse(await file.text()));queue=parsed;el("queueId").value=queue.queue_id;refresh();say("queueStatus","Loaded "+queue.packets.length+" packet(s) from "+file.name+". Export after making changes.");}
+  catch(error){say("queueStatus","Could not open queue: "+error.message);}
+  event.target.value="";
+});
+el("addPacket").addEventListener("click",()=>{
+  try{
+    if(!queue)throw new Error("Start a new queue or open an existing queue first.");
+    const sourceKind=el("sourceKind").value.trim(),language=el("language").value.trim();
+    if(!sourceKind||!language)throw new Error("Source type and language are required.");
+    const content=JSON.parse(el("content").value);
+    const metadataText=el("metadata").value.trim();
+    const metadata=metadataText?JSON.parse(metadataText):{};
+    const packet={
+      packet_id:crypto.randomUUID?crypto.randomUUID():("packet-"+Date.now()+"-"+Math.random().toString(16).slice(2)),
+      captured_at:new Date().toISOString(),source_kind:sourceKind,
+      source_reference:el("sourceReference").value.trim()||null,language,
+      content,metadata,placement_status:"awaiting_placement",
+      primary_logical_location:null,contextual_logical_locations:[],
+      source_content_preserved_as_submitted:true,imported_record_id:null,imported_version_id:null
+    };
+    queue.packets.push(packet);refresh();say("actionStatus","Preserved packet "+packet.packet_id+". Export the queue to keep it beyond this page session.");
+  }catch(error){say("actionStatus","Not added: "+error.message);}
+});
+el("exportQueue").addEventListener("click",()=>{
+  if(!queue)return;
+  const blob=new Blob([JSON.stringify(queue,null,2)+"\n"],{type:"application/json"});
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  link.href=url;link.download=queue.queue_id.replace(/[^a-zA-Z0-9._-]+/g,"-")+"-intake.json";
+  document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+  say("actionStatus","Queue download requested. Confirm the file appears in this device's Downloads.");
+});
+el("copyQueue").addEventListener("click",async()=>{
+  if(!queue)return;
+  const text=JSON.stringify(queue,null,2)+"\n";
+  try{
+    if(typeof navigator!=="undefined"&&navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      el("queueText").hidden=true;
+      say("actionStatus","Queue JSON copied to the clipboard. Paste it into a file named "+queue.queue_id+"-intake.json.");
+      return;
+    }
+  }catch(error){/* Fall through to the manual copy path. */}
+  el("queueText").value=text;
+  el("queueText").hidden=false;
+  el("queueText").focus();
+  el("queueText").select();
+  say("actionStatus","Clipboard access is unavailable. The queue JSON is selected above; copy it and save it as "+queue.queue_id+"-intake.json.");
+});
+</script>
+</body>
+</html>

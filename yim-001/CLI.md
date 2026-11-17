@@ -86,3 +86,53 @@ PYTHONPATH=yim-001/src python -m yim001 audited-verify ./audited.json
 The audited commands append provenance events for successful create, revise, and conflict annotation. Each write replaces one combined JSON snapshot containing both streams. Optional `--timestamp` arguments support reproducible tests and controlled imports; otherwise event timestamps are generated in UTC. A failed operation or event validation does not replace the existing combined file.
 
 The audited file remains local and single-writer. It does not provide authenticated actors, concurrent-writer locking, network synchronization, or automatic backups. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md).
+
+## Capture supplied work into the Living Tree
+
+The `audited-capture` command is the first explicit intake path that creates a memory record, preserves the submitted source content and language, assigns one primary logical location, adds optional contextual locations, and appends a provenance event as one in-memory transaction before saving the combined snapshot:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001 audited-capture ./audited.json content.json \
+  --primary-location roots.archive \
+  --context-location branches.project \
+  --source-kind chat_exchange \
+  --source-reference checkpoint-001 \
+  --language English
+```
+
+The logical locations must already exist in the store. The command rejects an unknown location without creating a partial memory record. Supply `--language undetermined` when the language is not known; do not silently omit it. The source reference is caller-supplied and is not independently verified.
+
+This is **explicit local intake**, not automatic ChatGPT conversation capture. It does not read chat history, discover new conversations, classify placement automatically, or synchronize across devices. Those remain implementation work. See [AUDITED-MEMORY.md](AUDITED-MEMORY.md) for the combined-store boundaries.
+
+
+## Persistent intake handoff (awaiting placement)
+
+A source-neutral local intake queue can preserve supplied work before a logical Tree location has been selected. This prevents an item from being silently discarded or forced into an arbitrary location:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001.intake_cli init ./intake.json phone-intake
+PYTHONPATH=yim-001/src python -m yim001.intake_cli add ./intake.json content.json \\
+  --source-kind chat_exchange \\
+  --source-reference session-checkpoint-7 \\
+  --language English
+PYTHONPATH=yim-001/src python -m yim001.intake_cli list ./intake.json
+```
+
+Each packet retains the submitted JSON content, source kind/reference, language, capture time, and metadata, and is explicitly marked `awaiting_placement`. The queue refuses duplicate packet IDs and validates its structure on load. Packets are retained rather than deleted. Placement is an explicit operator decision, and the `import` command transfers a selected pending packet into the audited memory store while recording the resulting record/version identities in the queue. This queue does not access ChatGPT conversation history or sync across devices; it is a concrete local handoff mechanism, not automatic capture.
+
+
+### Import a pending packet into the Living Tree
+
+After creating an audited store and its logical Tree nodes, import a selected packet:
+
+```sh
+PYTHONPATH=yim-001/src python -m yim001.intake_cli import ./intake.json ./audited.json packet-001 \
+  --primary-location roots.archive \
+  --context-location branches.project
+```
+
+The audited store is saved before the queue is marked imported. A provenance identity ties the capture to the queue and packet, including a SHA-256 fingerprint of the submitted packet. If the process stops after the audited save but before the queue update, rerunning the import returns the existing record/version rather than creating another record. A retry with changed packet content, source metadata, language, or a different Tree placement is rejected after comparing the existing capture against the pending packet.
+
+The queue records the resulting record and version identities and the confirmed logical placements. The current queue format is version 1; no version 2 migration is implemented.
+
+This is a recoverable two-file handoff, not a single atomic transaction across both files. It assumes one writer at a time; concurrent writers are not protected by filesystem locks. Keep backups of both files. A completed import is local to the supplied paths and does not imply Android synchronization or automatic ChatGPT history access.

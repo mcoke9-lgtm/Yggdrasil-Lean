@@ -48,6 +48,32 @@ class CommandLineTests(unittest.TestCase):
         verified = self.output(self.run_cli("verify", self.store))
         self.assertEqual(verified, {"conflicts": 0, "records": 1, "status": "verified", "versions": 2})
 
+    def test_audited_capture_cli_requires_and_persists_logical_placement(self):
+        self.run_cli("audited-init", self.store, "local-node")
+        self.write_json(self.content, {"original_text": "Preserve this exact source wording."})
+        self.run_cli("tree-add-node", self.store, "roots.archive", "roots", "Living Archive")
+        self.run_cli("tree-add-node", self.store, "branches.project", "branches", "Project Work", "--parent", "roots.archive")
+        captured = self.output(self.run_cli(
+            "audited-capture", self.store, self.content,
+            "--primary-location", "roots.archive",
+            "--context-location", "branches.project",
+            "--source-kind", "chat_exchange",
+            "--source-reference", "checkpoint-001",
+            "--language", "English",
+            "--timestamp", "2026-11-17T15:00:00Z",
+        ))
+        self.assertEqual(captured["capture_status"], "captured_and_placed")
+        self.assertEqual(captured["content"], {"original_text": "Preserve this exact source wording."})
+        snapshot = json.loads(self.store.read_text(encoding="utf-8"))
+        self.assertEqual(snapshot["provenance"]["events"][-1]["event_type"], "work.captured")
+        self.assertEqual(
+            snapshot["living_tree"]["placements"],
+            [
+                {"record_id": captured["record_id"], "node_id": "roots.archive", "role": "primary"},
+                {"record_id": captured["record_id"], "node_id": "branches.project", "role": "contextual"},
+            ],
+        )
+
     def test_init_refuses_to_overwrite_existing_store(self):
         self.run_cli("init", self.store)
         result = self.run_cli("init", self.store, expected=2)
