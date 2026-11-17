@@ -78,6 +78,7 @@ function validateQueue(value){
     if(typeof p.source_kind!=="string"||!p.source_kind.trim()||typeof p.language!=="string"||!p.language.trim()) throw new Error("Packet source type and language are required.");
     if(typeof p.captured_at!=="string"||Number.isNaN(Date.parse(p.captured_at))||!/(Z|[+-]\d\d:\d\d)$/.test(p.captured_at)) throw new Error("Packet timestamp must include a UTC offset.");
     if(p.source_content_preserved_as_submitted!==true) throw new Error("Packet source-preservation marker is invalid.");
+    if(!Array.isArray(p.contextual_logical_locations)) throw new Error("Packet contextual locations must be an array.");
     if(p.placement_status==="awaiting_placement"&&(p.primary_logical_location!==null||p.contextual_logical_locations.length!==0||p.imported_record_id!==null||p.imported_version_id!==null)) throw new Error("Pending packet contains placement or import identity.");
     if(p.placement_status==="imported"&&(typeof p.primary_logical_location!=="string"||typeof p.imported_record_id!=="string"||typeof p.imported_version_id!=="string"||!Array.isArray(p.contextual_logical_locations))) throw new Error("Imported packet is missing placement or import identity.");
   }
@@ -114,7 +115,6 @@ el("addPacket").addEventListener("click",()=>{
     const content=JSON.parse(el("content").value);
     const metadataText=el("metadata").value.trim();
     const metadata=metadataText?JSON.parse(metadataText):{};
-    if(metadata===null||typeof metadata!=="object")throw new Error("Metadata must be a JSON object or array.");
     const packet={
       packet_id:crypto.randomUUID?crypto.randomUUID():("packet-"+Date.now()+"-"+Math.random().toString(16).slice(2)),
       captured_at:new Date().toISOString(),source_kind:sourceKind,
