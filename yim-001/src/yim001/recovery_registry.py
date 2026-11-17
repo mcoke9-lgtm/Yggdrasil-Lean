@@ -199,10 +199,38 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
         item["logical_location"] for item in entries
         if item["logical_location"] is not None
     })
+    searched_by_path = {
+        str(Path(item["path"]).expanduser().absolute()): item
+        for item in result.get("searched_locations", [])
+    }
+    entries_by_id = {item["entry_id"]: item for item in entries}
+    dependency_report = []
+    for item in entries:
+        dependency_details = []
+        for dependency_id in item["depends_on"]:
+            dependency = entries_by_id[dependency_id]
+            dependency_path = str(Path(dependency["path"]).expanduser().absolute())
+            search_result = searched_by_path.get(dependency_path)
+            dependency_details.append({
+                "entry_id": dependency_id,
+                "kind": dependency["kind"],
+                "path": dependency["path"],
+                "logical_location": dependency["logical_location"],
+                "search_status": (
+                    search_result["status"] if search_result is not None
+                    else "not_searched_by_this_registry_query"
+                ),
+                "dependency_is_metadata_not_custody_proof": True,
+            })
+        dependency_report.append({
+            "entry_id": item["entry_id"],
+            "dependencies": dependency_details,
+        })
     result["registered_dependencies"] = [
         {"entry_id": item["entry_id"], "depends_on": item["depends_on"]}
         for item in entries if item["depends_on"]
     ]
+    result["dependency_report"] = dependency_report
     result["scope_limit"] = (
         "Search used only evidence paths recorded in this validated registry. "
         "The registry is a local reference manifest, not proof that referenced "
