@@ -131,8 +131,10 @@ Move the exported JSON queue to the machine that has the YIM-001 command-line pa
 PYTHONPATH=yim-001/src python -m yim001.intake_cli list ./phone-intake.json
 PYTHONPATH=yim-001/src python -m yim001 audited-init ./audited.json local-node
 PYTHONPATH=yim-001/src python -m yim001.intake_cli import ./phone-intake.json ./audited.json PACKET_ID --primary-location roots.archive
+# Or import every packet still awaiting placement, checkpointing each packet:
+PYTHONPATH=yim-001/src python -m yim001.intake_cli import-pending ./phone-intake.json ./audited.json --primary-location roots.archive
 ```
 
-The example initializes a new audited store; omit that step when using an existing store. Replace `roots.archive` with an existing logical Tree location. Add `--context-location NODE` for each additional contextual placement.
+The example initializes a new audited store; omit that step when using an existing store. Replace `roots.archive` with an existing logical Tree location. Add `--context-location NODE` for each additional contextual placement. The single-packet `import` command is best when packets need different placements. `import-pending` applies the same explicitly selected placement to every currently pending packet; it saves the audited store and queue after each packet, so an interruption leaves earlier imports recorded and later packets pending. Re-running it safely processes only the remaining pending packets. This remains a single-writer workflow; it does not make the two files one atomic transaction.
 
 The page does not read ChatGPT history, upload data, synchronize devices, or import into the audited store itself. Queue edits remain only in the page until exported. The JSON export is the durable handoff; keep a separate backup of it. Browser behavior and the Android download/open flow still require device-level verification.
