@@ -133,6 +133,18 @@ class RecoveryRegistryTests(unittest.TestCase):
                 first["payload"]["entry_id"],
             )
             self.assertEqual(second["payload"]["depends_on"], ["location-000001"])
+            third = register_recovery_location(
+                registry_path, derived_backup, "backup",
+                source_instance_id="phone-A",
+                logical_location="branches.language.translation",
+                depends_on=[second["payload"]["entry_id"]],
+            )
+            extended = search_recovery_registry(derived.record_id, registry_path)
+            self.assertEqual(
+                extended["dependency_report"][2]["transitive_dependency_entry_ids"],
+                ["location-000002", "location-000001"],
+            )
+            self.assertEqual(third["payload"]["depends_on"], ["location-000002"])
             self.assertEqual(lineage["status"], "lineage_links_found")
 
     def test_registry_refuses_overwrite_and_unknown_dependencies(self):
