@@ -30,7 +30,7 @@ public final class IntakeQueueValidator {
         if (!FORMAT.equals(root.getString("format")) || !(root.get("format_version") instanceof Integer)
                 || root.getInt("format_version") != FORMAT_VERSION)
             throw new IllegalArgumentException("Only YIM-001 work-intake queue version 2 is accepted");
-        String queueId = nonBlank(root.getString("queue_id"), "queue_id");
+        String queueId = nonBlank(stringField(root, "queue_id"), "queue_id");
         JSONArray packets = root.getJSONArray("packets");
         if (packets.length() > 1000) throw new IllegalArgumentException("Queue exceeds 1000 packet limit");
         Set<String> ids = new HashSet<>();
@@ -38,18 +38,18 @@ public final class IntakeQueueValidator {
         for (int i = 0; i < packets.length(); i++) {
             JSONObject p = packets.getJSONObject(i);
             requireKeys(p, PACKET_KEYS, "packet " + i);
-            String id = nonBlank(p.getString("packet_id"), "packet_id");
+            String id = nonBlank(stringField(p, "packet_id"), "packet_id");
             if (!ids.add(id)) throw new IllegalArgumentException("Duplicate packet ID: " + id);
-            try { OffsetDateTime.parse(p.getString("captured_at")); }
+            try { OffsetDateTime.parse(stringField(p, "captured_at")); }
             catch (Exception e) { throw new IllegalArgumentException("captured_at must be ISO-8601 with an offset: " + id); }
-            nonBlank(p.getString("source_kind"), "source_kind");
-            nonBlank(p.getString("language"), "language");
+            nonBlank(stringField(p, "source_kind"), "source_kind");
+            nonBlank(stringField(p, "language"), "language");
             Object sourceRef = p.get("source_reference");
             if (sourceRef != JSONObject.NULL && (!(sourceRef instanceof String) || ((String) sourceRef).trim().isEmpty()))
                 throw new IllegalArgumentException("source_reference must be null or non-blank text: " + id);
             if (!Boolean.TRUE.equals(p.get("source_content_preserved_as_submitted")))
                 throw new IllegalArgumentException("Source preservation marker must be true: " + id);
-            String placement = p.getString("placement_status");
+            String placement = stringField(p, "placement_status");
             if ("awaiting_placement".equals(placement)) {
                 pending++;
                 if (p.get("primary_logical_location") != JSONObject.NULL
@@ -58,19 +58,26 @@ public final class IntakeQueueValidator {
                         || p.get("imported_version_id") != JSONObject.NULL)
                     throw new IllegalArgumentException("Pending packet must not contain placement or import identity: " + id);
             } else if ("imported".equals(placement)) {
-                nonBlank(p.getString("primary_logical_location"), "primary_logical_location");
-                nonBlank(p.getString("imported_record_id"), "imported_record_id");
-                nonBlank(p.getString("imported_version_id"), "imported_version_id");
+                nonBlank(stringField(p, "primary_logical_location"), "primary_logical_location");
+                nonBlank(stringField(p, "imported_record_id"), "imported_record_id");
+                nonBlank(stringField(p, "imported_version_id"), "imported_version_id");
                 JSONArray contexts = p.getJSONArray("contextual_logical_locations");
                 Set<String> contextIds = new HashSet<>();
                 for (int j = 0; j < contexts.length(); j++) {
-                    String node = nonBlank(contexts.getString(j), "contextual logical location");
-                    if (!contextIds.add(node) || node.equals(p.getString("primary_logical_location")))
+                    if (!(contexts.get(j) instanceof String)) throw new IllegalArgumentException("Contextual location must be text: " + id);
+                    String node = nonBlank((String) contexts.get(j), "contextual logical location");
+                    if (!contextIds.add(node) || node.equals(stringField(p, "primary_logical_location")))
                         throw new IllegalArgumentException("Contextual locations must be unique and differ from primary: " + id);
                 }
             } else throw new IllegalArgumentException("Unsupported placement_status: " + placement);
         }
         return new ValidatedQueue(queueId, packets.length(), pending, raw, root);
+    }
+
+    private static String stringField(JSONObject object, String field) throws JSONException {
+        Object value = object.get(field);
+        if (!(value instanceof String)) throw new IllegalArgumentException(field + " must be text");
+        return (String) value;
     }
 
     private static String nonBlank(String value, String field) {
