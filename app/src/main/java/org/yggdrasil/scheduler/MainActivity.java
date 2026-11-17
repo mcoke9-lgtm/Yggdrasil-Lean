@@ -287,13 +287,20 @@ public final class MainActivity extends Activity {
                     throw new java.io.IOException("Queue exceeds the 5 MB limit");
                 bytes.write(buffer, 0, read);
             }
-            final String raw = java.nio.charset.StandardCharsets.UTF_8.newDecoder()\n                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)\n                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)\n                    .decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())).toString();
+            final String raw = java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())).toString();
             final IntakeQueueValidator.ValidatedQueue queue = IntakeQueueValidator.validate(raw);
             new AlertDialog.Builder(this)
                     .setTitle("Stage Living Tree intake queue?")
-                    .setMessage("Queue: " + queue.queueId + "\nPackets: " + queue.packetCount
-                            + "\nAwaiting Tree placement: " + queue.pendingCount
-                            + "\n\nThis stores the submitted queue in a separate private staging database. "
+                    .setMessage("Queue: " + queue.queueId + "
+Packets: " + queue.packetCount
+                            + "
+Awaiting Tree placement: " + queue.pendingCount
+                            + "
+
+This stores the submitted queue in a separate private staging database. "
                             + "It does not import into Roots or assign Tree locations.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Stage queue", (dialog, which) -> {
@@ -444,8 +451,10 @@ public final class MainActivity extends Activity {
                 when = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a", java.util.Locale.getDefault())
                         .withZone(ZoneId.systemDefault()).format(java.time.Instant.parse(item.createdAt));
             } catch (Exception ignored) { when = item.createdAt; }
-            history.addView(text(when + " · " + kind + "\n" + item.taskName + " · " + item.status.toUpperCase(java.util.Locale.US)
-                    + (detail.isEmpty() ? "" : "\n" + detail), 13));
+            history.addView(text(when + " · " + kind + "
+" + item.taskName + " · " + item.status.toUpperCase(java.util.Locale.US)
+                    + (detail.isEmpty() ? "" : "
+" + detail), 13));
         }
         if (activities.isEmpty()) history.addView(text("No activity yet",13));
         refreshIntakeStatus();
