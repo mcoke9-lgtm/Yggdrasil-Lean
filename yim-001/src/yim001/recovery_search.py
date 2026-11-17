@@ -98,6 +98,10 @@ def search_recovery_locations(
         item for item in checkpoint_results
         if any(backup["info"]["sha256"] == item["backup_sha256"] for backup in valid_backups)
     ]
+    unmatched_checkpoint_backup_digests = sorted({
+        item["backup_sha256"] for item in checkpoint_results
+        if not any(backup["info"]["sha256"] == item["backup_sha256"] for backup in valid_backups)
+    })
     if expected_source_instance_id is not None:
         found = [item for item in found if item["source_instance_id"] == expected_source_instance_id]
     if expected_logical_location is not None:
@@ -133,6 +137,7 @@ def search_recovery_locations(
         "validated_backup_matches": found,
         "validated_checkpoint_count": len(checkpoint_results),
         "checkpoint_backup_references_matched": len(matched_checkpoint_refs),
+        "checkpoint_backup_references_without_supplied_backup": unmatched_checkpoint_backup_digests,
         "inaccessible_locations": inaccessible,
         "invalid_evidence": invalid,
         "interpretation": interpretation,
