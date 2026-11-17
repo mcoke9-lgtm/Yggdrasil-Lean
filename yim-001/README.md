@@ -123,7 +123,7 @@ Run `PYTHONPATH=yim-001/src python yim-001/scripts/recovery_demo.py` for a repro
 
 ## Phone-friendly intake (offline browser page)
 
-Open `phone-intake/index.html` in a mobile browser. The page runs locally and can be used without Termux or a network connection after the HTML file has been downloaded. Start a queue or open an existing version 2 intake queue, enter the source type, language, original content as JSON, and optional metadata, then export the queue JSON. Confirm that the exported file appears in Downloads before leaving the page.
+Open `phone-intake/index.html` in a mobile browser. The page runs locally and can be used without Termux or a network connection after the HTML file has been downloaded. Start a queue or open an existing version 2 intake queue, enter the source type, language, original content as JSON, and optional metadata. Use **Download queue JSON** and confirm that the file appears in Downloads. If the browser blocks downloads, use **Copy queue JSON**; when clipboard access is unavailable, the page displays a selected text copy that can be copied manually into a file named `<queue-id>-intake.json`.
 
 Move the exported JSON queue to the machine that has the YIM-001 command-line package. It is already a queue file; list its pending packets and import a packet into the audited Tree store:
 
