@@ -47,7 +47,7 @@ class IntakeTransferCliTests(unittest.TestCase):
 
             repeated = run("import", queue, store, packet_id, "--primary-location", "roots.archive")
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
-            self.assertEqual(json.loads(repeated.stdout)["status"], "already_imported")
+            self.assertEqual(json.loads(repeated.stdout)["status"], "already_imported_verified")
             final_store = load_audited(store)
             self.assertEqual(len(final_store.versions(result["record_id"])), 1)
             self.assertEqual(len(final_store.events), 1)
