@@ -163,6 +163,91 @@ def load_recovery_backup(path: str | os.PathLike[str]) -> dict[str, Any]:
         raise RecoveryError(f"unreadable recovery backup: {exc}") from exc
 
 
+def create_recovery_restore_plan(
+    backup_path: str | os.PathLike[str],
+    record_id: str,
+    destination_path: str | os.PathLike[str],
+    *,
+    preserve_path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Create a non-mutating, evidence-backed plan for a whole-store restore.
+
+    The requested record is checked as a reason to select the backup, but the
+    restore operation replaces the destination with the complete snapshot.
+    This function never writes files and never authorizes a restore.
+    """
+    if not isinstance(record_id, str) or not record_id.strip():
+        raise RecoveryError("record_id must be a non-empty identifier")
+    source = Path(backup_path).expanduser().absolute()
+    destination = Path(destination_path).expanduser().absolute()
+    if not source.is_file():
+        raise RecoveryError("backup source is not an available regular file")
+    backup = load_recovery_backup(source)
+    checked = inspect_recovery_backup(backup)
+    snapshot = checked["audited_snapshot"]
+    records = [
+        item for item in snapshot["memory"]["records"]
+        if item["record_id"] == record_id
+    ]
+    if not records:
+        raise RecoveryError("validated backup does not contain the requested record")
+    versions = [
+        item for item in snapshot["memory"]["versions"]
+        if item["record_id"] == record_id
+    ]
+    if destination.is_symlink():
+        raise RecoveryError("refusing to plan restoration through a symbolic-link destination")
+    if not destination.parent.is_dir():
+        raise RecoveryError("destination parent directory is unavailable")
+    destination_exists = destination.exists()
+    destination_digest = None
+    if destination_exists:
+        if not destination.is_file():
+            raise RecoveryError("existing destination is not a regular file")
+        if preserve_path is None:
+            raise RecoveryError("preserve_path is required when destination already exists")
+        preservation = Path(preserve_path).expanduser().absolute()
+        if preservation == destination:
+            raise RecoveryError("preservation path must differ from destination path")
+        if preservation.exists() or preservation.is_symlink():
+            raise RecoveryError("preservation path already exists; refusing to overwrite it")
+        destination_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+    elif preserve_path is not None:
+        raise RecoveryError("preserve_path is only valid when destination already exists")
+    return {
+        "status": "plan_ready_pending_authorization",
+        "source": {
+            "path": str(source),
+            "source_instance_id": checked["source_instance_id"],
+            "backup_sha256": checked["sha256"],
+            "validated": True,
+        },
+        "requested_record": {
+            "record_id": record_id,
+            "version_ids": [item["version_id"] for item in versions],
+            "present_in_validated_backup": True,
+        },
+        "destination": {
+            "path": str(destination),
+            "existed_when_planned": destination_exists,
+            "sha256_when_planned": destination_digest,
+            "preserve_path": (
+                str(Path(preserve_path).expanduser().absolute())
+                if preserve_path is not None else None
+            ),
+        },
+        "restore_scope": "entire_audited_store_snapshot",
+        "restore_will_replace_destination_store": True,
+        "authorization_required": True,
+        "authorized": False,
+        "plan_is_not_a_restore": True,
+        "staleness_warning": (
+            "Revalidate source digest and destination state immediately before restore; "
+            "this plan does not lock either file or prevent later changes."
+        ),
+    }
+
+
 def restore_recovery_backup(
     backup: Any,
     destination_path: str | os.PathLike[str],
