@@ -81,6 +81,60 @@ class RecoveryRegistryTests(unittest.TestCase):
                 registered["payload"]["entry_id"],
             )
 
+    def test_registry_traces_lineage_across_dependent_backup_locations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            registry_path = root / "locations.json"
+            original_backup = root / "original.json"
+            derived_backup = root / "derived.json"
+            create_recovery_registry(registry_path, "distributed-lineage")
+            store = AuditedMemoryStore("phone-A")
+            original = store.create_record({"text": "source"})
+            save_recovery_backup(
+                create_recovery_backup(store, "phone-A"), original_backup
+            )
+            first = register_recovery_location(
+                registry_path, original_backup, "backup",
+                source_instance_id="phone-A",
+                logical_location="roots.memory",
+            )
+            derived = store.transform_record(
+                original.record_id, original.version_id, "translation",
+                {"text": "translated"}, description="Translated source text",
+            )
+            save_recovery_backup(
+                create_recovery_backup(store, "phone-A"), derived_backup
+            )
+            second = register_recovery_location(
+                registry_path, derived_backup, "backup",
+                source_instance_id="phone-A",
+                logical_location="branches.language",
+                depends_on=[first["payload"]["entry_id"]],
+            )
+
+            result = search_recovery_registry(derived.record_id, registry_path)
+            lineage = result["lineage"]
+            self.assertEqual(
+                set(lineage["members"]), {original.record_id, derived.record_id}
+            )
+            evidence_by_record = {}
+            for evidence in lineage["member_evidence"]:
+                evidence_by_record.setdefault(evidence["record_id"], set()).add(
+                    Path(evidence["path"]).name
+                )
+            self.assertIn("original.json", evidence_by_record[original.record_id])
+            self.assertIn("derived.json", evidence_by_record[derived.record_id])
+            self.assertEqual(
+                result["dependency_report"][1]["dependencies"][0]["search_status"],
+                "read_and_validated",
+            )
+            self.assertEqual(
+                result["dependency_report"][1]["dependencies"][0]["entry_id"],
+                first["payload"]["entry_id"],
+            )
+            self.assertEqual(second["payload"]["depends_on"], ["location-000001"])
+            self.assertEqual(lineage["status"], "lineage_links_found")
+
     def test_registry_refuses_overwrite_and_unknown_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "locations.json"
