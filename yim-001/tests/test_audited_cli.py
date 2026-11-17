@@ -111,6 +111,12 @@ class AuditedCommandLineTests(unittest.TestCase):
         self.assertEqual(verified["events"], 3)
         self.assertEqual(verified["records"], 1)
 
+    def test_audited_presence_cli_does_not_infer_deletion(self):
+        self.run_cli("audited-init", self.store, "presence-test")
+        absent = self.output(self.run_cli("audited-presence", self.store, "not-here"))
+        self.assertEqual(absent["status"], "not_found_in_loaded_store")
+        self.assertIn("does not establish deletion", absent["interpretation"])
+
     def test_transform_creates_distinct_record_and_preserves_original(self):
         self.run_cli("audited-init", self.store, "lineage-test")
         self.write_content({"text": "Original wording", "language": "en"})
