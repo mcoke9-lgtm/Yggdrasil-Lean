@@ -203,6 +203,14 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
         str(Path(item["path"]).expanduser().absolute()): item
         for item in result.get("searched_locations", [])
     }
+    matched_backup_paths = {
+        str(Path(item["path"]).expanduser().absolute())
+        for item in result.get("validated_backup_matches", [])
+    }
+    lineage_member_paths = {
+        str(Path(item["path"]).expanduser().absolute())
+        for item in lineage.get("member_evidence", [])
+    }
     entries_by_id = {item["entry_id"]: item for item in entries}
     dependency_report = []
     def dependency_closure(entry_id: str) -> list[str]:
@@ -223,15 +231,33 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
             dependency = entries_by_id[dependency_id]
             dependency_path = str(Path(dependency["path"]).expanduser().absolute())
             search_result = searched_by_path.get(dependency_path)
+            search_status = (
+                search_result["status"] if search_result is not None
+                else "not_searched_by_this_registry_query"
+            )
+            contains_requested_record = (
+                dependency_path in matched_backup_paths
+                if dependency["kind"] == "backup" and search_status == "read_and_validated"
+                else None
+            )
             dependency_details.append({
                 "entry_id": dependency_id,
                 "kind": dependency["kind"],
                 "path": dependency["path"],
                 "logical_location": dependency["logical_location"],
-                "search_status": (
-                    search_result["status"] if search_result is not None
-                    else "not_searched_by_this_registry_query"
+                "search_status": search_status,
+                "contains_requested_record": contains_requested_record,
+                "contains_lineage_member_evidence": dependency_path in lineage_member_paths,
+                "recovery_assessment": (
+                    "validated_backup_contains_requested_record"
+                    if contains_requested_record is True
+                    else "validated_backup_does_not_contain_requested_record"
+                    if contains_requested_record is False
+                    else "registered_path_not_validated"
+                    if search_status != "read_and_validated"
+                    else "validated_checkpoint_record_membership_not_assessed"
                 ),
+                "restore_suitability": "not_assessed_by_search",
                 "dependency_is_metadata_not_custody_proof": True,
             })
         dependency_report.append({
