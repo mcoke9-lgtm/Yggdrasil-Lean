@@ -118,7 +118,7 @@ PYTHONPATH=yim-001/src python -m yim001.intake_cli add ./intake.json content.jso
 PYTHONPATH=yim-001/src python -m yim001.intake_cli list ./intake.json
 ```
 
-Each packet retains the submitted JSON content, source kind/reference, language, capture time, and metadata, and is explicitly marked `awaiting_placement`. The queue refuses duplicate packet IDs and validates its structure on load. It is append-only at the packet level in this first version; it has no packet deletion, placement assignment, or automatic import into the audited memory store yet. To move a packet into the Living Tree, an operator must still select a valid logical location and use the audited capture path. This queue does not access ChatGPT conversation history or sync across devices; it is a concrete local handoff mechanism, not automatic capture.
+Each packet retains the submitted JSON content, source kind/reference, language, capture time, and metadata, and is explicitly marked `awaiting_placement`. The queue refuses duplicate packet IDs and validates its structure on load. Packets are retained rather than deleted. Placement is an explicit operator decision, and the `import` command transfers a selected pending packet into the audited memory store while recording the resulting record/version identities in the queue. This queue does not access ChatGPT conversation history or sync across devices; it is a concrete local handoff mechanism, not automatic capture.
 
 
 ### Import a pending packet into the Living Tree
