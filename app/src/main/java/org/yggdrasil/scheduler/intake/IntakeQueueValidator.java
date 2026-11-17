@@ -46,9 +46,7 @@ public final class IntakeQueueValidator {
             Object sourceRef = p.get("source_reference");
             if (sourceRef != JSONObject.NULL && (!(sourceRef instanceof String) || ((String) sourceRef).trim().isEmpty()))
                 throw new IllegalArgumentException("source_reference must be null or non-blank text: " + id);
-            if (!(p.get("metadata") instanceof JSONObject))
-                throw new IllegalArgumentException("metadata must be a JSON object: " + id);
-            if (!p.getBoolean("source_content_preserved_as_submitted"))
+            if (!Boolean.TRUE.equals(p.get("source_content_preserved_as_submitted")))
                 throw new IllegalArgumentException("Source preservation marker must be true: " + id);
             String placement = p.getString("placement_status");
             if ("awaiting_placement".equals(placement)) {
