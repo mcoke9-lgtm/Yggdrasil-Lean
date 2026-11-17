@@ -1,0 +1,29 @@
+name: G2L-001 Library Handoff Export
+
+on:
+  push:
+    branches:
+      - lt-wave2-decision-staging-001
+    paths:
+      - "tools/g2l_export.py"
+      - "transfer-manifest.json"
+      - ".github/workflows/g2l-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source revision
+        uses: actions/checkout@v4
+      - name: Build handoff bundle
+        run: python3 tools/g2l_export.py
+      - name: Upload handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2l-001-handoff
+          path: export/
+          if-no-files-found: error
+          retention-days: 7
