@@ -8,6 +8,7 @@ from .exchange import ExchangeError, apply_exchange, apply_exchange_file, export
 from .recovery import RecoveryError, create_recovery_backup, inspect_recovery_backup, load_recovery_backup, restore_recovery_backup, restore_recovery_backup_file, save_recovery_backup
 from .checkpoints import CheckpointError, create_checkpoint_record, inspect_checkpoint_record, verify_checkpoint_chain
 from .living_tree import LivingTreeIndex, RecordPlacement, TreeIndexError, TreeNode
+from .recovery_search import search_recovery_locations
 
 __all__ = [
     "Conflict", "MemoryStore", "NotFoundError", "RecordError", "ValidationError", "Version",
@@ -18,5 +19,5 @@ __all__ = [
     "ExchangeError", "apply_exchange", "apply_exchange_file", "export_envelope", "inspect_envelope", "load_envelope", "save_envelope", "stage_exchange",
     "RecoveryError", "create_recovery_backup", "inspect_recovery_backup", "load_recovery_backup", "restore_recovery_backup", "restore_recovery_backup_file", "save_recovery_backup",
     "CheckpointError", "create_checkpoint_record", "inspect_checkpoint_record", "verify_checkpoint_chain",
-    "LivingTreeIndex", "RecordPlacement", "TreeIndexError", "TreeNode",
+    "LivingTreeIndex", "RecordPlacement", "TreeIndexError", "TreeNode", "search_recovery_locations",
 ]
