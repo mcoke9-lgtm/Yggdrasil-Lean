@@ -10,6 +10,7 @@ from .checkpoints import CheckpointError, create_checkpoint_record, inspect_chec
 from .living_tree import LivingTreeIndex, RecordPlacement, TreeIndexError, TreeNode
 from .recovery_search import search_recovery_locations
 from .recovery_registry import RecoveryRegistryError, create_recovery_registry, load_recovery_registry, register_recovery_location, search_recovery_registry
+from .intake import IntakeQueueError, WorkIntakeQueue, create_intake_queue, load_intake_queue, save_intake_queue
 
 __all__ = [
     "Conflict", "MemoryStore", "NotFoundError", "RecordError", "ValidationError", "Version",
@@ -21,4 +22,5 @@ __all__ = [
     "RecoveryError", "create_recovery_backup", "create_recovery_restore_plan", "revalidate_recovery_restore_plan", "restore_recovery_plan", "inspect_recovery_backup", "load_recovery_backup", "restore_recovery_backup", "restore_recovery_backup_file", "save_recovery_backup",
     "CheckpointError", "create_checkpoint_record", "inspect_checkpoint_record", "verify_checkpoint_chain",
     "LivingTreeIndex", "RecordPlacement", "TreeIndexError", "TreeNode", "search_recovery_locations", "RecoveryRegistryError", "create_recovery_registry", "load_recovery_registry", "register_recovery_location", "search_recovery_registry",
+    "IntakeQueueError", "WorkIntakeQueue", "create_intake_queue", "load_intake_queue", "save_intake_queue",
 ]
