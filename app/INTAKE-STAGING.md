@@ -43,3 +43,8 @@ The adapter accepts only `YIM-001-Work-Intake-Queue` version 2, exact queue and 
 - A separate Roots adapter with format-parity tests, atomic audited writes, exact Tree-node validation, backup, read-back, and provenance verification.
 
 No APK has been built or installed by this change. The pull request remains draft and unmerged.
+
+
+## Verification record
+
+The source and test files are committed on the draft implementation branch. GitHub Actions execution has not yet been observed for this PR; no Android build or unit-test pass is claimed until the workflow reports results.
