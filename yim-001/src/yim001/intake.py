@@ -64,9 +64,11 @@ class WorkIntakeQueue:
         if not isinstance(stamp, str) or not stamp.strip():
             raise IntakeQueueError("captured_at must be an ISO-8601 timestamp")
         try:
-            datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            parsed_stamp = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            if parsed_stamp.tzinfo is None or parsed_stamp.utcoffset() is None:
+                raise ValueError("timestamp has no UTC offset")
         except ValueError as exc:
-            raise IntakeQueueError("captured_at must be an ISO-8601 timestamp") from exc
+            raise IntakeQueueError("captured_at must be ISO-8601 with a UTC offset") from exc
         packet = {
             "packet_id": identifier,
             "captured_at": stamp,
@@ -162,7 +164,9 @@ class WorkIntakeQueue:
             if not isinstance(packet["captured_at"], str) or not packet["captured_at"].strip():
                 raise IntakeQueueError(f"invalid capture timestamp at index {index}")
             try:
-                datetime.fromisoformat(packet["captured_at"].replace("Z", "+00:00"))
+                parsed_stamp = datetime.fromisoformat(packet["captured_at"].replace("Z", "+00:00"))
+                if parsed_stamp.tzinfo is None or parsed_stamp.utcoffset() is None:
+                    raise ValueError("timestamp has no UTC offset")
             except ValueError as exc:
                 raise IntakeQueueError(f"invalid capture timestamp at index {index}") from exc
             if packet["placement_status"] == "awaiting_placement":
