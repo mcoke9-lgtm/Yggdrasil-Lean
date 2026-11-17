@@ -154,6 +154,17 @@ class RecoveryBackupTests(unittest.TestCase):
                 revalidate_recovery_restore_plan(plan)["status"],
                 "valid_pending_authorization",
             )
+            preservation = root / "collision.bin"
+            preservation.write_bytes(b"do not replace")
+            destination.write_bytes(b"existing destination")
+            plan_with_preservation = create_recovery_restore_plan(
+                backup_path, self.first.record_id, destination,
+                preserve_path=root / "reserved.bin",
+            )
+            Path(plan_with_preservation["destination"]["preserve_path"]).write_bytes(b"occupied")
+            with self.assertRaisesRegex(RecoveryError, "preservation path is unavailable"):
+                revalidate_recovery_restore_plan(plan_with_preservation)
+            self.assertEqual(preservation.read_bytes(), b"do not replace")
 
     def test_restore_plan_requires_authorization_and_revalidates_before_write(self):
         from yim001.recovery import create_recovery_restore_plan, restore_recovery_plan
