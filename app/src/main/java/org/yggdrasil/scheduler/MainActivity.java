@@ -294,13 +294,9 @@ public final class MainActivity extends Activity {
             final IntakeQueueValidator.ValidatedQueue queue = IntakeQueueValidator.validate(raw);
             new AlertDialog.Builder(this)
                     .setTitle("Stage Living Tree intake queue?")
-                    .setMessage("Queue: " + queue.queueId + "
-Packets: " + queue.packetCount
-                            + "
-Awaiting Tree placement: " + queue.pendingCount
-                            + "
-
-This stores the submitted queue in a separate private staging database. "
+                    .setMessage("Queue: " + queue.queueId + "\\nPackets: " + queue.packetCount
+                            + "\\nAwaiting Tree placement: " + queue.pendingCount
+                            + "\\n\\nThis stores the submitted queue in a separate private staging database. "
                             + "It does not import into Roots or assign Tree locations.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Stage queue", (dialog, which) -> {
