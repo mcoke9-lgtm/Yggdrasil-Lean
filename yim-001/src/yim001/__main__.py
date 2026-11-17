@@ -95,7 +95,7 @@ def _parser() -> argparse.ArgumentParser:
     registry_search.add_argument("record_id")
     registry_search.add_argument("registry", type=Path)
 
-        audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
+    audited_show = commands.add_parser("audited-show", help="display an audited record history, version, or event ledger")
     audited_show.add_argument("store", type=Path)
     audited_target = audited_show.add_mutually_exclusive_group(required=True)
     audited_target.add_argument("--record", dest="record_id")
