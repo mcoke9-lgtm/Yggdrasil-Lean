@@ -79,6 +79,8 @@ class WorkIntakeQueue:
             "primary_logical_location": None,
             "contextual_logical_locations": [],
             "source_content_preserved_as_submitted": True,
+            "imported_record_id": None,
+            "imported_version_id": None,
         }
         self._packets.append(packet)
         return _snapshot(packet, "packet")
@@ -88,6 +90,39 @@ class WorkIntakeQueue:
             _snapshot(packet, "packet") for packet in self._packets
             if packet["placement_status"] == "awaiting_placement"
         )
+
+    def mark_imported(
+        self, packet_id: str, *, primary_logical_location: str,
+        contextual_logical_locations: list[str], record_id: str, version_id: str,
+    ) -> dict[str, Any]:
+        matches = [packet for packet in self._packets if packet["packet_id"] == packet_id]
+        if not matches:
+            raise IntakeQueueError(f"intake packet not found: {packet_id}")
+        packet = matches[0]
+        expected = (record_id, version_id, primary_logical_location, contextual_logical_locations)
+        if packet["placement_status"] == "imported":
+            actual = (
+                packet["imported_record_id"], packet["imported_version_id"],
+                packet["primary_logical_location"], packet["contextual_logical_locations"],
+            )
+            if actual != expected:
+                raise IntakeQueueError("packet was already imported with different identities or placement")
+            return _snapshot(packet, "packet")
+        if not all(isinstance(value, str) and value.strip() for value in
+                   (primary_logical_location, record_id, version_id)):
+            raise IntakeQueueError("import identity and primary location must be non-empty")
+        if not isinstance(contextual_logical_locations, list) or not all(
+            isinstance(node, str) and node.strip() for node in contextual_logical_locations
+        ):
+            raise IntakeQueueError("contextual locations must be non-empty identifiers")
+        if primary_logical_location in contextual_logical_locations or len(set(contextual_logical_locations)) != len(contextual_logical_locations):
+            raise IntakeQueueError("contextual locations must be unique and differ from primary")
+        packet["placement_status"] = "imported"
+        packet["primary_logical_location"] = primary_logical_location
+        packet["contextual_logical_locations"] = list(contextual_logical_locations)
+        packet["imported_record_id"] = record_id
+        packet["imported_version_id"] = version_id
+        return _snapshot(packet, "packet")
 
     def to_snapshot(self) -> dict[str, Any]:
         return {
@@ -114,7 +149,7 @@ class WorkIntakeQueue:
             "packet_id", "captured_at", "source_kind", "source_reference",
             "language", "content", "metadata", "placement_status",
             "primary_logical_location", "contextual_logical_locations",
-            "source_content_preserved_as_submitted",
+            "source_content_preserved_as_submitted", "imported_record_id", "imported_version_id",
         }
         for index, packet in enumerate(self._packets):
             if not isinstance(packet, dict) or set(packet) != required:
@@ -122,7 +157,7 @@ class WorkIntakeQueue:
             identifier = packet["packet_id"]
             if not isinstance(identifier, str) or not identifier.strip() or identifier in seen:
                 raise IntakeQueueError(f"invalid or duplicate packet identity at index {index}")
-            if packet["placement_status"] != "awaiting_placement":
+            if packet["placement_status"] not in {"awaiting_placement", "imported"}:
                 raise IntakeQueueError(f"unsupported placement status at index {index}")
             if not isinstance(packet["captured_at"], str) or not packet["captured_at"].strip():
                 raise IntakeQueueError(f"invalid capture timestamp at index {index}")
@@ -130,8 +165,22 @@ class WorkIntakeQueue:
                 datetime.fromisoformat(packet["captured_at"].replace("Z", "+00:00"))
             except ValueError as exc:
                 raise IntakeQueueError(f"invalid capture timestamp at index {index}") from exc
-            if packet["primary_logical_location"] is not None or packet["contextual_logical_locations"] != []:
-                raise IntakeQueueError(f"unplaced packet contains Tree placements at index {index}")
+            if packet["placement_status"] == "awaiting_placement":
+                if packet["primary_logical_location"] is not None or packet["contextual_logical_locations"] != []:
+                    raise IntakeQueueError(f"unplaced packet contains Tree placements at index {index}")
+                if packet["imported_record_id"] is not None or packet["imported_version_id"] is not None:
+                    raise IntakeQueueError(f"pending packet contains import identity at index {index}")
+            else:
+                if not isinstance(packet["primary_logical_location"], str) or not packet["primary_logical_location"].strip():
+                    raise IntakeQueueError(f"imported packet lacks primary Tree location at index {index}")
+                if not isinstance(packet["contextual_logical_locations"], list) or not all(
+                    isinstance(node, str) and node.strip() for node in packet["contextual_logical_locations"]
+                ):
+                    raise IntakeQueueError(f"invalid imported contextual locations at index {index}")
+                if not isinstance(packet["imported_record_id"], str) or not packet["imported_record_id"].strip():
+                    raise IntakeQueueError(f"imported packet lacks record identity at index {index}")
+                if not isinstance(packet["imported_version_id"], str) or not packet["imported_version_id"].strip():
+                    raise IntakeQueueError(f"imported packet lacks version identity at index {index}")
             if packet["source_content_preserved_as_submitted"] is not True:
                 raise IntakeQueueError(f"source preservation marker is invalid at index {index}")
             if not isinstance(packet["source_kind"], str) or not packet["source_kind"].strip():
