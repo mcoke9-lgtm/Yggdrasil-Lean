@@ -205,6 +205,18 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
     }
     entries_by_id = {item["entry_id"]: item for item in entries}
     dependency_report = []
+    def dependency_closure(entry_id: str) -> list[str]:
+        ordered: list[str] = []
+        visited: set[str] = set()
+        def visit(current_id: str) -> None:
+            for parent_id in entries_by_id[current_id]["depends_on"]:
+                if parent_id not in visited:
+                    visited.add(parent_id)
+                    ordered.append(parent_id)
+                    visit(parent_id)
+        visit(entry_id)
+        return ordered
+
     for item in entries:
         dependency_details = []
         for dependency_id in item["depends_on"]:
@@ -225,6 +237,7 @@ def search_recovery_registry(record_id: str, registry_path: str | Path) -> dict[
         dependency_report.append({
             "entry_id": item["entry_id"],
             "dependencies": dependency_details,
+            "transitive_dependency_entry_ids": dependency_closure(item["entry_id"]),
         })
     result["registered_dependencies"] = [
         {"entry_id": item["entry_id"], "depends_on": item["depends_on"]}
