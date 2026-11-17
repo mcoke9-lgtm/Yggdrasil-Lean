@@ -79,3 +79,31 @@ Proposed contextual placement: unresolved. Existing tests use `branches.projects
 4. Build and verify the Android package in CI.
 5. Install and test on the user's phone only after explicit installation authorization.
 6. Keep deployment, cloud hosting, repository publication of personal memory, and remote synchronization out of scope unless separately authorized.
+
+
+## Android-local staging implementation checkpoint — 2026-11-17
+
+A first Android-native intake staging implementation has been created on a separate branch and opened as draft PR #67:
+
+- Branch: `android-yim-intake-staging-002`
+- PR: https://github.com/mcoke9-lgtm/Yggdrasil-Lean/pull/67
+- Based on the current Android host branch `independent-builder-runtime-foundation-001`.
+
+Implemented in source:
+- Strict YIM-001 queue version 2 validation, including exact field sets, typed identifiers, timestamps with offsets, unique packet identities, and source-preservation marker.
+- Android document-picker flow with a confirmation preview.
+- Separate private SQLite database `yim_intake_staging.db`.
+- Atomic staging transaction, preservation of the exact submitted queue text, idempotent repeat staging, and rejection of changed content under an existing queue/packet identity.
+- Pending packet count refresh on host status.
+- Unit tests for valid staging, retry behavior, changed-content rejection, malformed/duplicate identity, and database restart persistence.
+
+This stage is intentionally **not** canonical Roots import. It does not write to the YIM audited store, assign Tree nodes, update the Builder conversation store, or write to the Builder event journal.
+
+Verification status:
+- Source files committed and read back from GitHub.
+- Draft PR created; no merge or installation.
+- The Android unit-test workflow has not yet produced an observed run for this draft PR. No Android build/test pass is claimed.
+- Actual phone document-picker and restart testing remain pending.
+- The earlier test packet `60d49085-b029-400a-adc2-f746b2bc2eb4` remains outside the phone's private staging database until a device build is installed and the user imports the exported queue.
+
+The Android integration is therefore at **implemented in source / awaiting build verification**, not tested or adopted.
