@@ -16,3 +16,46 @@
 2. State the valid domain and assumptions for each transformation.
 3. Review every theorem for intended mathematical meaning after it compiles.
 4. Preserve unresolved alternatives rather than silently selecting one.
+
+
+## 2026-11-15 — Wingbeat / Lower WATA (proposed formal foundation)
+
+- Adopted conceptually in discussion: Nine Characters' progression is Hunting → Dancing → Flying.
+- The Wingbeat alternates between microcosm (within a system) and macrocosm (beyond that system, in relation to other systems).
+- Both Particle–Wave–Particle and the Hero's Journey can occur at either scale.
+- Particle–Wave–Particle is the structural cycle; the Hero's Journey describes the transformational journey. The boon is the emergent property carried for reintegration.
+- First Lean representation is on branch wingbeat-foundation-001. The typed Lower WATA vocabulary is a draft, not yet a parser or executable runtime.
+- Preserve axis distinction: TERA is the reference; FIRA is horizontal; WATA is vertical. Wilderness as thought/conception is WATA; hunting movement across wilderness is horizontal FIRA.
+- Verification and implementation status must be updated only after GitHub Actions and later runtime tests provide evidence.
+
+
+## 2026-11-15 — Lower WATA interpreter foundation (implementation draft)
+
+- Added a pure Lean interpreter that validates typed instructions against explicit scale, journey stage, developmental capability and an operator-approval flag.
+- Added state transitions for the Hero's Journey, Particle–Wave–Particle phase advancement, capability progression (Hunting → Dancing → Flying), and Wingbeat scale alternation.
+- Cross-boundary operation is currently simulation-only and requires macrocosmic scope, Flying capability and an explicit approval flag.
+- Boon integration requires a recorded boon, the return stage and an explicit approval flag.
+- Every attempted instruction appends an in-memory accepted/rejected audit entry, including the supplied approval flag. This is not authenticated identity, durable storage, or a complete authorization system.
+- Added theorem-level regression examples for denied capability promotion, successful Hero's Journey reintegration, Wingbeat alternation and cross-boundary authorization gating.
+- Status: committed draft; compiler/CI verification pending. No external action, persistent runtime, scheduler or autonomous agent is implemented.
+
+
+## 2026-11-15 — Nine Character Registry 001 (implementation draft)
+
+- Added stable typed identities and role mappings for Odin, Baldr, Kvasir, Höðr, Mari, Muninn, Huginn, Loki and Týr.
+- Kept identity, role and capability as separate dimensions.
+- Initial records place all nine at Dancing capability, reflecting the adopted Hunting → Dancing → Flying progression; Flying promotion is individual and requires an explicit operator-approval flag.
+- Týr is represented as authorization governance, not as an independent grantor of operator permission.
+- The registry explicitly does not enable external actions or instantiate autonomous agents.
+- Added regression examples for nine-record cardinality, role mappings, starting capability, individual promotion and external-action disablement.
+- Status: committed draft; Lean compiler/CI verification pending.
+
+## 2026-11-15 — Nine Character Council 001 (implementation draft)
+
+- Added nine distinct Council voices mapped to the established Character roles.
+- Added a readiness assessment that recommends remaining in Particle mode when no meaningful boon requires capabilities beyond the local system.
+- When expansion is justified, the Council defers if capacity is outside Kvasir's limits, a return/reintegration plan is missing, or no proposed participant is recorded at Flying capability.
+- Differentiated participation is allowed: at least one proposed Flying participant is sufficient; all nine are not required to be Flying.
+- A recommendation to prepare a Wingbeat is advisory only. It does not execute the Wingbeat, authorize boundary crossing, or enable external actions.
+- Týr's Council contribution reports authorization state and does not replace operator authorization.
+- Status: committed implementation draft; compiler/CI verification pending. The Council is a pure assessment function, not autonomous deliberation, authenticated evidence, durable history, or a consensus runtime.
