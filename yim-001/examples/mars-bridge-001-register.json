@@ -1,0 +1,88 @@
+{
+  "format": "YIM-001-Human-Understanding-Register",
+  "format_version": 1,
+  "registry_id": "living-tree-human-understanding",
+  "events": [
+    {
+      "sequence": 1,
+      "event_id": "evt-mars-bridge-entry-001",
+      "event_type": "entry.created",
+      "actor_id": "human",
+      "payload": {
+        "entry_id": "mars-bridge-001",
+        "technical_id": "MARS-BRIDGE-001",
+        "purpose": "Coordinate voluntary cultural, scientific, and educational cooperation for sustainable human futures.",
+        "keywords": [
+          "Mars",
+          "Vermont",
+          "Maine",
+          "California",
+          "Cuba",
+          "education",
+          "cooperation"
+        ],
+        "preserved_terms": [
+          "MARS-BRIDGE-001",
+          "Mathematics on Mars"
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "event_id": "evt-mars-bridge-mari-proposal-001",
+      "event_type": "name.proposed",
+      "actor_id": "mari",
+      "payload": {
+        "entry_id": "mars-bridge-001",
+        "proposal_id": "mari-name-001",
+        "proposer_role": "Mari",
+        "preferred_option_id": "shared-future",
+        "options": [
+          {
+            "option_id": "shared-future",
+            "human_name": "Building Bridges to a Shared Future",
+            "meaning": "Connecting communities and disciplines to build a peaceful human future on Earth and beyond.",
+            "strengths": [
+              "Warm and inclusive",
+              "Connects Earth-based cooperation with Mars"
+            ],
+            "limitations": [
+              "Does not explicitly name Mars"
+            ]
+          },
+          {
+            "option_id": "path-beyond-earth",
+            "human_name": "A Shared Path Beyond Earth",
+            "meaning": "A cooperative pathway toward sustainable human presence beyond Earth.",
+            "strengths": [
+              "Concise",
+              "Clearly signals the space objective"
+            ],
+            "limitations": [
+              "Less explicit about Earth-based contributors"
+            ]
+          },
+          {
+            "option_id": "earth-to-mars",
+            "human_name": "Earth-to-Mars Partnership",
+            "meaning": "A practical partnership connecting Earth communities with Mars preparation.",
+            "strengths": [
+              "Direct and easy to understand"
+            ],
+            "limitations": [
+              "May imply formal partners already exist"
+            ]
+          }
+        ],
+        "competing_interpretations": [
+          "The initiative is primarily about Mars exploration and settlement.",
+          "The initiative is primarily about cultural change and international cooperation on Earth.",
+          "The initiative must communicate both purposes without implying that institutional partnerships already exist."
+        ],
+        "source_refs": [
+          "conversation:MARS-BRIDGE-001-naming-discussion"
+        ]
+      }
+    }
+  ]
+}
