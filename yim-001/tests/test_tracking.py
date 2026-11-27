@@ -132,6 +132,53 @@ class TrackingRegisterTests(unittest.TestCase):
                 captured_at=STAMP,
             )
 
+    def test_source_recovery_is_explicit_and_append_only(self):
+        register = self.make_register()
+        self.assertEqual(register.items()[0]["source_recovery_status"], "unknown")
+        register.record_source_recovery(
+            tracking_id="news-001", status="unavailable",
+            retrieval_notes="Publisher page returned an access error",
+            source_ref="https://example.test/article",
+            event_id="evt-2", actor_id="retriever", timestamp=STAMP,
+        )
+        register.record_source_recovery(
+            tracking_id="news-001", status="partial",
+            retrieval_notes="Headline and date recovered from archive",
+            source_ref="https://archive.example.test/article",
+            event_id="evt-3", actor_id="retriever", timestamp=STAMP,
+        )
+        row = register.items()[0]
+        self.assertEqual(row["source_recovery_status"], "partial")
+        self.assertEqual(len(row["source_recovery_history"]), 2)
+        self.assertEqual(len(register.events), 3)
+
+    def test_search_preserves_state_and_item_event_history(self):
+        register = self.make_register()
+        register.start_tracking(tracking_id="news-001", event_id="evt-2",
+                                actor_id="human", timestamp=STAMP)
+        found = register.search("europe", states=["Tracking"])
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["state"], "Tracking")
+        self.assertEqual([e["event_id"] for e in found[0]["event_history"]],
+                         ["evt-1", "evt-2"])
+        self.assertEqual(register.search("europe", states=["Observed"]), [])
+
+    def test_export_preserves_complete_lifecycle_event_history(self):
+        register = self.make_register()
+        register.start_tracking(tracking_id="news-001", event_id="evt-2",
+                                actor_id="human", timestamp=STAMP)
+        exported = register.export_json()
+        recovered = TrackingRegister.from_snapshot(__import__("json").loads(exported))
+        self.assertEqual(recovered.to_snapshot(), register.to_snapshot())
+        self.assertEqual(len(recovered.events), 2)
+        self.assertEqual(recovered.items()[0]["state"], "Tracking")
+
+    def test_malformed_snapshot_types_raise_register_error(self):
+        snapshot = self.make_register().to_snapshot()
+        snapshot["events"][0]["event_type"] = []
+        with self.assertRaises(TrackingRegisterError):
+            TrackingRegister.from_snapshot(snapshot)
+
     def test_timezone_is_required(self):
         register = TrackingRegister("test")
         with self.assertRaisesRegex(TrackingRegisterError, "include a timezone"):
