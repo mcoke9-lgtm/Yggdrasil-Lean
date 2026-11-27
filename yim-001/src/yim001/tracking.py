@@ -404,14 +404,14 @@ class TrackingRegister:
             or snapshot["format_version"] not in cls.SUPPORTED_FORMAT_VERSIONS
         ):
             raise TrackingRegisterError("unsupported register format or version")
-        if version == 3:
-            _text(snapshot["registry_id"], "registry_id")
-            expected_snapshot_hash = hashlib.sha256(_canonical({
-                "registry_id": snapshot["registry_id"], "events": snapshot["events"],
-            })).hexdigest()
-            if not isinstance(snapshot["snapshot_hash"], str) or snapshot["snapshot_hash"] != expected_snapshot_hash:
-                raise TrackingRegisterError("snapshot integrity hash mismatch")
         try:
+            if version == 3:
+                _text(snapshot["registry_id"], "registry_id")
+                expected_snapshot_hash = hashlib.sha256(_canonical({
+                    "registry_id": snapshot["registry_id"], "events": snapshot["events"],
+                })).hexdigest()
+                if not isinstance(snapshot["snapshot_hash"], str) or snapshot["snapshot_hash"] != expected_snapshot_hash:
+                    raise TrackingRegisterError("snapshot integrity hash mismatch")
             return cls(snapshot["registry_id"], snapshot["events"])
         except TrackingRegisterError:
             raise
