@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from .intake import WorkIntakeQueue
 from .naming import HumanUnderstandingRegister, NamingRegistryError
 
 
@@ -30,13 +29,13 @@ class HumanUnderstandingLifecycle:
 
     def __init__(
         self,
-        queue: WorkIntakeQueue,
+        queue: Any,
         register: HumanUnderstandingRegister,
         *,
         proposer: MariProposalProvider | None = None,
     ) -> None:
-        if not isinstance(queue, WorkIntakeQueue):
-            raise TypeError("queue must be a WorkIntakeQueue")
+        if not hasattr(queue, "packets"):
+            raise TypeError("queue must expose an immutable packets collection")
         if not isinstance(register, HumanUnderstandingRegister):
             raise TypeError("register must be a HumanUnderstandingRegister")
         if proposer is not None and not callable(proposer):
