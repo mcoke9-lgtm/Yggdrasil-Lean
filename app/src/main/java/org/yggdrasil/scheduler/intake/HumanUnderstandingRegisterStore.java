@@ -163,6 +163,14 @@ public final class HumanUnderstandingRegisterStore extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized boolean hasProposal(String entryId) {
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT proposal_id FROM proposals WHERE entry_id=? LIMIT 1",
+                new String[]{entryId})) {
+            return c.moveToFirst();
+        }
+    }
+
     public synchronized void requireEntryIdentity(String entryId, String technicalId, String purpose) {
         requireText(entryId, "entryId"); requireText(technicalId, "technicalId");
         requireText(purpose, "purpose");
