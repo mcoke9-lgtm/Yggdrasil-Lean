@@ -69,8 +69,12 @@ public final class HumanUnderstandingRegisterStore extends SQLiteOpenHelper {
                 if (c.moveToFirst()) {
                     if (!technicalId.equals(c.getString(0)) || !purpose.equals(c.getString(1)))
                         throw new IllegalStateException("Existing entry identity conflicts with requested identity");
+                    JSONObject original = findEvent(db, "entry.created", entryId);
+                    if (!new JSONArray(keywords.toString()).toString().equals(original.getJSONArray("keywords").toString())
+                            || !new JSONArray(preservedTerms.toString()).toString().equals(original.getJSONArray("preserved_terms").toString()))
+                        throw new IllegalStateException("Existing entry metadata conflicts with requested metadata");
                     db.setTransactionSuccessful();
-                    return findEvent(db, "entry.created", entryId);
+                    return original;
                 }
             }
             ContentValues entry = new ContentValues();
@@ -201,7 +205,12 @@ public final class HumanUnderstandingRegisterStore extends SQLiteOpenHelper {
 
     private static void validateStringArray(JSONArray values, String field) throws JSONException {
         if (values == null) throw new IllegalArgumentException(field + " must be an array");
-        for (int i=0;i<values.length();i++) requireText(values.getString(i), field + "[" + i + "]");
+        for (int i=0;i<values.length();i++) {
+            Object item=values.get(i);
+            if (!(item instanceof String))
+                throw new IllegalArgumentException(field + "[" + i + "] must be text");
+            requireText((String)item, field + "[" + i + "]");
+        }
     }
 
     private static void requireText(String value, String field) {
