@@ -77,6 +77,10 @@ public final class StagedIntakeNamingServiceTest {
         assertEquals(1,first.registered);
         assertEquals(1,first.proposals);
         assertEquals(0,first.failures);
+        assertTrue(first.proposalSummary.contains("YIM-PACKET/queue-001/packet-001"));
+        assertTrue(first.proposalSummary.contains("Building Bridges"));
+        assertTrue(first.proposalSummary.contains("Shared Path"));
+        assertTrue(first.proposalSummary.contains("not been adopted"));
         assertEquals(1,calls.get());
         StagedIntakeNamingService.Result second=new StagedIntakeNamingService(context,provider).processPending();
         assertEquals(0,second.registered);
