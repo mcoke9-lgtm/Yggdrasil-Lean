@@ -55,7 +55,7 @@ Each event should include:
 - event payload
 - prior-event digest or equivalent integrity link
 
-Corrections append a new event and preserve the earlier record. They do not silently rewrite source content or history.
+Corrections append a new event and preserve the earlier record. They do not silently rewrite source content or history. Snapshot format version 2 adds source-recovery fields. Version 1 snapshots remain readable; legacy observations are exposed with recovery status `unknown`, and their original event payloads and hashes are preserved.
 
 ## Operating rules
 
