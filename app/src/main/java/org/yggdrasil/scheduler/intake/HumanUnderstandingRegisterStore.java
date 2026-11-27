@@ -163,6 +163,17 @@ public final class HumanUnderstandingRegisterStore extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized void requireEntryIdentity(String entryId, String technicalId, String purpose) {
+        requireText(entryId, "entryId"); requireText(technicalId, "technicalId");
+        requireText(purpose, "purpose");
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT technical_id,purpose FROM entries WHERE entry_id=?",
+                new String[]{entryId})) {
+            if (!c.moveToFirst() || !technicalId.equals(c.getString(0)) || !purpose.equals(c.getString(1)))
+                throw new IllegalArgumentException("Proposal request does not match the registered technical identity");
+        }
+    }
+
     private static void appendEvent(SQLiteDatabase db, String id, String type, String actor, JSONObject payload) {
         ContentValues event = new ContentValues();
         event.put("event_id", id); event.put("event_type", type);
