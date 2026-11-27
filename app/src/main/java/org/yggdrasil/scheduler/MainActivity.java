@@ -19,6 +19,7 @@ import org.yggdrasil.scheduler.builder.BuilderLocalExchange;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import org.yggdrasil.scheduler.intake.IntakeQueueValidator;
 import org.yggdrasil.scheduler.intake.IntakeStagingStore;
+import org.yggdrasil.scheduler.intake.StagedIntakeNamingService;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
