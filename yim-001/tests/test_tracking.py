@@ -120,8 +120,10 @@ class TrackingRegisterTests(unittest.TestCase):
 
     def test_invalid_transition_and_duplicate_identity_are_rejected(self):
         register = self.make_register()
+        register.start_tracking(tracking_id="news-001", event_id="evt-2",
+                                actor_id="human", timestamp=STAMP)
         with self.assertRaisesRegex(TrackingRegisterError, "only once from Observed"):
-            register.start_tracking(tracking_id="news-001", event_id="evt-2",
+            register.start_tracking(tracking_id="news-001", event_id="evt-3",
                                     actor_id="human", timestamp=STAMP)
         with self.assertRaisesRegex(TrackingRegisterError, "duplicate tracking_id"):
             register.observe(
@@ -132,7 +134,7 @@ class TrackingRegisterTests(unittest.TestCase):
 
     def test_timezone_is_required(self):
         register = TrackingRegister("test")
-        with self.assertRaisesRegex(TrackingRegisterError, "timezone-aware"):
+        with self.assertRaisesRegex(TrackingRegisterError, "include a timezone"):
             register.observe(
                 tracking_id="bad", source_title="Bad timestamp",
                 event_id="evt-1", actor_id="human", timestamp="2026-11-27T12:00:00",
