@@ -104,14 +104,25 @@ public final class HumanUnderstandingRegisterStore extends SQLiteOpenHelper {
         try {
             if (!exists(db, "SELECT entry_id FROM entries WHERE entry_id=?", entryId))
                 throw new IllegalArgumentException("Proposal references an unknown entry");
-            if (exists(db, "SELECT proposal_id FROM proposals WHERE proposal_id=?", proposalId))
-                throw new IllegalArgumentException("Duplicate proposal_id");
             JSONObject payload = new JSONObject();
             payload.put("entry_id", entryId); payload.put("proposal_id", proposalId);
             payload.put("proposer_role", "Mari"); payload.put("preferred_option_id", preferredOptionId);
             payload.put("options", new JSONArray(options.toString()));
             payload.put("competing_interpretations", new JSONArray(competingInterpretations.toString()));
             payload.put("source_refs", new JSONArray(sourceRefs.toString()));
+            try (Cursor existing = db.rawQuery(
+                    "SELECT entry_id,event_id,payload_json FROM proposals WHERE proposal_id=?",
+                    new String[]{proposalId})) {
+                if (existing.moveToFirst()) {
+                    if (entryId.equals(existing.getString(0))
+                            && eventId.equals(existing.getString(1))
+                            && payload.toString().equals(existing.getString(2))) {
+                        db.setTransactionSuccessful();
+                        return payload;
+                    }
+                    throw new IllegalArgumentException("Proposal identity was reused with conflicting content");
+                }
+            }
             ContentValues proposal = new ContentValues();
             proposal.put("proposal_id", proposalId); proposal.put("entry_id", entryId);
             proposal.put("event_id", eventId); proposal.put("payload_json", payload.toString());
