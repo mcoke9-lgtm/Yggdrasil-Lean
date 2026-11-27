@@ -1,0 +1,29 @@
+name: YIM-001 Human Understanding Lifecycle
+
+on:
+  push:
+    branches:
+      - human-understanding-intake-lifecycle-001
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim-001-human-understanding-lifecycle.yml"
+  pull_request:
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim-001-human-understanding-lifecycle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Human Understanding Register and lifecycle tests
+        working-directory: yim-001
+        run: PYTHONPATH=src python -m unittest discover -s tests -p "test_*naming*.py" -v
