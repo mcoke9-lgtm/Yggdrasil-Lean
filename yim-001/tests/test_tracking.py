@@ -117,7 +117,7 @@ class TrackingRegisterTests(unittest.TestCase):
             TrackingRegister.from_snapshot(snapshot)
         snapshot = self.make_register().to_snapshot()
         snapshot["events"][0]["previous_event_hash"] = "wrong"
-        with self.assertRaisesRegex(TrackingRegisterError, "history link mismatch"):
+        with self.assertRaisesRegex(TrackingRegisterError, "snapshot integrity hash mismatch"):
             TrackingRegister.from_snapshot(snapshot)
 
     def test_invalid_transition_and_duplicate_identity_are_rejected(self):
@@ -151,7 +151,7 @@ class TrackingRegisterTests(unittest.TestCase):
         )
         row = register.items()[0]
         self.assertEqual(row["source_recovery_status"], "partial")
-        self.assertEqual(len(row["source_recovery_history"]), 2)
+        self.assertEqual(len(row["source_recovery_history"]), 3)
         self.assertEqual(len(register.events), 3)
 
     def test_search_preserves_state_and_item_event_history(self):
@@ -178,6 +178,7 @@ class TrackingRegisterTests(unittest.TestCase):
     def test_version_one_snapshot_migrates_without_losing_event_history(self):
         snapshot = self.make_register().to_snapshot()
         snapshot["format_version"] = 1
+        snapshot.pop("snapshot_hash")
         payload = snapshot["events"][0]["payload"]
         payload.pop("source_recovery_status")
         payload.pop("retrieval_notes")
