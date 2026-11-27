@@ -192,13 +192,37 @@ class TrackingRegisterTests(unittest.TestCase):
         migrated = TrackingRegister.from_snapshot(snapshot)
         self.assertEqual(migrated.items()[0]["source_recovery_status"], "unknown")
         self.assertEqual(migrated.events[0]["event_id"], "evt-1")
-        self.assertEqual(migrated.to_snapshot()["format_version"], 2)
+        self.assertEqual(migrated.to_snapshot()["format_version"], 3)
 
     def test_malformed_snapshot_types_raise_register_error(self):
         snapshot = self.make_register().to_snapshot()
         snapshot["events"][0]["event_type"] = []
         with self.assertRaises(TrackingRegisterError):
             TrackingRegister.from_snapshot(snapshot)
+
+    def test_snapshot_hash_binds_registry_identity_and_events(self):
+        snapshot = self.make_register().to_snapshot()
+        snapshot["registry_id"] = "different-registry"
+        with self.assertRaisesRegex(TrackingRegisterError, "snapshot integrity hash mismatch"):
+            TrackingRegister.from_snapshot(snapshot)
+
+    def test_search_includes_event_actor_and_timestamp_metadata(self):
+        register = self.make_register()
+        register.start_tracking(
+            tracking_id="news-001", event_id="evt-2",
+            actor_id="archivist-special", timestamp=STAMP,
+        )
+        found = register.search("archivist-special")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["event_history"][-1]["actor_id"], "archivist-special")
+
+    def test_initial_recovery_status_is_in_recovery_history_projection(self):
+        register = self.make_register()
+        history = register.items()[0]["source_recovery_history"]
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["status"], "unknown")
+        self.assertEqual(history[0]["event_id"], "evt-1")
+        self.assertEqual(history[0]["event_type"], "item.observed")
 
     def test_timezone_is_required(self):
         register = TrackingRegister("test")
