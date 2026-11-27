@@ -22,7 +22,7 @@ Focused tests:
 PYTHONPATH=src python -m unittest discover -s tests -p "test_tracking.py" -v
 ```
 
-The Tracking Register uses only the Python standard library. JSON snapshots are written atomically for a single writer, and each event is linked to the preceding event with SHA-256 and validated on load. Source retrieval outcomes (`unknown`, `available`, `partial`, `unavailable`) are retained as append-only events. Lifecycle-aware search returns matching items with their event histories, and JSON export preserves the full event chain. Malformed snapshots are rejected with `TrackingRegisterError`.
+The Tracking Register uses only the Python standard library. JSON snapshots are written atomically for a single writer, and each event is linked to the preceding event with SHA-256 and validated on load. Source retrieval outcomes (`unknown`, `available`, `partial`, `unavailable`) are retained as append-only events. Lifecycle-aware search returns matching items with their event histories, and JSON export preserves the full event chain. Malformed snapshots are rejected with `TrackingRegisterError`. The recovery-field schema is format version 2; version 1 snapshots remain readable and are upgraded on the next export without rewriting their original event payloads or hashes.
 
 ## Boundaries
 
