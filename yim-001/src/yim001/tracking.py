@@ -57,7 +57,8 @@ def _string_list(value: Any, field: str) -> None:
 
 class TrackingRegister:
     FORMAT = "YIM-001-Tracking-Register"
-    FORMAT_VERSION = 1
+    FORMAT_VERSION = 2
+    SUPPORTED_FORMAT_VERSIONS = {1, 2}
     EVENT_TYPES = {
         "item.observed", "tracking.started", "update.captured",
         "assessment.recorded", "adoption.authorized", "correction.appended",
@@ -139,12 +140,12 @@ class TrackingRegister:
             _text(tracking_id, "tracking_id")
 
             if kind == "item.observed":
-                required = {
+                legacy_required = {
                     "tracking_id", "source_title", "source_url", "publisher",
                     "published_at", "captured_at", "user_note", "keywords",
-                    "source_recovery_status", "retrieval_notes",
                 }
-                if set(payload) != required:
+                current_required = legacy_required | {"source_recovery_status", "retrieval_notes"}
+                if set(payload) not in (legacy_required, current_required):
                     raise TrackingRegisterError("invalid item.observed payload")
                 if tracking_id in items:
                     raise TrackingRegisterError("duplicate tracking_id")
@@ -155,9 +156,10 @@ class TrackingRegister:
                     _timestamp(payload["published_at"], "published_at")
                 _timestamp(payload["captured_at"], "captured_at")
                 _string_list(payload["keywords"], "keywords")
-                if payload["source_recovery_status"] not in {"unknown", "available", "partial", "unavailable"}:
-                    raise TrackingRegisterError("invalid source_recovery_status")
-                _text(payload["retrieval_notes"], "retrieval_notes", nullable=True)
+                if "source_recovery_status" in payload:
+                    if payload["source_recovery_status"] not in {"unknown", "available", "partial", "unavailable"}:
+                        raise TrackingRegisterError("invalid source_recovery_status")
+                    _text(payload["retrieval_notes"], "retrieval_notes", nullable=True)
                 items[tracking_id] = "Observed"
                 item_events[tracking_id] = {event["event_id"]}
 
@@ -305,8 +307,10 @@ class TrackingRegister:
             tracking_id = payload["tracking_id"]
             if event["event_type"] == "item.observed":
                 result[tracking_id] = {
-                    **deepcopy(payload), "state": "Observed",
-                    "event_ids": [event["event_id"]],
+                    **deepcopy(payload),
+                    "source_recovery_status": payload.get("source_recovery_status", "unknown"),
+                    "retrieval_notes": payload.get("retrieval_notes"),
+                    "state": "Observed", "event_ids": [event["event_id"]],
                 }
             else:
                 row = result[tracking_id]
@@ -368,7 +372,11 @@ class TrackingRegister:
             "format", "format_version", "registry_id", "events",
         }:
             raise TrackingRegisterError("invalid register snapshot structure")
-        if snapshot["format"] != cls.FORMAT or type(snapshot["format_version"]) is not int or snapshot["format_version"] != cls.FORMAT_VERSION:
+        if (
+            snapshot["format"] != cls.FORMAT
+            or type(snapshot["format_version"]) is not int
+            or snapshot["format_version"] not in cls.SUPPORTED_FORMAT_VERSIONS
+        ):
             raise TrackingRegisterError("unsupported register format or version")
         try:
             return cls(snapshot["registry_id"], snapshot["events"])
