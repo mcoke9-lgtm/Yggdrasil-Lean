@@ -14,8 +14,10 @@ public final class StagedIntakeNamingService {
         public final int registered, proposals, failures;
         public final boolean mariProviderConfigured;
         public final String firstFailure;
-        Result(int r,int p,int f,boolean configured,String issue) {
-            registered=r; proposals=p; failures=f; mariProviderConfigured=configured; firstFailure=issue;
+        public final String proposalSummary;
+        Result(int r,int p,int f,boolean configured,String issue,String summary) {
+            registered=r; proposals=p; failures=f; mariProviderConfigured=configured;
+            firstFailure=issue; proposalSummary=summary;
         }
     }
     private final IntakeStagingStore intake;
@@ -58,8 +60,51 @@ public final class StagedIntakeNamingService {
                 if(first==null) first=technicalId+": "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
             }
         }
-        return new Result(registered,proposals,failures,mariProvider!=null,first);
+        return new Result(registered,proposals,failures,mariProvider!=null,first,summarizePendingProposals());
     }
+    private String summarizePendingProposals() {
+        try {
+            java.util.HashSet<String> pendingEntries=new java.util.HashSet<>();
+            for(IntakeStagingStore.StagedPacket packet:intake.listPending()) {
+                String technicalId="YIM-PACKET/"+packet.queueId+"/"+packet.packetId;
+                pendingEntries.add(stable("entry",technicalId));
+            }
+            JSONObject snapshot=register.exportSnapshot();
+            JSONArray events=snapshot.getJSONArray("events");
+            StringBuilder out=new StringBuilder();
+            int shown=0, total=0;
+            for(int i=0;i<events.length();i++) {
+                JSONObject event=events.getJSONObject(i);
+                if(!"name.proposed".equals(event.optString("event_type"))) continue;
+                JSONObject payload=event.getJSONObject("payload");
+                if(!pendingEntries.contains(payload.optString("entry_id"))) continue;
+                total++;
+                if(shown>=10) continue;
+                JSONArray options=payload.getJSONArray("options");
+                String preferred=payload.getString("preferred_option_id");
+                String preferredName=preferred;
+                java.util.ArrayList<String> alternatives=new java.util.ArrayList<>();
+                for(int j=0;j<options.length();j++) {
+                    JSONObject option=options.getJSONObject(j);
+                    String name=option.getString("human_name");
+                    if(preferred.equals(option.getString("option_id"))) preferredName=name;
+                    else alternatives.add(name);
+                }
+                if(out.length()>0) out.append("\\n\\n");
+                out.append(payload.optString("technical_id",""));
+                out.append("\\nMari's preferred proposal: ").append(preferredName);
+                if(!alternatives.isEmpty()) out.append("\\nAlternatives: ").append(android.text.TextUtils.join("; ",alternatives));
+                shown++;
+            }
+            if(total==0) return "No Mari naming proposals are stored for the pending staged packets.";
+            if(total>shown) out.append("\\n\\nShowing ").append(shown).append(" of ").append(total).append(" proposals.");
+            out.append("\\n\\nAll names are proposals only; none has been adopted.");
+            return out.toString();
+        } catch(Exception e) {
+            return "Proposals were persisted, but their summary could not be read: "+e.getMessage();
+        }
+    }
+
     private JSONObject askMari(IntakeStagingStore.StagedPacket packet,String technicalId,String purpose)
             throws Exception {
         JSONObject input=new JSONObject();
