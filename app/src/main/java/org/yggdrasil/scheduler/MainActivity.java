@@ -19,6 +19,7 @@ import org.yggdrasil.scheduler.builder.BuilderLocalExchange;
 import org.yggdrasil.scheduler.builder.SecureBuilderProviderSettings;
 import org.yggdrasil.scheduler.intake.IntakeQueueValidator;
 import org.yggdrasil.scheduler.intake.IntakeStagingStore;
+import org.yggdrasil.scheduler.intake.StagedIntakeNamingService;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -87,6 +88,7 @@ public final class MainActivity extends Activity {
         intakeStatus = text("No intake queue staged yet · staging is not Roots import", 13);
         root.addView(intakeStatus);
         root.addView(button("Stage Living Tree intake queue", this::beginYimQueueImport));
+        root.addView(button("Register staged packets + ask Mari for names", this::beginStagedNaming));
         root.addView(button("Check pending intake packets", this::refreshIntakeStatus));
         root.addView(button("Add GitHub Actions monitor", this::showAddDialog));
         root.addView(text("Scheduled tasks", 20)); taskList = new LinearLayout(this); taskList.setOrientation(LinearLayout.VERTICAL); root.addView(taskList);
@@ -314,6 +316,47 @@ public final class MainActivity extends Activity {
             if (intakeStatus != null)
                 intakeStatus.setText("Queue rejected; no staging write made: " + e.getMessage());
         }
+    }
+
+    private void beginStagedNaming() {
+        new AlertDialog.Builder(this)
+                .setTitle("Register staged packet identities?")
+                .setMessage("This will create stable YIM register entries for pending staged packets. "
+                        + "If a model provider is configured, a request will be sent to propose human-readable names. "
+                        + "Only the technical packet ID, source kind, language, and a short derived purpose are sent. "
+                        + "Original packet content and source references are not sent. "
+                        + "Names remain proposals; nothing is adopted.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Continue", (dialog, which) -> {
+                    intakeStatus.setText("Registering staged packet identities…");
+                    new Thread(() -> {
+                        try {
+                            org.yggdrasil.scheduler.builder.BuilderModelProvider provider =
+                                    StagedIntakeNamingService.configuredProvider(getApplicationContext());
+                            StagedIntakeNamingService.Result result =
+                                    new StagedIntakeNamingService(getApplicationContext(), provider).processPending();
+                            runOnUiThread(() -> {
+                                intakeStatus.setText(
+                                        "Human Understanding Register · " + result.registered + " new identities · "
+                                        + result.proposals + " new Mari proposals · " + result.failures + " failures"
+                                        + (result.mariProviderConfigured ? " · provider configured" : " · Mari provider not configured")
+                                        + (result.firstFailure == null ? "" : "\\nFirst issue: " + result.firstFailure)
+                                        + "\\nNames are proposals only; no adoption occurred.");
+                                if (result.mariProviderConfigured && result.proposalSummary != null
+                                        && !result.proposalSummary.trim().isEmpty()) {
+                                    new AlertDialog.Builder(MainActivity.this)
+                                            .setTitle("Mari naming proposals — not adopted")
+                                            .setMessage(result.proposalSummary)
+                                            .setPositiveButton("Close", null)
+                                            .show();
+                                }
+                            });
+                        } catch (Exception failure) {
+                            runOnUiThread(() -> intakeStatus.setText(
+                                    "Naming registration failed: " + failure.getMessage()));
+                        }
+                    }, "yim-staged-naming").start();
+                }).show();
     }
 
     private void refreshIntakeStatus() {

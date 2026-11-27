@@ -10,7 +10,7 @@ on:
       - 'gradle.properties'
       - '.github/workflows/android-yim-apk.yml'
   pull_request:
-    branches: [independent-builder-runtime-foundation-001]
+    branches: [independent-builder-runtime-foundation-001, android-yim-intake-staging-002]
     paths:
       - 'app/**'
       - '*.gradle'
