@@ -59,6 +59,7 @@ public final class HumanUnderstandingLifecycle {
         requireText(entryId,"entryId"); requireText(technicalId,"technicalId");
         requireText(purpose,"purpose"); requireText(eventPrefix,"eventPrefix");
         requireText(sourceKind,"sourceKind"); requireText(language,"language");
+        store.requireEntryIdentity(entryId,technicalId,purpose);
         JSONObject request=new JSONObject();
         request.put("entry_id",entryId); request.put("technical_id",technicalId);
         request.put("purpose",purpose);
