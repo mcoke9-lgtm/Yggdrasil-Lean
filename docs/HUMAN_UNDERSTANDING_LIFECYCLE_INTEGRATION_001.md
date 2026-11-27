@@ -1,6 +1,6 @@
 # YIM-001 Human Understanding Lifecycle Integration 001
 
-**Status:** Implemented adapter proposal; tests pending CI. Not yet merged or wired into Android.  
+**Status:** Implemented and focused tests passed in GitHub Actions. PR #69 remains under review; not merged or wired into Android.  
 **Purpose:** Make the Human Understanding Register a reusable part of the Living Tree work-intake lifecycle.
 
 ## Standard intake lifecycle
