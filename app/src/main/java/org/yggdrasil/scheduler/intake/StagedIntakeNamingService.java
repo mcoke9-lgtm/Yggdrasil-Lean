@@ -71,13 +71,22 @@ public final class StagedIntakeNamingService {
             }
             JSONObject snapshot=register.exportSnapshot();
             JSONArray events=snapshot.getJSONArray("events");
+            java.util.HashMap<String,String> technicalIds=new java.util.HashMap<>();
+            for(int i=0;i<events.length();i++) {
+                JSONObject event=events.getJSONObject(i);
+                if("entry.created".equals(event.optString("event_type"))) {
+                    JSONObject payload=event.getJSONObject("payload");
+                    technicalIds.put(payload.optString("entry_id"),payload.optString("technical_id"));
+                }
+            }
             StringBuilder out=new StringBuilder();
             int shown=0, total=0;
             for(int i=0;i<events.length();i++) {
                 JSONObject event=events.getJSONObject(i);
                 if(!"name.proposed".equals(event.optString("event_type"))) continue;
                 JSONObject payload=event.getJSONObject("payload");
-                if(!pendingEntries.contains(payload.optString("entry_id"))) continue;
+                String entryId=payload.optString("entry_id");
+                if(!pendingEntries.contains(entryId)) continue;
                 total++;
                 if(shown>=10) continue;
                 JSONArray options=payload.getJSONArray("options");
@@ -91,7 +100,7 @@ public final class StagedIntakeNamingService {
                     else alternatives.add(name);
                 }
                 if(out.length()>0) out.append("\\n\\n");
-                out.append(payload.optString("technical_id",""));
+                out.append(technicalIds.getOrDefault(entryId,entryId));
                 out.append("\\nMari's preferred proposal: ").append(preferredName);
                 if(!alternatives.isEmpty()) out.append("\\nAlternatives: ").append(android.text.TextUtils.join("; ",alternatives));
                 shown++;
