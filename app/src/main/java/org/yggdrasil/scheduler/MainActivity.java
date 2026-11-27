@@ -335,12 +335,22 @@ public final class MainActivity extends Activity {
                                     StagedIntakeNamingService.configuredProvider(getApplicationContext());
                             StagedIntakeNamingService.Result result =
                                     new StagedIntakeNamingService(getApplicationContext(), provider).processPending();
-                            runOnUiThread(() -> intakeStatus.setText(
-                                    "Human Understanding Register · " + result.registered + " new identities · "
-                                    + result.proposals + " Mari proposals · " + result.failures + " failures"
-                                    + (result.mariProviderConfigured ? " · provider configured" : " · Mari provider not configured")
-                                    + (result.firstFailure == null ? "" : "\\nFirst issue: " + result.firstFailure)
-                                    + "\\nNames are proposals only; no adoption occurred."));
+                            runOnUiThread(() -> {
+                                intakeStatus.setText(
+                                        "Human Understanding Register · " + result.registered + " new identities · "
+                                        + result.proposals + " new Mari proposals · " + result.failures + " failures"
+                                        + (result.mariProviderConfigured ? " · provider configured" : " · Mari provider not configured")
+                                        + (result.firstFailure == null ? "" : "\\nFirst issue: " + result.firstFailure)
+                                        + "\\nNames are proposals only; no adoption occurred.");
+                                if (result.mariProviderConfigured && result.proposalSummary != null
+                                        && !result.proposalSummary.trim().isEmpty()) {
+                                    new AlertDialog.Builder(MainActivity.this)
+                                            .setTitle("Mari naming proposals — not adopted")
+                                            .setMessage(result.proposalSummary)
+                                            .setPositiveButton("Close", null)
+                                            .show();
+                                }
+                            });
                         } catch (Exception failure) {
                             runOnUiThread(() -> intakeStatus.setText(
                                     "Naming registration failed: " + failure.getMessage()));
