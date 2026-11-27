@@ -65,6 +65,7 @@ public final class HumanUnderstandingLifecycle {
         request.put("keywords",keywords==null?new JSONArray():new JSONArray(keywords.toString()));
         request.put("preserved_terms",preservedTerms==null?new JSONArray():new JSONArray(preservedTerms.toString()));
         request.put("source_kind",sourceKind); request.put("language",language);
+        int before=store.eventCount();
         JSONObject proposal=mari.propose(request);
         if (proposal==null || proposal.length()!=5 || !proposal.has("proposal_id")
                 || !proposal.has("options") || !proposal.has("preferred_option_id")
@@ -74,7 +75,7 @@ public final class HumanUnderstandingLifecycle {
         store.appendMariProposal(entryId,proposalId,eventPrefix+":mari-proposal","mari",
                 proposal.getString("preferred_option_id"),proposal.getJSONArray("options"),
                 proposal.getJSONArray("competing_interpretations"),proposal.getJSONArray("source_refs"));
-        return new Result(entryId,technicalId,false,true,true,proposalId);
+        return new Result(entryId,technicalId,false,true,store.eventCount()>before,proposalId);
     }
 
     private static void requireText(String value,String field) {
