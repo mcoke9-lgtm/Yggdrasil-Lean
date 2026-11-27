@@ -224,6 +224,12 @@ class TrackingRegisterTests(unittest.TestCase):
         self.assertEqual(history[0]["event_id"], "evt-1")
         self.assertEqual(history[0]["event_type"], "item.observed")
 
+    def test_non_json_snapshot_payload_raises_register_error(self):
+        snapshot = self.make_register().to_snapshot()
+        snapshot["events"][0]["payload"]["unexpected"] = {1, 2}
+        with self.assertRaisesRegex(TrackingRegisterError, "malformed register snapshot"):
+            TrackingRegister.from_snapshot(snapshot)
+
     def test_timezone_is_required(self):
         register = TrackingRegister("test")
         with self.assertRaisesRegex(TrackingRegisterError, "include a timezone"):
