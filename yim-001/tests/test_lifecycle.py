@@ -1,6 +1,5 @@
 import unittest
 
-from yim001.intake import WorkIntakeQueue
 from yim001.naming import HumanUnderstandingRegister
 from yim001.lifecycle import HumanUnderstandingLifecycle, UnderstandingLifecycleError
 
@@ -22,13 +21,24 @@ def proposal(_request):
     }
 
 
+class FakeQueue:
+    def __init__(self):
+        self._packets = [{
+            "packet_id": "packet-1",
+            "source_kind": "chat_exchange",
+            "language": "English",
+            "placement_status": "awaiting_placement",
+            "content": {"text": "Preserve this source exactly."},
+        }]
+
+    @property
+    def packets(self):
+        return tuple(dict(packet) for packet in self._packets)
+
+
 class HumanUnderstandingLifecycleTests(unittest.TestCase):
     def make_workflow(self, provider=None):
-        queue = WorkIntakeQueue("test-queue")
-        queue.add(
-            {"text": "Preserve this source exactly."},
-            source_kind="chat_exchange", language="English", packet_id="packet-1",
-        )
+        queue = FakeQueue()
         return HumanUnderstandingLifecycle(
             queue, HumanUnderstandingRegister("test-register"), proposer=provider,
         )
@@ -64,10 +74,7 @@ class HumanUnderstandingLifecycleTests(unittest.TestCase):
                 "missing", entry_id="e", technical_id="T-1",
                 purpose="Purpose", event_prefix="x",
             )
-        workflow.queue.mark_imported(
-            "packet-1", primary_logical_location="root",
-            contextual_logical_locations=[], record_id="record", version_id="version",
-        )
+        workflow.queue._packets[0]["placement_status"] = "imported"
         with self.assertRaisesRegex(UnderstandingLifecycleError, "only pending"):
             workflow.register_packet(
                 "packet-1", entry_id="e", technical_id="T-1",
