@@ -51,6 +51,7 @@ Each event should include:
 - event timestamp
 - actor/attribution
 - source or evidence reference, when applicable
+- source-recovery status (`unknown`, `available`, `partial`, or `unavailable`) and retrieval notes; each later retrieval attempt is a new event
 - event payload
 - prior-event digest or equivalent integrity link
 
@@ -67,6 +68,7 @@ Corrections append a new event and preserve the earlier record. They do not sile
 - Keep tracked observations out of adopted principles, active requirements, and normative architecture by default.
 - Updates may be appended while an item remains in Tracking; changed claims and source corrections must remain attributable to their source and time.
 - If a source becomes unavailable, preserve the known reference and record the retrieval failure; do not treat unavailability as proof that the source never existed.
+- A missing recovery check is `unknown`, not `unavailable`; later retrieval attempts append status events and never erase prior attempts.
 - Tracking and notifications must be bounded and user-controllable. Do not create recurring schedules or external actions merely because an item was added.
 
 ## Relationship to other registers
@@ -98,8 +100,9 @@ At minimum, tests must establish:
 5. Assessment does not change the item to Adopted.
 6. Adoption is rejected without an explicit authorization event.
 7. Corrections preserve the original event and source attribution.
-8. Unknown or unavailable source fields remain explicitly unknown.
-9. Search and export preserve lifecycle state and event history.
-10. Existing Human Understanding Register data remains unchanged.
+8. Unknown or unavailable source fields remain explicitly unknown; recovery outcomes and retrieval notes are appended as events.
+9. Search returns lifecycle state and the matching item's event history; JSON export preserves the complete register snapshot and event chain.
+10. Malformed snapshots fail with a register-specific validation error.
+11. Existing Human Understanding Register data remains unchanged.
 
 This document alone does not implement persistence, source monitoring, notifications, Android integration, or multi-writer synchronization. Those capabilities must be implemented and verified separately before they are described as available.
