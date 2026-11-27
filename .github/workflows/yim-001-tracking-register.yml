@@ -1,0 +1,32 @@
+name: YIM-001 Tracking Register
+
+on:
+  push:
+    branches:
+      - tracking-register-foundation-001
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim-001-tracking-register.yml"
+  pull_request:
+    paths:
+      - "yim-001/**"
+      - "docs/TRACKING_REGISTER_001.md"
+      - ".github/workflows/yim-001-tracking-register.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tracking-register-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Tracking Register tests
+        working-directory: yim-001
+        run: PYTHONPATH=src python -m unittest discover -s tests -p "test_tracking.py" -v
