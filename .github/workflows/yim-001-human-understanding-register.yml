@@ -1,0 +1,32 @@
+name: YIM-001 Human Understanding Register
+
+on:
+  push:
+    branches:
+      - human-understanding-register-foundation-001
+    paths:
+      - "yim-001/**"
+      - ".github/workflows/yim-001-human-understanding-register.yml"
+  pull_request:
+    paths:
+      - "yim-001/**"
+      - "docs/HUMAN_UNDERSTANDING_REGISTER_AND_MARI_NAMING_PROTOCOL_001.md"
+      - ".github/workflows/yim-001-human-understanding-register.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  naming-register-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Human Understanding Register tests
+        working-directory: yim-001
+        run: PYTHONPATH=src python -m unittest discover -s tests -p "test_naming.py" -v
