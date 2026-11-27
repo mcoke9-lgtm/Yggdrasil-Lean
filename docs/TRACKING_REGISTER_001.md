@@ -55,7 +55,7 @@ Each event should include:
 - event payload
 - prior-event digest or equivalent integrity link
 
-Corrections append a new event and preserve the earlier record. They do not silently rewrite source content or history. Snapshot format version 2 adds source-recovery fields. Version 1 snapshots remain readable; legacy observations are exposed with recovery status `unknown`, and their original event payloads and hashes are preserved.
+Corrections append a new event and preserve the earlier record. They do not silently rewrite source content or history. Snapshot format version 2 adds source-recovery fields. Version 3 adds a snapshot integrity digest binding the registry ID and complete event list. Versions 1 and 2 remain readable; legacy observations are exposed with recovery status `unknown`, and their original event payloads and hashes are preserved.
 
 ## Operating rules
 
@@ -101,7 +101,7 @@ At minimum, tests must establish:
 6. Adoption is rejected without an explicit authorization event.
 7. Corrections preserve the original event and source attribution.
 8. Unknown or unavailable source fields remain explicitly unknown; recovery outcomes and retrieval notes are appended as events.
-9. Search returns lifecycle state and the matching item's event history; JSON export preserves the complete register snapshot and event chain.
+9. Search includes item fields and all event metadata (including actor and timestamp), and returns lifecycle state with the matching item's event history; JSON export preserves the complete register snapshot and event chain. The version-3 snapshot digest detects changes to registry identity or event-list contents.
 10. Malformed snapshots fail with a register-specific validation error.
 11. Existing Human Understanding Register data remains unchanged.
 
