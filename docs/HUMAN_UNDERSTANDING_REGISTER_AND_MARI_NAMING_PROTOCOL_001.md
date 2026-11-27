@@ -1,6 +1,6 @@
 # Human Understanding Register and Mari Naming Protocol 001
 
-**Status:** Initial implementation proposal; code and tests are included in this branch, but are not yet merged or runtime-verified.  
+**Status:** Initial implementation proposal; focused component tests are being run in CI. Not merged or integrated into Android.  
 **Component:** YIM-001 (Yggdrasil Intake and Memory)  
 **Scope:** Stable technical identities, human-readable interpretations, Character-generated naming proposals, and separately authorized adoption.
 
@@ -64,7 +64,9 @@ No silent replacement, auto-adoption, or inference from conversation agreement i
 
 ## 6. Portability and persistence
 
-The YIM-001 module uses the existing atomic JSON storage helpers. A host can save and reload the register without ChatGPT. The JSON snapshot is the portable interchange format; a host may later move it to a database if it preserves the event contract.
+The YIM-001 module provides a standard-library JSON persistence function. It writes to a temporary file in the destination directory, flushes the file, and atomically replaces the target path. This is a single-process file-write boundary; it is not a multi-writer transaction protocol.
+
+The JSON snapshot is the portable interchange format; a host may later move it to a database if it preserves the event contract.
 
 A successful in-memory operation or JSON serialization is not proof of persistence. The host should report durable success only after writing and reading back the saved snapshot. Backups, access control, encryption, multi-writer compare-and-append, and cross-device synchronization remain host-level requirements and are not implemented by this module.
 
@@ -93,9 +95,9 @@ Competing interpretations to keep visible:
 
 **Status:** Mari proposal only. No human-readable name is adopted by this record. The technical identifier remains `MARS-BRIDGE-001`.
 
-## 8. Acceptance tests and status discipline
+## 8. Acceptance tests and status
 
-The accompanying tests cover:
+The focused component tests cover:
 - stable technical identity and duplicate rejection;
 - Mari role attribution and multiple alternatives;
 - strengths, limitations, and competing interpretations;
@@ -103,6 +105,8 @@ The accompanying tests cover:
 - append-only sequence;
 - save/load restart round-trip;
 - unknown schema and malformed sequence rejection.
+
+A broader repository test discovery attempt also loaded the pre-existing `test_intake.py`, which currently fails to import `yim001.core` in the repository snapshot used for this branch. The focused workflow therefore runs only `test_naming.py`. This is an existing YIM-001 baseline gap, not evidence that the new naming component failed. It remains visible rather than being silently omitted.
 
 Tests must be executed in the target runtime before they are labelled passed. Unit tests do not establish multi-device durability, authorization security, concurrent-writer safety, or Android integration.
 
@@ -113,6 +117,7 @@ Tests must be executed in the target runtime before they are labelled passed. Un
 - Mari's role is specified and a sample proposal is recorded; autonomous Character execution is not implemented.
 - The library does not authenticate Týr or the human approver.
 - Multi-writer concurrency and durable cross-device synchronization are not implemented.
+- The existing broader YIM-001 intake test currently has an unresolved missing-module import (`yim001.core`).
 - ChatGPT cannot install this behavior as a permanent global rule across all conversations. The Living Tree can use the versioned contract as its own system behavior once integrated by its host.
 
 ## 10. Six-part integrity check
@@ -121,5 +126,5 @@ Tests must be executed in the target runtime before they are labelled passed. Un
 2. **Alternatives:** Multiple interpretations and tradeoffs are preserved.
 3. **Authority:** Proposal and adoption are distinct; adoption requires an explicit authorization assertion.
 4. **History:** Events are append-only and sequence-checked.
-5. **Recovery:** The register supports JSON save/load through YIM-001 storage helpers.
+5. **Recovery:** The register supports JSON save/load with same-directory atomic replacement.
 6. **Honesty:** Role attribution is not misrepresented as autonomous execution; unimplemented host integration is disclosed.
