@@ -35,3 +35,6 @@ The Tracking Register uses only the Python standard library. JSON snapshots are 
 - Authorization fields are recorded assertions; a trusted host must enforce identity and permissions.
 
 See [Tracking Register 001](../../docs/TRACKING_REGISTER_001.md) and the Human Understanding Register protocol for their separate responsibilities.
+
+
+Integrity limitation: the version-3 snapshot digest is unkeyed and is not a digital signature or authenticated identity proof; a deliberate editor able to recompute hashes can replace it.
