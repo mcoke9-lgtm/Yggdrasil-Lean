@@ -1,47 +1,47 @@
 # Android Human Understanding Register — YIM-001
 
-**Status:** Android SQLite store and portable lifecycle adapter implemented on this branch; automated verification pending.
-**Relationship:** Android host implementation of the event contract introduced by the Python YIM-001 Human Understanding Register on `main`.
+**Status:** Android SQLite register, staged-intake adapter, and user-confirmed Mari proposal action implemented on this branch. CI verification of the latest revision is pending.
 
 ## Permanent naming rule
 
 - Technical identifiers remain canonical and stable.
-- Human-readable names, alternatives, and competing interpretations are attached to technical identifiers; they do not replace them.
+- Human-readable names, alternatives, and competing interpretations accompany technical identifiers; they do not replace them.
 - Mari may propose multiple alternatives and identify a preferred option.
 - A proposal is not an adoption.
-- This Android store deliberately exposes no adoption method. A later trusted Týr/human authorization integration must enforce the approval boundary rather than trusting a caller-supplied boolean.
-- Existing source intake packets are not rewritten.
+- This Android implementation exposes no adoption method. A future trusted Týr/human authorization path must enforce approval rather than trust a caller-supplied boolean.
+- Original source intake packets remain unchanged.
 
 ## Android implementation
 
-- `HumanUnderstandingRegisterStore` persists the YIM-001 event envelope in a dedicated private SQLite database.
-- Event sequence, event ID, event type, actor, and payload use the same names as the portable Python register.
-- Technical IDs are unique; event IDs and proposal IDs are unique.
-- Identical retries of the same proposal are idempotent. Reuse of an ID with conflicting content is rejected.
-- Proposal validation requires at least two alternatives, a valid preferred option, strengths, limitations, competing interpretations, and source references.
-- Export produces a JSON snapshot with the same format identifier and version as the Python register.
-- `HumanUnderstandingLifecycle` accepts an optional host-supplied Mari proposal provider. It sends descriptive metadata only; it does not forward the original intake content. If no provider is configured, it reports that Mari was not invoked.
+- `HumanUnderstandingRegisterStore` persists the YIM-001 event envelope in a private SQLite database.
+- Event sequence, event ID, event type, actor, and payload use the portable register's field names.
+- Technical IDs, event IDs, and proposal IDs are stable; identical retries do not append duplicate proposals, while conflicting reuse is rejected.
+- `StagedIntakeNamingService` creates stable register entries for pending staged packets.
+- The MainActivity exposes a user-confirmed action to register pending packets and, when a provider is configured, request Mari naming proposals.
+- The provider receives only the derived technical ID, source kind, language, and short derived purpose. It does not receive packet content, source references, or the original queue.
+- If no model provider is configured, identity registration still works and the result explicitly reports that Mari was not invoked.
+- Snapshot export uses the portable YIM-001 format identifier and version.
 
 ## Character and authority boundaries
 
 - Mari: propose alternatives and interpretations.
-- Huginn: source/provenance checks remain a separate responsibility.
-- Muninn: append-only history is retained in the register.
-- Odin: later host reconciliation must preserve disagreement.
-- Týr: the trusted authorization path is not yet connected to this store.
+- Muninn: append-only event history is retained.
+- Huginn: provenance checks remain a distinct responsibility.
+- Odin: later reconciliation must preserve disagreement.
+- Týr: trusted adoption authorization is not yet connected.
 - Human owner: retains adoption authority.
 
 A role label is attribution metadata, not proof that a separate autonomous Character process ran.
 
 ## Current limitations
 
-- The Android lifecycle adapter is a callable service boundary; it is not yet invoked automatically by the intake staging UI or Builder runtime.
-- No Mari provider is configured by this change. The provider interface is ready for a host adapter, but automatic Mari generation is not claimed.
-- No adoption/decline/deferral API is exposed on Android until trusted authorization is implemented.
-- Staging and register writes are separate SQLite databases. This change does not claim a cross-database transaction or automatic crash reconciliation.
-- No physical-device verification is claimed.
-- This branch is based on the Android intake-staging development branch; it does not change `main` or install an APK.
+- The action is user-triggered; no background or automatic intake processing is claimed.
+- Mari uses the existing configured model endpoint, if present. No provider is provisioned or contacted until the user confirms the action.
+- No trusted Týr authentication or adoption implementation.
+- Intake staging and the Human Understanding Register are separate SQLite databases; no cross-database transaction is claimed.
+- No physical-device verification or APK installation is claimed.
+- This PR is stacked on the Android intake-staging foundation and does not change `main`.
 
 ## Verification
 
-The focused Robolectric tests cover event persistence across restart, portable snapshot structure, proposal alternatives, identical retry behavior, conflicting identity rejection, metadata-only provider requests, and explicit missing-provider reporting. GitHub Actions must pass before these tests are described as verified.
+Robolectric tests cover event persistence/restart, snapshot structure, alternatives, retries, identity conflicts, metadata-only provider requests, staged-packet registration, and explicit missing-provider behavior. The latest GitHub Actions run must pass before this revision is described as tested.
