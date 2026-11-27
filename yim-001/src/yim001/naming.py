@@ -7,10 +7,11 @@ authenticate callers or make a Character autonomous.
 from __future__ import annotations
 
 from copy import deepcopy
+import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
-
-from .storage import read_json_strict, write_json_atomic
 
 
 class NamingRegistryError(ValueError):
@@ -273,10 +274,44 @@ class HumanUnderstandingRegister:
 
 
 def save_register(register: HumanUnderstandingRegister, path: str | Path) -> None:
+    """Atomically write a portable JSON snapshot.
+
+    This protects against a partially written single-process file update. It
+    does not provide multi-writer compare-and-append or cross-device sync.
+    """
     if not isinstance(register, HumanUnderstandingRegister):
         raise TypeError("register must be a HumanUnderstandingRegister")
-    write_json_atomic(path, register.to_snapshot())
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        encoded = json.dumps(
+            register.to_snapshot(), ensure_ascii=False, allow_nan=False,
+            sort_keys=True, indent=2,
+        ) + "\n"
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise NamingRegistryError(f"register cannot be serialized: {exc}") from exc
+    temporary_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", newline="\n",
+            dir=target.parent, prefix=f".{target.name}.", suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_name = handle.name
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, target)
+    finally:
+        if temporary_name is not None and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def load_register(path: str | Path) -> HumanUnderstandingRegister:
-    return HumanUnderstandingRegister.from_snapshot(read_json_strict(path))
+    """Load and structurally validate a saved register snapshot."""
+    try:
+        with Path(path).open("r", encoding="utf-8") as handle:
+            snapshot = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise NamingRegistryError(f"register could not be read: {exc}") from exc
+    return HumanUnderstandingRegister.from_snapshot(snapshot)
