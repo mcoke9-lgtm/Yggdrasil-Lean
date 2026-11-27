@@ -57,8 +57,8 @@ def _string_list(value: Any, field: str) -> None:
 
 class TrackingRegister:
     FORMAT = "YIM-001-Tracking-Register"
-    FORMAT_VERSION = 2
-    SUPPORTED_FORMAT_VERSIONS = {1, 2}
+    FORMAT_VERSION = 3
+    SUPPORTED_FORMAT_VERSIONS = {1, 2, 3}
     EVENT_TYPES = {
         "item.observed", "tracking.started", "update.captured",
         "assessment.recorded", "adoption.authorized", "correction.appended",
@@ -311,6 +311,15 @@ class TrackingRegister:
                     "source_recovery_status": payload.get("source_recovery_status", "unknown"),
                     "retrieval_notes": payload.get("retrieval_notes"),
                     "state": "Observed", "event_ids": [event["event_id"]],
+                    "source_recovery_history": [{
+                        "status": payload.get("source_recovery_status", "unknown"),
+                        "retrieval_notes": payload.get("retrieval_notes"),
+                        "source_ref": payload.get("source_url"),
+                        "event_id": event["event_id"],
+                        "recorded_at": event["timestamp"],
+                        "actor_id": event["actor_id"],
+                        "event_type": "item.observed",
+                    }],
                 }
             else:
                 row = result[tracking_id]
@@ -326,7 +335,11 @@ class TrackingRegister:
                 elif event["event_type"] == "source.recovery.recorded":
                     row["source_recovery_status"] = payload["status"]
                     row["retrieval_notes"] = payload["retrieval_notes"]
-                    row.setdefault("source_recovery_history", []).append(deepcopy(payload))
+                    row.setdefault("source_recovery_history", []).append({
+                        **deepcopy(payload), "event_id": event["event_id"],
+                        "recorded_at": event["timestamp"], "actor_id": event["actor_id"],
+                        "event_type": event["event_type"],
+                    })
                 elif event["event_type"] == "update.captured":
                     row.setdefault("updates", []).append(deepcopy(payload))
                 elif event["event_type"] == "correction.appended":
@@ -348,10 +361,14 @@ class TrackingRegister:
         for row in rows:
             if states is not None and row["state"] not in states:
                 continue
-            searchable = json.dumps(row, ensure_ascii=False, sort_keys=True).casefold()
+            row_history = history[row["tracking_id"]]
+            searchable = json.dumps(
+                {"item": row, "event_history": row_history},
+                ensure_ascii=False, sort_keys=True,
+            ).casefold()
             if needle and needle not in searchable:
                 continue
-            row["event_history"] = history[row["tracking_id"]]
+            row["event_history"] = row_history
             matches.append(row)
         return matches
 
@@ -361,16 +378,25 @@ class TrackingRegister:
                           sort_keys=True, indent=2) + "\n"
 
     def to_snapshot(self) -> dict[str, Any]:
-        return {
+        snapshot = {
             "format": self.FORMAT, "format_version": self.FORMAT_VERSION,
             "registry_id": self.registry_id, "events": self.events,
         }
+        snapshot["snapshot_hash"] = hashlib.sha256(_canonical({
+            "registry_id": self.registry_id, "events": snapshot["events"],
+        })).hexdigest()
+        return snapshot
 
     @classmethod
     def from_snapshot(cls, snapshot: Any) -> "TrackingRegister":
-        if not isinstance(snapshot, dict) or set(snapshot) != {
-            "format", "format_version", "registry_id", "events",
-        }:
+        if not isinstance(snapshot, dict):
+            raise TrackingRegisterError("invalid register snapshot structure")
+        legacy_fields = {"format", "format_version", "registry_id", "events"}
+        current_fields = legacy_fields | {"snapshot_hash"}
+        version = snapshot.get("format_version")
+        if (version in {1, 2} and set(snapshot) != legacy_fields) or (
+            version == 3 and set(snapshot) != current_fields
+        ):
             raise TrackingRegisterError("invalid register snapshot structure")
         if (
             snapshot["format"] != cls.FORMAT
@@ -378,6 +404,13 @@ class TrackingRegister:
             or snapshot["format_version"] not in cls.SUPPORTED_FORMAT_VERSIONS
         ):
             raise TrackingRegisterError("unsupported register format or version")
+        if version == 3:
+            _text(snapshot["registry_id"], "registry_id")
+            expected_snapshot_hash = hashlib.sha256(_canonical({
+                "registry_id": snapshot["registry_id"], "events": snapshot["events"],
+            })).hexdigest()
+            if not isinstance(snapshot["snapshot_hash"], str) or snapshot["snapshot_hash"] != expected_snapshot_hash:
+                raise TrackingRegisterError("snapshot integrity hash mismatch")
         try:
             return cls(snapshot["registry_id"], snapshot["events"])
         except TrackingRegisterError:
