@@ -101,7 +101,7 @@ At minimum, tests must establish:
 6. Adoption is rejected without an explicit authorization event.
 7. Corrections preserve the original event and source attribution.
 8. Unknown or unavailable source fields remain explicitly unknown; recovery outcomes and retrieval notes are appended as events.
-9. Search includes item fields and all event metadata (including actor and timestamp), and returns lifecycle state with the matching item's event history; JSON export preserves the complete register snapshot and event chain. The version-3 snapshot digest detects changes to registry identity or event-list contents.
+9. Search includes item fields and all event metadata (including actor and timestamp), and returns lifecycle state with the matching item's event history; JSON export preserves the complete register snapshot and event chain. The version-3 snapshot digest detects changes to registry identity or event-list contents. This unkeyed digest detects accidental or uncoordinated edits when the digest is not recomputed; it is not a digital signature, authenticated identity proof, or protection against a deliberate editor who can recompute hashes.
 10. Malformed snapshots fail with a register-specific validation error.
 11. Existing Human Understanding Register data remains unchanged.
 
