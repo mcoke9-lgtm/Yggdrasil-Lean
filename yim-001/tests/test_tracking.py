@@ -1,3 +1,5 @@
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -172,6 +174,25 @@ class TrackingRegisterTests(unittest.TestCase):
         self.assertEqual(recovered.to_snapshot(), register.to_snapshot())
         self.assertEqual(len(recovered.events), 2)
         self.assertEqual(recovered.items()[0]["state"], "Tracking")
+
+    def test_version_one_snapshot_migrates_without_losing_event_history(self):
+        snapshot = self.make_register().to_snapshot()
+        snapshot["format_version"] = 1
+        payload = snapshot["events"][0]["payload"]
+        payload.pop("source_recovery_status")
+        payload.pop("retrieval_notes")
+        event = snapshot["events"][0]
+        core = {key: value for key, value in event.items() if key != "event_hash"}
+        canonical = json.dumps(
+            core, ensure_ascii=False, allow_nan=False, sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        event["event_hash"] = hashlib.sha256(canonical).hexdigest()
+
+        migrated = TrackingRegister.from_snapshot(snapshot)
+        self.assertEqual(migrated.items()[0]["source_recovery_status"], "unknown")
+        self.assertEqual(migrated.events[0]["event_id"], "evt-1")
+        self.assertEqual(migrated.to_snapshot()["format_version"], 2)
 
     def test_malformed_snapshot_types_raise_register_error(self):
         snapshot = self.make_register().to_snapshot()
