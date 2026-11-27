@@ -61,6 +61,7 @@ class TrackingRegister:
     EVENT_TYPES = {
         "item.observed", "tracking.started", "update.captured",
         "assessment.recorded", "adoption.authorized", "correction.appended",
+        "source.recovery.recorded",
     }
     STATES = ("Observed", "Tracking", "Assessed", "Adopted")
 
@@ -141,6 +142,7 @@ class TrackingRegister:
                 required = {
                     "tracking_id", "source_title", "source_url", "publisher",
                     "published_at", "captured_at", "user_note", "keywords",
+                    "source_recovery_status", "retrieval_notes",
                 }
                 if set(payload) != required:
                     raise TrackingRegisterError("invalid item.observed payload")
@@ -153,6 +155,9 @@ class TrackingRegister:
                     _timestamp(payload["published_at"], "published_at")
                 _timestamp(payload["captured_at"], "captured_at")
                 _string_list(payload["keywords"], "keywords")
+                if payload["source_recovery_status"] not in {"unknown", "available", "partial", "unavailable"}:
+                    raise TrackingRegisterError("invalid source_recovery_status")
+                _text(payload["retrieval_notes"], "retrieval_notes", nullable=True)
                 items[tracking_id] = "Observed"
                 item_events[tracking_id] = {event["event_id"]}
 
@@ -163,6 +168,16 @@ class TrackingRegister:
                 if set(payload) != {"tracking_id"} or items[tracking_id] != "Observed":
                     raise TrackingRegisterError("tracking can start only once from Observed")
                 items[tracking_id] = "Tracking"
+                item_events[tracking_id].add(event["event_id"])
+
+            elif kind == "source.recovery.recorded":
+                required = {"tracking_id", "status", "retrieval_notes", "source_ref"}
+                if set(payload) != required:
+                    raise TrackingRegisterError("invalid source.recovery.recorded payload")
+                if payload["status"] not in {"unknown", "available", "partial", "unavailable"}:
+                    raise TrackingRegisterError("invalid source recovery status")
+                _text(payload["retrieval_notes"], "retrieval_notes", nullable=True)
+                _text(payload["source_ref"], "source_ref", nullable=True)
                 item_events[tracking_id].add(event["event_id"])
 
             elif kind == "update.captured":
@@ -217,6 +232,7 @@ class TrackingRegister:
         actor_id: str, source_url: str | None = None, publisher: str | None = None,
         published_at: str | None = None, captured_at: str | None = None,
         user_note: str | None = None, keywords: list[str] | None = None,
+        source_recovery_status: str = "unknown", retrieval_notes: str | None = None,
         timestamp: str | None = None,
     ) -> dict[str, Any]:
         return self._append(event_id, "item.observed", actor_id, timestamp, {
@@ -224,12 +240,25 @@ class TrackingRegister:
             "source_url": source_url, "publisher": publisher,
             "published_at": published_at, "captured_at": captured_at or _now(),
             "user_note": user_note, "keywords": [] if keywords is None else keywords,
+            "source_recovery_status": source_recovery_status,
+            "retrieval_notes": retrieval_notes,
         })
 
     def start_tracking(self, *, tracking_id: str, event_id: str,
                        actor_id: str, timestamp: str | None = None) -> dict[str, Any]:
         return self._append(event_id, "tracking.started", actor_id, timestamp, {
             "tracking_id": tracking_id,
+        })
+
+    def record_source_recovery(
+        self, *, tracking_id: str, status: str, event_id: str, actor_id: str,
+        retrieval_notes: str | None = None, source_ref: str | None = None,
+        timestamp: str | None = None,
+    ) -> dict[str, Any]:
+        """Append a source retrieval outcome; never erase earlier recovery attempts."""
+        return self._append(event_id, "source.recovery.recorded", actor_id, timestamp, {
+            "tracking_id": tracking_id, "status": status,
+            "retrieval_notes": retrieval_notes, "source_ref": source_ref,
         })
 
     def capture_update(self, *, tracking_id: str, update_note: str,
@@ -290,11 +319,42 @@ class TrackingRegister:
                 elif event["event_type"] == "adoption.authorized":
                     row["state"] = "Adopted"
                     row["adoption"] = deepcopy(payload)
+                elif event["event_type"] == "source.recovery.recorded":
+                    row["source_recovery_status"] = payload["status"]
+                    row["retrieval_notes"] = payload["retrieval_notes"]
+                    row.setdefault("source_recovery_history", []).append(deepcopy(payload))
                 elif event["event_type"] == "update.captured":
                     row.setdefault("updates", []).append(deepcopy(payload))
                 elif event["event_type"] == "correction.appended":
                     row.setdefault("corrections", []).append(deepcopy(payload))
         return list(result.values())
+
+    def search(self, query: str = "", *, states: list[str] | None = None) -> list[dict[str, Any]]:
+        """Search indexed item text and return matching items with their event history."""
+        if not isinstance(query, str):
+            raise TrackingRegisterError("query must be a string")
+        if states is not None and (not isinstance(states, list) or any(state not in self.STATES for state in states)):
+            raise TrackingRegisterError("states must contain valid lifecycle states")
+        needle = query.casefold().strip()
+        rows = self.items()
+        history: dict[str, list[dict[str, Any]]] = {}
+        for event in self._events:
+            history.setdefault(event["payload"]["tracking_id"], []).append(deepcopy(event))
+        matches = []
+        for row in rows:
+            if states is not None and row["state"] not in states:
+                continue
+            searchable = json.dumps(row, ensure_ascii=False, sort_keys=True).casefold()
+            if needle and needle not in searchable:
+                continue
+            row["event_history"] = history[row["tracking_id"]]
+            matches.append(row)
+        return matches
+
+    def export_json(self) -> str:
+        """Export the complete register snapshot, including every lifecycle event."""
+        return json.dumps(self.to_snapshot(), ensure_ascii=False, allow_nan=False,
+                          sort_keys=True, indent=2) + "\n"
 
     def to_snapshot(self) -> dict[str, Any]:
         return {
@@ -310,7 +370,12 @@ class TrackingRegister:
             raise TrackingRegisterError("invalid register snapshot structure")
         if snapshot["format"] != cls.FORMAT or type(snapshot["format_version"]) is not int or snapshot["format_version"] != cls.FORMAT_VERSION:
             raise TrackingRegisterError("unsupported register format or version")
-        return cls(snapshot["registry_id"], snapshot["events"])
+        try:
+            return cls(snapshot["registry_id"], snapshot["events"])
+        except TrackingRegisterError:
+            raise
+        except (TypeError, KeyError, ValueError, OverflowError) as exc:
+            raise TrackingRegisterError(f"malformed register snapshot: {exc}") from exc
 
 
 def save_register(register: TrackingRegister, path: str | Path) -> None:
