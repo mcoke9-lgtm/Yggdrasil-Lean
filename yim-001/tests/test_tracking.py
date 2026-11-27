@@ -128,7 +128,7 @@ class TrackingRegisterTests(unittest.TestCase):
         with self.assertRaisesRegex(TrackingRegisterError, "duplicate tracking_id"):
             register.observe(
                 tracking_id="news-001", source_title="Duplicate",
-                event_id="evt-2", actor_id="human", timestamp=STAMP,
+                event_id="evt-4", actor_id="human", timestamp=STAMP,
                 captured_at=STAMP,
             )
 
