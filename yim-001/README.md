@@ -1,19 +1,37 @@
-# Human Understanding Register (YIM-001)
+# YIM-001 Registers
 
-This module gives the Living Tree a portable, append-only register for mapping stable technical IDs to human-readable names and interpretations.
+This package contains separate append-only registers for technical interpretation and observation lifecycle management.
 
-## Run focused tests
+## Human Understanding Register
 
-From this directory:
+The Human Understanding Register maps stable technical IDs to human-readable interpretations and naming proposals.
+
+Focused tests:
 
 ```sh
 PYTHONPATH=src python -m unittest discover -s tests -p "test_naming.py" -v
 ```
 
-The implementation uses only the Python standard library. It writes a portable JSON snapshot using a same-directory temporary file and atomic replacement.
+## Tracking Register
 
-The broader pre-existing `test_intake.py` currently cannot import `yim001.core` in the repository snapshot used for this branch. The focused workflow deliberately tests this new component without concealing that separate baseline issue.
+The Tracking Register preserves source observations, subsequent updates, assessments, and explicitly authorized adoption decisions without conflating those stages.
 
-See [the protocol](../../docs/HUMAN_UNDERSTANDING_REGISTER_AND_MARI_NAMING_PROTOCOL_001.md) for roles, authorization boundaries, the initial MARS-BRIDGE-001 proposal, and known limitations.
+Focused tests:
 
-**Important:** A successful unit test does not establish Android integration, authenticated authorization, multi-device synchronization, or autonomous Character execution.
+```sh
+PYTHONPATH=src python -m unittest discover -s tests -p "test_tracking.py" -v
+```
+
+The Tracking Register uses only the Python standard library. JSON snapshots are written atomically for a single writer, and each event is linked to the preceding event with SHA-256 and validated on load.
+
+## Boundaries
+
+- Observation does not imply truth, agreement, or endorsement.
+- Tracking does not imply assessment.
+- Assessment does not imply adoption.
+- Adoption requires a distinct explicit authorization event after assessment.
+- Corrections append events and preserve earlier observations.
+- These local registers do not poll sources, send notifications, authenticate actors, synchronize devices, or provide multi-writer locking.
+- Authorization fields are recorded assertions; a trusted host must enforce identity and permissions.
+
+See [Tracking Register 001](../../docs/TRACKING_REGISTER_001.md) and the Human Understanding Register protocol for their separate responsibilities.
